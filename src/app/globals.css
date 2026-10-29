@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+:root {
+  --color-petroleo: #112D3A;
+  --color-menta: #56D7A1;
+  --color-blanco: #FFFFFF;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: #112D3A;
+  color: #FFFFFF;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background-color: #112D3A;
+  color: #FFFFFF;
+  font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  selection-background-color: #56D7A1;
+  selection-color: #112D3A;
+}
+
+::selection {
+  background-color: #56D7A1;
+  color: #112D3A;
+}
+
+/* Tipografía geométrica y balance de líneas (improve-text-layout-and-legibility) */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-outfit), system-ui, -apple-system, sans-serif;
+  text-wrap: balance;
+}
+
+p, li, blockquote {
+  text-wrap: pretty;
+}
+
+/* Estados de foco visibles y accesibles en los 3 colores institucionales */
+:focus-visible {
+  outline: 2px solid #56D7A1;
+  outline-offset: 3px;
+}
+
+/* Reglas obligatorias para <dialog> modal nativo (dialog & prevent-page-scroll-under-modal-dialog) */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgba(17, 45, 58, 0.86);
+  backdrop-filter: blur(6px);
+}
+
+/* Validación después de la interacción (validate-input-after-interaction) usando únicamente colores oficiales */
+.ms-input:user-invalid,
+.ms-input.user-invalid-fallback {
+  border-color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.ms-input:user-invalid + .ms-error-msg,
+.ms-input.user-invalid-fallback + .ms-error-msg {
+  display: flex;
+}
+
+.ms-input:user-valid,
+.ms-input.user-valid-fallback {
+  border-color: #56D7A1;
+}
+
+/* Animaciones en el compositor respetando prefers-reduced-motion (motion) */
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+.animate-float-gentle {
+  animation: floatGentle 6s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0.9;
+  }
+}
+
+/* Estilizado limpio para <details> nativo (search-hidden-content) */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Tabla administrativa adaptable (responsive-table) */
+.ms-table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  max-block-size: min(620px, 78vh);
+  container-type: inline-size;
+}
+
+.ms-responsive-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  --label-2: "Actividad";
+  --label-3: "Necesidades";
+  --label-4: "Contacto";
+  --label-5: "Fecha";
+  --label-6: "Estado";
+  --label-7: "Acciones";
+}
+
+.ms-responsive-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  background-color: #112D3A;
+}
+
+.ms-responsive-table tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background-color: #112D3A;
+}
+
+@container (width < 720px) {
+  .ms-responsive-table,
+  .ms-responsive-table thead,
+  .ms-responsive-table tbody,
+  .ms-responsive-table tr,
+  .ms-responsive-table th,
+  .ms-responsive-table td {
+    display: block;
+  }
+
+  .ms-responsive-table thead {
+    display: none;
+  }
+
+  .ms-responsive-table tr {
+    margin-block-end: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 1rem;
+    padding: 0.75rem;
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+
+  .ms-responsive-table tbody th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background-color: #112D3A;
+    border-bottom: 1px solid rgba(86, 215, 161, 0.25);
+    margin-bottom: 0.5rem;
+  }
+
+  .ms-responsive-table td:nth-child(2)::before {
+    content: var(--label-2) ": ";
+    font-weight: 700;
+    color: #56D7A1;
+  }
+  .ms-responsive-table td:nth-child(3)::before {
+    content: var(--label-3) ": ";
+    font-weight: 700;
+    color: #56D7A1;
+  }
+  .ms-responsive-table td:nth-child(4)::before {
+    content: var(--label-4) ": ";
+    font-weight: 700;
+    color: #56D7A1;
+  }
+  .ms-responsive-table td:nth-child(5)::before {
+    content: var(--label-5) ": ";
+    font-weight: 700;
+    color: #56D7A1;
+  }
+  .ms-responsive-table td:nth-child(6)::before {
+    content: var(--label-6) ": ";
+    font-weight: 700;
+    color: #56D7A1;
+  }
+  .ms-responsive-table td:nth-child(7)::before {
+    content: var(--label-7) ": ";
+    font-weight: 700;
+    color: #56D7A1;
+  }
+}
