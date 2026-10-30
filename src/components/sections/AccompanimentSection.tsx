@@ -100,6 +100,37 @@ export function AccompanimentSection() {
               </p>
             </div>
 
+            {/* Escena de soporte y videollamada (Referencia 04) */}
+            <div className="mt-7 group relative overflow-hidden rounded-2xl border border-[var(--color-menta)]/45 bg-[var(--color-petroleo)] shadow-xl">
+              <div className="grid grid-cols-1 sm:grid-cols-12 items-center">
+                <div className="sm:col-span-5 aspect-[16/10] sm:aspect-auto sm:h-full overflow-hidden">
+                  <img
+                    src="/photos/ref-04.png"
+                    alt="Profesional atendiendo una videollamada de soporte técnico y acompañamiento continuo"
+                    width={500}
+                    height={500}
+                    loading="lazy"
+                    className="h-full w-full scale-[1.03] object-cover object-top transition-transform duration-500 group-hover:scale-[1.06]"
+                  />
+                </div>
+                <div className="sm:col-span-7 p-4 sm:p-5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-menta)]/50 bg-[var(--color-blanco)]/5 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-menta)]">
+                    Soporte humano directo
+                  </span>
+                  <p className="mt-2 text-sm font-extrabold text-[var(--color-blanco)]">
+                    Mantenimiento, respuesta ágil y relación de largo plazo
+                    <InverseDot fromColor="blanco" />
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--color-blanco)]/80">
+                    Cuando tenés una duda o querés sumar una mejora en tu{" "}
+                    <BrandWordmark className="mx-0.5 text-xs" />, hablás con personas que conocen tu
+                    sistema y tu negocio
+                    <InverseDot fromColor="blanco" />
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Cuatro pilares */}
             <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
               {ACCOMPANIMENT_PILLARS.map((pillar, idx) => (
@@ -259,7 +290,7 @@ export function AccompanimentSection() {
                   />
                   <text x="210" y="58" textAnchor="middle" fill="#56D7A1" fontSize="10" fontWeight="800">NÚCLEO BASE</text>
                   <image
-                    href="/brand/logotipo-minisistema.png"
+                    href="/brand/minisistema-logo.png"
                     x="156"
                     y="66"
                     width="108"

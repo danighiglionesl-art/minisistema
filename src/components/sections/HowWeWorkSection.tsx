@@ -2,7 +2,11 @@
 
 import React, { useState } from "react";
 import { WORKFLOW_STEPS } from "@/lib/site-data";
-import { InverseDot, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
+import {
+  BrandWordmark,
+  InverseDot,
+  renderWithBrandWordmark,
+} from "@/components/brand/BrandWordmark";
 import {
   ArrowRight,
   CheckCircle2,
@@ -190,25 +194,62 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
           </ol>
         </div>
 
-        {/* Llamado intermedio a iniciar la Etapa 1 */}
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 rounded-3xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.04] p-6 sm:flex-row sm:px-8">
-          <div>
-            <p className="text-base sm:text-lg font-extrabold text-[var(--color-blanco)]">
-              ¿Empezamos por la Etapa 1 — Escuchamos?
-            </p>
-            <p className="mt-1 text-sm text-[var(--color-blanco)]/80">
-              Completá el configurador en menos de 2 minutos y contanos cómo trabaja tu negocio
-              <InverseDot fromColor="blanco" />
-            </p>
+        {/* Bloque colaborativo 55/45 con Referencia 03 + llamado a iniciar Etapa 1 */}
+        <div className="mt-14 rounded-3xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.04] p-6 sm:p-8 lg:p-10">
+          <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
+            {/* 45% Imagen Referencia 03 (5 columnas de 12) */}
+            <div className="lg:col-span-5">
+              <div className="group relative overflow-hidden rounded-2xl border border-[var(--color-menta)]/45 bg-[var(--color-petroleo)] shadow-xl">
+                <div className="aspect-[16/11] sm:aspect-[16/10] lg:aspect-[4/3] w-full overflow-hidden">
+                  <img
+                    src="/photos/ref-03.png"
+                    alt="Dos personas revisando juntas una notebook durante el proceso de escucha, diagnóstico y desarrollo a medida"
+                    width={500}
+                    height={500}
+                    loading="lazy"
+                    className="h-full w-full scale-[1.03] object-cover object-top transition-transform duration-500 group-hover:scale-[1.06]"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t border-[var(--color-blanco)]/10 bg-[var(--color-petroleo)]/95 px-4 py-2.5">
+                  <span className="text-xs font-bold text-[var(--color-menta)]">
+                    Escucha · Diagnóstico · Colaboración
+                  </span>
+                  <BrandWordmark className="text-xs shrink-0" />
+                </div>
+              </div>
+            </div>
+
+            {/* 55% Texto y acción (7 columnas de 12) */}
+            <div className="lg:col-span-7">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-menta)]/60 bg-[var(--color-petroleo)] px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[var(--color-menta)]">
+                <span>Trabajo conjunto y sin tecnicismos</span>
+              </span>
+              <h3 className="mt-4 text-2xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-3xl">
+                ¿Empezamos por la Etapa 1 —{" "}
+                <span className="text-[var(--color-menta)]">
+                  Escuchamos?
+                </span>
+              </h3>
+              <p className="mt-3 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/85">
+                Nos sentamos con vos (presencial o virtualmente) para entender cómo funciona tu
+                actividad hoy, qué tareas te quitan tiempo y cómo diseñar tu{" "}
+                <BrandWordmark className="mx-0.5" /> a medida
+                <InverseDot fromColor="blanco" /> Completá el configurador en menos de 2 minutos y
+                contanos cómo trabaja tu negocio
+                <InverseDot fromColor="blanco" />
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-4">
+                <button
+                  type="button"
+                  onClick={onOpenConfigurator}
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-6 py-3.5 text-sm font-extrabold text-[var(--color-blanco)] transition-all hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)]"
+                >
+                  <span>CONTANOS TU IDEA</span>
+                  <ArrowRight className="h-4 w-4 stroke-[2.5]" />
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={onOpenConfigurator}
-            className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-6 py-3.5 text-sm font-extrabold text-[var(--color-blanco)] transition-all hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)]"
-          >
-            <span>CONTANOS TU IDEA</span>
-            <ArrowRight className="h-4 w-4 stroke-[2.5]" />
-          </button>
         </div>
       </div>
     </section>

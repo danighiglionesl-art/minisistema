@@ -155,8 +155,27 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
               contarnos cómo imaginás tu <BrandWordmark className="mx-0.5" />
             </p>
 
-            {/* Recurso visual tecnológico de cierre: Confianza, Cercanía, Innovación y Acompañamiento */}
-            <div className="mt-6 overflow-hidden rounded-2xl border border-[var(--color-menta)]/35 bg-[var(--color-blanco)]/[0.03] p-4">
+            {/* Recurso visual humano + tecnológico de cierre: Referencia 06 + Confianza, Cercanía e invitación a WhatsApp */}
+            <div className="mt-6 overflow-hidden rounded-2xl border border-[var(--color-menta)]/40 bg-[var(--color-blanco)]/[0.03] p-4 shadow-xl">
+              <div className="group relative mb-4 overflow-hidden rounded-xl border border-[var(--color-menta)]/35 bg-[var(--color-petroleo)]">
+                <div className="aspect-[16/10] w-full overflow-hidden">
+                  <img
+                    src="/photos/ref-06.png"
+                    alt="Profesional sonriente con computadora listo para conversar sobre tu proyecto por WhatsApp"
+                    width={500}
+                    height={500}
+                    loading="lazy"
+                    className="h-full w-full scale-[1.03] object-cover object-top transition-transform duration-500 group-hover:scale-[1.06]"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t border-[var(--color-blanco)]/10 bg-[var(--color-petroleo)]/95 px-3.5 py-2">
+                  <span className="text-[11px] font-bold text-[var(--color-blanco)]">
+                    Hablemos por WhatsApp y analicemos tu idea
+                  </span>
+                  <BrandWordmark className="text-[11px] shrink-0" />
+                </div>
+              </div>
+
               <div className="flex items-center justify-between gap-3">
                 <div className="flex flex-wrap gap-1.5">
                   {["Confianza", "Cercanía", "Profesionalismo", "Innovación", "Acompañamiento"].map(
@@ -191,7 +210,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
 
                 <rect x="242" y="8" width="92" height="38" rx="8" fill="#112D3A" stroke="#56D7A1" strokeWidth="2" />
                 <image
-                  href="/brand/logotipo-minisistema.png"
+                  href="/brand/minisistema-logo.png"
                   x="249"
                   y="19"
                   width="78"

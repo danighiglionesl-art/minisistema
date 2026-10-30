@@ -135,6 +135,64 @@ export function HeroSection({ onOpenConfigurator }: HeroSectionProps) {
             </div>
           </div>
         </div>
+
+        {/* Bloque Personas + Tecnología (55% texto / 45% imagen en escritorio) */}
+        <div className="mt-12 lg:mt-16 rounded-3xl border border-[var(--color-menta)]/35 bg-[var(--color-blanco)]/[0.03] p-6 sm:p-8 lg:p-10">
+          <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
+            {/* 55% Texto (7 columnas de 12) */}
+            <div className="lg:col-span-7">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-menta)]/60 bg-[var(--color-petroleo)] px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[var(--color-menta)]">
+                <span>Personas + Tecnología</span>
+              </span>
+              <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-3xl">
+                Tecnología pensada para personas reales,{" "}
+                <span className="text-[var(--color-menta)]">
+                  en el trabajo diario
+                  <InverseDot fromColor="menta" />
+                </span>
+              </h2>
+              <p className="mt-3 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/85">
+                Detrás de cada <BrandWordmark className="mx-0.5" /> hay profesionales, comercios y
+                equipos que necesitan resolver su día a día de forma simple y ágil, tanto desde la
+                computadora como desde el celular
+                <InverseDot fromColor="blanco" />
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                <span className="rounded-xl border border-[var(--color-menta)]/40 bg-[var(--color-petroleo)] px-3 py-1.5 text-xs font-bold text-[var(--color-menta)]">
+                  Uso real en notebook y celular
+                </span>
+                <span className="rounded-xl border border-[var(--color-blanco)]/15 bg-[var(--color-petroleo)] px-3 py-1.5 text-xs font-semibold text-[var(--color-blanco)]/85">
+                  Interfaces claras y rápidas
+                </span>
+                <span className="rounded-xl border border-[var(--color-blanco)]/15 bg-[var(--color-petroleo)] px-3 py-1.5 text-xs font-semibold text-[var(--color-blanco)]/85">
+                  Acompañamiento humano
+                </span>
+              </div>
+            </div>
+
+            {/* 45% Imagen Referencia 01 (5 columnas de 12) */}
+            <div className="lg:col-span-5">
+              <div className="group relative overflow-hidden rounded-2xl border border-[var(--color-menta)]/45 bg-[var(--color-petroleo)] shadow-2xl">
+                <div className="aspect-[16/11] sm:aspect-[16/10] lg:aspect-[4/3] w-full overflow-hidden">
+                  <img
+                    src="/photos/ref-01.png"
+                    alt="Profesional utilizando notebook y celular en su actividad diaria con un sistema a medida"
+                    width={500}
+                    height={500}
+                    loading="eager"
+                    className="h-full w-full scale-[1.03] object-cover object-top transition-transform duration-500 group-hover:scale-[1.06]"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t border-[var(--color-blanco)]/10 bg-[var(--color-petroleo)]/95 px-4 py-2.5">
+                  <span className="text-xs font-bold text-[var(--color-blanco)]">
+                    Gestión sincronizada en todos tus dispositivos
+                  </span>
+                  <BrandWordmark className="text-xs shrink-0" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
