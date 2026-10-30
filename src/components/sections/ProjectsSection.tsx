@@ -11,7 +11,6 @@ import {
   ShoppingBag,
   Building2,
   ArrowUpRight,
-  Lock,
   CheckCircle2,
 } from "lucide-react";
 
@@ -134,7 +133,7 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
           </div>
         )}
 
-        {/* Demostraciones visuales ilustrativas (identificadas explícitamente como ejemplos según Sección 5) */}
+        {/* Demostraciones visuales ilustrativas */}
         <div className="mt-12">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-menta)]">
@@ -370,48 +369,6 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
               </div>
             );
           })()}
-        </div>
-
-        {/* Estructura preparada para el portafolio administrable (Casa Nueva, Campo Directo, Biblioteca Roncedo) */}
-        <div className="mt-10 rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.02] p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-[var(--color-blanco)]/10 pb-4">
-            <div className="flex items-center gap-2.5">
-              <Lock className="h-4 w-4 text-[var(--color-menta)]" />
-              <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--color-blanco)]">
-                Estructura de Portafolio Administrable Preparada
-              </h3>
-            </div>
-            <span className="text-xs text-[var(--color-menta)] font-semibold">
-              Publicación controlada desde el Panel Administrativo
-            </span>
-          </div>
-
-          <p className="mt-3 text-xs leading-relaxed text-[var(--color-blanco)]/70">
-            El sistema cuenta con las fichas estructuradas (Nombre, Logo, Descripción, Actividad,
-            Problema que resuelve, Funcionalidades, Capturas, Estado y Enlace) preparadas para
-            incorporar casos como <strong className="text-[var(--color-blanco)]">Casa Nueva</strong>,{" "}
-            <strong className="text-[var(--color-blanco)]">Campo Directo</strong> y{" "}
-            <strong className="text-[var(--color-blanco)]">Biblioteca Roncedo</strong>, los cuales permanecen
-            despublicados hasta contar con la validación formal de su información e imágenes
-            <InverseDot fromColor="blanco" />
-          </p>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {allProjects.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between rounded-2xl border border-[var(--color-blanco)]/10 bg-[var(--color-petroleo)]/70 px-4 py-3"
-              >
-                <div>
-                  <p className="text-xs font-extrabold text-[var(--color-blanco)]">{item.name}</p>
-                  <p className="text-[11px] text-[var(--color-blanco)]/65">{item.activity}</p>
-                </div>
-                <span className="rounded-md border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-2 py-0.5 text-[10px] font-bold text-[var(--color-menta)]">
-                  {item.status}
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </section>
