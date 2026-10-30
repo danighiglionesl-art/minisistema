@@ -5,6 +5,7 @@ import Link from "next/link";
 import { INITIAL_SITE_CONFIG, buildWhatsAppLink } from "@/lib/site-data";
 import { WhatsAppIcon, InstagramIcon, FacebookIcon } from "@/components/icons/SocialIcons";
 import { BrandWordmark, InverseDot } from "@/components/brand/BrandWordmark";
+import { HumanVerificationCheck } from "@/components/ui/HumanVerificationCheck";
 import { Send, CheckCircle2, ArrowUpRight, AlertCircle, Sliders } from "lucide-react";
 
 interface ContactSectionProps {
@@ -23,6 +24,8 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [honeypot, setHoneypot] = useState("");
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
 
   // Sincronización de aria-invalid y fallback WeakMap (validate-input-after-interaction)
   useEffect(() => {
@@ -78,6 +81,10 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !whatsapp.trim() || !message.trim() || !consent) return;
+    if (!captchaVerified || !captchaToken) {
+      setSubmitError("Por favor tildá la casilla 'No soy un robot' para confirmar el envío.");
+      return;
+    }
     setSubmitError(null);
     setIsSubmitting(true);
 
@@ -92,6 +99,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
           currentSystemStatus: "No especificado",
           projectDescription: message,
           honeypot,
+          captchaToken,
           contact: {
             fullName,
             businessName: businessName || "Consulta particular",
@@ -321,6 +329,8 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                       onClick={() => {
                         setSubmittedId(null);
                         setMessage("");
+                        setCaptchaVerified(false);
+                        setCaptchaToken("");
                       }}
                       className="rounded-xl border border-[var(--color-blanco)]/25 px-5 py-3.5 text-xs font-bold text-[var(--color-blanco)] hover:border-[var(--color-menta)]"
                     >
@@ -520,6 +530,16 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                       <InverseDot fromColor="blanco" />
                     </label>
                   </div>
+
+                  <HumanVerificationCheck
+                    id="contact-human-captcha"
+                    verified={captchaVerified}
+                    onChange={(isVerified, token) => {
+                      setCaptchaVerified(isVerified);
+                      setCaptchaToken(token);
+                      if (isVerified) setSubmitError(null);
+                    }}
+                  />
 
                   {submitError && (
                     <div

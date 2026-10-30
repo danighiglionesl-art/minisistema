@@ -27,6 +27,7 @@ export interface InquiryValidationInput {
     privacyConsent?: boolean;
   };
   honeypot?: string;
+  captchaToken?: string;
 }
 
 export function sanitizeText(value: unknown, maxLength = 1500): string {
@@ -50,6 +51,13 @@ export function validateInquiryPayload(input: InquiryValidationInput): {
   // Protección anti-spam (honeypot oculto)
   if (input.honeypot && input.honeypot.trim().length > 0) {
     return { valid: false, error: "Solicitud rechazada por filtro anti-spam." };
+  }
+
+  if (!input.captchaToken || !input.captchaToken.startsWith("ms-human-")) {
+    return {
+      valid: false,
+      error: "Por favor tildá la casilla 'No soy un robot' para confirmar el envío.",
+    };
   }
 
   const source = input.source || "configurador";

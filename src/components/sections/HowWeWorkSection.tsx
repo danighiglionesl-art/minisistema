@@ -111,7 +111,7 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
                             : "bg-[var(--color-menta)] text-[var(--color-petroleo)]"
                         }`}
                       >
-                        {index + 1}
+                        {idx + 1}
                       </span>
                     </div>
                     <span

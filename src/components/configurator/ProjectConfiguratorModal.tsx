@@ -12,6 +12,7 @@ import {
 import { SolutionCategory } from "@/types/minisistema";
 import { WhatsAppIcon } from "@/components/icons/SocialIcons";
 import { BrandWordmark, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
+import { HumanVerificationCheck } from "@/components/ui/HumanVerificationCheck";
 import {
   X,
   Check,
@@ -56,6 +57,8 @@ export function ProjectConfiguratorModal({
   const [submissionCode, setSubmissionCode] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [honeypot, setHoneypot] = useState<string>("");
+  const [captchaVerified, setCaptchaVerified] = useState<boolean>(false);
+  const [captchaToken, setCaptchaToken] = useState<string>("");
 
   // Preselección cuando el usuario abre desde una tarjeta de "Qué desarrollamos" o "Nuestros tres servicios"
   useEffect(() => {
@@ -168,6 +171,10 @@ export function ProjectConfiguratorModal({
   };
 
   const handleFinalSubmit = async () => {
+    if (!captchaVerified || !captchaToken) {
+      setErrorMessage("Por favor tildá la casilla 'No soy un robot' para confirmar el envío.");
+      return;
+    }
     setErrorMessage(null);
     setIsSubmitting(true);
 
@@ -184,6 +191,7 @@ export function ProjectConfiguratorModal({
           preselectedCategory: preselectedCategory?.title || null,
           preselectedService: preselectedServiceTitle || null,
           honeypot,
+          captchaToken,
           contact: {
             fullName,
             businessName,
@@ -215,6 +223,8 @@ export function ProjectConfiguratorModal({
 
   const resetAndClose = () => {
     setSubmissionCode(null);
+    setCaptchaVerified(false);
+    setCaptchaToken("");
     setStep(1);
     onClose();
   };
@@ -637,7 +647,17 @@ export function ProjectConfiguratorModal({
               </div>
             </div>
 
-            <div className="mt-5">
+            <div className="mt-5 space-y-4">
+              <HumanVerificationCheck
+                id="configurator-human-captcha"
+                verified={captchaVerified}
+                onChange={(isVerified, token) => {
+                  setCaptchaVerified(isVerified);
+                  setCaptchaToken(token);
+                  if (isVerified) setErrorMessage(null);
+                }}
+              />
+
               {/* Campo honeypot anti-spam invisible para usuarios reales */}
               <input
                 type="text"
