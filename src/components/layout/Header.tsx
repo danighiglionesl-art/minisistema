@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Menu, X, ArrowUpRight } from "lucide-react";
-import { NAV_ITEMS, buildWhatsAppLink, INITIAL_SITE_CONFIG } from "@/lib/site-data";
-import { WhatsAppIcon } from "@/components/icons/SocialIcons";
+import { NAV_ITEMS } from "@/lib/site-data";
 import { BrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface HeaderProps {
@@ -55,33 +54,21 @@ export function Header({ onOpenConfigurator }: HeaderProps) {
         {/* Navegación Desktop */}
         <nav
           aria-label="Navegación principal"
-          className="order-3 hidden w-full flex-wrap items-center justify-center gap-1 border-t border-[var(--color-blanco)]/10 pt-2 mt-1 md:flex lg:order-none lg:mt-0 lg:w-auto lg:flex-nowrap lg:border-0 lg:pt-0 lg:gap-0.5 xl:gap-1.5"
+          className="order-3 hidden w-full flex-wrap items-center justify-center gap-1 border-t border-[var(--color-blanco)]/10 pt-2 mt-1 md:flex lg:order-none lg:mt-0 lg:w-auto lg:flex-nowrap lg:border-0 lg:pt-0 lg:gap-1 xl:gap-2"
         >
           {NAV_ITEMS.map((item) => (
             <a
               key={item.href}
               href={item.href}
-              className="whitespace-nowrap rounded-lg px-2 xl:px-2.5 py-1.5 xl:py-2 text-xs xl:text-sm font-medium text-[var(--color-blanco)] transition-colors hover:bg-[var(--color-blanco)]/5 hover:text-[var(--color-menta)]"
+              className="whitespace-nowrap rounded-lg px-2.5 xl:px-3 py-1.5 xl:py-2 text-xs xl:text-sm font-medium text-[var(--color-blanco)] transition-colors hover:bg-[var(--color-blanco)]/5 hover:text-[var(--color-menta)]"
             >
               {item.label}
             </a>
           ))}
         </nav>
 
-        {/* Acciones Principales Desktop */}
-        <div className="hidden md:flex shrink-0 items-center gap-2 xl:gap-2.5">
-          <a
-            href={buildWhatsAppLink()}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Consultar por WhatsApp al ${INITIAL_SITE_CONFIG.whatsappDisplay}`}
-            title="Hablar por WhatsApp"
-            className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-3 xl:px-3.5 py-2 xl:py-2.5 text-xs font-semibold text-[var(--color-blanco)] transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10"
-          >
-            <WhatsAppIcon size={16} className="text-[var(--color-menta)]" />
-            <span className="hidden xl:inline">WhatsApp</span>
-          </a>
-
+        {/* Acción Principal Desktop */}
+        <div className="hidden md:flex shrink-0 items-center">
           <button
             type="button"
             onClick={onOpenConfigurator}
@@ -154,17 +141,6 @@ export function Header({ onOpenConfigurator }: HeaderProps) {
               </span>
               <ArrowUpRight className="h-4 w-4 stroke-[2.5]" />
             </button>
-
-            <a
-              href={buildWhatsAppLink()}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={handleNavClick}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-4 py-3 text-sm font-semibold text-[var(--color-blanco)] transition-colors hover:bg-[var(--color-blanco)]/10"
-            >
-              <WhatsAppIcon size={18} className="text-[var(--color-menta)]" />
-              <span>Consultar por WhatsApp ({INITIAL_SITE_CONFIG.whatsappDisplay})</span>
-            </a>
           </div>
         </div>
       )}
