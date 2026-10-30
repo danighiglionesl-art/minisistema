@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createInquiry } from "@/lib/server/data-store";
+import { createInquiry, getAdminSiteConfig } from "@/lib/server/data-store";
+import { sendHiddenInquiryEmail } from "@/lib/server/email-notifier";
 import { sanitizeText, validateInquiryPayload, InquiryValidationInput } from "@/lib/validation";
 
 // Control simple de frecuencia en memoria por IP para prevenir spam automatizado (Sección 26)
@@ -73,6 +74,10 @@ export async function POST(request: NextRequest) {
         privacyConsent: Boolean(body.contact?.privacyConsent),
       },
     });
+
+    // Envío en segundo plano desde el servidor al correo destinatario oculto (nunca expuesto en el cliente)
+    const adminConfig = getAdminSiteConfig();
+    await sendHiddenInquiryEmail(created, adminConfig.notificationRecipients);
 
     return NextResponse.json(
       {

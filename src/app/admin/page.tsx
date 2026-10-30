@@ -10,6 +10,7 @@ import {
 import { FaqItem, LeadStatus, PortfolioProject } from "@/types/minisistema";
 import { VALID_LEAD_STATUSES } from "@/lib/validation";
 import { CONFIGURATOR_STEP1_ACTIVITIES } from "@/lib/site-data";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import {
   Lock,
   LogOut,
@@ -380,7 +381,7 @@ export default function AdminDashboardPage() {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-[var(--color-petroleo)] text-[var(--color-blanco)]">
         <p className="text-sm font-bold text-[var(--color-menta)]">
-          Verificando sesión administrativa de MiniSistema...
+          Verificando sesión administrativa de <BrandWordmark className="mx-0.5" />...
         </p>
       </div>
     );
@@ -495,7 +496,7 @@ export default function AdminDashboardPage() {
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-menta)] hover:text-[var(--color-blanco)]"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Volver al sitio público de MiniSistema</span>
+              <span className="inline-flex items-center gap-1">Volver al sitio público de <BrandWordmark className="h-3.5" /></span>
             </Link>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { BENEFITS_LIST } from "@/lib/site-data";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import {
   Fingerprint,
   MousePointerClick,
@@ -27,7 +28,10 @@ export function BenefitsSection() {
         {/* Encabezado */}
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[var(--color-menta)]">
-            <span>Beneficios de tener tu propio MiniSistema</span>
+            <span className="inline-flex items-center gap-1.5">
+              <span>Beneficios de tener tu propio</span>
+              <BrandWordmark className="h-3.5" />
+            </span>
           </span>
 
           <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl lg:text-5xl">

@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { INITIAL_SITE_CONFIG, buildWhatsAppLink } from "@/lib/site-data";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 
 export const metadata = {
   title: "Política de Privacidad y Protección de Datos",
@@ -49,12 +50,12 @@ export default function PrivacyPolicyPage() {
                 1. Finalidad de los datos recolectados
               </h2>
               <p className="mt-2">
-                En <strong>MiniSistema — Sistemas a Medida</strong> recolectamos únicamente la
-                información comercial y de contacto que el usuario proporciona voluntariamente a
-                través del Configurador de Proyectos o del formulario de contacto (nombre y
-                apellido, comercio o institución, localidad, provincia, número de WhatsApp, correo
-                electrónico y descripción de su necesidad) con el único fin de analizar su consulta
-                y elaborar una propuesta comercial personalizada.
+                En <BrandWordmark className="mx-0.5" /> <strong>— Sistemas a Medida</strong>{" "}
+                recolectamos únicamente la información comercial y de contacto que el usuario
+                proporciona voluntariamente a través del Configurador de Proyectos o del formulario
+                de contacto (nombre y apellido, comercio o institución, localidad, provincia, número
+                de WhatsApp, correo electrónico y descripción de su necesidad) con el único fin de
+                analizar su consulta y elaborar una propuesta comercial personalizada.
               </p>
             </section>
 
@@ -66,7 +67,7 @@ export default function PrivacyPolicyPage() {
                 No solicitamos información financiera sensible, claves ni credenciales de otros
                 sistemas en nuestros formularios públicos. Los datos recibidos son tratados de forma
                 confidencial y no se comercializan ni ceden a terceros ajenos a la atención
-                comercial de MiniSistema.
+                comercial de <BrandWordmark className="mx-0.5" />
               </p>
             </section>
 

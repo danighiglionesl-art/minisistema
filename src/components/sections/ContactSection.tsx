@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { INITIAL_SITE_CONFIG, buildWhatsAppLink } from "@/lib/site-data";
 import { WhatsAppIcon, InstagramIcon, FacebookIcon } from "@/components/icons/SocialIcons";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import { Send, CheckCircle2, ArrowUpRight, AlertCircle, Sliders } from "lucide-react";
 
 interface ContactSectionProps {
@@ -139,7 +140,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
 
             <p className="mt-4 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/80">
               Elegí el canal que te quede más cómodo o utilizá nuestro configurador interactivo para
-              contarnos cómo imaginás tu MiniSistema.
+              contarnos cómo imaginás tu <BrandWordmark className="mx-0.5" />
             </p>
 
             {/* Recurso visual tecnológico de cierre: Confianza, Cercanía, Innovación y Acompañamiento */}
@@ -174,10 +175,17 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                 <text x="140" y="25" fill="#56D7A1" fontSize="9.5" fontWeight="800">DIÁLOGO Y</text>
                 <text x="139" y="38" fill="#FFFFFF" fontSize="9.5" fontWeight="700">PROPUESTA</text>
 
-                <path d="M220 27 H244" stroke="#56D7A1" strokeWidth="2" />
+                <path d="M220 27 H240" stroke="#56D7A1" strokeWidth="2" />
 
-                <rect x="246" y="10" width="88" height="34" rx="8" fill="#56D7A1" />
-                <text x="256" y="31" fill="#112D3A" fontSize="10" fontWeight="800">MiniSistema</text>
+                <rect x="242" y="8" width="92" height="38" rx="8" fill="#112D3A" stroke="#56D7A1" strokeWidth="2" />
+                <image
+                  href="/brand/logotipo-minisistema.png"
+                  x="249"
+                  y="19"
+                  width="78"
+                  height="16"
+                  preserveAspectRatio="xMidYMid meet"
+                />
               </svg>
             </div>
 
@@ -480,8 +488,9 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                       htmlFor="contact-consent"
                       className="text-xs leading-relaxed text-[var(--color-blanco)]/80"
                     >
-                      Acepto el tratamiento de mis datos personales para que MiniSistema se ponga en
-                      contacto conmigo en relación con esta consulta comercial, conforme a la{" "}
+                      Acepto el tratamiento de mis datos personales para que{" "}
+                      <BrandWordmark className="mx-0.5" /> se ponga en contacto conmigo en relación
+                      con esta consulta comercial, conforme a la{" "}
                       <Link
                         href="/privacidad"
                         className="font-semibold text-[var(--color-menta)] underline underline-offset-2"

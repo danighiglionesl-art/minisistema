@@ -11,6 +11,7 @@ import {
 } from "@/lib/site-data";
 import { SolutionCategory } from "@/types/minisistema";
 import { WhatsAppIcon } from "@/components/icons/SocialIcons";
+import { BrandWordmark, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 import {
   X,
   Check,
@@ -251,7 +252,7 @@ export function ProjectConfiguratorModal({
             id="configurator-dialog-title"
             className="mt-0.5 text-lg sm:text-xl font-extrabold text-[var(--color-blanco)]"
           >
-            Contanos cómo imaginás tu MiniSistema.
+            Contanos cómo imaginás tu <BrandWordmark className="mx-0.5" />
           </h2>
         </div>
 
@@ -304,7 +305,7 @@ export function ProjectConfiguratorModal({
             className="mb-5 flex items-center gap-2.5 rounded-xl border border-[var(--color-blanco)] bg-[var(--color-blanco)]/10 px-4 py-3 text-xs sm:text-sm font-semibold text-[var(--color-blanco)]"
           >
             <AlertCircle className="h-4 w-4 shrink-0 text-[var(--color-menta)]" />
-            <span>{errorMessage}</span>
+            <span>{renderWithBrandWordmark(errorMessage)}</span>
           </div>
         )}
 
@@ -434,7 +435,7 @@ export function ProjectConfiguratorModal({
               htmlFor="configurator-project-desc"
               className="mt-2 block text-sm font-bold text-[var(--color-menta)]"
             >
-              ¿Qué te gustaría que pudiera hacer tu MiniSistema?
+              ¿Qué te gustaría que pudiera hacer tu <BrandWordmark className="mx-0.5" />?
             </label>
             <p id="configurator-desc-help" className="mt-1 text-xs sm:text-sm text-[var(--color-blanco)]/75">
               Contanos cómo trabajás actualmente, qué dificultades encontrás y qué te gustaría

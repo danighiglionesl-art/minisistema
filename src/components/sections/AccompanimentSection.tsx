@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { ACCOMPANIMENT_PILLARS } from "@/lib/site-data";
-import { Layers, PlusCircle, CheckCircle2, ArrowUpRight } from "lucide-react";
+import { Layers, PlusCircle, CheckCircle2 } from "lucide-react";
+import { BrandWordmark, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 
 const MODULAR_GROWTH_STAGES = [
   {
@@ -116,7 +117,7 @@ export function AccompanimentSection() {
                     Representación interactiva de evolución
                   </span>
                   <h3 className="mt-1 text-xl font-extrabold text-[var(--color-blanco)]">
-                    Tu negocio evoluciona. Tu MiniSistema también.
+                    Tu negocio evoluciona. Tu <BrandWordmark className="mx-0.5" /> también.
                   </h3>
                 </div>
                 <Layers className="h-6 w-6 text-[var(--color-menta)]" />
@@ -226,10 +227,26 @@ export function AccompanimentSection() {
                   <rect x="12" y="96" width="96" height="26" rx="7" fill="#56D7A1" fillOpacity="0.18" stroke="#56D7A1" />
                   <text x="24" y="113" fill="#FFFFFF" fontSize="10" fontWeight="700">Inventario</text>
 
-                  {/* Núcleo Permanente MiniSistema */}
-                  <rect x="150" y="38" width="120" height="64" rx="14" fill="#56D7A1" />
-                  <text x="166" y="66" fill="#112D3A" fontSize="11" fontWeight="800">NÚCLEO BASE</text>
-                  <text x="169" y="83" fill="#112D3A" fontSize="10" fontWeight="700">MiniSistema</text>
+                  {/* Núcleo Permanente con el logotipo oficial minisistema. */}
+                  <rect
+                    x="144"
+                    y="36"
+                    width="132"
+                    height="68"
+                    rx="14"
+                    fill="#112D3A"
+                    stroke="#56D7A1"
+                    strokeWidth="2.5"
+                  />
+                  <text x="172" y="58" fill="#56D7A1" fontSize="10" fontWeight="800">NÚCLEO BASE</text>
+                  <image
+                    href="/brand/logotipo-minisistema.png"
+                    x="156"
+                    y="66"
+                    width="108"
+                    height="22"
+                    preserveAspectRatio="xMidYMid meet"
+                  />
 
                   {/* Módulos Evolutivos (Etapa 2 y Etapa 3) */}
                   <rect
@@ -305,7 +322,7 @@ export function AccompanimentSection() {
                   </span>
                 </div>
                 <p className="mt-1.5 text-xs sm:text-sm text-[var(--color-blanco)]/80">
-                  {currentStage.description}
+                  {renderWithBrandWordmark(currentStage.description)}
                 </p>
 
                 {/* Módulos activos en la plataforma */}

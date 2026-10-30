@@ -4,6 +4,7 @@ import React from "react";
 import { COMMERCIAL_SERVICES } from "@/lib/site-data";
 import { Check, ArrowUpRight, ShieldAlert, Code2, Wrench, TrendingUp } from "lucide-react";
 import { ServiceHeaderIllustration } from "@/components/illustrations/SectionDiagrams";
+import { renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface CommercialModelSectionProps {
   onOpenConfiguratorWithService: (serviceTitle: string) => void;
@@ -73,13 +74,13 @@ export function CommercialModelSection({
                         {service.title}
                       </h3>
                       <p className="text-sm font-bold text-[var(--color-menta)]">
-                        {service.headline}
+                        {renderWithBrandWordmark(service.headline)}
                       </p>
                     </div>
                   </div>
 
                   <p className="mt-4 text-sm leading-relaxed text-[var(--color-blanco)]/85">
-                    {service.description}
+                    {renderWithBrandWordmark(service.description)}
                   </p>
 
                   <div className="mt-6 border-t border-[var(--color-blanco)]/10 pt-5">

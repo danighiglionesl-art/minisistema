@@ -4,6 +4,7 @@ import React from "react";
 import { FAQ_ITEMS } from "@/lib/site-data";
 import { FaqItem } from "@/types/minisistema";
 import { ChevronDown, HelpCircle } from "lucide-react";
+import { BrandWordmark, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface FaqSectionProps {
   faqs?: FaqItem[];
@@ -29,7 +30,8 @@ export function FaqSection({ faqs }: FaqSectionProps) {
           </h2>
 
           <p className="mt-4 text-base sm:text-lg text-[var(--color-blanco)]/80">
-            Respuestas claras sobre cómo diseñamos, implementamos y acompañamos cada MiniSistema.
+            Respuestas claras sobre cómo diseñamos, implementamos y acompañamos cada{" "}
+            <BrandWordmark className="mx-0.5" />
           </p>
         </div>
 
@@ -43,14 +45,14 @@ export function FaqSection({ faqs }: FaqSectionProps) {
               className="group rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] transition-colors open:border-[var(--color-menta)] open:bg-[var(--color-blanco)]/[0.06]"
             >
               <summary className="flex cursor-pointer items-center justify-between gap-4 px-6 py-5 text-left text-base sm:text-lg font-extrabold text-[var(--color-blanco)] transition-colors hover:text-[var(--color-menta)]">
-                <span>{faq.question}</span>
+                <span>{renderWithBrandWordmark(faq.question)}</span>
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/5 text-[var(--color-menta)] transition-transform duration-200 group-open:rotate-180 group-open:border-[var(--color-menta)] group-open:bg-[var(--color-menta)] group-open:text-[var(--color-petroleo)]">
                   <ChevronDown className="h-4 w-4 stroke-[2.5]" />
                 </span>
               </summary>
 
               <div className="border-t border-[var(--color-blanco)]/10 px-6 pt-4 pb-5 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/85">
-                <p>{faq.answer}</p>
+                <p>{renderWithBrandWordmark(faq.answer)}</p>
               </div>
             </details>
           ))}

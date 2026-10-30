@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Check, Minus, Layers, Sparkles, SlidersHorizontal } from "lucide-react";
 import { COMPARISON_DATA } from "@/lib/site-data";
 import { ComparisonDiagram } from "@/components/illustrations/SectionDiagrams";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 
 export function OurDifferenceSection() {
   const [selectedRow, setSelectedRow] = useState<number>(0);
@@ -29,10 +30,10 @@ export function OurDifferenceSection() {
               utilizando herramientas que no fueron pensadas para sus necesidades.
             </p>
             <p>
-              En <strong className="font-bold text-[var(--color-blanco)]">MiniSistema</strong> creemos que la
-              tecnología debe adaptarse a las personas y a sus actividades,{" "}
-              <span className="font-semibold text-[var(--color-menta)]">no al revés</span>. Por eso escuchamos,
-              analizamos y desarrollamos soluciones específicas para cada cliente.
+              En <BrandWordmark className="mx-0.5" /> creemos que la tecnología debe adaptarse a las
+              personas y a sus actividades,{" "}
+              <span className="font-semibold text-[var(--color-menta)]">no al revés</span>. Por eso
+              escuchamos, analizamos y desarrollamos soluciones específicas para cada cliente.
             </p>
           </div>
         </div>
@@ -113,8 +114,8 @@ export function OurDifferenceSection() {
                     <Sparkles className="h-3.5 w-3.5" />
                     Enfoque a medida
                   </span>
-                  <h3 className="mt-1 text-2xl sm:text-3xl font-extrabold text-[var(--color-blanco)]">
-                    MiniSistema
+                  <h3 className="mt-2 text-2xl sm:text-3xl font-extrabold text-[var(--color-blanco)] flex items-center">
+                    <BrandWordmark className="h-7 sm:h-8" />
                   </h3>
                 </div>
                 <span className="rounded-xl bg-[var(--color-menta)] px-3.5 py-1.5 text-xs font-extrabold text-[var(--color-petroleo)]">

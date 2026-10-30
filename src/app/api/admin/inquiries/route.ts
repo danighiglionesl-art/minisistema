@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedAdmin } from "@/lib/server/crypto-auth";
 import {
+  getAdminSiteConfig,
   getPublicSiteState,
   listInquiries,
   updateInquiryAdmin,
@@ -18,12 +19,13 @@ export async function GET() {
 
   const inquiries = listInquiries();
   const state = getPublicSiteState();
+  const siteConfig = getAdminSiteConfig();
   return NextResponse.json({
     inquiries,
     projects: state.projects,
     faqs: state.faqs,
     commercialContent: state.commercialContent,
-    siteConfig: state.siteConfig,
+    siteConfig,
   });
 }
 

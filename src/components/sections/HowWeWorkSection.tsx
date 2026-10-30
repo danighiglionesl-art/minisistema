@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { WORKFLOW_STEPS } from "@/lib/site-data";
+import { renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 import {
   ArrowRight,
   CheckCircle2,
@@ -169,7 +170,7 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
                     </h3>
 
                     <p className="mt-2.5 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/80">
-                      {step.description}
+                      {renderWithBrandWordmark(step.description)}
                     </p>
                   </div>
 

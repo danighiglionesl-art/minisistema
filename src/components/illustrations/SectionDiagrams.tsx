@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 
 /**
  * 1. Diagramas comparativos para la Sección 3 ("Nuestra Diferencia")
@@ -112,8 +113,11 @@ export function ComparisonDiagram({ variant }: { variant: "generic" | "minisiste
 
   return (
     <div className="mb-5 overflow-hidden rounded-2xl border border-[#56D7A1]/45 bg-[#112D3A] p-4 shadow-inner">
-      <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-[#56D7A1]">
-        <span>ARQUITECTURA INTEGRADA MINISISTEMA</span>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold text-[#56D7A1]">
+        <span className="inline-flex items-center gap-1.5">
+          <span>ARQUITECTURA INTEGRADA</span>
+          <BrandWordmark className="h-3.5" />
+        </span>
         <span>Todo conectado a tu forma de trabajar</span>
       </div>
       <svg
@@ -125,7 +129,7 @@ export function ComparisonDiagram({ variant }: { variant: "generic" | "minisiste
       >
         {/* Conectores continuos en verde menta */}
         <path
-          d="M88 30 H140 M88 80 H140 M220 30 H272 M220 80 H272"
+          d="M88 30 H126 M88 80 H126 M234 30 H272 M234 80 H272"
           stroke="#56D7A1"
           strokeWidth="2"
         />
@@ -159,19 +163,26 @@ export function ComparisonDiagram({ variant }: { variant: "generic" | "minisiste
           Stock
         </text>
 
-        {/* Núcleo central MiniSistema */}
+        {/* Núcleo central con el logotipo oficial minisistema. */}
         <rect
-          x="132"
-          y="22"
-          width="96"
-          height="66"
+          x="124"
+          y="20"
+          width="112"
+          height="70"
           rx="14"
-          fill="#56D7A1"
+          fill="#112D3A"
+          stroke="#56D7A1"
+          strokeWidth="2.5"
         />
-        <text x="147" y="52" fill="#112D3A" fontSize="11" fontWeight="800">
-          MiniSistema
-        </text>
-        <text x="153" y="68" fill="#112D3A" fontSize="9" fontWeight="700">
+        <image
+          href="/brand/logotipo-minisistema.png"
+          x="133"
+          y="34"
+          width="94"
+          height="20"
+          preserveAspectRatio="xMidYMid meet"
+        />
+        <text x="155" y="72" fill="#56D7A1" fontSize="9" fontWeight="800">
           A MEDIDA
         </text>
 

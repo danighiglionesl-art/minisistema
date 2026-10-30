@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, ShieldCheck } from "lucide-react";
 import { INITIAL_SITE_CONFIG, NAV_ITEMS, buildWhatsAppLink } from "@/lib/site-data";
 import { WhatsAppIcon, InstagramIcon, FacebookIcon } from "@/components/icons/SocialIcons";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface FooterProps {
   onOpenConfigurator: () => void;
@@ -42,7 +43,7 @@ export function Footer({ onOpenConfigurator }: FooterProps) {
             </p>
 
             <p className="mt-3 text-xs font-bold uppercase tracking-widest text-[var(--color-menta)]">
-              Tu negocio evoluciona. Tu MiniSistema también.
+              Tu negocio evoluciona. Tu <BrandWordmark className="mx-0.5 h-3.5" /> también.
             </p>
           </div>
 
@@ -139,9 +140,10 @@ export function Footer({ onOpenConfigurator }: FooterProps) {
 
         {/* Barra inferior */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-[var(--color-blanco)]/10 pt-8 text-xs text-[var(--color-blanco)]/65 sm:flex-row">
-          <p>
-            © {currentYear} <strong className="font-semibold text-[var(--color-blanco)]">minisistema.</strong>{" "}
-            — SISTEMAS A MEDIDA. Todos los derechos reservados.
+          <p className="inline-flex flex-wrap items-center gap-1.5">
+            <span>© {currentYear}</span>
+            <BrandWordmark className="h-3.5" />
+            <span>— SISTEMAS A MEDIDA. Todos los derechos reservados.</span>
           </p>
           <div className="flex flex-wrap items-center gap-5">
             <Link

@@ -3,6 +3,7 @@
 import React from "react";
 import { ArrowUpRight, Compass, CheckCircle2, Sparkles } from "lucide-react";
 import { MultiDeviceShowcase } from "@/components/illustrations/MultiDeviceShowcase";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface HeroSectionProps {
   onOpenConfigurator: () => void;
@@ -60,7 +61,10 @@ export function HeroSection({ onOpenConfigurator }: HeroSectionProps) {
                 onClick={onOpenConfigurator}
                 className="inline-flex cursor-pointer items-center justify-center gap-2.5 rounded-2xl bg-[var(--color-menta)] px-7 py-4 text-sm sm:text-base font-extrabold tracking-wide text-[var(--color-petroleo)] shadow-xl shadow-[var(--color-petroleo)]/50 transition-all duration-200 hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)] hover:scale-[1.01] active:scale-[0.99]"
               >
-                <span>QUIERO MI MINISISTEMA</span>
+                <span className="inline-flex items-center gap-2">
+                  <span>QUIERO MI</span>
+                  <BrandWordmark onMintSurface />
+                </span>
                 <ArrowUpRight className="h-5 w-5 stroke-[2.5]" />
               </button>
 

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ArrowUpRight, Sparkles } from "lucide-react";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface FinalCtaSectionProps {
   onOpenConfigurator: () => void;
@@ -68,7 +69,8 @@ export function FinalCtaSection({ onOpenConfigurator }: FinalCtaSectionProps) {
         </div>
 
         <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-5xl lg:text-6xl">
-          Tu próximo gran paso puede empezar con un <span className="text-[var(--color-menta)]">MiniSistema</span>.
+          Tu próximo gran paso puede empezar con un{" "}
+          <BrandWordmark className="mx-1 h-[0.95em]" />
         </h2>
 
         <p className="mx-auto mt-5 max-w-2xl text-base sm:text-xl font-medium leading-relaxed text-[var(--color-blanco)]/85">

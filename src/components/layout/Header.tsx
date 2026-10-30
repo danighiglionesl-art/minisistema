@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Menu, X, ArrowUpRight } from "lucide-react";
 import { NAV_ITEMS, buildWhatsAppLink, INITIAL_SITE_CONFIG } from "@/lib/site-data";
 import { WhatsAppIcon } from "@/components/icons/SocialIcons";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface HeaderProps {
   onOpenConfigurator: () => void;
@@ -41,7 +42,6 @@ export function Header({ onOpenConfigurator }: HeaderProps) {
           className="group flex shrink-0 items-center gap-3 focus:outline-none"
           aria-label="MiniSistema — Sistemas a Medida (Ir al inicio)"
         >
-          {/* Versión móvil compacta + versión horizontal oficial */}
           <img
             src="/brand/header-isologotipo.png"
             alt="minisistema. SISTEMAS A MEDIDA"
@@ -87,7 +87,10 @@ export function Header({ onOpenConfigurator }: HeaderProps) {
             onClick={onOpenConfigurator}
             className="inline-flex cursor-pointer items-center gap-1.5 xl:gap-2 whitespace-nowrap rounded-xl bg-[var(--color-menta)] px-3.5 xl:px-4 py-2 xl:py-2.5 text-xs xl:text-sm font-bold tracking-wide text-[var(--color-petroleo)] shadow-md shadow-[var(--color-petroleo)]/50 transition-all hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)] active:scale-[0.99]"
           >
-            <span>QUIERO MI MINISISTEMA</span>
+            <span className="inline-flex items-center gap-1.5">
+              <span>QUIERO MI</span>
+              <BrandWordmark onMintSurface />
+            </span>
             <ArrowUpRight className="h-4 w-4 stroke-[2.5]" />
           </button>
         </div>
@@ -97,9 +100,10 @@ export function Header({ onOpenConfigurator }: HeaderProps) {
           <button
             type="button"
             onClick={onOpenConfigurator}
-            className="rounded-lg bg-[var(--color-menta)] px-3 py-2 text-xs font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-menta)] px-2.5 py-1.5 text-xs font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
           >
-            QUIERO MI MINISISTEMA
+            <span>QUIERO MI</span>
+            <BrandWordmark onMintSurface />
           </button>
 
           <button
@@ -144,7 +148,10 @@ export function Header({ onOpenConfigurator }: HeaderProps) {
               }}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-menta)] px-4 py-3.5 text-sm font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
             >
-              <span>QUIERO MI MINISISTEMA</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span>QUIERO MI</span>
+                <BrandWordmark onMintSurface />
+              </span>
               <ArrowUpRight className="h-4 w-4 stroke-[2.5]" />
             </button>
 

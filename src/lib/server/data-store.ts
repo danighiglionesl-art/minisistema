@@ -186,12 +186,19 @@ export function updateAdminPassword(newPassword: string): void {
 
 export function getPublicSiteState() {
   const db = readDb();
+  const { notificationRecipients: _hidden, ...publicSiteConfig } = db.siteConfig;
+  void _hidden;
   return {
     projects: db.projects,
     faqs: db.faqs,
     commercialContent: db.commercialContent,
-    siteConfig: db.siteConfig,
+    siteConfig: publicSiteConfig,
   };
+}
+
+export function getAdminSiteConfig(): ExtendedSiteConfig {
+  const db = readDb();
+  return db.siteConfig;
 }
 
 export function listInquiries(): StoredInquiry[] {
