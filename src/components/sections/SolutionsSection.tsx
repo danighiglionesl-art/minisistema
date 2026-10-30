@@ -76,13 +76,10 @@ export function SolutionsSection({ onSelectCategory }: SolutionsSectionProps) {
                     <CategoryIllustration categoryId={category.id} />
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center">
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-menta)] transition-colors group-hover:bg-[var(--color-menta)] group-hover:text-[var(--color-petroleo)] group-active:bg-[var(--color-menta)] group-active:text-[var(--color-petroleo)] group-focus-within:bg-[var(--color-menta)] group-focus-within:text-[var(--color-petroleo)]">
                       <IconComponent className="h-5 w-5" />
                     </div>
-                    <span className="font-mono text-xs font-bold text-[var(--color-menta)]">
-                      {category.number}
-                    </span>
                   </div>
 
                   <h3 className="mt-4 text-xl font-extrabold text-[var(--color-blanco)]">
