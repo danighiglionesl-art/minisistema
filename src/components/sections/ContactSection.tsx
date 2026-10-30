@@ -201,70 +201,37 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
               </svg>
             </div>
 
-            {/* Tarjetas de canales oficiales */}
+            {/* Botones de canales oficiales (uno al lado del otro, solo ícono) */}
             <div className="mt-8 space-y-4">
-              {/* WhatsApp Comercial */}
-              <a
-                href={buildWhatsAppLink()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center justify-between rounded-2xl border-2 border-[var(--color-menta)] bg-[var(--color-blanco)]/5 p-5 transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--color-menta)] text-[var(--color-petroleo)]">
-                    <WhatsAppIcon size={24} />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold uppercase tracking-wider text-[var(--color-menta)]">
-                      WhatsApp Comercial Oficial
-                    </span>
-                    <span className="mt-0.5 block text-lg font-extrabold text-[var(--color-blanco)]">
-                      {INITIAL_SITE_CONFIG.whatsappDisplay}
-                    </span>
-                    <span className="text-xs text-[var(--color-blanco)]/75">
-                      Atención directa y personalizada
-                    </span>
-                  </div>
-                </div>
-                <ArrowUpRight className="h-5 w-5 text-[var(--color-menta)] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </a>
+              <div className="grid grid-cols-3 gap-4">
+                <a
+                  href={buildWhatsAppLink()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="WhatsApp"
+                  className="group flex h-16 items-center justify-center rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] text-[var(--color-menta)] transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)] active:border-[var(--color-menta)] active:bg-[var(--color-menta)] active:text-[var(--color-petroleo)]"
+                >
+                  <WhatsAppIcon size={26} />
+                </a>
 
-              {/* Redes Sociales Oficiales (Instagram + Facebook) */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <a
                   href={INITIAL_SITE_CONFIG.instagramUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-between rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-4 transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.06]"
+                  aria-label="Instagram"
+                  className="group flex h-16 items-center justify-center rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] text-[var(--color-menta)] transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)] active:border-[var(--color-menta)] active:bg-[var(--color-menta)] active:text-[var(--color-petroleo)]"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-menta)]">
-                      <InstagramIcon size={20} />
-                    </div>
-                    <div>
-                      <span className="block text-xs font-bold text-[var(--color-blanco)]">Instagram</span>
-                      <span className="text-xs text-[var(--color-menta)]">@mini.sistema</span>
-                    </div>
-                  </div>
-                  <ArrowUpRight className="h-4 w-4 text-[var(--color-menta)]" />
+                  <InstagramIcon size={26} />
                 </a>
 
                 <a
                   href={INITIAL_SITE_CONFIG.facebookUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-between rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-4 transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.06]"
+                  aria-label="Facebook"
+                  className="group flex h-16 items-center justify-center rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] text-[var(--color-menta)] transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)] active:border-[var(--color-menta)] active:bg-[var(--color-menta)] active:text-[var(--color-petroleo)]"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-menta)]">
-                      <FacebookIcon size={20} />
-                    </div>
-                    <div>
-                      <span className="block text-xs font-bold text-[var(--color-blanco)]">Facebook</span>
-                      <span className="text-xs text-[var(--color-menta)]">/mini.sistema</span>
-                    </div>
-                  </div>
-                  <ArrowUpRight className="h-4 w-4 text-[var(--color-menta)]" />
+                  <FacebookIcon size={26} />
                 </a>
               </div>
 
