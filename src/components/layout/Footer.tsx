@@ -95,43 +95,39 @@ export function Footer({ onOpenConfigurator }: FooterProps) {
               <InverseDot fromColor="blanco" />
             </p>
 
-            <div className="mt-5 flex flex-col gap-3">
+            <div className="mt-5 grid grid-cols-3 gap-2.5">
               <a
                 href={buildWhatsAppLink()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-between rounded-xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-4 py-3 text-sm font-semibold text-[var(--color-blanco)] transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10"
+                aria-label="WhatsApp oficial de MiniSistema"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/5 px-3 py-2.5 text-xs font-semibold text-[var(--color-blanco)] transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10 hover:text-[var(--color-menta)]"
               >
-                <span className="flex items-center gap-2.5">
-                  <WhatsAppIcon size={18} className="text-[var(--color-menta)]" />
-                  <span>WhatsApp: {INITIAL_SITE_CONFIG.whatsappDisplay}</span>
-                </span>
-                <ArrowUpRight className="h-4 w-4 text-[var(--color-menta)]" />
+                <WhatsAppIcon size={17} className="shrink-0 text-[var(--color-menta)]" />
+                <span>WhatsApp</span>
               </a>
 
-              <div className="flex items-center gap-3 pt-1">
-                <a
-                  href={INITIAL_SITE_CONFIG.instagramUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Instagram oficial de MiniSistema (@mini.sistema)"
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/5 px-4 py-2.5 text-xs font-semibold text-[var(--color-blanco)] transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10 hover:text-[var(--color-menta)]"
-                >
-                  <InstagramIcon size={17} className="text-[var(--color-menta)]" />
-                  <span>Instagram</span>
-                </a>
+              <a
+                href={INITIAL_SITE_CONFIG.instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram oficial de MiniSistema (@mini.sistema)"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/5 px-3 py-2.5 text-xs font-semibold text-[var(--color-blanco)] transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10 hover:text-[var(--color-menta)]"
+              >
+                <InstagramIcon size={17} className="shrink-0 text-[var(--color-menta)]" />
+                <span>Instagram</span>
+              </a>
 
-                <a
-                  href={INITIAL_SITE_CONFIG.facebookUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Facebook oficial de MiniSistema (mini.sistema)"
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/5 px-4 py-2.5 text-xs font-semibold text-[var(--color-blanco)] transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10 hover:text-[var(--color-menta)]"
-                >
-                  <FacebookIcon size={17} className="text-[var(--color-menta)]" />
-                  <span>Facebook</span>
-                </a>
-              </div>
+              <a
+                href={INITIAL_SITE_CONFIG.facebookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Facebook oficial de MiniSistema (mini.sistema)"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/5 px-3 py-2.5 text-xs font-semibold text-[var(--color-blanco)] transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10 hover:text-[var(--color-menta)]"
+              >
+                <FacebookIcon size={17} className="shrink-0 text-[var(--color-menta)]" />
+                <span>Facebook</span>
+              </a>
             </div>
 
             <div className="mt-5 rounded-xl border border-[var(--color-blanco)]/10 bg-[var(--color-blanco)]/[0.03] p-3.5 text-xs text-[var(--color-blanco)]/70">
