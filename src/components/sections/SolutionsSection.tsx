@@ -54,35 +54,24 @@ export function SolutionsSection({ onSelectCategory }: SolutionsSectionProps) {
           </p>
         </div>
 
-        {/* Grilla de 8 tarjetas visuales */}
+        {/* Grilla de 8 tarjetas visuales: todas iguales en reposo, se destacan solo al pasar el mouse o el dedo */}
         <div className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {SOLUTION_CATEGORIES.map((category) => {
             const IconComponent = ICON_MAP[category.iconName] || Sparkles;
-            const isCustomIdea = category.id === "idea-propia";
 
             return (
               <article
                 key={category.id}
-                className={`group flex flex-col justify-between rounded-3xl border p-6 transition-all duration-200 ${
-                  isCustomIdea
-                    ? "border-2 border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.06] shadow-xl"
-                    : "border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.06]"
-                }`}
+                className="group flex flex-col justify-between rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-6 transition-all duration-200 hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.06] hover:shadow-xl active:border-[var(--color-menta)] active:bg-[var(--color-blanco)]/[0.06] focus-within:border-[var(--color-menta)] focus-within:bg-[var(--color-blanco)]/[0.06]"
               >
                 <div>
                   {/* Ilustración tecnológica uniforme de la categoría */}
-                  <div className="mb-5 overflow-hidden rounded-2xl transition-transform duration-300 group-hover:scale-[1.01]">
+                  <div className="mb-5 overflow-hidden rounded-2xl transition-transform duration-300 group-hover:scale-[1.01] group-active:scale-[1.01]">
                     <CategoryIllustration categoryId={category.id} />
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div
-                      className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors ${
-                        isCustomIdea
-                          ? "border-[var(--color-menta)] bg-[var(--color-menta)] text-[var(--color-petroleo)]"
-                          : "border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-menta)] group-hover:bg-[var(--color-menta)] group-hover:text-[var(--color-petroleo)]"
-                      }`}
-                    >
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-menta)] transition-colors group-hover:bg-[var(--color-menta)] group-hover:text-[var(--color-petroleo)] group-active:bg-[var(--color-menta)] group-active:text-[var(--color-petroleo)] group-focus-within:bg-[var(--color-menta)] group-focus-within:text-[var(--color-petroleo)]">
                       <IconComponent className="h-5 w-5" />
                     </div>
                     <span className="font-mono text-xs font-bold text-[var(--color-menta)]">
@@ -107,11 +96,7 @@ export function SolutionsSection({ onSelectCategory }: SolutionsSectionProps) {
                   <button
                     type="button"
                     onClick={() => onSelectCategory(category)}
-                    className={`inline-flex w-full cursor-pointer items-center justify-between rounded-xl px-4 py-2.5 text-xs sm:text-sm font-extrabold transition-all ${
-                      isCustomIdea
-                        ? "bg-[var(--color-menta)] text-[var(--color-petroleo)] hover:bg-[var(--color-blanco)]"
-                        : "border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-blanco)] group-hover:bg-[var(--color-menta)] group-hover:text-[var(--color-petroleo)]"
-                    }`}
+                    className="inline-flex w-full cursor-pointer items-center justify-between rounded-xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-4 py-2.5 text-xs sm:text-sm font-extrabold text-[var(--color-blanco)] transition-all group-hover:bg-[var(--color-menta)] group-hover:text-[var(--color-petroleo)] group-active:bg-[var(--color-menta)] group-active:text-[var(--color-petroleo)] group-focus-within:bg-[var(--color-menta)] group-focus-within:text-[var(--color-petroleo)] hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)] active:bg-[var(--color-menta)] active:text-[var(--color-petroleo)]"
                   >
                     <span>Quiero saber más</span>
                     <ArrowUpRight className="h-4 w-4 stroke-[2.5]" />
