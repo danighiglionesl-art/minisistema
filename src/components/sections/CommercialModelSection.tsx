@@ -52,8 +52,8 @@ export function CommercialModelSection({
                 className="flex flex-col justify-between rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-6 sm:p-8 transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.05]"
               >
                 <div>
-                  <div className="flex items-center justify-end gap-2">
-                    <span className="text-xs font-semibold text-[var(--color-blanco)]/70">
+                  <div className="flex items-center justify-center text-center">
+                    <span className="text-sm sm:text-[15px] font-bold tracking-wide text-[var(--color-blanco)]/85">
                       {service.badge}
                     </span>
                   </div>
