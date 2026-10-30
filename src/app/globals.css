@@ -4,12 +4,28 @@
   --color-petroleo: #112D3A;
   --color-menta: #56D7A1;
   --color-blanco: #FFFFFF;
+  --in-oklab: ;
+  --in-oklch: ;
+}
+
+@supports (linear-gradient(in oklab, white, black)) {
+  :root {
+    --in-oklab: in oklab;
+    --in-oklch: in oklch;
+  }
+}
+
+@theme {
+  --color-*: initial;
+  --color-petroleo: #112D3A;
+  --color-menta: #56D7A1;
+  --color-blanco: #FFFFFF;
 }
 
 html {
   scroll-behavior: smooth;
-  background-color: #112D3A;
-  color: #FFFFFF;
+  background-color: var(--color-petroleo);
+  color: var(--color-blanco);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -19,17 +35,17 @@ html {
 }
 
 body {
-  background-color: #112D3A;
-  color: #FFFFFF;
+  background-color: var(--color-petroleo);
+  color: var(--color-blanco);
   font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
-  selection-background-color: #56D7A1;
-  selection-color: #112D3A;
+  selection-background-color: var(--color-menta);
+  selection-color: var(--color-petroleo);
 }
 
 ::selection {
-  background-color: #56D7A1;
-  color: #112D3A;
+  background-color: var(--color-menta);
+  color: var(--color-petroleo);
 }
 
 /* Tipografía geométrica y balance de líneas (improve-text-layout-and-legibility) */
@@ -44,7 +60,7 @@ p, li, blockquote {
 
 /* Estados de foco visibles y accesibles en los 3 colores institucionales */
 :focus-visible {
-  outline: 2px solid #56D7A1;
+  outline: 2px solid var(--color-menta);
   outline-offset: 3px;
 }
 
@@ -56,16 +72,16 @@ dialog:modal {
 dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;
-  background-color: rgba(17, 45, 58, 0.86);
+  background-color: color-mix(in oklab, var(--color-petroleo) 86%, transparent);
   backdrop-filter: blur(6px);
 }
 
 /* Validación después de la interacción (validate-input-after-interaction) usando únicamente colores oficiales */
 .ms-input:user-invalid,
 .ms-input.user-invalid-fallback {
-  border-color: #FFFFFF;
-  background-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+  border-color: var(--color-blanco);
+  background-color: color-mix(in oklab, var(--color-blanco) 12%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-blanco) 35%, transparent);
 }
 
 .ms-input:user-invalid + .ms-error-msg,
@@ -75,7 +91,7 @@ dialog::backdrop {
 
 .ms-input:user-valid,
 .ms-input.user-valid-fallback {
-  border-color: #56D7A1;
+  border-color: var(--color-menta);
 }
 
 /* Animaciones en el compositor respetando prefers-reduced-motion (motion) */
@@ -114,6 +130,43 @@ dialog::backdrop {
   }
 }
 
+@keyframes fadeUpSubtle {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up-subtle {
+  animation: fadeUpSubtle 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Sombras en capas y efectos de iluminación verde menta (visual-effects) */
+.ms-depth-card {
+  box-shadow:
+    0 4px 12px color-mix(in oklab, var(--color-petroleo) 65%, transparent),
+    0 18px 40px color-mix(in oklab, var(--color-petroleo) 85%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-blanco) 12%, transparent);
+}
+
+.ms-mint-halo {
+  background: radial-gradient(
+    circle at 50% 45% var(--in-oklab),
+    color-mix(in oklab, var(--color-menta) 22%, transparent) 0%,
+    color-mix(in oklab, var(--color-menta) 6%, transparent) 45%,
+    transparent 72%
+  );
+}
+
 /* Estilizado limpio para <details> nativo (search-hidden-content) */
 details > summary {
   list-style: none;
@@ -146,14 +199,14 @@ details > summary::-webkit-details-marker {
   position: sticky;
   inset-block-start: 0;
   z-index: 2;
-  background-color: #112D3A;
+  background-color: var(--color-petroleo);
 }
 
 .ms-responsive-table tbody th {
   position: sticky;
   inset-inline-start: 0;
   z-index: 1;
-  background-color: #112D3A;
+  background-color: var(--color-petroleo);
 }
 
 @container (width < 720px) {
@@ -172,49 +225,49 @@ details > summary::-webkit-details-marker {
 
   .ms-responsive-table tr {
     margin-block-end: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid color-mix(in oklab, var(--color-blanco) 15%, transparent);
     border-radius: 1rem;
     padding: 0.75rem;
-    background-color: rgba(255, 255, 255, 0.03);
+    background-color: color-mix(in oklab, var(--color-blanco) 3%, transparent);
   }
 
   .ms-responsive-table tbody th {
     position: sticky;
     inset-block-start: 0;
     z-index: 2;
-    background-color: #112D3A;
-    border-bottom: 1px solid rgba(86, 215, 161, 0.25);
+    background-color: var(--color-petroleo);
+    border-bottom: 1px solid var(--color-menta);
     margin-bottom: 0.5rem;
   }
 
   .ms-responsive-table td:nth-child(2)::before {
     content: var(--label-2) ": ";
     font-weight: 700;
-    color: #56D7A1;
+    color: var(--color-menta);
   }
   .ms-responsive-table td:nth-child(3)::before {
     content: var(--label-3) ": ";
     font-weight: 700;
-    color: #56D7A1;
+    color: var(--color-menta);
   }
   .ms-responsive-table td:nth-child(4)::before {
     content: var(--label-4) ": ";
     font-weight: 700;
-    color: #56D7A1;
+    color: var(--color-menta);
   }
   .ms-responsive-table td:nth-child(5)::before {
     content: var(--label-5) ": ";
     font-weight: 700;
-    color: #56D7A1;
+    color: var(--color-menta);
   }
   .ms-responsive-table td:nth-child(6)::before {
     content: var(--label-6) ": ";
     font-weight: 700;
-    color: #56D7A1;
+    color: var(--color-menta);
   }
   .ms-responsive-table td:nth-child(7)::before {
     content: var(--label-7) ": ";
     font-weight: 700;
-    color: #56D7A1;
+    color: var(--color-menta);
   }
 }

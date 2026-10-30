@@ -123,24 +123,63 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
   return (
     <section
       id="contacto"
-      className="relative border-t border-[#FFFFFF]/10 bg-[#112D3A] py-20 sm:py-24"
+      className="relative border-t border-[var(--color-blanco)]/10 bg-[var(--color-petroleo)] py-20 sm:py-24"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
           {/* Columna Izquierda: Canales Oficiales */}
           <div className="lg:col-span-5">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#56D7A1]/35 bg-[#56D7A1]/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[#56D7A1]">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[var(--color-menta)]">
               <span>Contacto y redes sociales</span>
             </span>
 
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[#FFFFFF] sm:text-4xl">
-              Estamos listos para <span className="text-[#56D7A1]">escucharte</span>.
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl">
+              Estamos listos para <span className="text-[var(--color-menta)]">escucharte</span>.
             </h2>
 
-            <p className="mt-4 text-sm sm:text-base leading-relaxed text-[#FFFFFF]/80">
+            <p className="mt-4 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/80">
               Elegí el canal que te quede más cómodo o utilizá nuestro configurador interactivo para
               contarnos cómo imaginás tu MiniSistema.
             </p>
+
+            {/* Recurso visual tecnológico de cierre: Confianza, Cercanía, Innovación y Acompañamiento */}
+            <div className="mt-6 overflow-hidden rounded-2xl border border-[var(--color-menta)]/35 bg-[var(--color-blanco)]/[0.03] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {["Confianza", "Cercanía", "Profesionalismo", "Innovación", "Acompañamiento"].map(
+                    (val) => (
+                      <span
+                        key={val}
+                        className="rounded-md border border-[var(--color-menta)]/40 bg-[var(--color-petroleo)] px-2 py-0.5 text-[10px] font-bold text-[var(--color-menta)]"
+                      >
+                        {val}
+                      </span>
+                    )
+                  )}
+                </div>
+              </div>
+              <svg
+                viewBox="0 0 340 54"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+                className="mt-3 w-full h-auto"
+              >
+                <rect x="6" y="10" width="90" height="34" rx="8" fill="#FFFFFF" fillOpacity="0.06" stroke="#FFFFFF" strokeOpacity="0.25" />
+                <text x="20" y="31" fill="#FFFFFF" fontSize="10" fontWeight="700">Tu Negocio</text>
+
+                <path d="M98 27 H124" stroke="#56D7A1" strokeWidth="2" strokeDasharray="3 3" />
+
+                <rect x="126" y="6" width="92" height="42" rx="10" fill="#56D7A1" fillOpacity="0.18" stroke="#56D7A1" strokeWidth="1.5" />
+                <text x="140" y="25" fill="#56D7A1" fontSize="9.5" fontWeight="800">DIÁLOGO Y</text>
+                <text x="139" y="38" fill="#FFFFFF" fontSize="9.5" fontWeight="700">PROPUESTA</text>
+
+                <path d="M220 27 H244" stroke="#56D7A1" strokeWidth="2" />
+
+                <rect x="246" y="10" width="88" height="34" rx="8" fill="#56D7A1" />
+                <text x="256" y="31" fill="#112D3A" fontSize="10" fontWeight="800">MiniSistema</text>
+              </svg>
+            </div>
 
             {/* Tarjetas de canales oficiales */}
             <div className="mt-8 space-y-4">
@@ -149,25 +188,25 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                 href={buildWhatsAppLink()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center justify-between rounded-2xl border-2 border-[#56D7A1]/50 bg-[#56D7A1]/10 p-5 transition-all hover:border-[#56D7A1] hover:bg-[#56D7A1]/20"
+                className="group flex items-center justify-between rounded-2xl border-2 border-[var(--color-menta)] bg-[var(--color-blanco)]/5 p-5 transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#56D7A1] text-[#112D3A]">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--color-menta)] text-[var(--color-petroleo)]">
                     <WhatsAppIcon size={24} />
                   </div>
                   <div>
-                    <span className="block text-xs font-bold uppercase tracking-wider text-[#56D7A1]">
+                    <span className="block text-xs font-bold uppercase tracking-wider text-[var(--color-menta)]">
                       WhatsApp Comercial Oficial
                     </span>
-                    <span className="mt-0.5 block text-lg font-extrabold text-[#FFFFFF]">
+                    <span className="mt-0.5 block text-lg font-extrabold text-[var(--color-blanco)]">
                       {INITIAL_SITE_CONFIG.whatsappDisplay}
                     </span>
-                    <span className="text-xs text-[#FFFFFF]/75">
+                    <span className="text-xs text-[var(--color-blanco)]/75">
                       Atención directa y personalizada
                     </span>
                   </div>
                 </div>
-                <ArrowUpRight className="h-5 w-5 text-[#56D7A1] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                <ArrowUpRight className="h-5 w-5 text-[var(--color-menta)] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
 
               {/* Redes Sociales Oficiales (Instagram + Facebook) */}
@@ -176,53 +215,53 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                   href={INITIAL_SITE_CONFIG.instagramUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-between rounded-2xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-4 transition-all hover:border-[#56D7A1] hover:bg-[#FFFFFF]/[0.06]"
+                  className="group flex items-center justify-between rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-4 transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.06]"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#56D7A1]/35 bg-[#56D7A1]/15 text-[#56D7A1]">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-menta)]">
                       <InstagramIcon size={20} />
                     </div>
                     <div>
-                      <span className="block text-xs font-bold text-[#FFFFFF]">Instagram</span>
-                      <span className="text-xs text-[#56D7A1]">@mini.sistema</span>
+                      <span className="block text-xs font-bold text-[var(--color-blanco)]">Instagram</span>
+                      <span className="text-xs text-[var(--color-menta)]">@mini.sistema</span>
                     </div>
                   </div>
-                  <ArrowUpRight className="h-4 w-4 text-[#56D7A1]" />
+                  <ArrowUpRight className="h-4 w-4 text-[var(--color-menta)]" />
                 </a>
 
                 <a
                   href={INITIAL_SITE_CONFIG.facebookUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-between rounded-2xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-4 transition-all hover:border-[#56D7A1] hover:bg-[#FFFFFF]/[0.06]"
+                  className="group flex items-center justify-between rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-4 transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.06]"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#56D7A1]/35 bg-[#56D7A1]/15 text-[#56D7A1]">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-menta)]">
                       <FacebookIcon size={20} />
                     </div>
                     <div>
-                      <span className="block text-xs font-bold text-[#FFFFFF]">Facebook</span>
-                      <span className="text-xs text-[#56D7A1]">/mini.sistema</span>
+                      <span className="block text-xs font-bold text-[var(--color-blanco)]">Facebook</span>
+                      <span className="text-xs text-[var(--color-menta)]">/mini.sistema</span>
                     </div>
                   </div>
-                  <ArrowUpRight className="h-4 w-4 text-[#56D7A1]" />
+                  <ArrowUpRight className="h-4 w-4 text-[var(--color-menta)]" />
                 </a>
               </div>
 
               {/* Acceso al Configurador Comercial */}
-              <div className="rounded-2xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-5">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#56D7A1]">
+              <div className="rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-5">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--color-menta)]">
                   <Sliders className="h-4 w-4" />
                   <span>¿Preferís describir tu proyecto paso a paso?</span>
                 </div>
-                <p className="mt-1.5 text-xs sm:text-sm text-[#FFFFFF]/80">
+                <p className="mt-1.5 text-xs sm:text-sm text-[var(--color-blanco)]/80">
                   Usá nuestro configurador interactivo para elegir tu rubro y las funciones que te
                   gustaría incluir.
                 </p>
                 <button
                   type="button"
                   onClick={onOpenConfigurator}
-                  className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#56D7A1] px-4 py-2.5 text-xs font-extrabold text-[#112D3A] transition-colors hover:bg-[#FFFFFF]"
+                  className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-4 py-2.5 text-xs font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
                 >
                   <span>ABRIR CONFIGURADOR DE PROYECTOS</span>
                   <ArrowUpRight className="h-4 w-4" />
@@ -233,21 +272,21 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
 
           {/* Columna Derecha: Formulario de Contacto Directo */}
           <div className="lg:col-span-7">
-            <div className="rounded-3xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-6 sm:p-8">
-              <h3 className="text-xl sm:text-2xl font-extrabold text-[#FFFFFF]">
+            <div className="rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-6 sm:p-8">
+              <h3 className="text-xl sm:text-2xl font-extrabold text-[var(--color-blanco)]">
                 Envianos tu consulta
               </h3>
-              <p className="mt-1.5 text-xs sm:text-sm text-[#FFFFFF]/75">
+              <p className="mt-1.5 text-xs sm:text-sm text-[var(--color-blanco)]/75">
                 Completá el formulario y te responderemos a la brevedad.
               </p>
 
               {submittedId ? (
-                <div className="mt-6 rounded-2xl border-2 border-[#56D7A1] bg-[#56D7A1]/10 p-6 text-center">
-                  <CheckCircle2 className="mx-auto h-12 w-12 text-[#56D7A1]" />
-                  <h4 className="mt-3 text-xl font-extrabold text-[#FFFFFF]">
+                <div className="mt-6 rounded-2xl border-2 border-[var(--color-menta)] bg-[var(--color-blanco)]/5 p-6 text-center">
+                  <CheckCircle2 className="mx-auto h-12 w-12 text-[var(--color-menta)]" />
+                  <h4 className="mt-3 text-xl font-extrabold text-[var(--color-blanco)]">
                     ¡Recibimos tu consulta ({submittedId})!
                   </h4>
-                  <p className="mt-2 text-sm text-[#FFFFFF]/85">
+                  <p className="mt-2 text-sm text-[var(--color-blanco)]/85">
                     Tus datos quedaron registrados correctamente. Si querés agilizar la conversación
                     ahora mismo, podés continuar por WhatsApp con tu mensaje ya preparado.
                   </p>
@@ -256,7 +295,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                       href={buildWhatsAppLink(customWhatsAppText)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#56D7A1] px-6 py-3.5 text-sm font-extrabold text-[#112D3A] transition-colors hover:bg-[#FFFFFF]"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--color-menta)] px-6 py-3.5 text-sm font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
                     >
                       <WhatsAppIcon size={18} />
                       <span>Continuar en WhatsApp</span>
@@ -267,7 +306,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                         setSubmittedId(null);
                         setMessage("");
                       }}
-                      className="rounded-xl border border-[#FFFFFF]/25 px-5 py-3.5 text-xs font-bold text-[#FFFFFF] hover:border-[#56D7A1]"
+                      className="rounded-xl border border-[var(--color-blanco)]/25 px-5 py-3.5 text-xs font-bold text-[var(--color-blanco)] hover:border-[var(--color-menta)]"
                     >
                       Enviar otra consulta
                     </button>
@@ -279,13 +318,13 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                     <div>
                       <label
                         htmlFor="contact-name"
-                        className="block text-xs font-bold uppercase tracking-wider text-[#FFFFFF]"
+                        className="block text-xs font-bold uppercase tracking-wider text-[var(--color-blanco)]"
                       >
                         Nombre y apellido *
                       </label>
                       <span
                         id="contact-name-hint"
-                        className="mt-0.5 mb-1.5 block text-[11px] text-[#FFFFFF]/65"
+                        className="mt-0.5 mb-1.5 block text-[11px] text-[var(--color-blanco)]/65"
                       >
                         Cómo te llamás
                       </span>
@@ -299,9 +338,9 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="Ej: Martín Gómez"
-                        className="ms-input w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-4 py-3 text-sm text-[#FFFFFF] placeholder:text-[#FFFFFF]/40 focus:border-[#56D7A1] focus:outline-none"
+                        className="ms-input w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-4 py-3 text-sm text-[var(--color-blanco)] placeholder:text-[var(--color-blanco)]/40 focus:border-[var(--color-menta)] focus:outline-none"
                       />
-                      <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[#56D7A1]">
+                      <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[var(--color-menta)]">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                         <span>Por favor ingresá tu nombre y apellido.</span>
                       </div>
@@ -310,13 +349,13 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                     <div>
                       <label
                         htmlFor="contact-business"
-                        className="block text-xs font-bold uppercase tracking-wider text-[#FFFFFF]"
+                        className="block text-xs font-bold uppercase tracking-wider text-[var(--color-blanco)]"
                       >
                         Comercio, empresa o institución
                       </label>
                       <span
                         id="contact-business-hint"
-                        className="mt-0.5 mb-1.5 block text-[11px] text-[#FFFFFF]/65"
+                        className="mt-0.5 mb-1.5 block text-[11px] text-[var(--color-blanco)]/65"
                       >
                         Opcional si es un emprendimiento nuevo
                       </span>
@@ -329,7 +368,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                         value={businessName}
                         onChange={(e) => setBusinessName(e.target.value)}
                         placeholder="Ej: Distribuidora del Sur"
-                        className="ms-input w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-4 py-3 text-sm text-[#FFFFFF] placeholder:text-[#FFFFFF]/40 focus:border-[#56D7A1] focus:outline-none"
+                        className="ms-input w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-4 py-3 text-sm text-[var(--color-blanco)] placeholder:text-[var(--color-blanco)]/40 focus:border-[var(--color-menta)] focus:outline-none"
                       />
                     </div>
                   </div>
@@ -338,13 +377,13 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                     <div>
                       <label
                         htmlFor="contact-whatsapp"
-                        className="block text-xs font-bold uppercase tracking-wider text-[#FFFFFF]"
+                        className="block text-xs font-bold uppercase tracking-wider text-[var(--color-blanco)]"
                       >
                         Número de WhatsApp *
                       </label>
                       <span
                         id="contact-wa-hint"
-                        className="mt-0.5 mb-1.5 block text-[11px] text-[#FFFFFF]/65"
+                        className="mt-0.5 mb-1.5 block text-[11px] text-[var(--color-blanco)]/65"
                       >
                         Con característica (ej: 358 5095475)
                       </span>
@@ -358,9 +397,9 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                         value={whatsapp}
                         onChange={(e) => setWhatsapp(e.target.value)}
                         placeholder="Ej: +54 9 358 ..."
-                        className="ms-input w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-4 py-3 text-sm text-[#FFFFFF] placeholder:text-[#FFFFFF]/40 focus:border-[#56D7A1] focus:outline-none"
+                        className="ms-input w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-4 py-3 text-sm text-[var(--color-blanco)] placeholder:text-[var(--color-blanco)]/40 focus:border-[var(--color-menta)] focus:outline-none"
                       />
-                      <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[#56D7A1]">
+                      <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[var(--color-menta)]">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                         <span>Ingresá un número de WhatsApp de contacto.</span>
                       </div>
@@ -369,13 +408,13 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                     <div>
                       <label
                         htmlFor="contact-email"
-                        className="block text-xs font-bold uppercase tracking-wider text-[#FFFFFF]"
+                        className="block text-xs font-bold uppercase tracking-wider text-[var(--color-blanco)]"
                       >
                         Correo electrónico *
                       </label>
                       <span
                         id="contact-email-hint"
-                        className="mt-0.5 mb-1.5 block text-[11px] text-[#FFFFFF]/65"
+                        className="mt-0.5 mb-1.5 block text-[11px] text-[var(--color-blanco)]/65"
                       >
                         Formato: nombre@dominio.com
                       </span>
@@ -389,9 +428,9 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="vos@tunegocio.com.ar"
-                        className="ms-input w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-4 py-3 text-sm text-[#FFFFFF] placeholder:text-[#FFFFFF]/40 focus:border-[#56D7A1] focus:outline-none"
+                        className="ms-input w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-4 py-3 text-sm text-[var(--color-blanco)] placeholder:text-[var(--color-blanco)]/40 focus:border-[var(--color-menta)] focus:outline-none"
                       />
-                      <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[#56D7A1]">
+                      <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[var(--color-menta)]">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                         <span>Ingresá una dirección de correo válida.</span>
                       </div>
@@ -401,13 +440,13 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                   <div>
                     <label
                       htmlFor="contact-message"
-                      className="block text-xs font-bold uppercase tracking-wider text-[#FFFFFF]"
+                      className="block text-xs font-bold uppercase tracking-wider text-[var(--color-blanco)]"
                     >
                       ¿En qué podemos ayudarte? *
                     </label>
                     <span
                       id="contact-msg-hint"
-                      className="mt-0.5 mb-1.5 block text-[11px] text-[#FFFFFF]/65"
+                      className="mt-0.5 mb-1.5 block text-[11px] text-[var(--color-blanco)]/65"
                     >
                       Contanos brevemente tu consulta o necesidad
                     </span>
@@ -420,9 +459,9 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       placeholder="Hola, me gustaría consultar por un sistema a medida para..."
-                      className="ms-input w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-4 py-3 text-sm text-[#FFFFFF] placeholder:text-[#FFFFFF]/40 focus:border-[#56D7A1] focus:outline-none"
+                      className="ms-input w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-4 py-3 text-sm text-[var(--color-blanco)] placeholder:text-[var(--color-blanco)]/40 focus:border-[var(--color-menta)] focus:outline-none"
                     />
-                    <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[#56D7A1]">
+                    <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[var(--color-menta)]">
                       <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                       <span>Por favor escribí tu consulta.</span>
                     </div>
@@ -435,17 +474,17 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                       required
                       checked={consent}
                       onChange={(e) => setConsent(e.target.checked)}
-                      className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-[#56D7A1]"
+                      className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-[var(--color-menta)]"
                     />
                     <label
                       htmlFor="contact-consent"
-                      className="text-xs leading-relaxed text-[#FFFFFF]/80"
+                      className="text-xs leading-relaxed text-[var(--color-blanco)]/80"
                     >
                       Acepto el tratamiento de mis datos personales para que MiniSistema se ponga en
                       contacto conmigo en relación con esta consulta comercial, conforme a la{" "}
                       <Link
                         href="/privacidad"
-                        className="font-semibold text-[#56D7A1] underline underline-offset-2"
+                        className="font-semibold text-[var(--color-menta)] underline underline-offset-2"
                       >
                         Política de Privacidad
                       </Link>
@@ -456,9 +495,9 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                   {submitError && (
                     <div
                       role="alert"
-                      className="flex items-center gap-2 rounded-xl border border-[#FFFFFF] bg-[#FFFFFF]/10 px-4 py-3 text-xs font-semibold text-[#FFFFFF]"
+                      className="flex items-center gap-2 rounded-xl border border-[var(--color-blanco)] bg-[var(--color-blanco)]/10 px-4 py-3 text-xs font-semibold text-[var(--color-blanco)]"
                     >
-                      <AlertCircle className="h-4 w-4 shrink-0 text-[#56D7A1]" />
+                      <AlertCircle className="h-4 w-4 shrink-0 text-[var(--color-menta)]" />
                       <span>{submitError}</span>
                     </div>
                   )}
@@ -477,7 +516,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#56D7A1] px-6 py-4 text-sm font-extrabold tracking-wide text-[#112D3A] transition-all hover:bg-[#FFFFFF] disabled:opacity-60"
+                    className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[var(--color-menta)] px-6 py-4 text-sm font-extrabold tracking-wide text-[var(--color-petroleo)] transition-all hover:bg-[var(--color-blanco)] disabled:opacity-60"
                   >
                     <Send className="h-4 w-4" />
                     <span>{isSubmitting ? "ENVIANDO CONSULTA..." : "ENVIAR CONSULTA"}</span>

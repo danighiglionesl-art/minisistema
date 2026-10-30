@@ -56,7 +56,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#112D3A] text-[#FFFFFF]">
+    <div className="flex min-h-dvh flex-col bg-[var(--color-petroleo)] text-[var(--color-blanco)]">
       <Header onOpenConfigurator={handleOpenGeneralConfigurator} />
 
       <main className="flex-1">

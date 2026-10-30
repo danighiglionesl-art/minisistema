@@ -12,9 +12,9 @@ export function FloatingWhatsApp() {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`Contactar a MiniSistema por WhatsApp (${INITIAL_SITE_CONFIG.whatsappDisplay})`}
-        className="group flex items-center gap-2.5 rounded-full border-2 border-[#112D3A] bg-[#56D7A1] px-4 py-3 text-[#112D3A] shadow-xl shadow-[#112D3A]/70 transition-all duration-200 hover:bg-[#FFFFFF] hover:scale-[1.03] active:scale-[0.98]"
+        className="group flex items-center gap-2.5 rounded-full border-2 border-[var(--color-petroleo)] bg-[var(--color-menta)] px-4 py-3 text-[var(--color-petroleo)] shadow-xl shadow-[var(--color-petroleo)]/70 transition-all duration-200 hover:bg-[var(--color-blanco)] hover:scale-[1.03] active:scale-[0.98]"
       >
-        <WhatsAppIcon size={22} className="text-[#112D3A] shrink-0" />
+        <WhatsAppIcon size={22} className="text-[var(--color-petroleo)] shrink-0" />
         <span className="hidden sm:inline text-xs font-extrabold tracking-wide uppercase">
           WhatsApp
         </span>

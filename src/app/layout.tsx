@@ -94,7 +94,7 @@ export default function RootLayout({
 
   return (
     <html lang="es-AR" className={`${outfit.variable} ${plusJakarta.variable}`}>
-      <body className="min-h-dvh bg-[#112D3A] text-[#FFFFFF] antialiased">
+      <body className="min-h-dvh bg-[var(--color-petroleo)] text-[var(--color-blanco)] antialiased">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}

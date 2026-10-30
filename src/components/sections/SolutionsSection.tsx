@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { SOLUTION_CATEGORIES } from "@/lib/site-data";
 import { SolutionCategory } from "@/types/minisistema";
+import { CategoryIllustration } from "@/components/illustrations/CategoryIllustrations";
 
 interface SolutionsSectionProps {
   onSelectCategory: (category: SolutionCategory) => void;
@@ -34,20 +35,20 @@ export function SolutionsSection({ onSelectCategory }: SolutionsSectionProps) {
   return (
     <section
       id="soluciones"
-      className="relative border-t border-[#FFFFFF]/10 bg-[#112D3A] py-20 sm:py-24"
+      className="relative border-t border-[var(--color-blanco)]/10 bg-[var(--color-petroleo)] py-20 sm:py-24"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Encabezado */}
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#56D7A1]/35 bg-[#56D7A1]/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[#56D7A1]">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[var(--color-menta)]">
             <span>Qué desarrollamos</span>
           </span>
 
-          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[#FFFFFF] sm:text-4xl lg:text-5xl">
-            Una solución <span className="text-[#56D7A1]">para cada necesidad</span>.
+          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl lg:text-5xl">
+            Una solución <span className="text-[var(--color-menta)]">para cada necesidad</span>.
           </h2>
 
-          <p className="mt-4 text-base sm:text-lg leading-relaxed text-[#FFFFFF]/80">
+          <p className="mt-4 text-base sm:text-lg leading-relaxed text-[var(--color-blanco)]/80">
             Desde una herramienta sencilla hasta una plataforma integral. Diseñamos lo que tu
             actividad realmente necesita.
           </p>
@@ -64,37 +65,42 @@ export function SolutionsSection({ onSelectCategory }: SolutionsSectionProps) {
                 key={category.id}
                 className={`group flex flex-col justify-between rounded-3xl border p-6 transition-all duration-200 ${
                   isCustomIdea
-                    ? "border-2 border-[#56D7A1] bg-[#56D7A1]/10 shadow-xl"
-                    : "border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] hover:border-[#56D7A1]/60 hover:bg-[#FFFFFF]/[0.06]"
+                    ? "border-2 border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.06] shadow-xl"
+                    : "border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.06]"
                 }`}
               >
                 <div>
+                  {/* Ilustración tecnológica uniforme de la categoría */}
+                  <div className="mb-5 overflow-hidden rounded-2xl transition-transform duration-300 group-hover:scale-[1.01]">
+                    <CategoryIllustration categoryId={category.id} />
+                  </div>
+
                   <div className="flex items-center justify-between">
                     <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-2xl border transition-colors ${
+                      className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors ${
                         isCustomIdea
-                          ? "border-[#56D7A1] bg-[#56D7A1] text-[#112D3A]"
-                          : "border-[#56D7A1]/35 bg-[#56D7A1]/15 text-[#56D7A1] group-hover:bg-[#56D7A1] group-hover:text-[#112D3A]"
+                          ? "border-[var(--color-menta)] bg-[var(--color-menta)] text-[var(--color-petroleo)]"
+                          : "border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-menta)] group-hover:bg-[var(--color-menta)] group-hover:text-[var(--color-petroleo)]"
                       }`}
                     >
-                      <IconComponent className="h-6 w-6" />
+                      <IconComponent className="h-5 w-5" />
                     </div>
-                    <span className="font-mono text-xs font-bold text-[#56D7A1]/80">
+                    <span className="font-mono text-xs font-bold text-[var(--color-menta)]">
                       {category.number}
                     </span>
                   </div>
 
-                  <h3 className="mt-5 text-xl font-extrabold text-[#FFFFFF]">
+                  <h3 className="mt-4 text-xl font-extrabold text-[var(--color-blanco)]">
                     {category.title}
                   </h3>
 
-                  <p className="mt-2.5 text-sm leading-relaxed text-[#FFFFFF]/80">
+                  <p className="mt-2.5 text-sm leading-relaxed text-[var(--color-blanco)]/80">
                     {category.description}
                   </p>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-[#FFFFFF]/10">
-                  <p className="mb-3 text-[11px] font-medium text-[#56D7A1]">
+                <div className="mt-6 pt-4 border-t border-[var(--color-blanco)]/10">
+                  <p className="mb-3 text-[11px] font-medium text-[var(--color-menta)]">
                     {category.previewLabel}
                   </p>
 
@@ -103,8 +109,8 @@ export function SolutionsSection({ onSelectCategory }: SolutionsSectionProps) {
                     onClick={() => onSelectCategory(category)}
                     className={`inline-flex w-full cursor-pointer items-center justify-between rounded-xl px-4 py-2.5 text-xs sm:text-sm font-extrabold transition-all ${
                       isCustomIdea
-                        ? "bg-[#56D7A1] text-[#112D3A] hover:bg-[#FFFFFF]"
-                        : "border border-[#56D7A1]/40 bg-[#56D7A1]/10 text-[#FFFFFF] group-hover:bg-[#56D7A1] group-hover:text-[#112D3A]"
+                        ? "bg-[var(--color-menta)] text-[var(--color-petroleo)] hover:bg-[var(--color-blanco)]"
+                        : "border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-blanco)] group-hover:bg-[var(--color-menta)] group-hover:text-[var(--color-petroleo)]"
                     }`}
                   >
                     <span>Quiero saber más</span>
@@ -117,7 +123,7 @@ export function SolutionsSection({ onSelectCategory }: SolutionsSectionProps) {
         </div>
 
         {/* Nota de alcance comercial */}
-        <p className="mt-8 text-center text-xs text-[#FFFFFF]/65">
+        <p className="mt-8 text-center text-xs text-[var(--color-blanco)]/65">
           * Estas categorías representan tipos de soluciones que podemos analizar y desarrollar. El
           alcance y las funcionalidades específicas se definen mediante evaluación previa de cada
           proyecto.

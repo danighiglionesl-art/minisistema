@@ -11,12 +11,12 @@ export const metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="min-h-dvh bg-[#112D3A] text-[#FFFFFF]">
-      <header className="border-b border-[#FFFFFF]/10 bg-[#112D3A] py-5">
+    <div className="min-h-dvh bg-[var(--color-petroleo)] text-[var(--color-blanco)]">
+      <header className="border-b border-[var(--color-blanco)]/10 bg-[var(--color-petroleo)] py-5">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 sm:px-6">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#FFFFFF]/20 bg-[#FFFFFF]/5 px-4 py-2 text-xs font-bold text-[#FFFFFF] transition-colors hover:border-[#56D7A1] hover:text-[#56D7A1]"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-blanco)]/5 px-4 py-2 text-xs font-bold text-[var(--color-blanco)] transition-colors hover:border-[var(--color-menta)] hover:text-[var(--color-menta)]"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Volver al inicio</span>
@@ -33,19 +33,19 @@ export default function PrivacyPolicyPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
-        <div className="rounded-3xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-6 sm:p-10">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#56D7A1]/40 bg-[#56D7A1]/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[#56D7A1]">
+        <div className="rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-6 sm:p-10">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[var(--color-menta)]">
             <ShieldCheck className="h-4 w-4" />
             <span>Protección de Datos Personales</span>
           </div>
 
-          <h1 className="mt-4 text-3xl font-extrabold text-[#FFFFFF] sm:text-4xl">
+          <h1 className="mt-4 text-3xl font-extrabold text-[var(--color-blanco)] sm:text-4xl">
             Política de Privacidad
           </h1>
 
-          <div className="mt-6 space-y-6 text-sm sm:text-base leading-relaxed text-[#FFFFFF]/85">
+          <div className="mt-6 space-y-6 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/85">
             <section>
-              <h2 className="text-lg font-extrabold text-[#56D7A1]">
+              <h2 className="text-lg font-extrabold text-[var(--color-menta)]">
                 1. Finalidad de los datos recolectados
               </h2>
               <p className="mt-2">
@@ -59,7 +59,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-extrabold text-[#56D7A1]">
+              <h2 className="text-lg font-extrabold text-[var(--color-menta)]">
                 2. Minimización y confidencialidad
               </h2>
               <p className="mt-2">
@@ -71,7 +71,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-extrabold text-[#56D7A1]">
+              <h2 className="text-lg font-extrabold text-[var(--color-menta)]">
                 3. Derechos de acceso, rectificación y supresión (Ley 25.326)
               </h2>
               <p className="mt-2">
@@ -83,7 +83,7 @@ export default function PrivacyPolicyPage() {
                   href={buildWhatsAppLink()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-bold text-[#56D7A1] underline"
+                  className="font-bold text-[var(--color-menta)] underline"
                 >
                   {INITIAL_SITE_CONFIG.whatsappDisplay}
                 </a>
@@ -92,7 +92,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-lg font-extrabold text-[#56D7A1]">
+              <h2 className="text-lg font-extrabold text-[var(--color-menta)]">
                 4. Seguridad de las comunicaciones
               </h2>
               <p className="mt-2">

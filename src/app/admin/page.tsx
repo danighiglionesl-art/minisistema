@@ -378,8 +378,8 @@ export default function AdminDashboardPage() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-[#112D3A] text-[#FFFFFF]">
-        <p className="text-sm font-bold text-[#56D7A1]">
+      <div className="flex min-h-dvh items-center justify-center bg-[var(--color-petroleo)] text-[var(--color-blanco)]">
+        <p className="text-sm font-bold text-[var(--color-menta)]">
           Verificando sesión administrativa de MiniSistema...
         </p>
       </div>
@@ -389,8 +389,8 @@ export default function AdminDashboardPage() {
   // Vista de Inicio de Sesión Privado (cumpliendo autofill-sign-in-form)
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-dvh flex-col justify-center bg-[#112D3A] px-4 py-12 text-[#FFFFFF]">
-        <div className="mx-auto w-full max-w-md rounded-3xl border-2 border-[#56D7A1]/50 bg-[#FFFFFF]/[0.03] p-6 sm:p-8 shadow-2xl">
+      <div className="flex min-h-dvh flex-col justify-center bg-[var(--color-petroleo)] px-4 py-12 text-[var(--color-blanco)]">
+        <div className="mx-auto w-full max-w-md rounded-3xl border-2 border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.03] p-6 sm:p-8 shadow-2xl">
           <div className="flex flex-col items-center text-center">
             <img
               src="/brand/header-isologotipo.png"
@@ -399,11 +399,11 @@ export default function AdminDashboardPage() {
               height={48}
               className="h-10 w-auto object-contain"
             />
-            <span className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[#56D7A1]/40 bg-[#56D7A1]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#56D7A1]">
+            <span className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--color-menta)]">
               <Lock className="h-3.5 w-3.5" />
               Panel Administrativo Privado
             </span>
-            <h1 className="mt-3 text-2xl font-extrabold text-[#FFFFFF]">
+            <h1 className="mt-3 text-2xl font-extrabold text-[var(--color-blanco)]">
               Iniciar sesión de administrador
             </h1>
           </div>
@@ -411,9 +411,9 @@ export default function AdminDashboardPage() {
           {loginError && (
             <div
               role="alert"
-              className="mt-5 flex items-center gap-2 rounded-xl border border-[#FFFFFF] bg-[#FFFFFF]/10 p-3 text-xs font-semibold text-[#FFFFFF]"
+              className="mt-5 flex items-center gap-2 rounded-xl border border-[var(--color-blanco)] bg-[var(--color-blanco)]/10 p-3 text-xs font-semibold text-[var(--color-blanco)]"
             >
-              <AlertCircle className="h-4 w-4 shrink-0 text-[#56D7A1]" />
+              <AlertCircle className="h-4 w-4 shrink-0 text-[var(--color-menta)]" />
               <span>{loginError}</span>
             </div>
           )}
@@ -422,7 +422,7 @@ export default function AdminDashboardPage() {
             <div>
               <label
                 htmlFor="admin-email"
-                className="block text-xs font-bold uppercase tracking-wider text-[#FFFFFF]"
+                className="block text-xs font-bold uppercase tracking-wider text-[var(--color-blanco)]"
               >
                 Correo electrónico de administrador
               </label>
@@ -437,7 +437,7 @@ export default function AdminDashboardPage() {
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 placeholder="admin@minisistema.com.ar"
-                className="mt-1.5 w-full rounded-xl border border-[#FFFFFF]/25 bg-[#112D3A] px-4 py-3 text-sm text-[#FFFFFF] focus:border-[#56D7A1] focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-[var(--color-blanco)]/25 bg-[var(--color-petroleo)] px-4 py-3 text-sm text-[var(--color-blanco)] focus:border-[var(--color-menta)] focus:outline-none"
               />
             </div>
 
@@ -445,14 +445,14 @@ export default function AdminDashboardPage() {
               <div className="flex items-center justify-between">
                 <label
                   htmlFor="admin-password"
-                  className="block text-xs font-bold uppercase tracking-wider text-[#FFFFFF]"
+                  className="block text-xs font-bold uppercase tracking-wider text-[var(--color-blanco)]"
                 >
                   Contraseña
                 </label>
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-[#56D7A1] hover:text-[#FFFFFF]"
+                  className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-[var(--color-menta)] hover:text-[var(--color-blanco)]"
                 >
                   {showPassword ? (
                     <>
@@ -476,23 +476,23 @@ export default function AdminDashboardPage() {
                 enterKeyHint="done"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#FFFFFF]/25 bg-[#112D3A] px-4 py-3 text-sm text-[#FFFFFF] focus:border-[#56D7A1] focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-[var(--color-blanco)]/25 bg-[var(--color-petroleo)] px-4 py-3 text-sm text-[var(--color-blanco)] focus:border-[var(--color-menta)] focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
               disabled={loggingIn}
-              className="w-full cursor-pointer rounded-xl bg-[#56D7A1] px-5 py-3.5 text-sm font-extrabold uppercase tracking-wide text-[#112D3A] transition-colors hover:bg-[#FFFFFF] disabled:opacity-60"
+              className="w-full cursor-pointer rounded-xl bg-[var(--color-menta)] px-5 py-3.5 text-sm font-extrabold uppercase tracking-wide text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)] disabled:opacity-60"
             >
               {loggingIn ? "Ingresando..." : "Iniciar sesión en Panel"}
             </button>
           </form>
 
-          <div className="mt-6 border-t border-[#FFFFFF]/10 pt-4 text-center">
+          <div className="mt-6 border-t border-[var(--color-blanco)]/10 pt-4 text-center">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#56D7A1] hover:text-[#FFFFFF]"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-menta)] hover:text-[var(--color-blanco)]"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Volver al sitio público de MiniSistema</span>
@@ -504,9 +504,9 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#112D3A] text-[#FFFFFF]">
+    <div className="min-h-dvh bg-[var(--color-petroleo)] text-[var(--color-blanco)]">
       {/* Encabezado del Panel Administrativo */}
-      <header className="sticky top-0 z-30 border-b border-[#FFFFFF]/15 bg-[#112D3A]/95 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-[var(--color-blanco)]/15 bg-[var(--color-petroleo)]/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <img
@@ -516,16 +516,16 @@ export default function AdminDashboardPage() {
               height={40}
               className="h-8 w-auto object-contain"
             />
-            <span className="rounded-lg border border-[#56D7A1]/40 bg-[#56D7A1]/15 px-2.5 py-1 text-xs font-extrabold text-[#56D7A1]">
+            <span className="rounded-lg border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-2.5 py-1 text-xs font-extrabold text-[var(--color-menta)]">
               PANEL ADMINISTRATIVO
             </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="hidden sm:inline text-xs text-[#FFFFFF]/75">{adminEmail}</span>
+            <span className="hidden sm:inline text-xs text-[var(--color-blanco)]/75">{adminEmail}</span>
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#FFFFFF]/20 px-3 py-2 text-xs font-bold text-[#FFFFFF] hover:border-[#56D7A1] hover:text-[#56D7A1]"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-blanco)]/20 px-3 py-2 text-xs font-bold text-[var(--color-blanco)] hover:border-[var(--color-menta)] hover:text-[var(--color-menta)]"
             >
               <Globe className="h-3.5 w-3.5" />
               <span>Ver sitio</span>
@@ -533,7 +533,7 @@ export default function AdminDashboardPage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#FFFFFF]/10 px-3 py-2 text-xs font-bold text-[#FFFFFF] hover:bg-[#56D7A1] hover:text-[#112D3A]"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[var(--color-blanco)]/10 px-3 py-2 text-xs font-bold text-[var(--color-blanco)] hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)]"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span>Salir</span>
@@ -543,14 +543,14 @@ export default function AdminDashboardPage() {
 
         {/* Pestañas de los 4 módulos obligatorios (Sección 19) */}
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <nav className="flex flex-wrap gap-2 border-t border-[#FFFFFF]/10 py-2.5">
+          <nav className="flex flex-wrap gap-2 border-t border-[var(--color-blanco)]/10 py-2.5">
             <button
               type="button"
               onClick={() => setActiveTab("consultas")}
               className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-extrabold transition-all ${
                 activeTab === "consultas"
-                  ? "bg-[#56D7A1] text-[#112D3A]"
-                  : "text-[#FFFFFF]/80 hover:bg-[#FFFFFF]/5"
+                  ? "bg-[var(--color-menta)] text-[var(--color-petroleo)]"
+                  : "text-[var(--color-blanco)]/80 hover:bg-[var(--color-blanco)]/5"
               }`}
             >
               <Inbox className="h-4 w-4" />
@@ -562,8 +562,8 @@ export default function AdminDashboardPage() {
               onClick={() => setActiveTab("proyectos")}
               className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-extrabold transition-all ${
                 activeTab === "proyectos"
-                  ? "bg-[#56D7A1] text-[#112D3A]"
-                  : "text-[#FFFFFF]/80 hover:bg-[#FFFFFF]/5"
+                  ? "bg-[var(--color-menta)] text-[var(--color-petroleo)]"
+                  : "text-[var(--color-blanco)]/80 hover:bg-[var(--color-blanco)]/5"
               }`}
             >
               <FolderKanban className="h-4 w-4" />
@@ -575,8 +575,8 @@ export default function AdminDashboardPage() {
               onClick={() => setActiveTab("contenidos")}
               className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-extrabold transition-all ${
                 activeTab === "contenidos"
-                  ? "bg-[#56D7A1] text-[#112D3A]"
-                  : "text-[#FFFFFF]/80 hover:bg-[#FFFFFF]/5"
+                  ? "bg-[var(--color-menta)] text-[var(--color-petroleo)]"
+                  : "text-[var(--color-blanco)]/80 hover:bg-[var(--color-blanco)]/5"
               }`}
             >
               <FileText className="h-4 w-4" />
@@ -588,8 +588,8 @@ export default function AdminDashboardPage() {
               onClick={() => setActiveTab("configuracion")}
               className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-extrabold transition-all ${
                 activeTab === "configuracion"
-                  ? "bg-[#56D7A1] text-[#112D3A]"
-                  : "text-[#FFFFFF]/80 hover:bg-[#FFFFFF]/5"
+                  ? "bg-[var(--color-menta)] text-[var(--color-petroleo)]"
+                  : "text-[var(--color-blanco)]/80 hover:bg-[var(--color-blanco)]/5"
               }`}
             >
               <Settings className="h-4 w-4" />
@@ -601,15 +601,15 @@ export default function AdminDashboardPage() {
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {feedbackBanner && (
-          <div className="mb-6 flex items-center gap-2 rounded-2xl border border-[#56D7A1] bg-[#56D7A1]/15 px-4 py-3 text-xs sm:text-sm font-bold text-[#56D7A1]">
+          <div className="mb-6 flex items-center gap-2 rounded-2xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-4 py-3 text-xs sm:text-sm font-bold text-[var(--color-menta)]">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>{feedbackBanner}</span>
           </div>
         )}
 
         {errorBanner && (
-          <div className="mb-6 flex items-center gap-2 rounded-2xl border border-[#FFFFFF] bg-[#FFFFFF]/10 px-4 py-3 text-xs sm:text-sm font-bold text-[#FFFFFF]">
-            <AlertCircle className="h-4 w-4 shrink-0 text-[#56D7A1]" />
+          <div className="mb-6 flex items-center gap-2 rounded-2xl border border-[var(--color-blanco)] bg-[var(--color-blanco)]/10 px-4 py-3 text-xs sm:text-sm font-bold text-[var(--color-blanco)]">
+            <AlertCircle className="h-4 w-4 shrink-0 text-[var(--color-menta)]" />
             <span>{errorBanner}</span>
           </div>
         )}
@@ -620,33 +620,33 @@ export default function AdminDashboardPage() {
         {activeTab === "consultas" && (
           <div className="space-y-6">
             {/* Barra de búsqueda, filtros y exportación CSV/Excel */}
-            <div className="rounded-3xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-5">
+            <div className="rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-5">
               <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
                 <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#56D7A1]">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-menta)]">
                       Buscar nombre o empresa
                     </label>
                     <div className="relative mt-1">
-                      <Search className="pointer-events-none absolute top-3 left-3 h-4 w-4 text-[#FFFFFF]/50" />
+                      <Search className="pointer-events-none absolute top-3 left-3 h-4 w-4 text-[var(--color-blanco)]/50" />
                       <input
                         type="search"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Nombre, negocio o ID..."
-                        className="w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] py-2 pr-3 pl-9 text-xs text-[#FFFFFF] focus:border-[#56D7A1] focus:outline-none"
+                        className="w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] py-2 pr-3 pl-9 text-xs text-[var(--color-blanco)] focus:border-[var(--color-menta)] focus:outline-none"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#56D7A1]">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-menta)]">
                       Filtrar por actividad
                     </label>
                     <select
                       value={filterActivity}
                       onChange={(e) => setFilterActivity(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3 py-2 text-xs text-[#FFFFFF]"
+                      className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3 py-2 text-xs text-[var(--color-blanco)]"
                     >
                       <option value="">Todas las actividades</option>
                       {CONFIGURATOR_STEP1_ACTIVITIES.map((act) => (
@@ -661,13 +661,13 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#56D7A1]">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-menta)]">
                       Estado comercial
                     </label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3 py-2 text-xs text-[#FFFFFF]"
+                      className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3 py-2 text-xs text-[var(--color-blanco)]"
                     >
                       <option value="">Todos los estados</option>
                       {VALID_LEAD_STATUSES.map((st) => (
@@ -679,26 +679,26 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#56D7A1]">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-menta)]">
                       Desde fecha
                     </label>
                     <input
                       type="date"
                       value={filterDateFrom}
                       onChange={(e) => setFilterDateFrom(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3 py-2 text-xs text-[#FFFFFF]"
+                      className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3 py-2 text-xs text-[var(--color-blanco)]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#56D7A1]">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-menta)]">
                       Hasta fecha
                     </label>
                     <input
                       type="date"
                       value={filterDateTo}
                       onChange={(e) => setFilterDateTo(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3 py-2 text-xs text-[#FFFFFF]"
+                      className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3 py-2 text-xs text-[var(--color-blanco)]"
                     />
                   </div>
                 </div>
@@ -706,7 +706,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={exportToCsvOrExcel}
-                  className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[#56D7A1] px-4 py-2.5 text-xs font-extrabold text-[#112D3A] transition-colors hover:bg-[#FFFFFF]"
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-4 py-2.5 text-xs font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
                 >
                   <Download className="h-4 w-4" />
                   <span>Exportar CSV / Excel ({filteredInquiries.length})</span>
@@ -721,17 +721,17 @@ export default function AdminDashboardPage() {
                   tabIndex={0}
                   role="region"
                   aria-labelledby="inquiries-table-caption"
-                  className="ms-table-wrapper rounded-3xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.02] p-4"
+                  className="ms-table-wrapper rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.02] p-4"
                 >
                   <table className="ms-responsive-table text-left text-xs">
                     <caption
                       id="inquiries-table-caption"
-                      className="mb-3 text-left text-sm font-extrabold text-[#56D7A1]"
+                      className="mb-3 text-left text-sm font-extrabold text-[var(--color-menta)]"
                     >
                       Listado de Consultas Comerciales Recibidas ({filteredInquiries.length})
                     </caption>
                     <thead>
-                      <tr className="border-b border-[#FFFFFF]/15 text-[11px] uppercase tracking-wider text-[#56D7A1]">
+                      <tr className="border-b border-[var(--color-blanco)]/15 text-[11px] uppercase tracking-wider text-[var(--color-menta)]">
                         <th className="p-3">Cliente / Negocio</th>
                         <th className="p-3">Actividad</th>
                         <th className="p-3">Necesidades</th>
@@ -741,10 +741,10 @@ export default function AdminDashboardPage() {
                         <th className="p-3">Acciones</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#FFFFFF]/10">
+                    <tbody className="divide-y divide-[var(--color-blanco)]/10">
                       {filteredInquiries.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-sm text-[#FFFFFF]/65">
+                          <td colSpan={7} className="p-8 text-center text-sm text-[var(--color-blanco)]/65">
                             No hay consultas que coincidan con los filtros seleccionados.
                           </td>
                         </tr>
@@ -752,30 +752,30 @@ export default function AdminDashboardPage() {
                         filteredInquiries.map((inq) => (
                           <tr
                             key={inq.id}
-                            className={`transition-colors hover:bg-[#FFFFFF]/[0.04] ${
-                              selectedInquiry?.id === inq.id ? "bg-[#56D7A1]/10" : ""
+                            className={`transition-colors hover:bg-[var(--color-blanco)]/[0.04] ${
+                              selectedInquiry?.id === inq.id ? "bg-[var(--color-blanco)]/10" : ""
                             }`}
                           >
-                            <th className="p-3 font-bold text-[#FFFFFF]">
-                              <span className="block text-[#56D7A1]">{inq.id}</span>
+                            <th className="p-3 font-bold text-[var(--color-blanco)]">
+                              <span className="block text-[var(--color-menta)]">{inq.id}</span>
                               <span>{inq.contact.fullName}</span>
-                              <span className="block text-[11px] font-normal text-[#FFFFFF]/70">
+                              <span className="block text-[11px] font-normal text-[var(--color-blanco)]/70">
                                 {inq.contact.businessName}
                               </span>
                             </th>
-                            <td className="p-3 text-[#FFFFFF]/85">{inq.businessActivity}</td>
-                            <td className="p-3 text-[#FFFFFF]/80">
+                            <td className="p-3 text-[var(--color-blanco)]/85">{inq.businessActivity}</td>
+                            <td className="p-3 text-[var(--color-blanco)]/80">
                               {inq.selectedNeeds.slice(0, 2).join(", ")}
                               {inq.selectedNeeds.length > 2 &&
                                 ` (+${inq.selectedNeeds.length - 2})`}
                             </td>
-                            <td className="p-3 text-[#FFFFFF]/85">
+                            <td className="p-3 text-[var(--color-blanco)]/85">
                               <span className="block">{inq.contact.whatsapp}</span>
-                              <span className="block text-[11px] text-[#FFFFFF]/65">
+                              <span className="block text-[11px] text-[var(--color-blanco)]/65">
                                 {inq.contact.email}
                               </span>
                             </td>
-                            <td className="p-3 text-[#FFFFFF]/75">
+                            <td className="p-3 text-[var(--color-blanco)]/75">
                               {new Date(inq.createdAt).toLocaleDateString("es-AR")}
                             </td>
                             <td className="p-3">
@@ -785,7 +785,7 @@ export default function AdminDashboardPage() {
                                 onChange={(e) =>
                                   handleUpdateInquiry(inq.id, e.target.value as LeadStatus)
                                 }
-                                className="rounded-lg border border-[#56D7A1]/50 bg-[#112D3A] px-2.5 py-1 text-xs font-bold text-[#56D7A1]"
+                                className="rounded-lg border border-[var(--color-menta)] bg-[var(--color-petroleo)] px-2.5 py-1 text-xs font-bold text-[var(--color-menta)]"
                               >
                                 {VALID_LEAD_STATUSES.map((st) => (
                                   <option key={st} value={st}>
@@ -798,7 +798,7 @@ export default function AdminDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => setSelectedInquiry(inq)}
-                                className="cursor-pointer rounded-lg bg-[#56D7A1] px-3 py-1.5 text-xs font-extrabold text-[#112D3A] hover:bg-[#FFFFFF]"
+                                className="cursor-pointer rounded-lg bg-[var(--color-menta)] px-3 py-1.5 text-xs font-extrabold text-[var(--color-petroleo)] hover:bg-[var(--color-blanco)]"
                               >
                                 Ver ficha
                               </button>
@@ -813,54 +813,54 @@ export default function AdminDashboardPage() {
 
               {/* Ficha de detalle de consulta + observaciones + historial de cambios */}
               {selectedInquiry && (
-                <div className="lg:col-span-5 rounded-3xl border-2 border-[#56D7A1] bg-[#FFFFFF]/[0.03] p-6">
-                  <div className="flex items-center justify-between border-b border-[#FFFFFF]/10 pb-3">
+                <div className="lg:col-span-5 rounded-3xl border-2 border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.03] p-6">
+                  <div className="flex items-center justify-between border-b border-[var(--color-blanco)]/10 pb-3">
                     <div>
-                      <span className="text-xs font-extrabold text-[#56D7A1]">
+                      <span className="text-xs font-extrabold text-[var(--color-menta)]">
                         {selectedInquiry.id} · {selectedInquiry.source.toUpperCase()}
                       </span>
-                      <h3 className="text-lg font-extrabold text-[#FFFFFF]">
+                      <h3 className="text-lg font-extrabold text-[var(--color-blanco)]">
                         {selectedInquiry.contact.fullName} ({selectedInquiry.contact.businessName})
                       </h3>
                     </div>
                     <button
                       type="button"
                       onClick={() => setSelectedInquiry(null)}
-                      className="rounded-lg border border-[#FFFFFF]/20 px-2.5 py-1 text-xs text-[#FFFFFF]/75 hover:border-[#56D7A1]"
+                      className="rounded-lg border border-[var(--color-blanco)]/20 px-2.5 py-1 text-xs text-[var(--color-blanco)]/75 hover:border-[var(--color-menta)]"
                     >
                       Cerrar
                     </button>
                   </div>
 
                   <div className="mt-4 space-y-3 text-xs">
-                    <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#112D3A] p-3">
+                    <div className="grid grid-cols-2 gap-2 rounded-xl bg-[var(--color-petroleo)] p-3">
                       <div>
-                        <span className="text-[#56D7A1] font-bold block">Creada:</span>
+                        <span className="text-[var(--color-menta)] font-bold block">Creada:</span>
                         <span>{new Date(selectedInquiry.createdAt).toLocaleString("es-AR")}</span>
                       </div>
                       <div>
-                        <span className="text-[#56D7A1] font-bold block">Actualizada:</span>
+                        <span className="text-[var(--color-menta)] font-bold block">Actualizada:</span>
                         <span>{new Date(selectedInquiry.updatedAt).toLocaleString("es-AR")}</span>
                       </div>
                       <div>
-                        <span className="text-[#56D7A1] font-bold block">Ubicación:</span>
+                        <span className="text-[var(--color-menta)] font-bold block">Ubicación:</span>
                         <span>
                           {selectedInquiry.contact.city}, {selectedInquiry.contact.province}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[#56D7A1] font-bold block">Sistema actual:</span>
+                        <span className="text-[var(--color-menta)] font-bold block">Sistema actual:</span>
                         <span>{selectedInquiry.currentSystemStatus}</span>
                       </div>
                     </div>
 
                     <div>
-                      <span className="font-bold text-[#56D7A1]">Necesidades seleccionadas:</span>
+                      <span className="font-bold text-[var(--color-menta)]">Necesidades seleccionadas:</span>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {selectedInquiry.selectedNeeds.map((n) => (
                           <span
                             key={n}
-                            className="rounded-md border border-[#56D7A1]/40 bg-[#56D7A1]/15 px-2 py-0.5 text-[11px] font-semibold text-[#56D7A1]"
+                            className="rounded-md border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-2 py-0.5 text-[11px] font-semibold text-[var(--color-menta)]"
                           >
                             {n}
                           </span>
@@ -869,15 +869,15 @@ export default function AdminDashboardPage() {
                     </div>
 
                     <div>
-                      <span className="font-bold text-[#56D7A1]">Descripción del proyecto:</span>
-                      <p className="mt-1 rounded-xl border border-[#FFFFFF]/10 bg-[#112D3A] p-3 text-[#FFFFFF]/90 whitespace-pre-line">
+                      <span className="font-bold text-[var(--color-menta)]">Descripción del proyecto:</span>
+                      <p className="mt-1 rounded-xl border border-[var(--color-blanco)]/10 bg-[var(--color-petroleo)] p-3 text-[var(--color-blanco)]/90 whitespace-pre-line">
                         {selectedInquiry.projectDescription}
                       </p>
                     </div>
 
                     {/* Registrar nueva observación */}
-                    <div className="border-t border-[#FFFFFF]/10 pt-3">
-                      <label className="block font-bold text-[#56D7A1]">
+                    <div className="border-t border-[var(--color-blanco)]/10 pt-3">
+                      <label className="block font-bold text-[var(--color-menta)]">
                         Registrar observación comercial
                       </label>
                       <div className="mt-1.5 flex gap-2">
@@ -886,7 +886,7 @@ export default function AdminDashboardPage() {
                           value={newObservationText}
                           onChange={(e) => setNewObservationText(e.target.value)}
                           placeholder="Ej: Se llamó por WhatsApp, enviar propuesta el viernes..."
-                          className="flex-1 rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3 py-2 text-xs text-[#FFFFFF]"
+                          className="flex-1 rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3 py-2 text-xs text-[var(--color-blanco)]"
                         />
                         <button
                           type="button"
@@ -897,7 +897,7 @@ export default function AdminDashboardPage() {
                               newObservationText
                             )
                           }
-                          className="inline-flex cursor-pointer items-center gap-1 rounded-xl bg-[#56D7A1] px-3 py-2 text-xs font-extrabold text-[#112D3A]"
+                          className="inline-flex cursor-pointer items-center gap-1 rounded-xl bg-[var(--color-menta)] px-3 py-2 text-xs font-extrabold text-[var(--color-petroleo)]"
                         >
                           <MessageSquarePlus className="h-3.5 w-3.5" />
                           <span>Guardar</span>
@@ -909,12 +909,12 @@ export default function AdminDashboardPage() {
                           {selectedInquiry.observations.map((obs) => (
                             <li
                               key={obs.id}
-                              className="rounded-lg border border-[#FFFFFF]/10 bg-[#112D3A]/80 p-2.5"
+                              className="rounded-lg border border-[var(--color-blanco)]/10 bg-[var(--color-petroleo)]/80 p-2.5"
                             >
-                              <span className="block text-[10px] text-[#56D7A1]">
+                              <span className="block text-[10px] text-[var(--color-menta)]">
                                 {new Date(obs.createdAt).toLocaleString("es-AR")} · {obs.author}
                               </span>
-                              <p className="mt-0.5 text-xs text-[#FFFFFF]">{obs.text}</p>
+                              <p className="mt-0.5 text-xs text-[var(--color-blanco)]">{obs.text}</p>
                             </li>
                           ))}
                         </ul>
@@ -922,8 +922,8 @@ export default function AdminDashboardPage() {
                     </div>
 
                     {/* Registro básico de cambios (Auditoría) */}
-                    <div className="border-t border-[#FFFFFF]/10 pt-3">
-                      <span className="flex items-center gap-1.5 font-bold text-[#56D7A1]">
+                    <div className="border-t border-[var(--color-blanco)]/10 pt-3">
+                      <span className="flex items-center gap-1.5 font-bold text-[var(--color-menta)]">
                         <Clock className="h-3.5 w-3.5" />
                         Registro de cambios
                       </span>
@@ -931,9 +931,9 @@ export default function AdminDashboardPage() {
                         {selectedInquiry.changeLog.map((log) => (
                           <li
                             key={log.id}
-                            className="rounded-lg bg-[#112D3A]/60 px-2.5 py-1.5 text-[11px] text-[#FFFFFF]/80"
+                            className="rounded-lg bg-[var(--color-petroleo)]/60 px-2.5 py-1.5 text-[11px] text-[var(--color-blanco)]/80"
                           >
-                            <span className="font-bold text-[#56D7A1]">
+                            <span className="font-bold text-[var(--color-menta)]">
                               {new Date(log.timestamp).toLocaleString("es-AR")}:
                             </span>{" "}
                             {log.action}
@@ -953,12 +953,12 @@ export default function AdminDashboardPage() {
            =============================================================== */}
         {activeTab === "proyectos" && (
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-6">
               <div>
-                <h2 className="text-xl font-extrabold text-[#FFFFFF]">
+                <h2 className="text-xl font-extrabold text-[var(--color-blanco)]">
                   Portafolio Administrable de Proyectos
                 </h2>
-                <p className="mt-1 text-xs sm:text-sm text-[#FFFFFF]/75">
+                <p className="mt-1 text-xs sm:text-sm text-[var(--color-blanco)]/75">
                   Cargá, modificá, publicá o despublicá casos reales (como Casa Nueva, Campo Directo
                   y Biblioteca Roncedo) una vez aprobados sus textos e imágenes.
                 </p>
@@ -966,7 +966,7 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={() => startEditProject()}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#56D7A1] px-4 py-2.5 text-xs font-extrabold text-[#112D3A]"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-4 py-2.5 text-xs font-extrabold text-[var(--color-petroleo)]"
               >
                 <Plus className="h-4 w-4" />
                 <span>Nuevo proyecto</span>
@@ -976,15 +976,15 @@ export default function AdminDashboardPage() {
             {editingProject && (
               <form
                 onSubmit={handleSaveProject}
-                className="rounded-3xl border-2 border-[#56D7A1] bg-[#FFFFFF]/[0.04] p-6 space-y-4"
+                className="rounded-3xl border-2 border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.04] p-6 space-y-4"
               >
-                <h3 className="text-lg font-extrabold text-[#56D7A1]">
+                <h3 className="text-lg font-extrabold text-[var(--color-menta)]">
                   {editingProject.id ? `Editar: ${editingProject.name}` : "Cargar nuevo proyecto"}
                 </h3>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
-                    <label className="block text-xs font-bold uppercase text-[#FFFFFF]">
+                    <label className="block text-xs font-bold uppercase text-[var(--color-blanco)]">
                       Nombre del proyecto *
                     </label>
                     <input
@@ -994,11 +994,11 @@ export default function AdminDashboardPage() {
                       onChange={(e) =>
                         setEditingProject({ ...editingProject, name: e.target.value })
                       }
-                      className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3 py-2 text-xs text-[#FFFFFF]"
+                      className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3 py-2 text-xs text-[var(--color-blanco)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase text-[#FFFFFF]">
+                    <label className="block text-xs font-bold uppercase text-[var(--color-blanco)]">
                       Actividad / Rubro *
                     </label>
                     <input
@@ -1008,11 +1008,11 @@ export default function AdminDashboardPage() {
                       onChange={(e) =>
                         setEditingProject({ ...editingProject, activity: e.target.value })
                       }
-                      className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3 py-2 text-xs text-[#FFFFFF]"
+                      className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3 py-2 text-xs text-[var(--color-blanco)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase text-[#FFFFFF]">
+                    <label className="block text-xs font-bold uppercase text-[var(--color-blanco)]">
                       Estado del proyecto
                     </label>
                     <select
@@ -1023,7 +1023,7 @@ export default function AdminDashboardPage() {
                           status: e.target.value as PortfolioProject["status"],
                         })
                       }
-                      className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3 py-2 text-xs text-[#FFFFFF]"
+                      className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3 py-2 text-xs text-[var(--color-blanco)]"
                     >
                       <option value="En preparación de caso">En preparación de caso</option>
                       <option value="En desarrollo">En desarrollo</option>
@@ -1034,7 +1034,7 @@ export default function AdminDashboardPage() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-bold uppercase text-[#FFFFFF]">
+                    <label className="block text-xs font-bold uppercase text-[var(--color-blanco)]">
                       Descripción comercial *
                     </label>
                     <textarea
@@ -1044,11 +1044,11 @@ export default function AdminDashboardPage() {
                       onChange={(e) =>
                         setEditingProject({ ...editingProject, description: e.target.value })
                       }
-                      className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] p-3 text-xs text-[#FFFFFF]"
+                      className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] p-3 text-xs text-[var(--color-blanco)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase text-[#FFFFFF]">
+                    <label className="block text-xs font-bold uppercase text-[var(--color-blanco)]">
                       Problema que resuelve *
                     </label>
                     <textarea
@@ -1058,26 +1058,26 @@ export default function AdminDashboardPage() {
                       onChange={(e) =>
                         setEditingProject({ ...editingProject, problemSolved: e.target.value })
                       }
-                      className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] p-3 text-xs text-[#FFFFFF]"
+                      className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] p-3 text-xs text-[var(--color-blanco)]"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-bold uppercase text-[#FFFFFF]">
+                    <label className="block text-xs font-bold uppercase text-[var(--color-blanco)]">
                       Funcionalidades (una por línea)
                     </label>
                     <textarea
                       rows={4}
                       value={featuresText}
                       onChange={(e) => setFeaturesText(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] p-3 text-xs text-[#FFFFFF]"
+                      className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] p-3 text-xs text-[var(--color-blanco)]"
                     />
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs font-bold uppercase text-[#FFFFFF]">
+                      <label className="block text-xs font-bold uppercase text-[var(--color-blanco)]">
                         Enlace público (opcional)
                       </label>
                       <input
@@ -1087,7 +1087,7 @@ export default function AdminDashboardPage() {
                           setEditingProject({ ...editingProject, publicUrl: e.target.value })
                         }
                         placeholder="https://..."
-                        className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3 py-2 text-xs text-[#FFFFFF]"
+                        className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3 py-2 text-xs text-[var(--color-blanco)]"
                       />
                     </div>
                     <div className="flex items-center gap-2 pt-2">
@@ -1098,9 +1098,9 @@ export default function AdminDashboardPage() {
                         onChange={(e) =>
                           setEditingProject({ ...editingProject, published: e.target.checked })
                         }
-                        className="h-4 w-4 accent-[#56D7A1]"
+                        className="h-4 w-4 accent-[var(--color-menta)]"
                       />
-                      <label htmlFor="proj-published" className="text-xs font-bold text-[#56D7A1]">
+                      <label htmlFor="proj-published" className="text-xs font-bold text-[var(--color-menta)]">
                         Publicar proyecto visiblemente en la página principal
                       </label>
                     </div>
@@ -1110,14 +1110,14 @@ export default function AdminDashboardPage() {
                 <div className="flex gap-3 pt-2">
                   <button
                     type="submit"
-                    className="cursor-pointer rounded-xl bg-[#56D7A1] px-5 py-2.5 text-xs font-extrabold text-[#112D3A]"
+                    className="cursor-pointer rounded-xl bg-[var(--color-menta)] px-5 py-2.5 text-xs font-extrabold text-[var(--color-petroleo)]"
                   >
                     Guardar proyecto
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingProject(null)}
-                    className="cursor-pointer rounded-xl border border-[#FFFFFF]/20 px-4 py-2.5 text-xs font-bold text-[#FFFFFF]"
+                    className="cursor-pointer rounded-xl border border-[var(--color-blanco)]/20 px-4 py-2.5 text-xs font-bold text-[var(--color-blanco)]"
                   >
                     Cancelar
                   </button>
@@ -1129,37 +1129,37 @@ export default function AdminDashboardPage() {
               {projects.map((proj) => (
                 <div
                   key={proj.id}
-                  className="flex flex-col justify-between rounded-3xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-5"
+                  className="flex flex-col justify-between rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-5"
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#56D7A1]">{proj.activity}</span>
+                      <span className="text-xs font-bold text-[var(--color-menta)]">{proj.activity}</span>
                       <span
                         className={`rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase ${
                           proj.published
-                            ? "bg-[#56D7A1] text-[#112D3A]"
-                            : "border border-[#FFFFFF]/25 text-[#FFFFFF]/70"
+                            ? "bg-[var(--color-menta)] text-[var(--color-petroleo)]"
+                            : "border border-[var(--color-blanco)]/25 text-[var(--color-blanco)]/70"
                         }`}
                       >
                         {proj.published ? "Publicado" : "Borrador / Oculto"}
                       </span>
                     </div>
-                    <h3 className="mt-2 text-lg font-extrabold text-[#FFFFFF]">{proj.name}</h3>
-                    <p className="mt-1.5 text-xs text-[#FFFFFF]/75">{proj.description}</p>
+                    <h3 className="mt-2 text-lg font-extrabold text-[var(--color-blanco)]">{proj.name}</h3>
+                    <p className="mt-1.5 text-xs text-[var(--color-blanco)]/75">{proj.description}</p>
                   </div>
 
-                  <div className="mt-5 flex flex-wrap gap-2 border-t border-[#FFFFFF]/10 pt-4">
+                  <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--color-blanco)]/10 pt-4">
                     <button
                       type="button"
                       onClick={() => startEditProject(proj)}
-                      className="cursor-pointer rounded-lg border border-[#56D7A1]/50 px-3 py-1.5 text-xs font-bold text-[#56D7A1] hover:bg-[#56D7A1] hover:text-[#112D3A]"
+                      className="cursor-pointer rounded-lg border border-[var(--color-menta)] px-3 py-1.5 text-xs font-bold text-[var(--color-menta)] hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)]"
                     >
                       Editar
                     </button>
                     <button
                       type="button"
                       onClick={() => handleTogglePublishProject(proj)}
-                      className="cursor-pointer rounded-lg bg-[#FFFFFF]/10 px-3 py-1.5 text-xs font-bold text-[#FFFFFF] hover:bg-[#56D7A1] hover:text-[#112D3A]"
+                      className="cursor-pointer rounded-lg bg-[var(--color-blanco)]/10 px-3 py-1.5 text-xs font-bold text-[var(--color-blanco)] hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)]"
                     >
                       {proj.published ? "Despublicar" : "Publicar"}
                     </button>
@@ -1167,7 +1167,7 @@ export default function AdminDashboardPage() {
                       type="button"
                       onClick={() => handleDeleteProject(proj.id)}
                       aria-label={`Eliminar ${proj.name}`}
-                      className="ml-auto cursor-pointer rounded-lg border border-[#FFFFFF]/15 p-1.5 text-[#FFFFFF]/60 hover:text-[#FFFFFF]"
+                      className="ml-auto cursor-pointer rounded-lg border border-[var(--color-blanco)]/15 p-1.5 text-[var(--color-blanco)]/60 hover:text-[var(--color-blanco)]"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -1183,13 +1183,13 @@ export default function AdminDashboardPage() {
            =============================================================== */}
         {activeTab === "contenidos" && commercialContent && (
           <form onSubmit={handleSaveContents} className="space-y-6">
-            <div className="rounded-3xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-6 space-y-4">
-              <h2 className="text-xl font-extrabold text-[#FFFFFF]">
+            <div className="rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-6 space-y-4">
+              <h2 className="text-xl font-extrabold text-[var(--color-blanco)]">
                 Textos Comerciales Principales
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-bold uppercase text-[#56D7A1]">
+                  <label className="block text-xs font-bold uppercase text-[var(--color-menta)]">
                     Subtítulo Portada Hero
                   </label>
                   <textarea
@@ -1201,11 +1201,11 @@ export default function AdminDashboardPage() {
                         heroSubtitle: e.target.value,
                       })
                     }
-                    className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] p-3 text-xs text-[#FFFFFF]"
+                    className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] p-3 text-xs text-[var(--color-blanco)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase text-[#56D7A1]">
+                  <label className="block text-xs font-bold uppercase text-[var(--color-menta)]">
                     Eslogan de Evolución
                   </label>
                   <input
@@ -1217,15 +1217,15 @@ export default function AdminDashboardPage() {
                         evolutionSlogan: e.target.value,
                       })
                     }
-                    className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3 py-2.5 text-xs text-[#FFFFFF]"
+                    className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3 py-2.5 text-xs text-[var(--color-blanco)]"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-6 space-y-4">
+            <div className="rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-extrabold text-[#FFFFFF]">
+                <h2 className="text-xl font-extrabold text-[var(--color-blanco)]">
                   Preguntas Frecuentes ({faqs.length})
                 </h2>
                 <button
@@ -1240,7 +1240,7 @@ export default function AdminDashboardPage() {
                       },
                     ])
                   }
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#56D7A1] px-3.5 py-2 text-xs font-extrabold text-[#112D3A]"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[var(--color-menta)] px-3.5 py-2 text-xs font-extrabold text-[var(--color-petroleo)]"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Agregar pregunta</span>
@@ -1251,7 +1251,7 @@ export default function AdminDashboardPage() {
                 {faqs.map((faq, idx) => (
                   <div
                     key={faq.id}
-                    className="rounded-2xl border border-[#FFFFFF]/15 bg-[#112D3A] p-4 space-y-2.5"
+                    className="rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-petroleo)] p-4 space-y-2.5"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <input
@@ -1262,12 +1262,12 @@ export default function AdminDashboardPage() {
                           next[idx] = { ...faq, question: e.target.value };
                           setFaqs(next);
                         }}
-                        className="flex-1 rounded-lg border border-[#FFFFFF]/20 bg-[#FFFFFF]/5 px-3 py-1.5 text-xs font-bold text-[#FFFFFF]"
+                        className="flex-1 rounded-lg border border-[var(--color-blanco)]/20 bg-[var(--color-blanco)]/5 px-3 py-1.5 text-xs font-bold text-[var(--color-blanco)]"
                       />
                       <button
                         type="button"
                         onClick={() => setFaqs(faqs.filter((_, i) => i !== idx))}
-                        className="cursor-pointer rounded-lg border border-[#FFFFFF]/15 p-1.5 text-[#FFFFFF]/65 hover:text-[#FFFFFF]"
+                        className="cursor-pointer rounded-lg border border-[var(--color-blanco)]/15 p-1.5 text-[var(--color-blanco)]/65 hover:text-[var(--color-blanco)]"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -1280,7 +1280,7 @@ export default function AdminDashboardPage() {
                         next[idx] = { ...faq, answer: e.target.value };
                         setFaqs(next);
                       }}
-                      className="w-full rounded-lg border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.02] p-2.5 text-xs text-[#FFFFFF]/85"
+                      className="w-full rounded-lg border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.02] p-2.5 text-xs text-[var(--color-blanco)]/85"
                     />
                   </div>
                 ))}
@@ -1288,7 +1288,7 @@ export default function AdminDashboardPage() {
 
               <button
                 type="submit"
-                className="cursor-pointer rounded-xl bg-[#56D7A1] px-6 py-3 text-xs sm:text-sm font-extrabold text-[#112D3A]"
+                className="cursor-pointer rounded-xl bg-[var(--color-menta)] px-6 py-3 text-xs sm:text-sm font-extrabold text-[var(--color-petroleo)]"
               >
                 Guardar contenidos y preguntas frecuentes
               </button>
@@ -1302,13 +1302,13 @@ export default function AdminDashboardPage() {
         {activeTab === "configuracion" && siteConfig && (
           <form
             onSubmit={handleSaveSettings}
-            className="rounded-3xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/[0.03] p-6 sm:p-8 space-y-5"
+            className="rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-6 sm:p-8 space-y-5"
           >
             <div>
-              <h2 className="text-xl font-extrabold text-[#FFFFFF]">
+              <h2 className="text-xl font-extrabold text-[var(--color-blanco)]">
                 Configuración de Canales Oficiales e Información Institucional
               </h2>
-              <p className="mt-1 text-xs sm:text-sm text-[#FFFFFF]/75">
+              <p className="mt-1 text-xs sm:text-sm text-[var(--color-blanco)]/75">
                 Todos los cambios se validan antes de publicarse y actualizan los enlaces del sitio
                 sin necesidad de editar el código fuente.
               </p>
@@ -1316,7 +1316,7 @@ export default function AdminDashboardPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-bold uppercase text-[#56D7A1]">
+                <label className="block text-xs font-bold uppercase text-[var(--color-menta)]">
                   Número de WhatsApp (solo dígitos con país) *
                 </label>
                 <input
@@ -1326,12 +1326,12 @@ export default function AdminDashboardPage() {
                   onChange={(e) =>
                     setSiteConfig({ ...siteConfig, whatsappNumber: e.target.value })
                   }
-                  className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3.5 py-2.5 text-xs text-[#FFFFFF]"
+                  className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3.5 py-2.5 text-xs text-[var(--color-blanco)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-[#56D7A1]">
+                <label className="block text-xs font-bold uppercase text-[var(--color-menta)]">
                   Formato visible de WhatsApp *
                 </label>
                 <input
@@ -1341,12 +1341,12 @@ export default function AdminDashboardPage() {
                   onChange={(e) =>
                     setSiteConfig({ ...siteConfig, whatsappDisplay: e.target.value })
                   }
-                  className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3.5 py-2.5 text-xs text-[#FFFFFF]"
+                  className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3.5 py-2.5 text-xs text-[var(--color-blanco)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-[#56D7A1]">
+                <label className="block text-xs font-bold uppercase text-[var(--color-menta)]">
                   Instagram Oficial *
                 </label>
                 <input
@@ -1356,12 +1356,12 @@ export default function AdminDashboardPage() {
                   onChange={(e) =>
                     setSiteConfig({ ...siteConfig, instagramUrl: e.target.value })
                   }
-                  className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3.5 py-2.5 text-xs text-[#FFFFFF]"
+                  className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3.5 py-2.5 text-xs text-[var(--color-blanco)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-[#56D7A1]">
+                <label className="block text-xs font-bold uppercase text-[var(--color-menta)]">
                   Facebook Oficial *
                 </label>
                 <input
@@ -1371,12 +1371,12 @@ export default function AdminDashboardPage() {
                   onChange={(e) =>
                     setSiteConfig({ ...siteConfig, facebookUrl: e.target.value })
                   }
-                  className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3.5 py-2.5 text-xs text-[#FFFFFF]"
+                  className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3.5 py-2.5 text-xs text-[var(--color-blanco)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-[#56D7A1]">
+                <label className="block text-xs font-bold uppercase text-[var(--color-menta)]">
                   Correo electrónico comercial (opcional hasta confirmar)
                 </label>
                 <input
@@ -1389,12 +1389,12 @@ export default function AdminDashboardPage() {
                     })
                   }
                   placeholder="Sin correo público hasta ser proporcionado"
-                  className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3.5 py-2.5 text-xs text-[#FFFFFF]"
+                  className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3.5 py-2.5 text-xs text-[var(--color-blanco)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-[#56D7A1]">
+                <label className="block text-xs font-bold uppercase text-[var(--color-menta)]">
                   Destinatarios de notificaciones (separados por coma)
                 </label>
                 <input
@@ -1402,13 +1402,13 @@ export default function AdminDashboardPage() {
                   value={recipientsInput}
                   onChange={(e) => setRecipientsInput(e.target.value)}
                   placeholder="correo1@minisistema.com.ar, correo2@minisistema.com.ar"
-                  className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] px-3.5 py-2.5 text-xs text-[#FFFFFF]"
+                  className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] px-3.5 py-2.5 text-xs text-[var(--color-blanco)]"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-[#56D7A1]">
+              <label className="block text-xs font-bold uppercase text-[var(--color-menta)]">
                 Mensaje inicial predeterminado de WhatsApp *
               </label>
               <textarea
@@ -1421,13 +1421,13 @@ export default function AdminDashboardPage() {
                     defaultWhatsappMessage: e.target.value,
                   })
                 }
-                className="mt-1 w-full rounded-xl border border-[#FFFFFF]/20 bg-[#112D3A] p-3 text-xs text-[#FFFFFF]"
+                className="mt-1 w-full rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] p-3 text-xs text-[var(--color-blanco)]"
               />
             </div>
 
             <button
               type="submit"
-              className="cursor-pointer rounded-xl bg-[#56D7A1] px-6 py-3.5 text-xs sm:text-sm font-extrabold text-[#112D3A]"
+              className="cursor-pointer rounded-xl bg-[var(--color-menta)] px-6 py-3.5 text-xs sm:text-sm font-extrabold text-[var(--color-petroleo)]"
             >
               Validar y guardar configuración oficial
             </button>

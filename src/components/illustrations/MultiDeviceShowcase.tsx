@@ -115,20 +115,20 @@ export function MultiDeviceShowcase() {
   const current = SCENARIOS[activeScenario];
 
   return (
-    <div className="relative w-full">
-      {/* Resplandor decorativo sutil en verde menta (solo colores institucionales) */}
+    <div className="relative w-full isolate">
+      {/* Iluminación ambiental verde menta sutil detrás del ecosistema de pantallas */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -inset-4 rounded-3xl bg-[#56D7A1]/10 blur-2xl animate-pulse-glow"
+        className="ms-mint-halo pointer-events-none absolute -inset-8 rounded-full blur-2xl animate-pulse-glow"
       />
 
-      {/* Contenedor general de la composición multi-dispositivo */}
-      <div className="relative rounded-3xl border border-[#FFFFFF]/15 bg-[#112D3A]/90 p-4 sm:p-6 shadow-2xl backdrop-blur-md">
+      {/* Contenedor general de la composición multi-dispositivo con profundidad en capas */}
+      <div className="ms-depth-card relative rounded-3xl border border-[var(--color-menta)]/35 bg-[var(--color-petroleo)]/95 p-4 sm:p-6 backdrop-blur-md">
         {/* Barra superior de selección de ejemplo ilustrativo */}
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#FFFFFF]/10 pb-3.5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[var(--color-blanco)]/10 pb-3.5">
           <div className="flex items-center gap-2">
-            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#56D7A1]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#56D7A1]">
+            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-menta)] shadow-[0_0_8px_var(--color-menta)]" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-menta)]">
               Ejemplo ilustrativo · Un mismo sistema en todas tus pantallas
             </span>
           </div>
@@ -150,8 +150,8 @@ export function MultiDeviceShowcase() {
                   onClick={() => setActiveScenario(item.id)}
                   className={`cursor-pointer rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all ${
                     isSelected
-                      ? "bg-[#56D7A1] text-[#112D3A] shadow-sm"
-                      : "bg-[#FFFFFF]/5 text-[#FFFFFF]/80 hover:bg-[#FFFFFF]/10 hover:text-[#FFFFFF]"
+                      ? "bg-[var(--color-menta)] text-[var(--color-petroleo)] shadow-sm"
+                      : "bg-[var(--color-blanco)]/5 text-[var(--color-blanco)]/80 hover:bg-[var(--color-blanco)]/10 hover:text-[var(--color-blanco)]"
                   }`}
                 >
                   {item.tabLabel}
@@ -161,78 +161,107 @@ export function MultiDeviceShowcase() {
           </div>
         </div>
 
-        {/* 1. COMPUTADORA DE ESCRITORIO (Pantalla Principal) */}
-        <div className="rounded-2xl border border-[#FFFFFF]/20 bg-[#112D3A] p-3 sm:p-4 shadow-xl">
+        {/* 1. COMPUTADORA DE ESCRITORIO (Pantalla Principal con mini gráfico tecnológico) */}
+        <div
+          key={current.id}
+          className="animate-fade-up-subtle rounded-2xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] p-3.5 sm:p-4 shadow-2xl"
+        >
           {/* Barra ventana navegador */}
-          <div className="flex items-center justify-between border-b border-[#FFFFFF]/10 pb-2.5">
+          <div className="flex items-center justify-between border-b border-[var(--color-blanco)]/10 pb-2.5">
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#FFFFFF]/25" />
-              <span className="h-2.5 w-2.5 rounded-full bg-[#FFFFFF]/45" />
-              <span className="h-2.5 w-2.5 rounded-full bg-[#56D7A1]" />
-              <span className="ml-2 text-xs font-bold text-[#FFFFFF]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-blanco)]/25" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-blanco)]/45" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-menta)]" />
+              <span className="ml-2 text-xs font-bold text-[var(--color-blanco)]">
                 {current.systemTitle}
               </span>
             </div>
-            <span className="hidden sm:inline-flex items-center gap-1 rounded-md border border-[#56D7A1]/30 bg-[#56D7A1]/10 px-2 py-0.5 text-[10px] font-semibold text-[#56D7A1]">
+            <span className="hidden sm:inline-flex items-center gap-1 rounded-md border border-[var(--color-menta)] bg-[var(--color-menta)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--color-menta)]">
               <Sliders className="h-3 w-3" />
               100% Personalizado
             </span>
           </div>
 
-          {/* Subtítulo del rubro ilustrativo */}
-          <div className="mt-2.5 flex items-center justify-between text-[11px] text-[#FFFFFF]/70">
+          {/* Subtítulo del rubro ilustrativo + curva tecnológica SVG */}
+          <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px] text-[var(--color-blanco)]/75">
             <span>{current.businessType}</span>
-            <span className="inline-flex items-center gap-1 text-[#56D7A1] font-medium">
+            <span className="inline-flex items-center gap-1.5 text-[var(--color-menta)] font-semibold">
               <RefreshCw className="h-3 w-3" /> En línea
             </span>
           </div>
 
-          {/* Tarjetas KPI de la interfaz */}
+          {/* Tarjetas KPI de la interfaz con mini barra de progreso visual */}
           <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
-            {current.kpis.map((kpi) => (
+            {current.kpis.map((kpi, idx) => (
               <div
                 key={kpi.label}
-                className="rounded-xl border border-[#FFFFFF]/10 bg-[#FFFFFF]/[0.04] p-2.5 sm:p-3"
+                className="relative overflow-hidden rounded-xl border border-[var(--color-blanco)]/12 bg-[var(--color-blanco)]/[0.04] p-2.5 sm:p-3"
               >
-                <p className="text-[10px] sm:text-xs text-[#FFFFFF]/70 truncate">
+                <p className="text-[10px] sm:text-xs text-[var(--color-blanco)]/70 truncate">
                   {kpi.label}
                 </p>
-                <p className="mt-0.5 text-sm sm:text-lg font-extrabold text-[#56D7A1]">
-                  {kpi.value}
-                </p>
-                <p className="mt-0.5 hidden sm:block text-[10px] text-[#FFFFFF]/60 truncate">
+                <div className="mt-1 flex items-end justify-between gap-1">
+                  <p className="text-sm sm:text-lg font-extrabold text-[var(--color-menta)]">
+                    {kpi.value}
+                  </p>
+                  {/* Mini indicador gráfico tecnológico en SVG */}
+                  <svg
+                    viewBox="0 0 36 16"
+                    className="hidden sm:block h-4 w-9 shrink-0"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d={
+                        idx === 0
+                          ? "M2 13 L10 9 L18 11 L26 5 L34 3"
+                          : idx === 1
+                          ? "M2 12 L10 10 L18 6 L26 8 L34 4"
+                          : "M2 11 L12 11 L20 7 L28 7 L34 3"
+                      }
+                      fill="none"
+                      stroke="#56D7A1"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <p className="mt-1 hidden sm:block text-[10px] text-[var(--color-blanco)]/60 truncate">
                   {kpi.note}
                 </p>
               </div>
             ))}
           </div>
 
-          {/* Lista de actividad organizada */}
-          <div className="mt-3 rounded-xl border border-[#FFFFFF]/10 bg-[#FFFFFF]/[0.02] p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[#FFFFFF]/90 flex items-center gap-1.5">
-                <BarChart3 className="h-3.5 w-3.5 text-[#56D7A1]" />
+          {/* Lista de actividad organizada + gráfico de actividad en vivo */}
+          <div className="mt-3 rounded-xl border border-[var(--color-blanco)]/10 bg-[var(--color-blanco)]/[0.03] p-3">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs font-bold text-[var(--color-blanco)]/95 flex items-center gap-1.5">
+                <BarChart3 className="h-3.5 w-3.5 text-[var(--color-menta)]" />
                 {current.recentItemsTitle}
               </span>
-              <span className="text-[10px] font-semibold text-[#56D7A1]">
-                Vista Desktop
+              <span className="rounded bg-[var(--color-menta)]/15 px-2 py-0.5 text-[10px] font-bold text-[var(--color-menta)]">
+                Vista Computadora
               </span>
             </div>
             <div className="space-y-2">
               {current.recentItems.map((item) => (
                 <div
                   key={item.title}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-[#FFFFFF]/5 bg-[#112D3A]/80 px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-blanco)]/10 bg-[var(--color-petroleo)]/90 px-3 py-2 transition-colors hover:border-[var(--color-menta)]/50"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-[#FFFFFF]">
-                      {item.title}
-                    </p>
-                    <p className="truncate text-[11px] text-[#FFFFFF]/65">
-                      {item.subtitle}
-                    </p>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-menta)]" />
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold text-[var(--color-blanco)]">
+                        {item.title}
+                      </p>
+                      <p className="truncate text-[11px] text-[var(--color-blanco)]/65">
+                        {item.subtitle}
+                      </p>
+                    </div>
                   </div>
-                  <span className="shrink-0 rounded-md border border-[#56D7A1]/40 bg-[#56D7A1]/15 px-2 py-0.5 text-[10px] font-bold text-[#56D7A1]">
+                  <span className="shrink-0 rounded-md border border-[var(--color-menta)]/60 bg-[var(--color-menta)]/10 px-2 py-0.5 text-[10px] font-bold text-[var(--color-menta)]">
                     {item.badge}
                   </span>
                 </div>
@@ -241,16 +270,16 @@ export function MultiDeviceShowcase() {
           </div>
         </div>
 
-        {/* 2. TABLET Y 3. TELÉFONO MÓVIL (Adaptación simultánea) */}
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-12">
+        {/* 2. TABLET Y 3. TELÉFONO MÓVIL (Capas con profundidad espacial) */}
+        <div className="mt-3.5 grid grid-cols-1 gap-3.5 sm:grid-cols-12">
           {/* TABLET */}
-          <div className="sm:col-span-7 rounded-2xl border border-[#FFFFFF]/20 bg-[#112D3A] p-3.5 shadow-lg">
-            <div className="flex items-center justify-between border-b border-[#FFFFFF]/10 pb-2">
-              <span className="flex items-center gap-1.5 text-xs font-bold text-[#FFFFFF]">
-                <LayoutDashboard className="h-3.5 w-3.5 text-[#56D7A1]" />
+          <div className="sm:col-span-7 rounded-2xl border border-[var(--color-blanco)]/20 bg-[var(--color-petroleo)] p-3.5 shadow-xl">
+            <div className="flex items-center justify-between border-b border-[var(--color-blanco)]/10 pb-2">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-blanco)]">
+                <LayoutDashboard className="h-3.5 w-3.5 text-[var(--color-menta)]" />
                 {current.tabletTitle}
               </span>
-              <span className="rounded bg-[#FFFFFF]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#FFFFFF]/80">
+              <span className="rounded border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/5 px-2 py-0.5 text-[10px] font-semibold text-[var(--color-blanco)]/85">
                 Tablet
               </span>
             </div>
@@ -258,13 +287,13 @@ export function MultiDeviceShowcase() {
               {current.tabletItems.map((tItem) => (
                 <div
                   key={tItem.name}
-                  className="flex items-center justify-between rounded-lg bg-[#FFFFFF]/[0.04] px-2.5 py-2 text-xs"
+                  className="flex items-center justify-between rounded-lg border border-[var(--color-blanco)]/5 bg-[var(--color-blanco)]/[0.04] px-2.5 py-2 text-xs"
                 >
                   <div>
-                    <p className="font-semibold text-[#FFFFFF]">{tItem.name}</p>
-                    <p className="text-[11px] text-[#FFFFFF]/65">{tItem.meta}</p>
+                    <p className="font-semibold text-[var(--color-blanco)]">{tItem.name}</p>
+                    <p className="text-[11px] text-[var(--color-blanco)]/65">{tItem.meta}</p>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#56D7A1]">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--color-menta)]">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     {tItem.status}
                   </span>
@@ -274,18 +303,18 @@ export function MultiDeviceShowcase() {
           </div>
 
           {/* TELÉFONO CELULAR */}
-          <div className="sm:col-span-5 rounded-2xl border-2 border-[#56D7A1]/50 bg-[#112D3A] p-3.5 shadow-lg animate-float-gentle">
-            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#FFFFFF]/25" />
+          <div className="sm:col-span-5 rounded-2xl border-2 border-[var(--color-menta)] bg-[var(--color-petroleo)] p-3.5 shadow-[0_10px_28px_rgba(17,45,58,0.9)] animate-float-gentle">
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--color-blanco)]/30" />
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#56D7A1]">
+              <span className="text-xs font-bold text-[var(--color-menta)]">
                 {current.mobileTitle}
               </span>
-              <Bell className="h-3.5 w-3.5 text-[#56D7A1]" />
+              <Bell className="h-3.5 w-3.5 text-[var(--color-menta)]" />
             </div>
-            <p className="mt-2 text-xs font-medium leading-snug text-[#FFFFFF]">
+            <p className="mt-2 text-xs font-medium leading-snug text-[var(--color-blanco)]">
               {current.mobileAction}
             </p>
-            <div className="mt-3 flex items-center justify-between rounded-lg bg-[#56D7A1] px-2.5 py-1.5 text-[11px] font-extrabold text-[#112D3A]">
+            <div className="mt-3 flex items-center justify-between rounded-lg bg-[var(--color-menta)] px-2.5 py-1.5 text-[11px] font-extrabold text-[var(--color-petroleo)]">
               <span>{current.mobileStatus}</span>
               <ArrowUpRight className="h-3.5 w-3.5" />
             </div>
@@ -293,11 +322,11 @@ export function MultiDeviceShowcase() {
         </div>
 
         {/* Etiqueta de transparencia (Sección 5) */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-[#FFFFFF]/65">
+        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-[var(--color-blanco)]/65">
           <span>
             * Representación ilustrativa de interfaz adaptada a computadora, tablet y celular.
           </span>
-          <span className="font-semibold text-[#56D7A1]">
+          <span className="font-semibold text-[var(--color-menta)]">
             Organización · Integración · Disponibilidad
           </span>
         </div>
