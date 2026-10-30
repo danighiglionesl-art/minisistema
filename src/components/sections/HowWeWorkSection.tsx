@@ -27,7 +27,7 @@ const STEP_ICONS = [
 ];
 
 export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) {
-  const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
+  const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
 
   return (
     <section
@@ -52,7 +52,10 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
         </div>
 
         {/* Barra de línea de tiempo horizontal interactiva (Computadoras) */}
-        <div className="mt-14 hidden lg:block">
+        <div
+          className="mt-14 hidden lg:block"
+          onMouseLeave={() => setActiveStepIndex(null)}
+        >
           <div className="relative mx-auto max-w-6xl px-6">
             {/* Conector base */}
             <div
@@ -64,7 +67,10 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
               aria-hidden="true"
               className="absolute top-8 left-16 h-0.5 bg-[var(--color-menta)] transition-all duration-300"
               style={{
-                width: `calc(${(activeStepIndex / (WORKFLOW_STEPS.length - 1)) * 100}% - 4rem)`,
+                width:
+                  activeStepIndex !== null
+                    ? `calc(${(activeStepIndex / (WORKFLOW_STEPS.length - 1)) * 100}% - 4rem)`
+                    : "0%",
               }}
             />
 
@@ -72,7 +78,7 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
               {WORKFLOW_STEPS.map((step, idx) => {
                 const StepIcon = STEP_ICONS[idx] || MessageSquare;
                 const isCurrent = idx === activeStepIndex;
-                const isCompleted = idx <= activeStepIndex;
+                const isCompleted = activeStepIndex !== null && idx <= activeStepIndex;
                 return (
                   <button
                     key={step.number}
@@ -98,7 +104,7 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
                             : "bg-[var(--color-menta)] text-[var(--color-petroleo)]"
                         }`}
                       >
-                        {step.number}
+                        {index + 1}
                       </span>
                     </div>
                     <span
@@ -116,7 +122,10 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
         </div>
 
         {/* Línea de tiempo visual con 6 etapas (Vertical conectada en móvil / Grilla interactiva en desktop) */}
-        <div className="relative mt-10 lg:mt-12">
+        <div
+          className="relative mt-10 lg:mt-12"
+          onMouseLeave={() => setActiveStepIndex(null)}
+        >
           {/* Línea conectora vertical en dispositivos móviles */}
           <div
             aria-hidden="true"
@@ -133,35 +142,30 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
                   key={step.number}
                   onMouseEnter={() => setActiveStepIndex(index)}
                   onClick={() => setActiveStepIndex(index)}
-                  className={`relative flex cursor-pointer flex-col justify-between rounded-3xl border p-6 sm:p-7 transition-all duration-200 ${
+                  className={`group relative flex cursor-pointer flex-col justify-between rounded-3xl border p-6 sm:p-7 transition-all duration-200 ${
                     isSelected
-                      ? "border-2 border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.06] shadow-xl"
-                      : "border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.05]"
+                      ? "border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.06] shadow-xl"
+                      : "border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.06] active:border-[var(--color-menta)] active:bg-[var(--color-blanco)]/[0.06]"
                   }`}
                 >
                   <div>
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors ${
-                            isSelected
-                              ? "bg-[var(--color-menta)] text-[var(--color-petroleo)] shadow-md"
-                              : "border border-[var(--color-menta)] bg-[var(--color-petroleo)] text-[var(--color-menta)]"
-                          }`}
-                        >
-                          <StepIcon className="h-5 w-5" />
-                        </span>
-                        <span className="font-mono text-xs font-extrabold uppercase tracking-wider text-[var(--color-menta)]">
-                          PASO {step.number}
-                        </span>
-                      </div>
+                      <span
+                        className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors ${
+                          isSelected
+                            ? "bg-[var(--color-menta)] text-[var(--color-petroleo)] shadow-md"
+                            : "border border-[var(--color-menta)] bg-[var(--color-petroleo)] text-[var(--color-menta)] group-hover:bg-[var(--color-menta)] group-hover:text-[var(--color-petroleo)]"
+                        }`}
+                      >
+                        <StepIcon className="h-5 w-5" />
+                      </span>
                       <span className="rounded-full border border-[var(--color-menta)]/60 bg-[var(--color-blanco)]/5 px-3 py-1 text-[11px] font-bold text-[var(--color-menta)]">
                         Etapa {index + 1} de 6
                       </span>
                     </div>
 
                     <h3 className="mt-5 text-xl font-extrabold text-[var(--color-blanco)]">
-                      {step.number} — {step.title}
+                      {step.title}
                     </h3>
 
                     <p className="mt-2.5 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/80">
@@ -179,11 +183,11 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
           </ol>
         </div>
 
-        {/* Llamado intermedio a iniciar el paso 01 */}
+        {/* Llamado intermedio a iniciar la Etapa 1 */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 rounded-3xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.04] p-6 sm:flex-row sm:px-8">
           <div>
             <p className="text-base sm:text-lg font-extrabold text-[var(--color-blanco)]">
-              ¿Empezamos por el Paso 01 — Escuchamos?
+              ¿Empezamos por la Etapa 1 — Escuchamos?
             </p>
             <p className="mt-1 text-sm text-[var(--color-blanco)]/80">
               Completá el configurador en menos de 2 minutos y contanos cómo trabaja tu negocio.
