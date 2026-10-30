@@ -187,46 +187,46 @@ export function AccompanimentSection() {
                   aria-hidden="true"
                   className="w-full h-auto"
                 >
-                  {/* Conectores desde el núcleo central hacia los módulos */}
-                  <line x1="210" y1="70" x2="72" y2="30" stroke="#56D7A1" strokeWidth="2" />
-                  <line x1="210" y1="70" x2="72" y2="70" stroke="#56D7A1" strokeWidth="2" />
-                  <line x1="210" y1="70" x2="72" y2="110" stroke="#56D7A1" strokeWidth="2" />
+                  {/* Conectores entre los bordes de los rectángulos (sin ingresar a las cajas) */}
+                  <line x1="144" y1="54" x2="108" y2="29" stroke="#56D7A1" strokeWidth="2" />
+                  <line x1="144" y1="70" x2="108" y2="69" stroke="#56D7A1" strokeWidth="2" />
+                  <line x1="144" y1="86" x2="108" y2="109" stroke="#56D7A1" strokeWidth="2" />
 
                   <line
-                    x1="210"
-                    y1="70"
-                    x2="348"
-                    y2="24"
+                    x1="276"
+                    y1="50"
+                    x2="306"
+                    y2="22"
                     stroke={growthStage >= 2 ? "#56D7A1" : "#FFFFFF"}
                     strokeOpacity={growthStage >= 2 ? "1" : "0.2"}
                     strokeWidth="2"
                     strokeDasharray={growthStage >= 2 ? undefined : "4 4"}
                   />
                   <line
-                    x1="210"
-                    y1="70"
-                    x2="348"
-                    y2="56"
+                    x1="276"
+                    y1="63"
+                    x2="306"
+                    y2="54"
                     stroke={growthStage >= 2 ? "#56D7A1" : "#FFFFFF"}
                     strokeOpacity={growthStage >= 2 ? "1" : "0.2"}
                     strokeWidth="2"
                     strokeDasharray={growthStage >= 2 ? undefined : "4 4"}
                   />
                   <line
-                    x1="210"
-                    y1="70"
-                    x2="348"
-                    y2="88"
+                    x1="276"
+                    y1="77"
+                    x2="306"
+                    y2="86"
                     stroke={growthStage >= 3 ? "#56D7A1" : "#FFFFFF"}
                     strokeOpacity={growthStage >= 3 ? "1" : "0.2"}
                     strokeWidth="2"
                     strokeDasharray={growthStage >= 3 ? undefined : "4 4"}
                   />
                   <line
-                    x1="210"
-                    y1="70"
-                    x2="348"
-                    y2="120"
+                    x1="276"
+                    y1="90"
+                    x2="306"
+                    y2="118"
                     stroke={growthStage >= 3 ? "#56D7A1" : "#FFFFFF"}
                     strokeOpacity={growthStage >= 3 ? "1" : "0.2"}
                     strokeWidth="2"
@@ -235,13 +235,13 @@ export function AccompanimentSection() {
 
                   {/* Módulos Base (Etapa 1: Clientes, Ventas, Inventario) */}
                   <rect x="12" y="16" width="96" height="26" rx="7" fill="#56D7A1" fillOpacity="0.18" stroke="#56D7A1" />
-                  <text x="28" y="33" fill="#FFFFFF" fontSize="10" fontWeight="700">Clientes</text>
+                  <text x="60" y="33" textAnchor="middle" fill="#FFFFFF" fontSize="10" fontWeight="700">Clientes</text>
 
                   <rect x="12" y="56" width="96" height="26" rx="7" fill="#56D7A1" fillOpacity="0.18" stroke="#56D7A1" />
-                  <text x="32" y="73" fill="#FFFFFF" fontSize="10" fontWeight="700">Ventas</text>
+                  <text x="60" y="73" textAnchor="middle" fill="#FFFFFF" fontSize="10" fontWeight="700">Ventas</text>
 
                   <rect x="12" y="96" width="96" height="26" rx="7" fill="#56D7A1" fillOpacity="0.18" stroke="#56D7A1" />
-                  <text x="24" y="113" fill="#FFFFFF" fontSize="10" fontWeight="700">Inventario</text>
+                  <text x="60" y="113" textAnchor="middle" fill="#FFFFFF" fontSize="10" fontWeight="700">Inventario</text>
 
                   {/* Núcleo Permanente con el logotipo oficial minisistema. */}
                   <rect
@@ -254,7 +254,7 @@ export function AccompanimentSection() {
                     stroke="#56D7A1"
                     strokeWidth="2.5"
                   />
-                  <text x="172" y="58" fill="#56D7A1" fontSize="10" fontWeight="800">NÚCLEO BASE</text>
+                  <text x="210" y="58" textAnchor="middle" fill="#56D7A1" fontSize="10" fontWeight="800">NÚCLEO BASE</text>
                   <image
                     href="/brand/logotipo-minisistema.png"
                     x="156"
@@ -276,7 +276,7 @@ export function AccompanimentSection() {
                     stroke={growthStage >= 2 ? "#56D7A1" : "#FFFFFF"}
                     strokeOpacity={growthStage >= 2 ? "1" : "0.2"}
                   />
-                  <text x="326" y="26" fill="#FFFFFF" fillOpacity={growthStage >= 2 ? "1" : "0.45"} fontSize="9.5" fontWeight="700">
+                  <text x="357" y="26" textAnchor="middle" fill="#FFFFFF" fillOpacity={growthStage >= 2 ? "1" : "0.45"} fontSize="9.5" fontWeight="700">
                     + Usuarios
                   </text>
 
@@ -291,7 +291,7 @@ export function AccompanimentSection() {
                     stroke={growthStage >= 2 ? "#56D7A1" : "#FFFFFF"}
                     strokeOpacity={growthStage >= 2 ? "1" : "0.2"}
                   />
-                  <text x="326" y="58" fill="#FFFFFF" fillOpacity={growthStage >= 2 ? "1" : "0.45"} fontSize="9.5" fontWeight="700">
+                  <text x="357" y="58" textAnchor="middle" fill="#FFFFFF" fillOpacity={growthStage >= 2 ? "1" : "0.45"} fontSize="9.5" fontWeight="700">
                     + Reportes
                   </text>
 
@@ -306,7 +306,7 @@ export function AccompanimentSection() {
                     stroke={growthStage >= 3 ? "#56D7A1" : "#FFFFFF"}
                     strokeOpacity={growthStage >= 3 ? "1" : "0.2"}
                   />
-                  <text x="316" y="90" fill="#FFFFFF" fillOpacity={growthStage >= 3 ? "1" : "0.45"} fontSize="9.5" fontWeight="700">
+                  <text x="357" y="90" textAnchor="middle" fill="#FFFFFF" fillOpacity={growthStage >= 3 ? "1" : "0.45"} fontSize="9.5" fontWeight="700">
                     + Integraciones
                   </text>
 
@@ -321,7 +321,7 @@ export function AccompanimentSection() {
                     stroke={growthStage >= 3 ? "#56D7A1" : "#FFFFFF"}
                     strokeOpacity={growthStage >= 3 ? "1" : "0.2"}
                   />
-                  <text x="312" y="122" fill="#FFFFFF" fillOpacity={growthStage >= 3 ? "1" : "0.45"} fontSize="9.5" fontWeight="700">
+                  <text x="357" y="122" textAnchor="middle" fill="#FFFFFF" fillOpacity={growthStage >= 3 ? "1" : "0.45"} fontSize="9.5" fontWeight="700">
                     + Nuevos canales
                   </text>
                 </svg>
