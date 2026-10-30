@@ -197,7 +197,7 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
                     <button
                       type="button"
                       onClick={onOpenConfigurator}
-                      className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-5 py-3 text-xs sm:text-sm font-extrabold text-[var(--color-petroleo)] transition-all hover:bg-[var(--color-blanco)]"
+                      className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-5 py-3 text-xs sm:text-sm font-extrabold text-[var(--color-blanco)] transition-all hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)]"
                     >
                       <span>Quiero una solución así para mi actividad</span>
                       <ArrowUpRight className="h-4 w-4 stroke-[2.5]" />

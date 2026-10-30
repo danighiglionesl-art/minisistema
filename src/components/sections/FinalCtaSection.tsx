@@ -84,10 +84,10 @@ export function FinalCtaSection({ onOpenConfigurator }: FinalCtaSectionProps) {
           <button
             type="button"
             onClick={onOpenConfigurator}
-            className="inline-flex cursor-pointer items-center gap-3 rounded-2xl bg-[var(--color-menta)] px-8 py-4.5 text-sm sm:text-base font-extrabold tracking-wide text-[var(--color-petroleo)] shadow-2xl shadow-[var(--color-petroleo)]/50 transition-all duration-200 hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)] hover:scale-[1.02] active:scale-[0.99]"
+            className="inline-flex cursor-pointer items-center gap-3 rounded-2xl bg-[var(--color-menta)] px-8 py-4.5 text-sm sm:text-base font-extrabold tracking-wide text-[var(--color-blanco)] shadow-2xl shadow-[var(--color-petroleo)]/50 transition-all duration-200 hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)] hover:scale-[1.02] active:scale-[0.99]"
           >
             <span>HABLEMOS DE TU PROYECTO</span>
-            <ArrowUpRight className="h-5 w-5 text-[var(--color-petroleo)]" />
+            <ArrowUpRight className="h-5 w-5" />
           </button>
 
           <p className="mt-2 text-xs sm:text-sm font-bold text-[var(--color-menta)]">

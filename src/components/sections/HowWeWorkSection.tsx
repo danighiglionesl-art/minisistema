@@ -204,7 +204,7 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
           <button
             type="button"
             onClick={onOpenConfigurator}
-            className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-6 py-3.5 text-sm font-extrabold text-[var(--color-petroleo)] transition-all hover:bg-[var(--color-blanco)]"
+            className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-6 py-3.5 text-sm font-extrabold text-[var(--color-blanco)] transition-all hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)]"
           >
             <span>CONTANOS TU IDEA</span>
             <ArrowRight className="h-4 w-4 stroke-[2.5]" />

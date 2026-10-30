@@ -249,7 +249,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                 <button
                   type="button"
                   onClick={onOpenConfigurator}
-                  className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-4 py-2.5 text-xs font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
+                  className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-menta)] px-4 py-2.5 text-xs font-extrabold text-[var(--color-blanco)] transition-colors hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)]"
                 >
                   <span>ABRIR CONFIGURADOR DE PROYECTOS</span>
                   <ArrowUpRight className="h-4 w-4" />
@@ -523,7 +523,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[var(--color-menta)] px-6 py-4 text-sm font-extrabold tracking-wide text-[var(--color-petroleo)] transition-all hover:bg-[var(--color-blanco)] disabled:opacity-60"
+                    className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[var(--color-menta)] px-6 py-4 text-sm font-extrabold tracking-wide text-[var(--color-blanco)] transition-all hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)] disabled:opacity-60"
                   >
                     <Send className="h-4 w-4" />
                     <span>{isSubmitting ? "ENVIANDO CONSULTA..." : "ENVIAR CONSULTA"}</span>
