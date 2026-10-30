@@ -24,10 +24,10 @@ export function Footer({ onOpenConfigurator }: FooterProps) {
               <img
                 src="/brand/footer-isologotipo.png"
                 alt="minisistema. SISTEMAS A MEDIDA"
-                width={220}
-                height={140}
+                width={878}
+                height={192}
                 loading="lazy"
-                className="h-24 w-auto object-contain"
+                className="h-16 sm:h-20 lg:h-22 w-auto max-w-full object-contain"
               />
             </a>
 
