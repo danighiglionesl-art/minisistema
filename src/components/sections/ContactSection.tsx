@@ -310,20 +310,11 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                   </h4>
                   <p className="mt-2 text-sm text-[var(--color-blanco)]/85">
                     Tus datos quedaron registrados correctamente
-                    <InverseDot fromColor="blanco" /> Si querés agilizar la conversación ahora
-                    mismo, podés continuar por WhatsApp con tu mensaje ya preparado
+                    <InverseDot fromColor="blanco" /> Nos pondremos en contacto con vos a la
+                    brevedad
                     <InverseDot fromColor="blanco" />
                   </p>
-                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                    <a
-                      href={buildWhatsAppLink(customWhatsAppText)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--color-menta)] px-6 py-3.5 text-sm font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
-                    >
-                      <WhatsAppIcon size={18} />
-                      <span>Continuar en WhatsApp</span>
-                    </a>
+                  <div className="mt-6 flex justify-center">
                     <button
                       type="button"
                       onClick={() => {
@@ -332,7 +323,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                         setCaptchaVerified(false);
                         setCaptchaToken("");
                       }}
-                      className="rounded-xl border border-[var(--color-blanco)]/25 px-5 py-3.5 text-xs font-bold text-[var(--color-blanco)] hover:border-[var(--color-menta)]"
+                      className="cursor-pointer rounded-xl bg-[var(--color-menta)] px-6 py-3.5 text-xs font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
                     >
                       Enviar otra consulta
                     </button>

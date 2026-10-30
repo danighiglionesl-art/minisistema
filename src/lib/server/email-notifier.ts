@@ -155,7 +155,7 @@ async function sendViaResend(
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    signal: AbortSignal.timeout(4000),
+    signal: AbortSignal.timeout(6000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
@@ -180,12 +180,12 @@ async function sendViaSmtp(
   recipients: string[],
   inquiry: StoredInquiry
 ): Promise<boolean> {
-  const host = process.env.SMTP_HOST?.trim();
+  const host = process.env.SMTP_HOST?.trim() || "smtp.gmail.com";
   const user = process.env.SMTP_USER?.trim();
   const pass = process.env.SMTP_PASS?.trim();
   const port = Number(process.env.SMTP_PORT || "465");
 
-  if (!host || !user || !pass) return false;
+  if (!user || !pass) return false;
 
   return new Promise<boolean>((resolve) => {
     const socket =
@@ -222,7 +222,7 @@ async function sendViaSmtp(
       if (!buffer.endsWith("\r\n")) return;
       const lines = buffer.trim().split("\r\n");
       const lastLine = lines[lines.length - 1] || "";
-      if (lastLine.length >= 4 && lastLine[3] === "-") return; // Multiline response continues
+      if (lastLine.length >= 4 && lastLine[3] === "-") return;
       buffer = "";
 
       const code = Number(lastLine.slice(0, 3));
@@ -278,7 +278,7 @@ async function sendViaSmtp(
 }
 
 /**
- * Envío mediante FormSubmit AJAX desde el backend (manteniendo oculto el correo destinatario).
+ * Envío mediante FormSubmit AJAX desde el backend con reintento automático.
  */
 async function sendViaFormSubmitBackend(
   recipient: string,
@@ -289,37 +289,49 @@ async function sendViaFormSubmitBackend(
       ? "Configurador Interactivo de Proyectos"
       : "Formulario de Contacto Directo";
 
-  const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`, {
-    method: "POST",
-    signal: AbortSignal.timeout(3500),
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Origin: process.env.NEXT_PUBLIC_SITE_URL || "https://www.minisistema.com.ar",
-      Referer: process.env.NEXT_PUBLIC_SITE_URL || "https://www.minisistema.com.ar/",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    },
-    body: JSON.stringify({
-      _subject: buildEmailSubject(inquiry),
-      _template: "table",
-      _captcha: "false",
-      _replyto: inquiry.contact.email,
-      ID_Solicitud: inquiry.id,
-      Origen: originLabel,
-      Nombre_y_Apellido: inquiry.contact.fullName,
-      Comercio_o_Institucion: inquiry.contact.businessName,
-      WhatsApp: inquiry.contact.whatsapp,
-      Email_Cliente: inquiry.contact.email,
-      Ubicacion: `${inquiry.contact.city}, ${inquiry.contact.province}`,
-      Actividad: inquiry.businessActivity,
-      Necesidades: inquiry.selectedNeeds.join(", ") || "Consulta general",
-      Sistema_Actual: inquiry.currentSystemStatus,
-      Mensaje_o_Proyecto: inquiry.projectDescription,
-    }),
+  const payload = JSON.stringify({
+    _subject: buildEmailSubject(inquiry),
+    _template: "table",
+    _captcha: "false",
+    _replyto: inquiry.contact.email,
+    ID_Solicitud: inquiry.id,
+    Origen: originLabel,
+    Nombre_y_Apellido: inquiry.contact.fullName,
+    Comercio_o_Institucion: inquiry.contact.businessName,
+    WhatsApp: inquiry.contact.whatsapp,
+    Email_Cliente: inquiry.contact.email,
+    Ubicacion: `${inquiry.contact.city}, ${inquiry.contact.province}`,
+    Actividad: inquiry.businessActivity,
+    Necesidades: inquiry.selectedNeeds.join(", ") || "Consulta general",
+    Sistema_Actual: inquiry.currentSystemStatus,
+    Mensaje_o_Proyecto: inquiry.projectDescription,
   });
 
-  return response.ok;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`, {
+        method: "POST",
+        signal: AbortSignal.timeout(7000),
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Origin: process.env.NEXT_PUBLIC_SITE_URL || "https://www.minisistema.com.ar",
+          Referer: process.env.NEXT_PUBLIC_SITE_URL || "https://www.minisistema.com.ar/",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        },
+        body: payload,
+      });
+
+      if (response.ok) {
+        return true;
+      }
+    } catch {
+      // retry once
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -342,7 +354,7 @@ export async function sendHiddenInquiryEmail(
       }
     }
 
-    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
       const ok = await sendViaSmtp(recipients, inquiry);
       if (ok) {
         return { sent: true, provider: "smtp", detail: "Notificación enviada por SMTP." };

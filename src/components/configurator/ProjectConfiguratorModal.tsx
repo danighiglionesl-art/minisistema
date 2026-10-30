@@ -698,26 +698,15 @@ export function ProjectConfiguratorModal({
             </h3>
 
             <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-[var(--color-blanco)]/85">
-              Ya registramos los datos de tu consulta para analizar tu necesidad y preparar una
-              propuesta personalizada. Si querés conversar ahora mismo, podés enviarnos el resumen
-              directo a nuestro WhatsApp comercial.
+              Ya registramos los datos de tu consulta para analizar tu necesidad, preparar una
+              propuesta personalizada y ponernos en contacto con vos a la brevedad.
             </p>
 
-            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <a
-                href={buildWhatsAppLink(personalizedWhatsAppMessage)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex w-full sm:w-auto items-center justify-center gap-2.5 rounded-2xl bg-[var(--color-menta)] px-6 py-4 text-sm font-extrabold text-[var(--color-petroleo)] shadow-lg transition-all hover:bg-[var(--color-blanco)]"
-              >
-                <WhatsAppIcon size={20} />
-                <span>CONTINUAR POR WHATSAPP</span>
-              </a>
-
+            <div className="mt-6 flex items-center justify-center">
               <button
                 type="button"
                 onClick={resetAndClose}
-                className="w-full sm:w-auto cursor-pointer rounded-2xl border border-[var(--color-blanco)]/25 px-6 py-4 text-sm font-bold text-[var(--color-blanco)] transition-colors hover:border-[var(--color-menta)]"
+                className="w-full sm:w-auto cursor-pointer rounded-2xl bg-[var(--color-menta)] px-8 py-4 text-sm font-extrabold text-[var(--color-petroleo)] shadow-lg transition-all hover:bg-[var(--color-blanco)]"
               >
                 Volver al sitio
               </button>
