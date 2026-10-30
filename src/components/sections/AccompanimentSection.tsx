@@ -75,8 +75,11 @@ export function AccompanimentSection() {
 
             <p className="mt-3 text-lg font-bold text-[var(--color-menta)]">
               Tu negocio cambia
-              <InverseDot fromColor="menta" /> Nosotros podemos acompañar cada nueva etapa
-              <InverseDot fromColor="menta" />
+              <InverseDot fromColor="menta" />{" "}
+              <span className="text-[var(--color-blanco)]">
+                Nosotros podemos acompañar cada nueva etapa
+                <InverseDot fromColor="blanco" />
+              </span>
             </p>
 
             <div className="mt-5 space-y-3 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/80">

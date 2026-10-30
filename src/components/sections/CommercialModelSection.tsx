@@ -45,22 +45,14 @@ export function CommercialModelSection({
         <div className="mt-14 grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-stretch">
           {COMMERCIAL_SERVICES.map((service, idx) => {
             const Icon = SERVICE_ICONS[idx] || Code2;
-            const isInitial = idx === 0;
 
             return (
               <article
                 key={service.id}
-                className={`flex flex-col justify-between rounded-3xl border p-6 sm:p-8 transition-all ${
-                  isInitial
-                    ? "border-2 border-[var(--color-menta)] bg-[var(--color-blanco)]/[0.05] shadow-2xl"
-                    : "border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] hover:border-[var(--color-menta)]"
-                }`}
+                className="flex flex-col justify-between rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)]/[0.03] p-6 sm:p-8 transition-all hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/[0.05]"
               >
                 <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="rounded-lg border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-3 py-1 text-xs font-extrabold tracking-wider text-[var(--color-menta)]">
-                      {service.number}
-                    </span>
+                  <div className="flex items-center justify-end gap-2">
                     <span className="text-xs font-semibold text-[var(--color-blanco)]/70">
                       {service.badge}
                     </span>
@@ -121,11 +113,7 @@ export function CommercialModelSection({
                   <button
                     type="button"
                     onClick={() => onOpenConfiguratorWithService(service.title)}
-                    className={`mt-4 inline-flex w-full cursor-pointer items-center justify-between rounded-xl px-5 py-3.5 text-xs sm:text-sm font-extrabold transition-all ${
-                      isInitial
-                        ? "bg-[var(--color-menta)] text-[var(--color-petroleo)] hover:bg-[var(--color-blanco)]"
-                        : "border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 text-[var(--color-blanco)] hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)]"
-                    }`}
+                    className="mt-4 inline-flex w-full cursor-pointer items-center justify-between rounded-xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-5 py-3.5 text-xs sm:text-sm font-extrabold text-[var(--color-blanco)] transition-all hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)]"
                   >
                     <span>{service.ctaLabel}</span>
                     <ArrowUpRight className="h-4 w-4 shrink-0 stroke-[2.5]" />

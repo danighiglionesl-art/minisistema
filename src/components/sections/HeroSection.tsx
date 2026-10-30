@@ -63,24 +63,24 @@ export function HeroSection({ onOpenConfigurator }: HeroSectionProps) {
             </p>
 
             {/* Botones de acción principales */}
-            <div className="mt-8 flex flex-col gap-3.5 sm:flex-row sm:items-center">
+            <div className="mt-8 flex flex-col gap-3.5 sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center">
               <button
                 type="button"
                 onClick={onOpenConfigurator}
-                className="inline-flex cursor-pointer items-center justify-center gap-2.5 rounded-2xl bg-[var(--color-menta)] px-7 py-4 text-sm sm:text-base font-extrabold tracking-wide text-[var(--color-petroleo)] shadow-xl shadow-[var(--color-petroleo)]/50 transition-all duration-200 hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)] hover:scale-[1.01] active:scale-[0.99]"
+                className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-[var(--color-menta)] px-5 py-4 text-sm sm:text-[15px] font-extrabold tracking-wide text-[var(--color-blanco)] shadow-xl shadow-[var(--color-petroleo)]/50 transition-all duration-200 hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)] hover:scale-[1.01] active:scale-[0.99]"
               >
-                <span className="inline-flex items-center gap-2">
-                  <span>QUIERO MI</span>
+                <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                  <span className="whitespace-nowrap">QUIERO MI</span>
                   <BrandWordmark onMintSurface />
                 </span>
-                <ArrowUpRight className="h-5 w-5 stroke-[2.5]" />
+                <ArrowUpRight className="h-5 w-5 shrink-0 stroke-[2.5]" />
               </button>
 
               <a
                 href="#como-trabajamos"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-6 py-4 text-sm sm:text-base font-bold text-[var(--color-blanco)] transition-all duration-200 hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10 hover:text-[var(--color-menta)]"
+                className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-[var(--color-menta)] bg-[var(--color-blanco)]/5 px-5 py-4 text-sm sm:text-[15px] font-bold text-[var(--color-blanco)] transition-all duration-200 hover:border-[var(--color-menta)] hover:bg-[var(--color-blanco)]/10 hover:text-[var(--color-menta)]"
               >
-                <Compass className="h-5 w-5 text-[var(--color-menta)]" />
+                <Compass className="h-5 w-5 shrink-0 text-[var(--color-menta)]" />
                 <span>DESCUBRÍ CÓMO TRABAJAMOS</span>
               </a>
             </div>
@@ -102,22 +102,36 @@ export function HeroSection({ onOpenConfigurator }: HeroSectionProps) {
             </div>
           </div>
 
-          {/* Isologotipo Oficial de MiniSistema con gran presencia visual */}
-          <div className="lg:col-span-6 flex items-center justify-center animate-fade-up-subtle">
+          {/* Isologotipo Oficial de MiniSistema con gran presencia visual y animación de menor a mayor */}
+          <div className="lg:col-span-6 flex items-center justify-center">
             <div className="relative flex w-full max-w-[540px] items-center justify-center py-6 sm:py-10">
-              {/* Halo de iluminación verde menta detrás del isologotipo */}
+              {/* Halo de iluminación verde menta con respiración detrás del isologotipo */}
               <div
                 aria-hidden="true"
-                className="ms-mint-halo pointer-events-none absolute inset-0 rounded-full opacity-90 blur-2xl"
+                className="ms-mint-halo animate-pulse-glow pointer-events-none absolute inset-0 rounded-full opacity-95 blur-2xl"
               />
-              <img
-                src="/brand/hero-isologotipo.png"
-                alt="minisistema. SISTEMAS A MEDIDA"
-                width={736}
-                height={458}
-                fetchPriority="high"
-                className="relative z-10 w-full max-w-[380px] sm:max-w-[460px] lg:max-w-[500px] h-auto object-contain drop-shadow-[0_24px_48px_rgba(0,0,0,0.45)] transition-transform duration-300 hover:scale-[1.02]"
+
+              {/* Anillos concéntricos sutiles que acompañan el crecimiento del isologotipo */}
+              <div
+                aria-hidden="true"
+                className="animate-hero-ring pointer-events-none absolute h-[290px] w-[290px] sm:h-[380px] sm:w-[380px] lg:h-[430px] lg:w-[430px] rounded-full border border-[var(--color-menta)]/25"
               />
+              <div
+                aria-hidden="true"
+                style={{ animationDelay: "1.2s" }}
+                className="animate-hero-ring pointer-events-none absolute h-[340px] w-[340px] sm:h-[440px] sm:w-[440px] lg:h-[495px] lg:w-[495px] rounded-full border border-dashed border-[var(--color-blanco)]/15"
+              />
+
+              <div className="animate-hero-logo-entrance relative z-10 w-full max-w-[380px] sm:max-w-[460px] lg:max-w-[500px]">
+                <img
+                  src="/brand/hero-isologotipo.png"
+                  alt="minisistema. SISTEMAS A MEDIDA"
+                  width={736}
+                  height={458}
+                  fetchPriority="high"
+                  className="w-full h-auto object-contain drop-shadow-[0_24px_48px_rgba(17,45,58,0.85)] transition-transform duration-500 hover:scale-105"
+                />
+              </div>
             </div>
           </div>
         </div>

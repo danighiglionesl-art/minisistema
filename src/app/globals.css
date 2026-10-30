@@ -271,3 +271,60 @@ details > summary::-webkit-details-marker {
     color: var(--color-menta);
   }
 }
+
+@keyframes heroLogoReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.32) translateY(24px);
+    filter: blur(6px);
+  }
+  72% {
+    opacity: 1;
+    transform: scale(1.05) translateY(-4px);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0px);
+    filter: blur(0px);
+  }
+}
+
+@keyframes heroLogoAlive {
+  0%, 100% {
+    transform: scale(1) translateY(0px);
+  }
+  50% {
+    transform: scale(1.03) translateY(-9px);
+  }
+}
+
+@keyframes heroRingPulse {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.06);
+  }
+}
+
+.animate-hero-logo-entrance {
+  animation:
+    heroLogoReveal 1.15s cubic-bezier(0.16, 1, 0.3, 1) both,
+    heroLogoAlive 5.5s ease-in-out 1.15s infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+.animate-hero-ring {
+  animation: heroRingPulse 5s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}

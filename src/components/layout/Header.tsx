@@ -72,13 +72,13 @@ export function Header({ onOpenConfigurator }: HeaderProps) {
           <button
             type="button"
             onClick={onOpenConfigurator}
-            className="inline-flex cursor-pointer items-center gap-1.5 xl:gap-2 whitespace-nowrap rounded-xl bg-[var(--color-menta)] px-3.5 xl:px-4 py-2 xl:py-2.5 text-xs xl:text-sm font-bold tracking-wide text-[var(--color-petroleo)] shadow-md shadow-[var(--color-petroleo)]/50 transition-all hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)] active:scale-[0.99]"
+            className="inline-flex cursor-pointer items-center gap-1.5 xl:gap-2 whitespace-nowrap rounded-xl bg-[var(--color-menta)] px-3.5 xl:px-4 py-2 xl:py-2.5 text-xs xl:text-sm font-bold tracking-wide text-[var(--color-blanco)] shadow-md shadow-[var(--color-petroleo)]/50 transition-all hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)] active:scale-[0.99]"
           >
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
               <span>QUIERO MI</span>
               <BrandWordmark onMintSurface />
             </span>
-            <ArrowUpRight className="h-4 w-4 stroke-[2.5]" />
+            <ArrowUpRight className="h-4 w-4 shrink-0 stroke-[2.5]" />
           </button>
         </div>
 
@@ -87,7 +87,7 @@ export function Header({ onOpenConfigurator }: HeaderProps) {
           <button
             type="button"
             onClick={onOpenConfigurator}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-menta)] px-2.5 py-1.5 text-xs font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[var(--color-menta)] px-2.5 py-1.5 text-xs font-extrabold text-[var(--color-blanco)] transition-colors hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)]"
           >
             <span>QUIERO MI</span>
             <BrandWordmark onMintSurface />
@@ -133,13 +133,13 @@ export function Header({ onOpenConfigurator }: HeaderProps) {
                 setMobileMenuOpen(false);
                 onOpenConfigurator();
               }}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-menta)] px-4 py-3.5 text-sm font-extrabold text-[var(--color-petroleo)] transition-colors hover:bg-[var(--color-blanco)]"
+              className="flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[var(--color-menta)] px-4 py-3.5 text-sm font-extrabold text-[var(--color-blanco)] transition-colors hover:bg-[var(--color-blanco)] hover:text-[var(--color-petroleo)]"
             >
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <span>QUIERO MI</span>
                 <BrandWordmark onMintSurface />
               </span>
-              <ArrowUpRight className="h-4 w-4 stroke-[2.5]" />
+              <ArrowUpRight className="h-4 w-4 shrink-0 stroke-[2.5]" />
             </button>
           </div>
         </div>
