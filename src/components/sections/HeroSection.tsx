@@ -2,7 +2,6 @@
 
 import React from "react";
 import { ArrowUpRight, Compass, CheckCircle2, Sparkles } from "lucide-react";
-import { MultiDeviceShowcase } from "@/components/illustrations/MultiDeviceShowcase";
 import { BrandWordmark, InverseDot } from "@/components/brand/BrandWordmark";
 
 interface HeroSectionProps {
@@ -103,9 +102,23 @@ export function HeroSection({ onOpenConfigurator }: HeroSectionProps) {
             </div>
           </div>
 
-          {/* Elemento visual principal: Computadora, Tablet y Teléfono */}
-          <div className="lg:col-span-6">
-            <MultiDeviceShowcase />
+          {/* Isologotipo Oficial de MiniSistema con gran presencia visual */}
+          <div className="lg:col-span-6 flex items-center justify-center animate-fade-up-subtle">
+            <div className="relative flex w-full max-w-[540px] items-center justify-center py-6 sm:py-10">
+              {/* Halo de iluminación verde menta detrás del isologotipo */}
+              <div
+                aria-hidden="true"
+                className="ms-mint-halo pointer-events-none absolute inset-0 rounded-full opacity-90 blur-2xl"
+              />
+              <img
+                src="/brand/hero-isologotipo.png"
+                alt="minisistema. SISTEMAS A MEDIDA"
+                width={736}
+                height={458}
+                fetchPriority="high"
+                className="relative z-10 w-full max-w-[380px] sm:max-w-[460px] lg:max-w-[500px] h-auto object-contain drop-shadow-[0_24px_48px_rgba(0,0,0,0.45)] transition-transform duration-300 hover:scale-[1.02]"
+              />
+            </div>
           </div>
         </div>
       </div>
