@@ -46,7 +46,7 @@ export function BenefitsSection() {
 
         {/* 6 Beneficios en disposición liviana, abierta y de lectura rápida */}
         <div className="mt-16 grid grid-cols-1 gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-          {BENEFITS_LIST.map((benefit, idx) => {
+          {BENEFITS_LIST.map((benefit) => {
             const Icon = BENEFIT_ICONS[benefit.iconName] || Fingerprint;
             return (
               <div
@@ -55,9 +55,6 @@ export function BenefitsSection() {
               >
                 <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[var(--color-menta)]/60 bg-[var(--color-menta)]/10 text-[var(--color-menta)] shadow-[0_0_20px_rgba(86,215,161,0.12)] transition-all group-hover:bg-[var(--color-menta)] group-hover:text-[var(--color-petroleo)]">
                   <Icon className="h-6 w-6" />
-                  <span className="absolute -top-2 -right-2 rounded-full border border-[var(--color-menta)] bg-[var(--color-petroleo)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--color-menta)]">
-                    0{idx + 1}
-                  </span>
                 </div>
 
                 <div>
