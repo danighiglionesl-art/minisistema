@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ArrowUpRight, Sparkles } from "lucide-react";
-import { BrandWordmark } from "@/components/brand/BrandWordmark";
+import { BrandWordmark, InverseDot } from "@/components/brand/BrandWordmark";
 
 interface FinalCtaSectionProps {
   onOpenConfigurator: () => void;
@@ -74,8 +74,10 @@ export function FinalCtaSection({ onOpenConfigurator }: FinalCtaSectionProps) {
         </h2>
 
         <p className="mx-auto mt-5 max-w-2xl text-base sm:text-xl font-medium leading-relaxed text-[var(--color-blanco)]/85">
-          Contanos qué necesitás. Diseñemos una solución que se adapte a tu negocio y pueda
-          evolucionar con vos.
+          Contanos qué necesitás
+          <InverseDot fromColor="blanco" /> Diseñemos una solución que se adapte a tu negocio y
+          pueda evolucionar con vos
+          <InverseDot fromColor="blanco" />
         </p>
 
         <div className="mt-9 flex flex-col items-center justify-center gap-3">
@@ -89,7 +91,8 @@ export function FinalCtaSection({ onOpenConfigurator }: FinalCtaSectionProps) {
           </button>
 
           <p className="mt-2 text-xs sm:text-sm font-bold text-[var(--color-menta)]">
-            Primera consulta sin costo ni compromiso.
+            Primera consulta sin costo ni compromiso
+            <InverseDot fromColor="menta" />
           </p>
         </div>
       </div>

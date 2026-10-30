@@ -4,7 +4,7 @@ import React from "react";
 import { COMMERCIAL_SERVICES } from "@/lib/site-data";
 import { Check, ArrowUpRight, ShieldAlert, Code2, Wrench, TrendingUp } from "lucide-react";
 import { ServiceHeaderIllustration } from "@/components/illustrations/SectionDiagrams";
-import { renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
+import { InverseDot, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface CommercialModelSectionProps {
   onOpenConfiguratorWithService: (serviceTitle: string) => void;
@@ -25,13 +25,19 @@ export function CommercialModelSection({
           </span>
 
           <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl lg:text-5xl">
-            Tres servicios. Un mismo compromiso:{" "}
-            <span className="text-[var(--color-menta)]">acompañar tu crecimiento</span>.
+            Tres servicios
+            <InverseDot fromColor="blanco" /> Un mismo compromiso:{" "}
+            <span className="text-[var(--color-menta)]">
+              acompañar tu crecimiento
+              <InverseDot fromColor="menta" />
+            </span>
           </h2>
 
           <p className="mt-4 text-base sm:text-lg leading-relaxed text-[var(--color-blanco)]/80">
-            Cada negocio tiene necesidades diferentes. Por eso ofrecemos una propuesta flexible que
-            combina desarrollo, mantenimiento y evolución.
+            Cada negocio tiene necesidades diferentes
+            <InverseDot fromColor="blanco" /> Por eso ofrecemos una propuesta flexible que combina
+            desarrollo, mantenimiento y evolución
+            <InverseDot fromColor="blanco" />
           </p>
         </div>
 
@@ -74,7 +80,7 @@ export function CommercialModelSection({
                         {service.title}
                       </h3>
                       <p className="text-sm font-bold text-[var(--color-menta)]">
-                        {renderWithBrandWordmark(service.headline)}
+                        {renderWithBrandWordmark(service.headline, undefined, "menta")}
                       </p>
                     </div>
                   </div>
@@ -108,7 +114,7 @@ export function CommercialModelSection({
                       Modalidad comercial
                     </span>
                     <p className="mt-1 text-xs sm:text-sm font-bold text-[var(--color-blanco)]">
-                      {service.commercialModality}
+                      {renderWithBrandWordmark(service.commercialModality)}
                     </p>
                   </div>
 
@@ -139,11 +145,9 @@ export function CommercialModelSection({
                 Claridad y transparencia comercial:
               </p>
               <p>
-                Desarrollo inicial, mantenimiento y evolución son servicios claramente
-                diferenciados. Los alcances, tiempos de respuesta, infraestructura, mantenimiento y
-                funcionalidades adicionales se establecen en la propuesta comercial y contrato
-                correspondiente de cada proyecto. La contratación del servicio de mantenimiento no
-                implica automáticamente el desarrollo de nuevas funcionalidades.
+                {renderWithBrandWordmark(
+                  "Desarrollo inicial, mantenimiento y evolución son servicios claramente diferenciados. Los alcances, tiempos de respuesta, infraestructura, mantenimiento y funcionalidades adicionales se establecen en la propuesta comercial y contrato correspondiente de cada proyecto. La contratación del servicio de mantenimiento no implica automáticamente el desarrollo de nuevas funcionalidades."
+                )}
               </p>
             </div>
           </div>

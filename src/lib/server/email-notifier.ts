@@ -155,6 +155,7 @@ async function sendViaResend(
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
+    signal: AbortSignal.timeout(4000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
@@ -290,11 +291,14 @@ async function sendViaFormSubmitBackend(
 
   const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`, {
     method: "POST",
+    signal: AbortSignal.timeout(3500),
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
       Origin: process.env.NEXT_PUBLIC_SITE_URL || "https://www.minisistema.com.ar",
       Referer: process.env.NEXT_PUBLIC_SITE_URL || "https://www.minisistema.com.ar/",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     },
     body: JSON.stringify({
       _subject: buildEmailSubject(inquiry),

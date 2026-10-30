@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Check, Minus, Layers, Sparkles, SlidersHorizontal } from "lucide-react";
 import { COMPARISON_DATA } from "@/lib/site-data";
 import { ComparisonDiagram } from "@/components/illustrations/SectionDiagrams";
-import { BrandWordmark } from "@/components/brand/BrandWordmark";
+import { BrandWordmark, InverseDot, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 
 export function OurDifferenceSection() {
   const [selectedRow, setSelectedRow] = useState<number>(0);
@@ -26,14 +26,20 @@ export function OurDifferenceSection() {
 
           <div className="mt-6 space-y-3 text-base sm:text-lg leading-relaxed text-[var(--color-blanco)]/80">
             <p>
-              Cada negocio tiene su propia forma de trabajar. Sin embargo, muchas veces termina
-              utilizando herramientas que no fueron pensadas para sus necesidades.
+              Cada negocio tiene su propia forma de trabajar
+              <InverseDot fromColor="blanco" /> Sin embargo, muchas veces termina utilizando
+              herramientas que no fueron pensadas para sus necesidades
+              <InverseDot fromColor="blanco" />
             </p>
             <p>
               En <BrandWordmark className="mx-0.5" /> creemos que la tecnología debe adaptarse a las
               personas y a sus actividades,{" "}
-              <span className="font-semibold text-[var(--color-menta)]">no al revés</span>. Por eso
-              escuchamos, analizamos y desarrollamos soluciones específicas para cada cliente.
+              <span className="font-semibold text-[var(--color-menta)]">
+                no al revés
+                <InverseDot fromColor="menta" />
+              </span>{" "}
+              Por eso escuchamos, analizamos y desarrollamos soluciones específicas para cada cliente
+              <InverseDot fromColor="blanco" />
             </p>
           </div>
         </div>
@@ -90,7 +96,7 @@ export function OurDifferenceSection() {
                           </span>
                         </div>
                         <p className="mt-2 pl-9 text-xs sm:text-sm leading-relaxed text-[var(--color-blanco)]/70">
-                          {item.detail}
+                          {renderWithBrandWordmark(item.detail)}
                         </p>
                       </button>
                     </li>
@@ -101,7 +107,8 @@ export function OurDifferenceSection() {
 
             <p className="mt-6 border-t border-[var(--color-blanco)]/10 pt-4 text-[11px] leading-relaxed text-[var(--color-blanco)]/60">
               * Nota: Las plataformas estándar pueden resultar útiles en escenarios generales, pero
-              frecuentemente presentan estas limitaciones cuando el negocio requiere procesos propios.
+              frecuentemente presentan estas limitaciones cuando el negocio requiere procesos propios
+              <InverseDot fromColor="blanco" />
             </p>
           </div>
 
@@ -161,7 +168,7 @@ export function OurDifferenceSection() {
                           </span>
                         </div>
                         <p className="mt-2 pl-9 text-xs sm:text-sm leading-relaxed text-[var(--color-blanco)]/85">
-                          {item.detail}
+                          {renderWithBrandWordmark(item.detail)}
                         </p>
                       </button>
                     </li>
@@ -174,7 +181,8 @@ export function OurDifferenceSection() {
               <p className="text-xs sm:text-sm font-semibold text-[var(--color-blanco)]">
                 Concepto comercial:{" "}
                 <span className="text-[var(--color-menta)]">
-                  Tecnología que se adapta a vos, y no al revés.
+                  Tecnología que se adapta a vos, y no al revés
+                  <InverseDot fromColor="menta" />
                 </span>
               </p>
               <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-menta)]">

@@ -4,7 +4,7 @@ import React from "react";
 import { FAQ_ITEMS } from "@/lib/site-data";
 import { FaqItem } from "@/types/minisistema";
 import { ChevronDown, HelpCircle } from "lucide-react";
-import { BrandWordmark, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
+import { BrandWordmark, InverseDot, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface FaqSectionProps {
   faqs?: FaqItem[];
@@ -26,7 +26,11 @@ export function FaqSection({ faqs }: FaqSectionProps) {
           </span>
 
           <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl lg:text-5xl">
-            Resolvemos tus <span className="text-[var(--color-menta)]">dudas principales</span>.
+            Resolvemos tus{" "}
+            <span className="text-[var(--color-menta)]">
+              dudas principales
+              <InverseDot fromColor="menta" />
+            </span>
           </h2>
 
           <p className="mt-4 text-base sm:text-lg text-[var(--color-blanco)]/80">

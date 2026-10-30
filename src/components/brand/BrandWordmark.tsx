@@ -37,22 +37,65 @@ export function BrandWordmark({ className = "", onMintSurface = false }: BrandWo
 }
 
 /**
- * Reemplaza automáticamente cada mención de "MiniSistema" o "minisistema."
- * dentro de un texto dinámico por el componente <BrandWordmark />.
+ * Punto tipográfico del color inverso al color del texto que lo precede:
+ * - Si el texto viene en blanco -> el punto es verde menta (#56D7A1)
+ * - Si el texto viene en verde menta -> el punto es blanco (#FFFFFF)
  */
-export function renderWithBrandWordmark(text: string, className?: string): React.ReactNode {
-  if (!text || !/minisistema/i.test(text)) {
-    return text;
-  }
+export function InverseDot({ fromColor = "blanco" }: { fromColor?: "blanco" | "menta" }) {
+  return (
+    <span
+      className={
+        fromColor === "blanco" ? "text-[var(--color-menta)]" : "text-[var(--color-blanco)]"
+      }
+    >
+      .
+    </span>
+  );
+}
 
-  // Si "MiniSistema" está justo antes de un punto final (ej: "tu MiniSistema."),
-  // absorbemos el punto porque la imagen oficial ya incluye el punto final de marca ("minisistema.").
-  const parts = text.split(/(MiniSistema\.?|minisistema\.?)/g);
+/**
+ * Reemplaza automáticamente:
+ * 1. Cada mención de "MiniSistema" o "minisistema." por el componente <BrandWordmark />
+ * 2. Cada punto de oración (seguido de espacio o fin de texto) por un punto del color inverso
+ *    al color base del texto (`fromColor`: "blanco" -> punto menta; "menta" -> punto blanco).
+ */
+export function renderWithBrandWordmark(
+  text: string,
+  className?: string,
+  fromColor: "blanco" | "menta" = "blanco"
+): React.ReactNode {
+  if (!text) return text;
 
-  return parts.map((part, idx) => {
+  const dotColorClass =
+    fromColor === "blanco" ? "text-[var(--color-menta)]" : "text-[var(--color-blanco)]";
+
+  // Primero separamos por apariciones de MiniSistema (absorbiendo el punto inmediatamente posterior si existe)
+  const brandParts = text.split(/(MiniSistema\.?|minisistema\.?)/g);
+
+  return brandParts.map((part, idx) => {
     if (/^(MiniSistema|minisistema)\.?$/.test(part)) {
-      return <BrandWordmark key={idx} className={className} />;
+      return <BrandWordmark key={`bw-${idx}`} className={className} />;
     }
-    return <React.Fragment key={idx}>{part}</React.Fragment>;
+
+    // En los fragmentos de texto restantes, coloreamos los puntos de oración (seguidos de espacio, cierre o final)
+    // sin alterar puntos dentro de números (ej: 2.450) ni dominios (ej: www.minisistema.com.ar)
+    const dotTokens = part.split(/(\.(?=\s|$|[”")\]!?;:]))/g);
+    if (dotTokens.length === 1) {
+      return <React.Fragment key={`txt-${idx}`}>{part}</React.Fragment>;
+    }
+
+    return (
+      <React.Fragment key={`txt-${idx}`}>
+        {dotTokens.map((tok, dIdx) =>
+          tok === "." ? (
+            <span key={`dot-${idx}-${dIdx}`} className={dotColorClass}>
+              .
+            </span>
+          ) : (
+            <React.Fragment key={`sub-${idx}-${dIdx}`}>{tok}</React.Fragment>
+          )
+        )}
+      </React.Fragment>
+    );
   });
 }

@@ -15,6 +15,7 @@ import {
 import { SOLUTION_CATEGORIES } from "@/lib/site-data";
 import { SolutionCategory } from "@/types/minisistema";
 import { CategoryIllustration } from "@/components/illustrations/CategoryIllustrations";
+import { InverseDot, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface SolutionsSectionProps {
   onSelectCategory: (category: SolutionCategory) => void;
@@ -45,12 +46,17 @@ export function SolutionsSection({ onSelectCategory }: SolutionsSectionProps) {
           </span>
 
           <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl lg:text-5xl">
-            Una solución <span className="text-[var(--color-menta)]">para cada necesidad</span>.
+            Una solución{" "}
+            <span className="text-[var(--color-menta)]">
+              para cada necesidad
+              <InverseDot fromColor="menta" />
+            </span>
           </h2>
 
           <p className="mt-4 text-base sm:text-lg leading-relaxed text-[var(--color-blanco)]/80">
-            Desde una herramienta sencilla hasta una plataforma integral. Diseñamos lo que tu
-            actividad realmente necesita.
+            Desde una herramienta sencilla hasta una plataforma integral
+            <InverseDot fromColor="blanco" /> Diseñamos lo que tu actividad realmente necesita
+            <InverseDot fromColor="blanco" />
           </p>
         </div>
 
@@ -84,7 +90,7 @@ export function SolutionsSection({ onSelectCategory }: SolutionsSectionProps) {
                   </h3>
 
                   <p className="mt-2.5 text-sm leading-relaxed text-[var(--color-blanco)]/80">
-                    {category.description}
+                    {renderWithBrandWordmark(category.description)}
                   </p>
                 </div>
 
@@ -109,9 +115,10 @@ export function SolutionsSection({ onSelectCategory }: SolutionsSectionProps) {
 
         {/* Nota de alcance comercial */}
         <p className="mt-8 text-center text-xs text-[var(--color-blanco)]/65">
-          * Estas categorías representan tipos de soluciones que podemos analizar y desarrollar. El
-          alcance y las funcionalidades específicas se definen mediante evaluación previa de cada
-          proyecto.
+          * Estas categorías representan tipos de soluciones que podemos analizar y desarrollar
+          <InverseDot fromColor="blanco" /> El alcance y las funcionalidades específicas se definen
+          mediante evaluación previa de cada proyecto
+          <InverseDot fromColor="blanco" />
         </p>
       </div>
     </section>

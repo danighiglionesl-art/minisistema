@@ -76,8 +76,12 @@ export async function POST(request: NextRequest) {
     });
 
     // Envío en segundo plano desde el servidor al correo destinatario oculto (nunca expuesto en el cliente)
-    const adminConfig = getAdminSiteConfig();
-    await sendHiddenInquiryEmail(created, adminConfig.notificationRecipients);
+    try {
+      const adminConfig = getAdminSiteConfig();
+      await sendHiddenInquiryEmail(created, adminConfig.notificationRecipients);
+    } catch {
+      // No interrumpir el registro de la solicitud si el proveedor de correo externo demora
+    }
 
     return NextResponse.json(
       {

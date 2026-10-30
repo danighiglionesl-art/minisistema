@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { PORTFOLIO_PROJECTS } from "@/lib/site-data";
 import { PortfolioProject } from "@/types/minisistema";
+import { InverseDot, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 import {
   FolderKanban,
   Monitor,
@@ -101,11 +102,17 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
           </span>
 
           <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl lg:text-5xl">
-            Ideas que se convierten <span className="text-[var(--color-menta)]">en soluciones</span>.
+            Ideas que se convierten{" "}
+            <span className="text-[var(--color-menta)]">
+              en soluciones
+              <InverseDot fromColor="menta" />
+            </span>
           </h2>
 
           <p className="mt-4 text-base sm:text-lg leading-relaxed text-[var(--color-blanco)]/80">
-            Cada proyecto es diferente. Cada solución también.
+            Cada proyecto es diferente
+            <InverseDot fromColor="blanco" /> Cada solución también
+            <InverseDot fromColor="blanco" />
           </p>
         </div>
 
@@ -119,7 +126,9 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
               >
                 <span className="text-xs font-bold text-[var(--color-menta)]">{project.activity}</span>
                 <h3 className="mt-2 text-xl font-extrabold text-[var(--color-blanco)]">{project.name}</h3>
-                <p className="mt-2 text-sm text-[var(--color-blanco)]/80">{project.description}</p>
+                <p className="mt-2 text-sm text-[var(--color-blanco)]/80">
+                  {renderWithBrandWordmark(project.description)}
+                </p>
               </article>
             ))}
           </div>
@@ -170,7 +179,7 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
                   </p>
 
                   <p className="mt-4 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/80">
-                    {active.problemSolved}
+                    {renderWithBrandWordmark(active.problemSolved)}
                   </p>
 
                   <ul className="mt-5 space-y-2">
@@ -323,7 +332,8 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
                               className="flex items-center justify-between rounded-lg bg-[var(--color-petroleo)] px-3 py-2 text-xs"
                             >
                               <span className="truncate font-medium text-[var(--color-blanco)]/90">
-                                {i + 1}. {f}
+                                {i + 1}
+                                <InverseDot fromColor="blanco" /> {f}
                               </span>
                               <span className="ml-2 shrink-0 text-[10px] font-bold text-[var(--color-menta)]">
                                 Activo
@@ -382,7 +392,8 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
             incorporar casos como <strong className="text-[var(--color-blanco)]">Casa Nueva</strong>,{" "}
             <strong className="text-[var(--color-blanco)]">Campo Directo</strong> y{" "}
             <strong className="text-[var(--color-blanco)]">Biblioteca Roncedo</strong>, los cuales permanecen
-            despublicados hasta contar con la validación formal de su información e imágenes.
+            despublicados hasta contar con la validación formal de su información e imágenes
+            <InverseDot fromColor="blanco" />
           </p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">

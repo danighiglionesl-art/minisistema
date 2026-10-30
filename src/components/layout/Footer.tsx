@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, ShieldCheck } from "lucide-react";
 import { INITIAL_SITE_CONFIG, NAV_ITEMS, buildWhatsAppLink } from "@/lib/site-data";
 import { WhatsAppIcon, InstagramIcon, FacebookIcon } from "@/components/icons/SocialIcons";
-import { BrandWordmark } from "@/components/brand/BrandWordmark";
+import { BrandWordmark, InverseDot } from "@/components/brand/BrandWordmark";
 
 interface FooterProps {
   onOpenConfigurator: () => void;
@@ -32,18 +32,26 @@ export function Footer({ onOpenConfigurator }: FooterProps) {
             </a>
 
             <p className="mt-4 max-w-md text-base font-semibold text-[var(--color-blanco)]">
-              Tu negocio es único.{" "}
-              <span className="text-[var(--color-menta)]">Tu sistema también debería serlo.</span>
+              Tu negocio es único
+              <InverseDot fromColor="blanco" />{" "}
+              <span className="text-[var(--color-menta)]">
+                Tu sistema también debería serlo
+                <InverseDot fromColor="menta" />
+              </span>
             </p>
 
             <p className="mt-2 max-w-md text-sm leading-relaxed text-[var(--color-blanco)]/75">
-              Diseñamos, desarrollamos y acompañamos soluciones digitales pensadas para cada
-              negocio. Porque sabemos que las necesidades cambian, creamos sistemas que pueden
-              evolucionar con vos.
+              Diseñamos, desarrollamos y acompañamos soluciones digitales pensadas para cada negocio
+              <InverseDot fromColor="blanco" /> Porque sabemos que las necesidades cambian, creamos
+              sistemas que pueden evolucionar con vos
+              <InverseDot fromColor="blanco" />
             </p>
 
             <p className="mt-3 text-xs font-bold uppercase tracking-widest text-[var(--color-menta)]">
-              Tu negocio evoluciona. Tu <BrandWordmark className="mx-0.5 h-3.5" /> también.
+              Tu negocio evoluciona
+              <InverseDot fromColor="menta" /> Tu <BrandWordmark className="mx-0.5 h-3.5" />{" "}
+              también
+              <InverseDot fromColor="menta" />
             </p>
           </div>
 
@@ -83,7 +91,8 @@ export function Footer({ onOpenConfigurator }: FooterProps) {
             </h3>
             <p className="mt-3 text-sm text-[var(--color-blanco)]/75">
               Contanos qué necesitás y conversemos sobre cómo crear una solución a medida para tu
-              actividad.
+              actividad
+              <InverseDot fromColor="blanco" />
             </p>
 
             <div className="mt-5 flex flex-col gap-3">
@@ -132,7 +141,8 @@ export function Footer({ onOpenConfigurator }: FooterProps) {
               </div>
               <p className="mt-1 leading-relaxed">
                 Los servicios, alcances, tiempos de respuesta, mantenimiento y evolución se definen
-                en cada propuesta comercial acordada.
+                en cada propuesta comercial acordada
+                <InverseDot fromColor="blanco" />
               </p>
             </div>
           </div>
@@ -143,7 +153,11 @@ export function Footer({ onOpenConfigurator }: FooterProps) {
           <p className="inline-flex flex-wrap items-center gap-1.5">
             <span>© {currentYear}</span>
             <BrandWordmark className="h-3.5" />
-            <span>— SISTEMAS A MEDIDA. Todos los derechos reservados.</span>
+            <span>
+              — SISTEMAS A MEDIDA
+              <InverseDot fromColor="blanco" /> Todos los derechos reservados
+              <InverseDot fromColor="blanco" />
+            </span>
           </p>
           <div className="flex flex-wrap items-center gap-5">
             <Link

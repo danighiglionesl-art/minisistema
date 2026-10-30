@@ -3,7 +3,7 @@
 import React from "react";
 import { ArrowUpRight, Compass, CheckCircle2, Sparkles } from "lucide-react";
 import { MultiDeviceShowcase } from "@/components/illustrations/MultiDeviceShowcase";
-import { BrandWordmark } from "@/components/brand/BrandWordmark";
+import { BrandWordmark, InverseDot } from "@/components/brand/BrandWordmark";
 
 interface HeroSectionProps {
   onOpenConfigurator: () => void;
@@ -43,15 +43,24 @@ export function HeroSection({ onOpenConfigurator }: HeroSectionProps) {
             </div>
 
             <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-5xl lg:text-[3.35rem] lg:leading-[1.1]">
-              Tu negocio es <span className="text-[var(--color-menta)]">único</span>.
+              Tu negocio es{" "}
+              <span className="text-[var(--color-menta)]">
+                único
+                <InverseDot fromColor="menta" />
+              </span>
               <span className="mt-1.5 block">
-                Tu sistema <span className="text-[var(--color-menta)]">también debería serlo</span>.
+                Tu sistema{" "}
+                <span className="text-[var(--color-menta)]">
+                  también debería serlo
+                  <InverseDot fromColor="menta" />
+                </span>
               </span>
             </h1>
 
             <p className="mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-[var(--color-blanco)]/85">
               Diseñamos sistemas digitales a medida para simplificar tu trabajo, organizar tu
-              negocio y acompañarte en cada etapa de crecimiento.
+              negocio y acompañarte en cada etapa de crecimiento
+              <InverseDot fromColor="blanco" />
             </p>
 
             {/* Botones de acción principales */}

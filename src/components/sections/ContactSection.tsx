@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { INITIAL_SITE_CONFIG, buildWhatsAppLink } from "@/lib/site-data";
 import { WhatsAppIcon, InstagramIcon, FacebookIcon } from "@/components/icons/SocialIcons";
-import { BrandWordmark } from "@/components/brand/BrandWordmark";
+import { BrandWordmark, InverseDot } from "@/components/brand/BrandWordmark";
 import { Send, CheckCircle2, ArrowUpRight, AlertCircle, Sliders } from "lucide-react";
 
 interface ContactSectionProps {
@@ -135,7 +135,11 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
             </span>
 
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl">
-              Estamos listos para <span className="text-[var(--color-menta)]">escucharte</span>.
+              Estamos listos para{" "}
+              <span className="text-[var(--color-menta)]">
+                escucharte
+                <InverseDot fromColor="menta" />
+              </span>
             </h2>
 
             <p className="mt-4 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/80">
@@ -264,7 +268,8 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                 </div>
                 <p className="mt-1.5 text-xs sm:text-sm text-[var(--color-blanco)]/80">
                   Usá nuestro configurador interactivo para elegir tu rubro y las funciones que te
-                  gustaría incluir.
+                  gustaría incluir
+                  <InverseDot fromColor="blanco" />
                 </p>
                 <button
                   type="button"
@@ -285,7 +290,8 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                 Envianos tu consulta
               </h3>
               <p className="mt-1.5 text-xs sm:text-sm text-[var(--color-blanco)]/75">
-                Completá el formulario y te responderemos a la brevedad.
+                Completá el formulario y te responderemos a la brevedad
+                <InverseDot fromColor="blanco" />
               </p>
 
               {submittedId ? (
@@ -295,8 +301,10 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                     ¡Recibimos tu consulta ({submittedId})!
                   </h4>
                   <p className="mt-2 text-sm text-[var(--color-blanco)]/85">
-                    Tus datos quedaron registrados correctamente. Si querés agilizar la conversación
-                    ahora mismo, podés continuar por WhatsApp con tu mensaje ya preparado.
+                    Tus datos quedaron registrados correctamente
+                    <InverseDot fromColor="blanco" /> Si querés agilizar la conversación ahora
+                    mismo, podés continuar por WhatsApp con tu mensaje ya preparado
+                    <InverseDot fromColor="blanco" />
                   </p>
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
                     <a
@@ -350,7 +358,10 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                       />
                       <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[var(--color-menta)]">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                        <span>Por favor ingresá tu nombre y apellido.</span>
+                        <span>
+                          Por favor ingresá tu nombre y apellido
+                          <InverseDot fromColor="menta" />
+                        </span>
                       </div>
                     </div>
 
@@ -409,7 +420,10 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                       />
                       <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[var(--color-menta)]">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                        <span>Ingresá un número de WhatsApp de contacto.</span>
+                        <span>
+                          Ingresá un número de WhatsApp de contacto
+                          <InverseDot fromColor="menta" />
+                        </span>
                       </div>
                     </div>
 
@@ -440,7 +454,10 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                       />
                       <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[var(--color-menta)]">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                        <span>Ingresá una dirección de correo válida.</span>
+                        <span>
+                          Ingresá una dirección de correo válida
+                          <InverseDot fromColor="menta" />
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -471,7 +488,10 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                     />
                     <div className="ms-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[var(--color-menta)]">
                       <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                      <span>Por favor escribí tu consulta.</span>
+                      <span>
+                        Por favor escribí tu consulta
+                        <InverseDot fromColor="menta" />
+                      </span>
                     </div>
                   </div>
 
@@ -497,7 +517,7 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
                       >
                         Política de Privacidad
                       </Link>
-                      .
+                      <InverseDot fromColor="blanco" />
                     </label>
                   </div>
 

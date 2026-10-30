@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { WORKFLOW_STEPS } from "@/lib/site-data";
-import { renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
+import { InverseDot, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 import {
   ArrowRight,
   CheckCircle2,
@@ -43,12 +43,18 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
           </span>
 
           <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl lg:text-5xl">
-            De tu idea a <span className="text-[var(--color-menta)]">tu propio sistema</span>.
+            De tu idea a{" "}
+            <span className="text-[var(--color-menta)]">
+              tu propio sistema
+              <InverseDot fromColor="menta" />
+            </span>
           </h2>
 
           <p className="mt-4 text-base sm:text-lg leading-relaxed text-[var(--color-blanco)]/80">
-            No necesitás conocimientos técnicos. Nosotros nos ocupamos de transformar tus
-            necesidades en una solución digital.
+            No necesitás conocimientos técnicos
+            <InverseDot fromColor="blanco" /> Nosotros nos ocupamos de transformar tus necesidades
+            en una solución digital
+            <InverseDot fromColor="blanco" />
           </p>
         </div>
 
@@ -191,7 +197,8 @@ export function HowWeWorkSection({ onOpenConfigurator }: HowWeWorkSectionProps) 
               ¿Empezamos por la Etapa 1 — Escuchamos?
             </p>
             <p className="mt-1 text-sm text-[var(--color-blanco)]/80">
-              Completá el configurador en menos de 2 minutos y contanos cómo trabaja tu negocio.
+              Completá el configurador en menos de 2 minutos y contanos cómo trabaja tu negocio
+              <InverseDot fromColor="blanco" />
             </p>
           </div>
           <button

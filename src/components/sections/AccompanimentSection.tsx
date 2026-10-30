@@ -3,7 +3,11 @@
 import React, { useState } from "react";
 import { ACCOMPANIMENT_PILLARS } from "@/lib/site-data";
 import { Layers, PlusCircle, CheckCircle2 } from "lucide-react";
-import { BrandWordmark, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
+import {
+  BrandWordmark,
+  InverseDot,
+  renderWithBrandWordmark,
+} from "@/components/brand/BrandWordmark";
 
 const MODULAR_GROWTH_STAGES = [
   {
@@ -61,25 +65,34 @@ export function AccompanimentSection() {
             </span>
 
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl lg:text-5xl">
-              No entregamos un sistema.{" "}
-              <span className="text-[var(--color-menta)]">Construimos una relación.</span>
+              No entregamos un sistema
+              <InverseDot fromColor="blanco" />{" "}
+              <span className="text-[var(--color-menta)]">
+                Construimos una relación
+                <InverseDot fromColor="menta" />
+              </span>
             </h2>
 
             <p className="mt-3 text-lg font-bold text-[var(--color-menta)]">
-              Tu negocio cambia. Nosotros podemos acompañar cada nueva etapa.
+              Tu negocio cambia
+              <InverseDot fromColor="menta" /> Nosotros podemos acompañar cada nueva etapa
+              <InverseDot fromColor="menta" />
             </p>
 
             <div className="mt-5 space-y-3 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/80">
               <p>
-                Sabemos que las necesidades de hoy pueden ser diferentes a las de mañana. Tal vez
-                incorporás nuevos productos, contratás empleados, abrís otra sucursal o necesitás
-                nuevas funcionalidades.
+                Sabemos que las necesidades de hoy pueden ser diferentes a las de mañana
+                <InverseDot fromColor="blanco" /> Tal vez incorporás nuevos productos, contratás
+                empleados, abrís otra sucursal o necesitás nuevas funcionalidades
+                <InverseDot fromColor="blanco" />
               </p>
               <p>
-                Por eso desarrollamos soluciones pensadas para poder evolucionar. No queremos ser
-                solamente quienes construyen tu sistema:{" "}
+                Por eso desarrollamos soluciones pensadas para poder evolucionar
+                <InverseDot fromColor="blanco" /> No queremos ser solamente quienes construyen tu
+                sistema:{" "}
                 <strong className="font-bold text-[var(--color-blanco)]">
-                  queremos ser tu aliado tecnológico a largo plazo.
+                  queremos ser tu aliado tecnológico a largo plazo
+                  <InverseDot fromColor="blanco" />
                 </strong>
               </p>
             </div>
@@ -101,7 +114,7 @@ export function AccompanimentSection() {
                     {pillar.title}
                   </h3>
                   <p className="mt-1.5 text-xs sm:text-sm leading-relaxed text-[var(--color-blanco)]/75">
-                    {pillar.description}
+                    {renderWithBrandWordmark(pillar.description)}
                   </p>
                 </div>
               ))}
@@ -117,7 +130,10 @@ export function AccompanimentSection() {
                     Representación interactiva de evolución
                   </span>
                   <h3 className="mt-1 text-xl font-extrabold text-[var(--color-blanco)]">
-                    Tu negocio evoluciona. Tu <BrandWordmark className="mx-0.5" /> también.
+                    Tu negocio evoluciona
+                    <InverseDot fromColor="blanco" /> Tu <BrandWordmark className="mx-0.5" />{" "}
+                    también
+                    <InverseDot fromColor="blanco" />
                   </h3>
                 </div>
                 <Layers className="h-6 w-6 text-[var(--color-menta)]" />
@@ -359,8 +375,10 @@ export function AccompanimentSection() {
               </div>
 
               <p className="mt-4 text-[11px] text-[var(--color-blanco)]/60">
-                * Ejemplo ilustrativo de arquitectura modular. Cada ampliación se planifica y
-                presupuesta de acuerdo con las necesidades reales del cliente.
+                * Ejemplo ilustrativo de arquitectura modular
+                <InverseDot fromColor="blanco" /> Cada ampliación se planifica y presupuesta de
+                acuerdo con las necesidades reales del cliente
+                <InverseDot fromColor="blanco" />
               </p>
             </div>
           </div>

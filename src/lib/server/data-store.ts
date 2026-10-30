@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   FAQ_ITEMS,
@@ -83,6 +84,11 @@ interface DatabaseSchema {
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_FILE_PATH = path.join(DATA_DIR, "minisistema-store.json");
+const TMP_DB_FILE_PATH = path.join(os.tmpdir(), "minisistema-store.json");
+
+declare global {
+  var __MINISISTEMA_DB__: DatabaseSchema | undefined;
+}
 
 const DEFAULT_COMMERCIAL_CONTENT: CommercialContentSettings = {
   heroTitleLine1: "Tu negocio es",
@@ -124,18 +130,25 @@ function buildInitialDatabase(): DatabaseSchema {
 
 function readDb(): DatabaseSchema {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    let raw: string | null = null;
+    if (fs.existsSync(TMP_DB_FILE_PATH)) {
+      raw = fs.readFileSync(TMP_DB_FILE_PATH, "utf-8");
+    } else if (fs.existsSync(DB_FILE_PATH)) {
+      raw = fs.readFileSync(DB_FILE_PATH, "utf-8");
     }
-    if (!fs.existsSync(DB_FILE_PATH)) {
+
+    if (!raw) {
+      if (globalThis.__MINISISTEMA_DB__) {
+        return globalThis.__MINISISTEMA_DB__;
+      }
       const initial = buildInitialDatabase();
-      fs.writeFileSync(DB_FILE_PATH, JSON.stringify(initial, null, 2), "utf-8");
+      writeDb(initial);
       return initial;
     }
-    const raw = fs.readFileSync(DB_FILE_PATH, "utf-8");
+
     const parsed = JSON.parse(raw) as Partial<DatabaseSchema>;
     const defaults = buildInitialDatabase();
-    return {
+    const loaded: DatabaseSchema = {
       adminUser: parsed.adminUser || defaults.adminUser,
       inquiries: Array.isArray(parsed.inquiries) ? parsed.inquiries : [],
       projects: Array.isArray(parsed.projects) ? parsed.projects : defaults.projects,
@@ -149,16 +162,36 @@ function readDb(): DatabaseSchema {
         ...(parsed.siteConfig || {}),
       },
     };
+    globalThis.__MINISISTEMA_DB__ = loaded;
+    return loaded;
   } catch {
+    if (globalThis.__MINISISTEMA_DB__) {
+      return globalThis.__MINISISTEMA_DB__;
+    }
     return buildInitialDatabase();
   }
 }
 
 function writeDb(db: DatabaseSchema): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  globalThis.__MINISISTEMA_DB__ = db;
+  const serialized = JSON.stringify(db, null, 2);
+
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(DB_FILE_PATH, serialized, "utf-8");
+    return;
+  } catch {
+    // En entornos serverless (como Vercel) el directorio del código es de solo lectura (EROFS).
+    // Se persiste en os.tmpdir() (/tmp) y en memoria global sin interrumpir la solicitud.
   }
-  fs.writeFileSync(DB_FILE_PATH, JSON.stringify(db, null, 2), "utf-8");
+
+  try {
+    fs.writeFileSync(TMP_DB_FILE_PATH, serialized, "utf-8");
+  } catch {
+    // Fallback garantizado en globalThis.__MINISISTEMA_DB__
+  }
 }
 
 export function verifyAdminLogin(email: string, password: string): boolean {

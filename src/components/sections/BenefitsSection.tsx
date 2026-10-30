@@ -2,7 +2,7 @@
 
 import React from "react";
 import { BENEFITS_LIST } from "@/lib/site-data";
-import { BrandWordmark } from "@/components/brand/BrandWordmark";
+import { BrandWordmark, InverseDot, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 import {
   Fingerprint,
   MousePointerClick,
@@ -35,8 +35,12 @@ export function BenefitsSection() {
           </span>
 
           <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-blanco)] sm:text-4xl lg:text-5xl">
-            Menos complicaciones.{" "}
-            <span className="text-[var(--color-menta)]">Más posibilidades.</span>
+            Menos complicaciones
+            <InverseDot fromColor="blanco" />{" "}
+            <span className="text-[var(--color-menta)]">
+              Más posibilidades
+              <InverseDot fromColor="menta" />
+            </span>
           </h2>
         </div>
 
@@ -62,7 +66,7 @@ export function BenefitsSection() {
                   </h3>
 
                   <p className="mt-2 text-sm sm:text-base leading-relaxed text-[var(--color-blanco)]/80">
-                    {benefit.description}
+                    {renderWithBrandWordmark(benefit.description)}
                   </p>
                 </div>
               </div>
