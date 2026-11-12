@@ -18,7 +18,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
 } from "lucide-react";
 
 interface CompletedProjectItem {
@@ -284,57 +283,23 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
             </div>
           </div>
 
-          {/* Pista deslizable del carrusel */}
+          {/* Pista deslizable del carrusel (solo imágenes con link al hacer clic) */}
           <div
             ref={carouselRef}
-            className="mt-6 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="mt-6 flex snap-x snap-mandatory items-center gap-5 overflow-x-auto pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {COMPLETED_PROJECTS_CAROUSEL.map((item) => {
-              const cardContent = (
-                <>
-                  {/* Contenedor de imagen / logo del proyecto */}
-                  <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)] p-4 shadow-inner transition-transform duration-300 group-hover:scale-[1.02]">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      width={320}
-                      height={320}
-                      loading="lazy"
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-
-                  {/* Nombre y link del proyecto */}
-                  <div className="mt-4 flex flex-1 flex-col justify-between">
-                    <div>
-                      <h4 className="text-lg font-extrabold text-[var(--color-blanco)] group-hover:text-[var(--color-menta)] transition-colors">
-                        {item.name}
-                      </h4>
-                      {item.displayUrl ? (
-                        <p className="mt-1 truncate text-xs font-medium text-[var(--color-blanco)]/75">
-                          {item.displayUrl}
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-xs font-medium text-[var(--color-blanco)]/60">
-                          Aplicación a medida
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-[var(--color-blanco)]/10">
-                      {item.href ? (
-                        <span className="inline-flex w-full items-center justify-between rounded-xl bg-[var(--color-menta)] px-3.5 py-2.5 text-xs font-extrabold text-[var(--color-blanco)] transition-colors group-hover:bg-[var(--color-blanco)] group-hover:text-[var(--color-petroleo)]">
-                          <span>Visitar sitio</span>
-                          <ExternalLink className="h-3.5 w-3.5 stroke-[2.5]" />
-                        </span>
-                      ) : (
-                        <span className="inline-flex w-full items-center justify-center rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-blanco)]/5 px-3.5 py-2.5 text-xs font-bold text-[var(--color-blanco)]/80">
-                          Proyecto desarrollado
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </>
+              const imageBox = (
+                <div className="flex h-[180px] w-[180px] sm:h-[210px] sm:w-[210px] items-center justify-center overflow-hidden rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)] p-4 shadow-lg transition-all duration-300 group-hover:scale-[1.03] group-hover:border-[var(--color-menta)] group-hover:shadow-2xl">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    width={320}
+                    height={320}
+                    loading="lazy"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
               );
 
               if (item.href) {
@@ -344,20 +309,23 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
                     href={item.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group flex w-[235px] sm:w-[255px] shrink-0 snap-start flex-col justify-between rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-petroleo)] p-5 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:border-[var(--color-menta)] hover:shadow-2xl focus:border-[var(--color-menta)] focus:outline-none"
+                    aria-label={item.name}
+                    title={item.name}
+                    className="group shrink-0 snap-start cursor-pointer focus:outline-none"
                   >
-                    {cardContent}
+                    {imageBox}
                   </a>
                 );
               }
 
               return (
-                <article
+                <div
                   key={item.id}
-                  className="group flex w-[235px] sm:w-[255px] shrink-0 snap-start flex-col justify-between rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-petroleo)] p-5 shadow-lg transition-all duration-200 hover:border-[var(--color-menta)]/60"
+                  title={item.name}
+                  className="group shrink-0 snap-start"
                 >
-                  {cardContent}
-                </article>
+                  {imageBox}
+                </div>
               );
             })}
           </div>
