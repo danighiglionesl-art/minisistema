@@ -1,9 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { PORTFOLIO_PROJECTS } from "@/lib/site-data";
 import { PortfolioProject } from "@/types/minisistema";
-import { InverseDot, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
+import {
+  BrandWordmark,
+  InverseDot,
+  renderWithBrandWordmark,
+} from "@/components/brand/BrandWordmark";
 import {
   FolderKanban,
   Monitor,
@@ -12,7 +16,98 @@ import {
   Building2,
   ArrowUpRight,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
 } from "lucide-react";
+
+interface CompletedProjectItem {
+  id: string;
+  name: string;
+  displayUrl: string | null;
+  href: string | null;
+  image: string;
+}
+
+const COMPLETED_PROJECTS_CAROUSEL: CompletedProjectItem[] = [
+  {
+    id: "casa-nueva",
+    name: "Casa Nueva",
+    displayUrl: "www.cn.com.ar",
+    href: "https://www.cn.com.ar/",
+    image: "/projects/casa-nueva.png",
+  },
+  {
+    id: "paseo-alberdi",
+    name: "Paseo Alberdi",
+    displayUrl: "www.paseoalberdi.ar",
+    href: "https://www.paseoalberdi.ar/",
+    image: "/projects/paseo-alberdi.jpg",
+  },
+  {
+    id: "club-fidel",
+    name: "Club Fidel",
+    displayUrl: "www.clubfidel.com.ar",
+    href: "https://www.clubfidel.com.ar/",
+    image: "/projects/club-fidel.jpg",
+  },
+  {
+    id: "mate-matica",
+    name: "Mate-Mática",
+    displayUrl: "www.mate-matica.com.ar",
+    href: "https://www.mate-matica.com.ar/",
+    image: "/projects/mate-matica.jpg",
+  },
+  {
+    id: "nova-distribuidora",
+    name: "Nova Distribuidora",
+    displayUrl: "www.cn.com.ar/nova",
+    href: "https://www.cn.com.ar/nova",
+    image: "/projects/nova-distribuidora.png",
+  },
+  {
+    id: "reiki-online",
+    name: "Reiki Online",
+    displayUrl: "www.reikionline.com.ar",
+    href: "https://www.reikionline.com.ar/",
+    image: "/projects/reiki-online.jpg",
+  },
+  {
+    id: "importados-ya",
+    name: "ImportadosYA!",
+    displayUrl: "www.cn.com.ar/importadosya",
+    href: "https://www.cn.com.ar/importadosya",
+    image: "/projects/importados-ya.png",
+  },
+  {
+    id: "el-buen-sabor",
+    name: "El Buen Sabor",
+    displayUrl: "www.cn.com.ar/elbuensabor",
+    href: "https://www.cn.com.ar/elbuensabor",
+    image: "/projects/el-buen-sabor.png",
+  },
+  {
+    id: "biblioteca-roncedo",
+    name: "Biblioteca Lautaro Roncedo",
+    displayUrl: "www.bibliotecaroncedo.ar",
+    href: "https://www.bibliotecaroncedo.ar/",
+    image: "/projects/biblioteca-roncedo.png",
+  },
+  {
+    id: "campo-directo",
+    name: "Campo Directo",
+    displayUrl: "www.campodirecto.ar",
+    href: "https://www.campodirecto.ar/",
+    image: "/projects/campo-directo.jpg",
+  },
+  {
+    id: "appcadi",
+    name: "AppCadi",
+    displayUrl: null,
+    href: null,
+    image: "/projects/appcadi.jpg",
+  },
+];
 
 interface ProjectsSectionProps {
   onOpenConfigurator: () => void;
@@ -84,8 +179,39 @@ const ILLUSTRATIVE_SHOWCASES = [
 
 export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectionProps) {
   const [selectedExample, setSelectedExample] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const carouselRef = useRef<HTMLDivElement>(null);
   const allProjects = projects && projects.length > 0 ? projects : PORTFOLIO_PROJECTS;
   const publishedProjects = allProjects.filter((p) => p.published);
+
+  const scrollCarousel = useCallback((direction: "prev" | "next") => {
+    const container = carouselRef.current;
+    if (!container) return;
+    const cardWidth = 280;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+
+    if (direction === "next") {
+      if (container.scrollLeft >= maxScroll - 16) {
+        container.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        container.scrollBy({ left: cardWidth, behavior: "smooth" });
+      }
+    } else {
+      if (container.scrollLeft <= 16) {
+        container.scrollTo({ left: maxScroll, behavior: "smooth" });
+      } else {
+        container.scrollBy({ left: -cardWidth, behavior: "smooth" });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isPaused) return;
+    const interval = setInterval(() => {
+      scrollCarousel("next");
+    }, 3600);
+    return () => clearInterval(interval);
+  }, [isPaused, scrollCarousel]);
 
   return (
     <section
@@ -113,6 +239,128 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
             <InverseDot fromColor="blanco" /> Cada solución también
             <InverseDot fromColor="blanco" />
           </p>
+        </div>
+
+        {/* Carrusel de Proyectos Terminados */}
+        <div
+          className="mt-14 rounded-3xl border border-[var(--color-menta)]/40 bg-[var(--color-blanco)]/[0.03] p-6 sm:p-8"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          onTouchStart={() => setIsPaused(true)}
+          onTouchEnd={() => setIsPaused(false)}
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-menta)]/60 bg-[var(--color-petroleo)] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--color-menta)]">
+                <span>Proyectos terminados</span>
+              </span>
+              <h3 className="mt-2.5 text-2xl font-extrabold text-[var(--color-blanco)] sm:text-3xl">
+                Desarrollos reales impulsados con <BrandWordmark className="mx-1" />
+              </h3>
+              <p className="mt-1 text-xs sm:text-sm text-[var(--color-blanco)]/75">
+                Deslizá el carrusel o hacé clic en cada proyecto para visitar su plataforma online
+                <InverseDot fromColor="blanco" />
+              </p>
+            </div>
+
+            {/* Controles del carrusel */}
+            <div className="flex items-center gap-2.5 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={() => scrollCarousel("prev")}
+                aria-label="Proyecto anterior"
+                className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-2xl border border-[var(--color-menta)] bg-[var(--color-petroleo)] text-[var(--color-menta)] transition-all hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)] active:scale-95"
+              >
+                <ChevronLeft className="h-5 w-5 stroke-[2.5]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollCarousel("next")}
+                aria-label="Siguiente proyecto"
+                className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-2xl border border-[var(--color-menta)] bg-[var(--color-petroleo)] text-[var(--color-menta)] transition-all hover:bg-[var(--color-menta)] hover:text-[var(--color-petroleo)] active:scale-95"
+              >
+                <ChevronRight className="h-5 w-5 stroke-[2.5]" />
+              </button>
+            </div>
+          </div>
+
+          {/* Pista deslizable del carrusel */}
+          <div
+            ref={carouselRef}
+            className="mt-6 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {COMPLETED_PROJECTS_CAROUSEL.map((item) => {
+              const cardContent = (
+                <>
+                  {/* Contenedor de imagen / logo del proyecto */}
+                  <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)] p-4 shadow-inner transition-transform duration-300 group-hover:scale-[1.02]">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      width={320}
+                      height={320}
+                      loading="lazy"
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+
+                  {/* Nombre y link del proyecto */}
+                  <div className="mt-4 flex flex-1 flex-col justify-between">
+                    <div>
+                      <h4 className="text-lg font-extrabold text-[var(--color-blanco)] group-hover:text-[var(--color-menta)] transition-colors">
+                        {item.name}
+                      </h4>
+                      {item.displayUrl ? (
+                        <p className="mt-1 truncate text-xs font-medium text-[var(--color-blanco)]/75">
+                          {item.displayUrl}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs font-medium text-[var(--color-blanco)]/60">
+                          Aplicación a medida
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-[var(--color-blanco)]/10">
+                      {item.href ? (
+                        <span className="inline-flex w-full items-center justify-between rounded-xl bg-[var(--color-menta)] px-3.5 py-2.5 text-xs font-extrabold text-[var(--color-blanco)] transition-colors group-hover:bg-[var(--color-blanco)] group-hover:text-[var(--color-petroleo)]">
+                          <span>Visitar sitio</span>
+                          <ExternalLink className="h-3.5 w-3.5 stroke-[2.5]" />
+                        </span>
+                      ) : (
+                        <span className="inline-flex w-full items-center justify-center rounded-xl border border-[var(--color-blanco)]/20 bg-[var(--color-blanco)]/5 px-3.5 py-2.5 text-xs font-bold text-[var(--color-blanco)]/80">
+                          Proyecto desarrollado
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+
+              if (item.href) {
+                return (
+                  <a
+                    key={item.id}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex w-[235px] sm:w-[255px] shrink-0 snap-start flex-col justify-between rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-petroleo)] p-5 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:border-[var(--color-menta)] hover:shadow-2xl focus:border-[var(--color-menta)] focus:outline-none"
+                  >
+                    {cardContent}
+                  </a>
+                );
+              }
+
+              return (
+                <article
+                  key={item.id}
+                  className="group flex w-[235px] sm:w-[255px] shrink-0 snap-start flex-col justify-between rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-petroleo)] p-5 shadow-lg transition-all duration-200 hover:border-[var(--color-menta)]/60"
+                >
+                  {cardContent}
+                </article>
+              );
+            })}
+          </div>
         </div>
 
         {/* Proyectos publicados (cuando estén aprobados en el administrador) */}
