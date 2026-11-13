@@ -290,14 +290,14 @@ export function ProjectsSection({ onOpenConfigurator, projects }: ProjectsSectio
           >
             {COMPLETED_PROJECTS_CAROUSEL.map((item) => {
               const imageBox = (
-                <div className="flex h-[180px] w-[180px] sm:h-[210px] sm:w-[210px] items-center justify-center overflow-hidden rounded-3xl border border-[var(--color-blanco)]/15 bg-[var(--color-blanco)] p-4 shadow-lg transition-all duration-300 group-hover:scale-[1.03] group-hover:border-[var(--color-menta)] group-hover:shadow-2xl">
+                <div className="flex h-[170px] w-[170px] sm:h-[200px] sm:w-[200px] items-center justify-center overflow-hidden rounded-3xl transition-transform duration-300 group-hover:scale-105">
                   <img
                     src={item.image}
                     alt={item.name}
                     width={320}
                     height={320}
                     loading="lazy"
-                    className="h-full w-full object-contain"
+                    className="h-full w-full rounded-3xl object-contain"
                   />
                 </div>
               );
