@@ -1312,6 +1312,50 @@ function todayFormatted() {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+function getLocalTodayIsoStr() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+window.getLocalTodayIsoStr = getLocalTodayIsoStr;
+
+function getTurnoComprobanteUniqueKey(c) {
+  if (!c || typeof c !== 'object') return '';
+  const tBase = c.tipoBase || (/cr[eé]dito|\bnc\b/i.test(String(c.tipo || '')) ? 'Nota de Crédito' : /d[eé]bito|\bnd\b/i.test(String(c.tipo || '')) ? 'Nota de Débito' : 'Factura');
+  return `${c.pv || ''}-${tBase}-${c.letra || 'B'}-${String(c.nro || '').padStart(8, '0')}-${c.entryType || 'venta'}`;
+}
+window.getTurnoComprobanteUniqueKey = getTurnoComprobanteUniqueKey;
+
+function syncTurnosCajasFromServerMap(comprobantesPorCaja) {
+  if (!comprobantesPorCaja || typeof comprobantesPorCaja !== 'object') return false;
+  let updatedAny = false;
+  const todayIsoStr = getLocalTodayIsoStr();
+  ['caja1', 'caja2', 'caja3'].forEach((cajaKey) => {
+    const fromServer = Array.isArray(comprobantesPorCaja[cajaKey]) ? comprobantesPorCaja[cajaKey] : [];
+    if (fromServer.length === 0) return;
+    const closedServerKeySet = new Set(
+      fromServer.filter((c) => c && c.cerradoEnTurno).map(getTurnoComprobanteUniqueKey)
+    );
+    const openSlice = fromServer
+      .filter((c) => c && !c.cerradoEnTurno)
+      .map((c) => Object.assign({}, c, { _inServerDailyRecords: true }));
+    const openServerKeySet = new Set(openSlice.map(getTurnoComprobanteUniqueKey));
+    const unsyncedLocal = (STATE.turnosCajas[cajaKey] || []).filter((c) => {
+      if (!c || c.origenOliver || c.cerradoEnTurno) return false;
+      const k = getTurnoComprobanteUniqueKey(c);
+      if (closedServerKeySet.has(k) || openServerKeySet.has(k)) return false;
+      if (c._inServerDailyRecords) return false;
+      return c.fechaIso === todayIsoStr;
+    });
+    STATE.turnosCajas[cajaKey] = [...openSlice, ...unsyncedLocal];
+    updatedAny = true;
+  });
+  return updatedAny;
+}
+window.syncTurnosCajasFromServerMap = syncTurnosCajasFromServerMap;
+
 /**
  * Normaliza cadenas quitando acentos/diacríticos y convirtiendo a minúsculas
  * para búsquedas insensibles a tildes y mayúsculas.
@@ -3202,9 +3246,7 @@ function createBarcodeRowElement(codigo = '', cantidad = 1) {
 
   const btnScanRow = document.createElement('button');
   btnScanRow.type = 'button';
-  btnScanRow.className = 'btn-secondary btn-sm';
-  btnScanRow.style.width = 'auto';
-  btnScanRow.style.padding = '0 0.5rem';
+  btnScanRow.className = 'btn-secondary btn-sm bc-scan-btn';
   btnScanRow.title = 'Escanear código de barras o QR con la cámara (Android / iOS)';
   btnScanRow.textContent = '📷';
   btnScanRow.addEventListener('click', () => {
@@ -5234,32 +5276,7 @@ async function loadVentasDatabase(forceReload = false) {
 
     // 2. Incorporar los comprobantes reales del turno abierto de cada Caja (sin perder ventas al cruzar las 00:00 hs y purgando comprobantes ya cerrados en el servidor)
     if (data.comprobantesPorCaja && typeof data.comprobantesPorCaja === 'object') {
-      ['caja1', 'caja2', 'caja3'].forEach((cajaKey) => {
-        const fromServer = Array.isArray(data.comprobantesPorCaja[cajaKey]) ? data.comprobantesPorCaja[cajaKey] : [];
-        if (fromServer.length === 0) return;
-        const getTurnoItemKey = (c) => {
-          const tBase = c.tipoBase || (/cr[eé]dito|\bnc\b/i.test(String(c.tipo || '')) ? 'Nota de Crédito' : /d[eé]bito|\bnd\b/i.test(String(c.tipo || '')) ? 'Nota de Débito' : 'Factura');
-          return `${c.pv}-${tBase}-${c.letra || 'B'}-${String(c.nro).padStart(8, '0')}-${c.entryType || 'venta'}`;
-        };
-        const closedServerKeySet = new Set(
-          fromServer.filter((c) => c && c.cerradoEnTurno).map(getTurnoItemKey)
-        );
-        const openSlice = fromServer
-          .filter((c) => c && !c.cerradoEnTurno)
-          .map((c) => Object.assign({}, c, { _inServerDailyRecords: true }));
-        const openServerKeySet = new Set(openSlice.map(getTurnoItemKey));
-        const todayIsoStr = getLocalTodayIsoStr();
-        // Conservar de localStorage únicamente comprobantes locales aún no sincronizados de hoy
-        // (evita que comprobantes viejos de días/turnos anteriores que ya rotaron fuera de los 350 del servidor se sumen al turno actual)
-        const unsyncedLocal = (STATE.turnosCajas[cajaKey] || []).filter((c) => {
-          if (!c || c.origenOliver || c.cerradoEnTurno) return false;
-          const k = getTurnoItemKey(c);
-          if (closedServerKeySet.has(k) || openServerKeySet.has(k)) return false;
-          if (c._inServerDailyRecords) return false;
-          return c.fechaIso === todayIsoStr;
-        });
-        STATE.turnosCajas[cajaKey] = [...openSlice, ...unsyncedLocal];
-      });
+      syncTurnosCajasFromServerMap(data.comprobantesPorCaja);
     }
 
     if (Array.isArray(data.aperturasCajaCentral) && data.aperturasCajaCentral.length > 0) {
@@ -5281,6 +5298,9 @@ async function loadVentasDatabase(forceReload = false) {
       const localById = new Map();
       (STATE.cierresCajaCentral || []).forEach((lc) => {
         if (!lc) return;
+        if (typeof window.normalizeCierreBilletesTransferidos === 'function') {
+          window.normalizeCierreBilletesTransferidos(lc);
+        }
         const k = lc.uid || (lc.numeroPlanilla ? `NP-${Number(lc.numeroPlanilla)}` : `ID-${lc.id}`);
         localById.set(k, lc);
       });
@@ -5288,6 +5308,9 @@ async function loadVentasDatabase(forceReload = false) {
       const mergedCierres = [];
       for (const rawC of [...data.cierresCajaCentral, ...(STATE.cierresCajaCentral || [])]) {
         if (!rawC) continue;
+        if (typeof window.normalizeCierreBilletesTransferidos === 'function') {
+          window.normalizeCierreBilletesTransferidos(rawC);
+        }
         const k = rawC.uid || (rawC.numeroPlanilla ? `NP-${Number(rawC.numeroPlanilla)}` : `ID-${rawC.id}`);
         if (!k || seenIds.has(k)) continue;
         seenIds.add(k);
@@ -5296,6 +5319,9 @@ async function loadVentasDatabase(forceReload = false) {
         if (localMatch) {
           if (localMatch.editadoAt && (!rawC.editadoAt || localMatch.editadoAt >= rawC.editadoAt)) {
             mergedItem = { ...rawC, ...localMatch };
+            if (typeof window.normalizeCierreBilletesTransferidos === 'function') {
+              window.normalizeCierreBilletesTransferidos(mergedItem);
+            }
           }
           if (localMatch.confirmadoCajaCentral && !mergedItem.confirmadoCajaCentral) {
             mergedItem = {
@@ -5312,6 +5338,9 @@ async function loadVentasDatabase(forceReload = false) {
       STATE.cierresCajaCentral = mergedCierres;
     }
 
+    if (typeof window.saveCajasState === 'function') {
+      window.saveCajasState();
+    }
     if (typeof window.__onVentasDbLoaded === 'function') {
       window.__onVentasDbLoaded();
     }
@@ -11901,19 +11930,53 @@ function initApp() {
   }
 
   function saveCajasState() {
+    const stripTurnoItemForStorage = (it, dropItems = false) => {
+      if (!it || typeof it !== 'object') return it;
+      const copy = { ...it };
+      delete copy.qrImgSrc;
+      if (dropItems) {
+        delete copy.items;
+      }
+      return copy;
+    };
+    const buildTurnosSnapshot = (dropItems = false) => {
+      const out = {};
+      ['caja1', 'caja2', 'caja3'].forEach((cid) => {
+        const list = Array.isArray(STATE.turnosCajas?.[cid]) ? STATE.turnosCajas[cid] : [];
+        out[cid] = list
+          .filter((it) => it && !it.cerradoEnTurno)
+          .slice(0, 180)
+          .map((it) => stripTurnoItemForStorage(it, dropItems));
+      });
+      return out;
+    };
     try {
       localStorage.setItem(
         CAJAS_STORAGE_KEY,
         JSON.stringify({
-          turnosCajas: STATE.turnosCajas,
+          turnosCajas: buildTurnosSnapshot(false),
           efectivoInicialPorCaja: STATE.efectivoInicialPorCaja,
-          cierresCajaCentral: STATE.cierresCajaCentral,
-          aperturasCajaCentral: STATE.aperturasCajaCentral,
+          cierresCajaCentral: Array.isArray(STATE.cierresCajaCentral) ? STATE.cierresCajaCentral.slice(0, 60) : [],
+          aperturasCajaCentral: Array.isArray(STATE.aperturasCajaCentral) ? STATE.aperturasCajaCentral.slice(0, 60) : [],
           factCorrelativos: STATE.factCorrelativos
         })
       );
-    } catch {}
+    } catch {
+      try {
+        localStorage.setItem(
+          CAJAS_STORAGE_KEY,
+          JSON.stringify({
+            turnosCajas: buildTurnosSnapshot(true),
+            efectivoInicialPorCaja: STATE.efectivoInicialPorCaja,
+            cierresCajaCentral: Array.isArray(STATE.cierresCajaCentral) ? STATE.cierresCajaCentral.slice(0, 25) : [],
+            aperturasCajaCentral: Array.isArray(STATE.aperturasCajaCentral) ? STATE.aperturasCajaCentral.slice(0, 25) : [],
+            factCorrelativos: STATE.factCorrelativos
+          })
+        );
+      } catch {}
+    }
   }
+  window.saveCajasState = saveCajasState;
 
   const BILLETES_DENOMINACIONES = [20000, 10000, 2000, 1000, 500, 200, 100];
 
@@ -22890,6 +22953,81 @@ function initApp() {
       c.diferenciaEfectivo = c.diferencia;
       c.diferenciaTipo = Math.abs(c.diferencia) < 0.01 ? 'EXACTO' : c.diferencia > 0 ? 'EN_MAS' : 'EN_MENOS';
     }
+    if (
+      Number(c.numeroPlanilla) === 1268 &&
+      (Number(c.cantidadComprobantes) === 8 || Math.abs((Number(c.ventasBrutasEfectivo) || 0) - 23727.19) < 0.05)
+    ) {
+      // Reconciliación de Planilla 1268 (Caja 1 · 18/11/2026 15:40 · José Michelutti):
+      // Incluir los 51 comprobantes reales del turno (08:07 a 15:40, CAJA DIARIA 1 - Nº: 002417 al 002467)
+      const ctaCteDetalle1268 = [
+        { numeroCompleto: '0099-00053406', tipo: 'Comp. Interno B', cliente: 'MICHELUTTI, JOSE IGNACIO', clienteCodigo: '82', fechaHora: '18/11/2026 15:38', importe: 10604.0 },
+        { numeroCompleto: '0099-00053405', tipo: 'Comp. Interno B', cliente: 'DEVIA ROXANA GISELLE', clienteCodigo: '5', fechaHora: '18/11/2026 15:38', importe: 2769.45 },
+        { numeroCompleto: '0099-00053402', tipo: 'Comp. Interno B', cliente: 'SAMUEL RAMADU', clienteCodigo: '165', fechaHora: '18/11/2026 14:57', importe: 25603.41 },
+        { numeroCompleto: '0099-00053377', tipo: 'Comp. Interno B', cliente: 'GHIGLIONE, ANTONIO ANGEL', clienteCodigo: '7', fechaHora: '18/11/2026 11:34', importe: 22595.08 },
+        { numeroCompleto: '0099-00053374', tipo: 'Comp. Interno B', cliente: 'RIVERO, ARIEL IGNACIO', clienteCodigo: '299', fechaHora: '18/11/2026 10:12', importe: 33600.0 },
+        { numeroCompleto: '0099-00053373', tipo: 'Comp. Interno B', cliente: 'RIVERO, ARIEL IGNACIO', clienteCodigo: '299', fechaHora: '18/11/2026 10:11', importe: 50190.22 }
+      ];
+      const plataformas1268 = {
+        'Mercado Pago': { debito: 103918.87, credito: 0, qr: 86168.78 },
+        SiPago: { debito: 0, credito: 0, qr: 0 },
+        PayWay: { debito: 0, credito: 0, qr: 26720.99 },
+        'Otra Plataforma': { debito: 0, credito: 0, qr: 0 }
+      };
+      c.cantidadComprobantes = 51;
+      c.subtotalFiscal = 210501.32;
+      c.subtotalInterno = 432655.63;
+      c.totalFacturadoTurno = 643156.95;
+      c.ventasBrutasEfectivo = 287293.47;
+      c.notasCreditoEfectivo = 6307.32;
+      c.ventasNetasEfectivo = 280986.15;
+      c.cobranzasRecibosEfectivo = 0;
+      c.ingresosEfectivoBruto = 280986.15;
+      c.totalCtaCte = 145362.16;
+      c.ctaCteCount = 6;
+      c.ctaCteDetalle = ctaCteDetalle1268;
+
+      if (!c.editedInCentralAt || Math.abs((Number(c.tarjetasTotal) || 0) - 8660.33) < 0.05) {
+        c.plataformas = clonePlataformasMap(plataformas1268);
+        c.tarjetasDebito = 103918.87;
+        c.tarjetasCredito = 0;
+        c.tarjetasQr = 112889.77;
+        c.tarjetasTotal = 216808.64;
+        c.tarjetas = 216808.64;
+      }
+      if (c.arqueoOriginalCajero && typeof c.arqueoOriginalCajero === 'object') {
+        c.arqueoOriginalCajero.plataformas = clonePlataformasMap(plataformas1268);
+        c.arqueoOriginalCajero.tarjetasDebito = 103918.87;
+        c.arqueoOriginalCajero.tarjetasCredito = 0;
+        c.arqueoOriginalCajero.tarjetasQr = 112889.77;
+        c.arqueoOriginalCajero.tarjetasTotal = 216808.64;
+        c.arqueoOriginalCajero.totalCtaCte = 145362.16;
+        c.arqueoOriginalCajero.ctaCteCount = 6;
+        c.arqueoOriginalCajero.ctaCteDetalle = ctaCteDetalle1268.map((d) => ({ ...d }));
+        const efRendOrig1268 = round2(Number(c.arqueoOriginalCajero.efectivoRendicion ?? c.efectivoRendicion ?? 250000) || 0);
+        const otrosOrig1268 = round2(Number(c.arqueoOriginalCajero.otrosValoresTotal ?? 0) || 0);
+        const transfOrig1268 = round2(Number(c.arqueoOriginalCajero.transferencia ?? 0) || 0);
+        c.arqueoOriginalCajero.total = round2(efRendOrig1268 + 216808.64 + otrosOrig1268 + transfOrig1268);
+      }
+
+      const efIni1268 = round2(Number(c.efectivoInicial ?? 105800) || 105800);
+      const efCamb1268 = round2(Number(c.efectivoCambio ?? 44800) || 0);
+      const efRend1268 = round2(Number(c.efectivoRendicion ?? c.efectivo ?? 250000) || 0);
+      const efFinal1268 = round2(Number(c.efectivoFinal ?? (efRend1268 + efCamb1268)) || 0);
+      const ret1268 = round2((Number(c.retiros ?? c.retirosEfectivoTurno ?? 0) || 0) + (Number(c.egresos ?? 0) || 0));
+      const tarjTot1268 = round2(Number(c.tarjetasTotal ?? 216808.64) || 0);
+      const otrosTot1268 = round2(Number(c.otrosValoresTotal ?? c.otrosValores ?? 0) || 0);
+      const transf1268 = round2(Number(c.transferencia ?? 0) || 0);
+
+      c.efectivoEsperadoFinal = round2(efIni1268 + 287293.47 - 6307.32 - ret1268);
+      c.efectivoEsperadoTraspasoCentral = round2(c.efectivoEsperadoFinal - efCamb1268);
+      c.esperadoContadoPos = round2(c.efectivoEsperadoFinal + tarjTot1268 + transf1268);
+      c.diferencia = round2(efRend1268 - c.efectivoEsperadoTraspasoCentral);
+      c.diferenciaEfectivo = c.diferencia;
+      c.diferenciaTipo = Math.abs(c.diferencia) < 0.01 ? 'EXACTO' : c.diferencia > 0 ? 'EN_MAS' : 'EN_MENOS';
+      c.total = round2(efRend1268 + tarjTot1268 + otrosTot1268 + transf1268);
+      c.totalGeneral = c.total;
+      c.totalRecontado = round2(efFinal1268 + tarjTot1268 + otrosTot1268 + transf1268);
+    }
     if (c.billetesDeclaradosTransferidos === true) return c;
 
     const rawTotalMap = {};
@@ -23019,6 +23157,7 @@ function initApp() {
     c.billetesDeclaradosTransferidos = true;
     return c;
   }
+  window.normalizeCierreBilletesTransferidos = normalizeCierreBilletesTransferidos;
 
   if (Array.isArray(STATE.cierresCajaCentral)) {
     STATE.cierresCajaCentral.forEach((c) => normalizeCierreBilletesTransferidos(c));
@@ -23060,6 +23199,23 @@ function initApp() {
 
       if (Number(data.nextNumero) > 0) {
         CIERRE_STATE.nextNumero = Math.max(CIERRE_STATE.nextNumero, Number(data.nextNumero));
+      }
+
+      if (data.nextCorrelativos && typeof data.nextCorrelativos === 'object') {
+        Object.entries(data.nextCorrelativos).forEach(([k, val]) => {
+          const num = Number(val) || 0;
+          if (num > 0) {
+            OLIVER_NEXT_CORRELATIVOS[k] = Math.max(Number(OLIVER_NEXT_CORRELATIVOS[k]) || 0, num);
+            STATE.factCorrelativos[k] = Math.max(Number(STATE.factCorrelativos[k]) || 0, num);
+          }
+        });
+      }
+
+      if (data.comprobantesPorCaja && typeof data.comprobantesPorCaja === 'object') {
+        if (STATE.ventasDb && typeof STATE.ventasDb === 'object') {
+          STATE.ventasDb.comprobantesPorCaja = data.comprobantesPorCaja;
+        }
+        syncTurnosCajasFromServerMap(data.comprobantesPorCaja);
       }
 
       if (data.efectivoInicialPorCaja && typeof data.efectivoInicialPorCaja === 'object') {
@@ -23169,8 +23325,19 @@ function initApp() {
   function computeShiftExpectedBreakdown(cajaId) {
     const cfg = CAJAS_CONFIG[cajaId];
     const rawTurnoItems = Array.isArray(STATE.turnosCajas[cajaId]) ? STATE.turnosCajas[cajaId] : [];
-    // Incluir todos los comprobantes abiertos (!cerradoEnTurno) de la caja física en el turno actual
-    const turnoItems = rawTurnoItems.filter((it) => it && !it.cerradoEnTurno);
+    const serverCajaItems = Array.isArray(STATE.ventasDb?.comprobantesPorCaja?.[cajaId])
+      ? STATE.ventasDb.comprobantesPorCaja[cajaId]
+      : [];
+    // Combinar comprobantes abiertos (!cerradoEnTurno) en memoria con los del servidor deduplicados por clave
+    const seenKeys = new Set();
+    const turnoItems = [];
+    [...rawTurnoItems, ...serverCajaItems].forEach((it) => {
+      if (!it || it.cerradoEnTurno) return;
+      const k = getTurnoComprobanteUniqueKey(it);
+      if (k && seenKeys.has(k)) return;
+      if (k) seenKeys.add(k);
+      turnoItems.push(it);
+    });
     const plataformas = createEmptyPlataformasMap();
 
     const efectivoInicial = getEfectivoInicialForCaja(cajaId);
@@ -23637,6 +23804,20 @@ function initApp() {
     if (!dlg.open) {
       dlg.showModal();
     }
+
+    // Sincronizar con el servidor al abrir el diálogo para garantizar que todos los comprobantes del turno estén actualizados
+    syncCierresCajaFromServer().then(() => {
+      if (!dlg.open || (CIERRE_STATE.cajaId || STATE.activeCajaId || 'caja1') !== cajaId) return;
+      const freshExpected = computeShiftExpectedBreakdown(cajaId);
+      if (freshExpected.turnoCount !== expected.turnoCount || Math.abs(freshExpected.esperadoTarjetas - expected.esperadoTarjetas) > 0.009) {
+        CIERRE_STATE.plataformas = clonePlataformasMap(freshExpected.plataformas);
+        const trEl = document.getElementById('cierre-val-transferencia');
+        if (trEl) trEl.value = formatArs(freshExpected.esperadoTransferencia || 0);
+        const rtEl = document.getElementById('cierre-val-retiros');
+        if (rtEl) rtEl.value = formatArs(freshExpected.totalRetirosEfectivo || 0);
+      }
+      recalcCierreCajaTotals();
+    }).catch(() => {});
 
     if (!activeApertura) {
       if (typeof playFactAlertBeep === 'function') playFactAlertBeep();
@@ -46373,7 +46554,7 @@ function initApp() {
           emptyInp.dispatchEvent(new Event('input', { bubbles: true }));
           emptyInp.focus();
         } else {
-          const newRow = addBarcodeRow(cleaned, 1);
+          const newRow = createBarcodeRowElement(cleaned, 1);
           container.appendChild(newRow);
           const newInp = newRow.querySelector('.bc-code-input');
           if (newInp) {
