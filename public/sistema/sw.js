@@ -1,11 +1,11 @@
-const CACHE_NAME = 'minisistema-erp-v268';
+const CACHE_NAME = 'minisistema-erp-v271';
 const ASSETS_TO_CACHE = [
-  '/sistema/assets/js/brand.js?v=268',
-  '/sistema/assets/css/styles.css?v=268',
-  '/sistema/assets/css/brand-minisistema.css?v=1',
-  '/sistema/assets/js/zxing.min.js?v=264',
-  '/sistema/assets/js/app.js?v=268',
-  '/sistema/assets/js/superadmin-panel.js?v=268',
+  '/sistema/assets/js/brand.js?v=271',
+  '/sistema/assets/css/styles.css?v=271',
+  '/sistema/assets/css/brand-minisistema.css?v=271',
+  '/sistema/assets/js/zxing.min.js?v=271',
+  '/sistema/assets/js/app.js?v=271',
+  '/sistema/assets/js/superadmin-panel.js?v=271',
   '/sistema/assets/img/minisistema/logo-1x1.png',
   '/sistema/assets/img/minisistema/logo-horizontal.png',
   '/sistema/assets/img/minisistema/logo-symbol.png',
@@ -45,15 +45,9 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  if (request.method !== 'GET') {
-    return;
-  }
-  if (!request.url.startsWith(self.location.origin)) {
-    return;
-  }
-  if (request.url.includes('/api/')) {
-    return;
-  }
+  if (request.method !== 'GET') return;
+  if (!request.url.startsWith(self.location.origin)) return;
+  if (request.url.includes('/api/')) return;
 
   event.respondWith(
     fetch(request, { cache: 'no-store' })

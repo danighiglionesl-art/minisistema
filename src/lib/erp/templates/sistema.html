@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon-64.png?v=161">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png?v=161">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="assets/css/styles.css?v=265">
+  <link rel="stylesheet" href="assets/css/styles.css?v=271">
   <script src="assets/js/brand.js?v=7"></script>
   <style>
     html[data-has-session="1"] #login-view { display: none !important; }
@@ -7846,11 +7846,15 @@
         <div class="section-header-card">
           <div>
             <h2>Selección Masiva e Individual de Artículos Publicados en Carrito Web</h2>
-            <p>Todos los artículos activos tienen <strong>"Carrito Web" tildado por defecto</strong> (incluidos los productos <strong>Sin Stock</strong>, que se muestran en la tienda con el aviso <em>"SIN STOCK"</em>). Filtrá por <strong>Rubro, Marca o Stock (Positivo / Sin Stock)</strong> y usá los botones masivos para publicar o quitar de la web todo el grupo filtrado de una sola vez.</p>
           </div>
-          <a href="/carrito/" target="_blank" rel="noopener" class="btn-secondary" style="width:auto; text-decoration:none;">
-            🌐 Ver Tienda Pública ↗
-          </a>
+          <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+            <button type="button" id="btn-cw-toggle-stock-pub-mode" class="btn-primary" style="width:auto;" title="Alternar entre publicar solo artículos con stock positivo o publicar todos los artículos activos aunque no tengan stock">
+              📦 Publicar solo Artículos con Stock
+            </button>
+            <a href="/carrito/" target="_blank" rel="noopener" class="btn-secondary" style="width:auto; text-decoration:none;">
+              🌐 Ver Tienda Pública ↗
+            </a>
+          </div>
         </div>
 
         <div class="kpi-strip">
@@ -8162,9 +8166,7 @@
           <div>
             <h2>📱 Ventana Emergente · Promociones para Clientes Logueados (Android e iOS)</h2>
             <p>
-              Espacio exclusivo de <strong>promociones emergentes</strong> que se muestra automáticamente a los <strong>clientes que iniciaron sesión</strong> en <strong>www.cn.com.ar/carrito</strong> (donde el carrusel superior permanece oculto para dar prioridad al catálogo y al panel).
-              <br>
-              📐 <strong>Tamaño definido y recomendado para Android e iOS:</strong> <strong>1080 × 1350 px</strong> (Proporción <strong>4:5 vertical</strong> — formato estándar móvil que aprovecha el alto de pantalla en celulares Android e iPhone sin recortes ni barras laterales). También admite <strong>1080 × 1080 px (1:1)</strong> o <strong>1080 × 1920 px (9:16)</strong>.
+              Espacio exclusivo de <strong>promociones emergentes</strong> que se muestra automáticamente a los <strong>clientes que iniciaron sesión</strong> en <strong>www.cn.com.ar/carrito</strong>.
             </p>
           </div>
           <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap;">
@@ -8382,11 +8384,9 @@
 
         <div class="section-header-card">
           <div>
-            <h2>📲 Carrusel App · Sector Autogestión (Rotación Permanente)</h2>
+            <h2>📲 Carrusel App · Sector Autogestión</h2>
             <p>
-              Espacio de <strong>rotación permanente</strong> en la pantalla de Inicio de la App Clientes (junto a la tarjeta <strong>Autogestión Casa Nueva</strong>, que se mantiene tal cual). Permite cargar <strong>hasta 10 imágenes</strong> con enlace opcional y vigencia por <strong>Fecha de Inicio y Fecha de Fin</strong>.
-              <br>
-              📐 <strong>Tamaño exacto que debe cargar el usuario:</strong> <strong>1080 × 360 px</strong> (Proporción <strong>3:1 horizontal</strong> — idéntica al rectángulo de Autogestión en celulares Android e iOS).
+              Espacio de <strong>rotación permanente</strong> en la pantalla de Inicio de la App Clientes. Permite cargar <strong>hasta 10 imágenes</strong> con enlace opcional y vigencia por <strong>Fecha de Inicio y Fecha de Fin</strong>.
             </p>
           </div>
           <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap;">
@@ -8394,7 +8394,7 @@
               <label for="cw-app-carousel-interval" style="font-size:0.8rem; font-weight:700; color:var(--silver-bright); white-space:nowrap;">⏱️ Giro permanente cada:</label>
               <select id="cw-app-carousel-interval" class="form-select" style="width:auto; min-height:34px; padding-block:0.2rem;">
                 <option value="3">3 segundos</option>
-                <option value="4" selected>⭐ 4 segundos (Ideal)</option>
+                <option value="4" selected>⭐ 4 segundos</option>
                 <option value="5">5 segundos</option>
                 <option value="6">6 segundos</option>
                 <option value="8">8 segundos</option>
@@ -9281,38 +9281,100 @@
           </div>
 
           <div>
-            <!-- Reglas de Puntos, Redondeo, Vencimiento 1 Año y Canje 1,12 -->
-            <fieldset class="erp-fieldset">
-              <legend class="erp-legend">Reglas de Acumulación, Vencimiento y Catálogo de Canje</legend>
+            <!-- 1. REGLAS GENERALES DE ACUMULACIÓN, CANJE Y VENCIMIENTO (MISMO FORMATO CON BARRA) -->
+            <fieldset class="erp-fieldset" style="margin-block-end:1.1rem;">
+              <legend class="erp-legend">Reglas Generales de Acumulación, Canje y Vencimiento</legend>
 
-              <div class="form-group" style="margin-block-end:1rem;">
-                <label for="cfg-fid-porcentaje" class="form-label">
-                  Porcentaje fijo a sumar por compra (%) — Convertido a puntos enteros sin decimales
-                </label>
-                <div class="code-input-group">
-                  <input
-                    type="number"
-                    id="cfg-fid-porcentaje"
-                    name="porcentaje_compra"
-                    class="form-input price-input--highlight"
-                    step="0.01"
-                    min="0.01"
-                    max="100"
-                    value="0.80"
-                    required
-                  >
-                  <span class="badge badge--gold" style="white-space:nowrap;">Redondeo Automático Entero</span>
+              <div class="fid-rules-bars-grid">
+                <!-- BARRA 1: OTORGAMIENTO DE PUNTOS (0,25% a 5,00%) -->
+                <div class="fid-slider-card">
+                  <div class="fid-slider-card-head">
+                    <label for="cfg-fid-porcentaje" class="form-label" style="margin:0;">
+                      Otorgamiento de Puntos por Compra (%)
+                    </label>
+                    <span id="cfg-fid-pct-badge" class="badge badge--gold">0,80% · Redondeo Entero</span>
+                  </div>
+                  <div class="fid-slider-bar-row">
+                    <span class="fid-slider-bound">0,25%</span>
+                    <input
+                      type="range"
+                      id="cfg-fid-porcentaje-range"
+                      class="fid-range-input"
+                      min="0.25"
+                      max="5.00"
+                      step="0.05"
+                      value="0.80"
+                      aria-label="Porcentaje de puntos otorgados por compra (0,25% a 5,00%)"
+                    >
+                    <span class="fid-slider-bound">5,00%</span>
+                    <div class="fid-slider-num-wrap">
+                      <input
+                        type="number"
+                        id="cfg-fid-porcentaje"
+                        name="porcentaje_compra"
+                        class="form-input price-input--highlight fid-slider-num-input"
+                        step="0.05"
+                        min="0.25"
+                        max="5.00"
+                        value="0.80"
+                        required
+                      >
+                      <span class="fid-slider-unit">%</span>
+                    </div>
+                  </div>
+                  <span id="cfg-fid-pct-hint" class="field-hint" style="margin:0;">
+                    Con <strong>0,80%</strong>: una compra de $10.000 suma <strong>80 puntos</strong>; una de $8.450 ($67,6) redondea automáticamente a <strong>68 puntos</strong>.
+                  </span>
                 </div>
-                <span class="field-hint">
-                  Con <strong>0,80%</strong>: una compra de $10.000 suma <strong>80 puntos</strong>; una de $8.450 ($67,6) redondea automáticamente a <strong>68 puntos</strong>.
-                </span>
+
+                <!-- BARRA 2: VALOR EN PUNTOS EN EL CATÁLOGO DE CANJE (0,80 a 1,40) -->
+                <div class="fid-slider-card">
+                  <div class="fid-slider-card-head">
+                    <label for="cfg-fid-factor-canje" class="form-label" style="margin:0;">
+                      Canje en Catálogo (Coeficiente sobre Precio Minorista)
+                    </label>
+                    <span id="cfg-fid-factor-badge" class="badge badge--gold">1,12 × Precio Minorista</span>
+                  </div>
+                  <div class="fid-slider-bar-row">
+                    <span class="fid-slider-bound">0,80</span>
+                    <input
+                      type="range"
+                      id="cfg-fid-factor-canje-range"
+                      class="fid-range-input"
+                      min="0.80"
+                      max="1.40"
+                      step="0.01"
+                      value="1.12"
+                      aria-label="Coeficiente de puntos para canje (0,80 a 1,40)"
+                    >
+                    <span class="fid-slider-bound">1,40</span>
+                    <div class="fid-slider-num-wrap">
+                      <input
+                        type="number"
+                        id="cfg-fid-factor-canje"
+                        name="factor_canje"
+                        class="form-input price-input--highlight fid-slider-num-input"
+                        step="0.01"
+                        min="0.80"
+                        max="1.40"
+                        value="1.12"
+                        required
+                      >
+                      <span class="fid-slider-unit">×</span>
+                    </div>
+                  </div>
+                  <span id="cfg-fid-factor-hint" class="field-hint" style="margin:0;">
+                    Un producto de <strong>$1.000</strong> minorista requiere <strong>1.120 puntos</strong> para su canje.
+                  </span>
+                </div>
               </div>
 
-              <div class="form-group" style="margin-block-end:1rem;">
+              <!-- VENCIMIENTO DE PUNTOS -->
+              <div class="form-group" style="margin-block-start:0.95rem; margin-block-end:0.95rem;">
                 <label for="cfg-fid-vigencia" class="form-label">
                   Vencimiento de los puntos publicados (Días desde la fecha de emisión)
                 </label>
-                <div class="code-input-group">
+                <div class="code-input-group" style="max-width:460px;">
                   <input
                     type="number"
                     id="cfg-fid-vigencia"
@@ -9324,32 +9386,10 @@
                     value="365"
                     required
                   >
-                  <span class="badge badge--green" style="white-space:nowrap;">365 días = 1 Año Exacto</span>
+                  <span id="cfg-fid-vigencia-badge" class="badge badge--green" style="white-space:nowrap;">365 días = 1 Año Exacto</span>
                 </div>
                 <span class="field-hint">
-                  Cada lote de puntos emitido vence automáticamente al cumplirse este plazo desde su fecha de emisión. Al canjear, se descuentan primero los puntos más antiguos vigentes (FIFO).
-                </span>
-              </div>
-
-              <div class="form-group" style="margin-block-end:1rem;">
-                <label for="cfg-fid-factor-canje" class="form-label">
-                  Valor en Puntos en el Catálogo de Canje (Coeficiente sobre Precio Minorista Final)
-                </label>
-                <div class="code-input-group">
-                  <input
-                    type="number"
-                    id="cfg-fid-factor-canje"
-                    name="factor_canje"
-                    class="form-input price-input--highlight"
-                    step="0.01"
-                    min="0.01"
-                    value="1.12"
-                    required
-                  >
-                  <span class="badge badge--gold" style="white-space:nowrap;">1,12 × Precio Minorista</span>
-                </div>
-                <span class="field-hint">
-                  Un producto de <strong>$1.000</strong> minorista requiere <strong>1.120 puntos</strong> para su canje. Podés recalcular todo el catálogo o personalizar productos individuales.
+                  Cada lote de puntos emitido vence automáticamente al cumplirse este plazo desde su fecha de emisión (descuento FIFO al canjear).
                 </span>
               </div>
 
@@ -9357,26 +9397,246 @@
               <div class="sub-panel">
                 <div class="sub-panel-header">
                   <div>
-                    <h4>🧮 Simulador Rápido de Reglas Activas</h4>
-                    <p>Probá cómo impacta tu configuración actual en una compra o en un producto de canje.</p>
+                    <h4>🧮 Simulador Rápido de Reglas Activas (Hoy)</h4>
                   </div>
                 </div>
-                <div class="form-row form-row--2col">
+                <div class="fid-sim-grid-3col">
+                  <div class="form-group">
+                    <label for="cfg-sim-rubro" class="form-label">Rubro a evaluar hoy:</label>
+                    <select id="cfg-sim-rubro" class="form-select">
+                      <option value="0">Regla General (Sin rubro específico)</option>
+                    </select>
+                    <span id="cfg-sim-rubro-res" class="field-hint">Aplicando regla general activa</span>
+                  </div>
                   <div class="form-group">
                     <label for="cfg-sim-compra" class="form-label">Si el cliente compra ($):</label>
                     <input type="number" id="cfg-sim-compra" class="form-input form-input--compact" value="25000" step="100">
-                    <span id="cfg-sim-compra-res" class="field-hint" style="color:var(--gold-light); font-weight:700;">Suma: 200 puntos (Vence en 365 días)</span>
+                    <span id="cfg-sim-compra-res" class="field-hint" style="color:var(--gold-light); font-weight:700;">+200 pts</span>
                   </div>
                   <div class="form-group">
                     <label for="cfg-sim-prod" class="form-label">Producto de Precio Minorista ($):</label>
                     <input type="number" id="cfg-sim-prod" class="form-input form-input--compact" value="4500" step="100">
-                    <span id="cfg-sim-prod-res" class="field-hint" style="color:var(--success); font-weight:700;">Valor en Catálogo de Canje: 5.040 puntos</span>
+                    <span id="cfg-sim-prod-res" class="field-hint" style="color:var(--success); font-weight:700;">5.040 pts</span>
                   </div>
                 </div>
               </div>
             </fieldset>
+
+            <!-- 2. REGLAS ESPECIALES POR RUBRO, DÍAS DETERMINADOS Y FECHA DE VIGENCIA -->
+            <fieldset class="erp-fieldset">
+              <legend class="erp-legend">🎯 Reglas por Rubro, Días Determinados y Fecha de Vigencia</legend>
+
+              <div class="fid-rr-builder-panel">
+                <div class="fid-rr-top-grid">
+                  <div class="form-group">
+                    <label for="fid-rr-rubro" class="form-label">Rubro alcanzado *</label>
+                    <select id="fid-rr-rubro" class="form-select">
+                      <option value="">— Seleccionar Rubro —</option>
+                      <option value="0">🌟 TODOS LOS RUBROS (Promoción General)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="fid-rr-desde" class="form-label">Vigencia Desde *</label>
+                    <input type="date" id="fid-rr-desde" class="form-input">
+                  </div>
+                  <div class="form-group">
+                    <label for="fid-rr-hasta" class="form-label">Vigencia Hasta (opcional = sin límite)</label>
+                    <input type="date" id="fid-rr-hasta" class="form-input">
+                  </div>
+                </div>
+
+                <!-- Selección de días de la semana -->
+                <div class="form-group" style="margin-block-top:0.75rem;">
+                  <div class="fid-days-header">
+                    <span class="form-label" style="margin:0;">Días de la semana en que aplica *</span>
+                    <div class="fid-days-quick-btns">
+                      <button type="button" id="btn-fid-rr-days-all" class="btn-secondary btn-sm">Todos los días</button>
+                      <button type="button" id="btn-fid-rr-days-none" class="btn-secondary btn-sm">Limpiar</button>
+                    </div>
+                  </div>
+                  <div class="fid-days-picker" id="fid-rr-days-picker">
+                    <label class="fid-day-chip is-selected"><input type="checkbox" value="1" checked><span>Lunes</span></label>
+                    <label class="fid-day-chip is-selected"><input type="checkbox" value="2" checked><span>Martes</span></label>
+                    <label class="fid-day-chip is-selected"><input type="checkbox" value="3" checked><span>Miércoles</span></label>
+                    <label class="fid-day-chip is-selected"><input type="checkbox" value="4" checked><span>Jueves</span></label>
+                    <label class="fid-day-chip is-selected"><input type="checkbox" value="5" checked><span>Viernes</span></label>
+                    <label class="fid-day-chip is-selected"><input type="checkbox" value="6" checked><span>Sábado</span></label>
+                    <label class="fid-day-chip is-selected"><input type="checkbox" value="0" checked><span>Domingo</span></label>
+                  </div>
+                </div>
+
+                <!-- Dos barras iguales (Otorgamiento 0,25%-5,00% y Canje 0,80-1,40) -->
+                <div class="fid-rules-bars-grid" style="margin-block-top:0.85rem;">
+                  <div class="fid-slider-card" id="fid-rr-pct-card">
+                    <div class="fid-slider-card-head">
+                      <label class="fid-rr-toggle-lbl" for="fid-rr-use-pct">
+                        <input type="checkbox" id="fid-rr-use-pct" checked>
+                        <span>Modificar Otorgamiento de Puntos (%)</span>
+                      </label>
+                      <span id="fid-rr-pct-badge" class="badge badge--gold">1,50%</span>
+                    </div>
+                    <div class="fid-slider-bar-row" id="fid-rr-pct-controls">
+                      <span class="fid-slider-bound">0,25%</span>
+                      <input type="range" id="fid-rr-pct-range" class="fid-range-input" min="0.25" max="5.00" step="0.05" value="1.50" aria-label="Porcentaje especial del rubro">
+                      <span class="fid-slider-bound">5,00%</span>
+                      <div class="fid-slider-num-wrap">
+                        <input type="number" id="fid-rr-pct-input" class="form-input price-input--highlight fid-slider-num-input" step="0.05" min="0.25" max="5.00" value="1.50">
+                        <span class="fid-slider-unit">%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="fid-slider-card is-disabled" id="fid-rr-factor-card">
+                    <div class="fid-slider-card-head">
+                      <label class="fid-rr-toggle-lbl" for="fid-rr-use-factor">
+                        <input type="checkbox" id="fid-rr-use-factor">
+                        <span>Modificar Canje en Catálogo (Factor)</span>
+                      </label>
+                      <span id="fid-rr-factor-badge" class="badge badge--gold">1,00 ×</span>
+                    </div>
+                    <div class="fid-slider-bar-row" id="fid-rr-factor-controls">
+                      <span class="fid-slider-bound">0,80</span>
+                      <input type="range" id="fid-rr-factor-range" class="fid-range-input" min="0.80" max="1.40" step="0.01" value="1.00" disabled aria-label="Coeficiente especial de canje del rubro">
+                      <span class="fid-slider-bound">1,40</span>
+                      <div class="fid-slider-num-wrap">
+                        <input type="number" id="fid-rr-factor-input" class="form-input price-input--highlight fid-slider-num-input" step="0.01" min="0.80" max="1.40" value="1.00" disabled>
+                        <span class="fid-slider-unit">×</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="fid-rr-actions-footer">
+                  <span id="fid-rr-feedback" class="field-hint" style="font-weight:700;" hidden></span>
+                  <button type="button" id="btn-fid-rr-add" class="btn-gold" style="width:auto; font-weight:800;">
+                    ➕ Agregar Regla por Rubro
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tabla de Reglas por Rubro registradas -->
+              <div class="table-meta-bar" style="margin-block-top:1rem;">
+                <div id="fid-rr-status-msg" class="catalog-status-msg">0 reglas especiales configuradas</div>
+              </div>
+              <div tabindex="0" role="region" aria-label="Listado de reglas especiales de puntos y canje por rubro" class="table-wrapper">
+                <table class="catalog-table" id="fid-rr-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Rubro</th>
+                      <th scope="col" class="num-col">Otorgamiento (%)</th>
+                      <th scope="col" class="num-col">Canje (Factor)</th>
+                      <th scope="col">Días Aplicables</th>
+                      <th scope="col">Vigencia y Estado</th>
+                      <th scope="col" class="actions-col">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="fid-rr-tbody">
+                    <tr>
+                      <td colspan="6" class="table-loading-cell">No hay reglas especiales por rubro configuradas. Se aplican las reglas generales en todos los rubros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </fieldset>
           </div>
         </form>
+
+        <!-- VENTANA EMERGENTE: MODIFICAR REGLA POR RUBRO -->
+        <dialog id="fid-rr-edit-dialog" class="erp-dialog" aria-labelledby="fid-rr-edit-title">
+          <form id="fid-rr-edit-form" method="dialog" novalidate>
+            <div class="dialog-header">
+              <div>
+                <span class="dialog-kicker">FIDELIZACIÓN · REGLA ESPECIAL</span>
+                <h3 id="fid-rr-edit-title" style="margin:0.15rem 0 0;">Modificar Regla por Rubro</h3>
+              </div>
+              <button type="button" id="btn-fid-rr-edit-close" class="btn-close-dialog" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="dialog-body">
+              <input type="hidden" id="fid-rr-edit-id" value="">
+              <div class="fid-rr-top-grid">
+                <div class="form-group">
+                  <label for="fid-rr-edit-rubro" class="form-label">Rubro alcanzado *</label>
+                  <select id="fid-rr-edit-rubro" class="form-select">
+                    <option value="0">🌟 TODOS LOS RUBROS (Promoción General)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="fid-rr-edit-desde" class="form-label">Vigencia Desde *</label>
+                  <input type="date" id="fid-rr-edit-desde" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label for="fid-rr-edit-hasta" class="form-label">Vigencia Hasta (opcional)</label>
+                  <input type="date" id="fid-rr-edit-hasta" class="form-input">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-block-top:0.85rem;">
+                <div class="fid-days-header">
+                  <span class="form-label" style="margin:0;">Días de la semana en que aplica *</span>
+                  <div class="fid-days-quick-btns">
+                    <button type="button" id="btn-fid-rr-edit-days-all" class="btn-secondary btn-sm">Todos los días</button>
+                    <button type="button" id="btn-fid-rr-edit-days-none" class="btn-secondary btn-sm">Limpiar</button>
+                  </div>
+                </div>
+                <div class="fid-days-picker" id="fid-rr-edit-days-picker">
+                  <label class="fid-day-chip"><input type="checkbox" value="1"><span>Lunes</span></label>
+                  <label class="fid-day-chip"><input type="checkbox" value="2"><span>Martes</span></label>
+                  <label class="fid-day-chip"><input type="checkbox" value="3"><span>Miércoles</span></label>
+                  <label class="fid-day-chip"><input type="checkbox" value="4"><span>Jueves</span></label>
+                  <label class="fid-day-chip"><input type="checkbox" value="5"><span>Viernes</span></label>
+                  <label class="fid-day-chip"><input type="checkbox" value="6"><span>Sábado</span></label>
+                  <label class="fid-day-chip"><input type="checkbox" value="0"><span>Domingo</span></label>
+                </div>
+              </div>
+
+              <div class="fid-rules-bars-grid" style="margin-block-top:0.85rem;">
+                <div class="fid-slider-card" id="fid-rr-edit-pct-card">
+                  <div class="fid-slider-card-head">
+                    <label class="fid-rr-toggle-lbl" for="fid-rr-edit-use-pct">
+                      <input type="checkbox" id="fid-rr-edit-use-pct">
+                      <span>Modificar Otorgamiento de Puntos (%)</span>
+                    </label>
+                    <span id="fid-rr-edit-pct-badge" class="badge badge--gold">1,50%</span>
+                  </div>
+                  <div class="fid-slider-bar-row">
+                    <span class="fid-slider-bound">0,25%</span>
+                    <input type="range" id="fid-rr-edit-pct-range" class="fid-range-input" min="0.25" max="5.00" step="0.05" value="1.50">
+                    <span class="fid-slider-bound">5,00%</span>
+                    <div class="fid-slider-num-wrap">
+                      <input type="number" id="fid-rr-edit-pct-input" class="form-input price-input--highlight fid-slider-num-input" step="0.05" min="0.25" max="5.00" value="1.50">
+                      <span class="fid-slider-unit">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="fid-slider-card" id="fid-rr-edit-factor-card">
+                  <div class="fid-slider-card-head">
+                    <label class="fid-rr-toggle-lbl" for="fid-rr-edit-use-factor">
+                      <input type="checkbox" id="fid-rr-edit-use-factor">
+                      <span>Modificar Canje en Catálogo (Factor)</span>
+                    </label>
+                    <span id="fid-rr-edit-factor-badge" class="badge badge--gold">1,00 ×</span>
+                  </div>
+                  <div class="fid-slider-bar-row">
+                    <span class="fid-slider-bound">0,80</span>
+                    <input type="range" id="fid-rr-edit-factor-range" class="fid-range-input" min="0.80" max="1.40" step="0.01" value="1.00">
+                    <span class="fid-slider-bound">1,40</span>
+                    <div class="fid-slider-num-wrap">
+                      <input type="number" id="fid-rr-edit-factor-input" class="form-input price-input--highlight fid-slider-num-input" step="0.01" min="0.80" max="1.40" value="1.00">
+                      <span class="fid-slider-unit">×</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="fid-rr-edit-error" class="field-hint" style="color:var(--danger, #dc2626); font-weight:700; margin-block-top:0.65rem;" hidden></div>
+            </div>
+            <div class="dialog-footer">
+              <button type="button" id="btn-fid-rr-edit-cancel" class="btn-secondary" style="width:auto;">Cancelar</button>
+              <button type="submit" id="btn-fid-rr-edit-save" class="btn-primary" style="width:auto;">💾 Guardar Cambios</button>
+            </div>
+          </form>
+        </dialog>
       </section>
 
       <!-- ================================================================
@@ -18001,7 +18261,7 @@
     </form>
   </dialog>
 
-  <script src="assets/js/zxing.min.js?v=265" defer></script>
-  <script src="assets/js/app.js?v=265" defer></script>
+  <script src="assets/js/zxing.min.js?v=271" defer></script>
+  <script src="assets/js/app.js?v=271" defer></script>
 </body>
 </html>

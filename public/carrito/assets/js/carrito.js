@@ -683,6 +683,9 @@
           state.portalData.fidelizacionConfig.mostrarEnCatalogo =
             data.fidelizacionCatalogConfig.mostrarEnCatalogo === 'todos' ? 'todos' : 'solo_stock';
         }
+        if (Array.isArray(data.fidelizacionCatalogConfig.reglasRubros)) {
+          state.portalData.fidelizacionConfig.reglasRubros = data.fidelizacionCatalogConfig.reglasRubros;
+        }
       }
 
       // Publicamos los 11.335 artículos activos (bl !== 1) tildados con Carrito Web (cw !== 0).
@@ -703,6 +706,7 @@
           p2f: Number(a.p2f) || 0,
           im: a.im || '',
           cfid: Number(a.cfid) || 0,
+          pfidManual: Number(a.pfidManual) || 0,
           ptsCanje: Number(a.ptsCanje || a.pfid) || 0
         }))
         .filter((a) => a.bl !== 1 && a.cw === 1);
@@ -4059,11 +4063,47 @@
     return Number(state.client?.puntosFidelizacion) || 0;
   };
 
+  const resolveStoreActiveFactorForRubro = (rubroId) => {
+    const cfg = state.portalData?.fidelizacionConfig || {};
+    const baseFactor = Number(cfg.factorCanje) || 1.12;
+    const rules = Array.isArray(cfg.reglasRubros) ? cfg.reglasRubros : [];
+    if (rules.length === 0) return { factor: baseFactor, hasSpecialRule: false };
+
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const dow = now.getDay();
+    const rTarget = Number(rubroId) || 0;
+
+    let spec = null;
+    let gen = null;
+    for (const r of rules) {
+      if (!r || r.activa === false || !r.usaFactorCanje) continue;
+      if (r.fechaDesde && todayIso < String(r.fechaDesde)) continue;
+      if (r.fechaHasta && todayIso > String(r.fechaHasta)) continue;
+      const dias = Array.isArray(r.diasSemana) ? r.diasSemana.map(Number) : [];
+      if (dias.length > 0 && !dias.includes(dow)) continue;
+      const rrId = Number(r.rubroId) || 0;
+      if (rTarget > 0 && rrId === rTarget) spec = r;
+      else if (rrId === 0) gen = r;
+    }
+    const chosen = spec || gen;
+    if (chosen && Number(chosen.factorCanje) > 0) {
+      return { factor: Number(chosen.factorCanje), hasSpecialRule: true };
+    }
+    return { factor: baseFactor, hasSpecialRule: false };
+  };
+
   const getPremioRequiredPoints = (art) => {
     if (!art) return 0;
-    if (Number(art.ptsCanje) > 0) return Math.round(Number(art.ptsCanje));
-    const factor = Number(state.portalData?.fidelizacionConfig?.factorCanje) || 1.12;
+    if (Number(art.pfidManual) === 1 && Number(art.ptsCanje) > 0) {
+      return Math.round(Number(art.ptsCanje));
+    }
+    const { factor, hasSpecialRule } = resolveStoreActiveFactorForRubro(art.r);
     const basePrice = Number(art.p1f) || getArticleUnitPrice(art) || 0;
+    if (hasSpecialRule && basePrice > 0) {
+      return Math.max(1, Math.round(basePrice * factor));
+    }
+    if (Number(art.ptsCanje) > 0) return Math.round(Number(art.ptsCanje));
     return Math.max(1, Math.round(basePrice * factor));
   };
 

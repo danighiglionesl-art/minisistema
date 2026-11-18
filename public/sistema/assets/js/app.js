@@ -7433,6 +7433,46 @@ async function bulkSetCarritoWebForFiltered(cwVal) {
   applyCatalogFilters(STATE.currentPage);
 }
 
+async function toggleCarritoWebStockPubMode() {
+  let pubOutStock = 0;
+  for (const a of STATE.articulos) {
+    if (a.bl === 1) continue;
+    if (a.cw !== 0 && (Number(a.sf) || 0) <= 0) {
+      pubOutStock++;
+    }
+  }
+
+  // Si actualmente hay artículos sin stock publicados -> pasamos a "Publicar solo Artículos con Stock"
+  // Si actualmente solo están publicados con stock -> pasamos a "Publicar Artículos aunque no tengan Stock"
+  const nextMode = pubOutStock > 0 ? 'solo_con_stock' : 'todos_sin_stock';
+  const onlyInStock = nextMode === 'solo_con_stock';
+
+  STATE.articulos.forEach((a) => {
+    if (a.bl === 1) return;
+    const sf = Number(a.sf) || 0;
+    a.cw = onlyInStock ? (sf > 0 ? 1 : 0) : 1;
+  });
+
+  const btnMode = document.getElementById('btn-cw-toggle-stock-pub-mode');
+  if (btnMode) btnMode.disabled = true;
+
+  try {
+    await fetch('api/catalog.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'set_carrito_web_stock_mode',
+        mode: nextMode
+      })
+    });
+  } catch {}
+
+  if (btnMode) btnMode.disabled = false;
+
+  applyCarritoArticulosFilters(1);
+  applyCatalogFilters(STATE.currentPage);
+}
+
 function updateCarritoArticulosKpis() {
   let pubTotal = 0;
   let unpubTotal = 0;
@@ -7461,6 +7501,17 @@ function updateCarritoArticulosKpis() {
   if (elOut) elOut.textContent = pubOutStock.toLocaleString('es-AR');
   const elFilt = document.getElementById('kpi-cw-art-filtered');
   if (elFilt) elFilt.textContent = STATE.cwArtFiltered.length.toLocaleString('es-AR');
+
+  const btnMode = document.getElementById('btn-cw-toggle-stock-pub-mode');
+  if (btnMode) {
+    if (pubOutStock > 0) {
+      btnMode.textContent = '📦 Publicar solo Artículos con Stock';
+      btnMode.title = 'Destildar automáticamente de la tienda todos los artículos sin stock y dejar publicados únicamente los artículos con stock disponible';
+    } else {
+      btnMode.textContent = '📦 Publicar Artículos aunque no tengan Stock';
+      btnMode.title = 'Publicar en la tienda web todos los artículos activos, incluidos aquellos sin stock (se muestran con aviso SIN STOCK)';
+    }
+  }
 }
 
 function applyCarritoArticulosFilters(page = 1) {
@@ -10320,14 +10371,31 @@ function renderFidClientesSection(page = null) {
     const tdAct = document.createElement('td');
     tdAct.dataset.label = 'Acciones Rápidas';
     const actWrap = document.createElement('div');
+    actWrap.className = 'fid-cli-actions-stack';
     actWrap.style.display = 'flex';
-    actWrap.style.gap = '0.4rem';
-    actWrap.style.flexWrap = 'wrap';
+    actWrap.style.flexDirection = 'column';
+    actWrap.style.gap = '0.38rem';
+    actWrap.style.width = '165px';
+
+    const applyUniformFidBtnStyle = (btn) => {
+      btn.style.width = '165px';
+      btn.style.minWidth = '165px';
+      btn.style.maxWidth = '165px';
+      btn.style.height = '34px';
+      btn.style.minHeight = '34px';
+      btn.style.padding = '0 0.65rem';
+      btn.style.display = 'inline-flex';
+      btn.style.alignItems = 'center';
+      btn.style.justifyContent = 'center';
+      btn.style.gap = '0.35rem';
+      btn.style.boxSizing = 'border-box';
+      btn.style.whiteSpace = 'nowrap';
+    };
 
     const btnOp = document.createElement('button');
     btnOp.type = 'button';
     btnOp.className = 'btn-primary btn-sm';
-    btnOp.style.width = 'auto';
+    applyUniformFidBtnStyle(btnOp);
     btnOp.innerHTML = `${erpClubFidelBadgeSvg(16)} Operar / Canjear`;
     btnOp.addEventListener('click', () => {
       selectFidelizacionClient(c);
@@ -10341,6 +10409,7 @@ function renderFidClientesSection(page = null) {
     const btnFicha = document.createElement('button');
     btnFicha.type = 'button';
     btnFicha.className = 'btn-secondary btn-sm';
+    applyUniformFidBtnStyle(btnFicha);
     btnFicha.textContent = '✏️ Ficha';
     btnFicha.title = 'Ver y editar la ficha completa del cliente';
     btnFicha.addEventListener('click', () => {
@@ -10350,6 +10419,7 @@ function renderFidClientesSection(page = null) {
     const btnWa = document.createElement('button');
     btnWa.type = 'button';
     btnWa.className = 'btn-secondary btn-sm';
+    applyUniformFidBtnStyle(btnWa);
     btnWa.textContent = '📲 Enviar Saldo';
     btnWa.addEventListener('click', () => {
       const msg = `¡Hola ${c.nombre}! ⭐ Te informamos tu estado de puntos en *Casa Nueva Supermercado* (DNI ${dni}):\n• *Puntos vigentes disponibles:* ${pts.toLocaleString('es-AR')} puntos.\n${c.proximoVencimiento ? `• *Próximo vencimiento:* ${c.proximoVencimiento}\n` : ''}¡Te esperamos para canjear tus puntos por productos de nuestro catálogo!`;
@@ -28232,6 +28302,9 @@ function initApp() {
   });
   document.getElementById('btn-cw-bulk-unpublish')?.addEventListener('click', () => {
     bulkSetCarritoWebForFiltered(0);
+  });
+  document.getElementById('btn-cw-toggle-stock-pub-mode')?.addEventListener('click', () => {
+    toggleCarritoWebStockPubMode();
   });
 
   // =========================================================================

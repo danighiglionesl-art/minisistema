@@ -173,6 +173,9 @@ export function renderErpHtmlResponse(params: {
     enabledModules: tenant.enabled_modules,
   };
 
+  const verMatch = html.match(/assets\/(?:js\/app|css\/styles)\.(?:js|css)\?v=(\d+)/i);
+  const assetVer = verMatch ? verMatch[1] : "268";
+
   const headInjection = `
   <base href="${baseHref}">
   <script>window.__ERP_TENANT_BOOT__ = ${JSON.stringify(bootPayload)};</script>
@@ -183,7 +186,7 @@ export function renderErpHtmlResponse(params: {
       --ms-surface: #FFFFFF;
     }
   </style>
-  <link rel="stylesheet" id="ms-brand-stylesheet" href="/sistema/assets/css/brand-minisistema.css?v=2">`;
+  <link rel="stylesheet" id="ms-brand-stylesheet" href="/sistema/assets/css/brand-minisistema.css?v=${assetVer}">`;
 
   // 1. Marcar data-brand="minisistema" desde el byte 0 en <html>
   if (kind === "carrito") {
@@ -252,33 +255,16 @@ export function renderErpHtmlResponse(params: {
     `$1src="${brand.logoSymbolUrl}"`
   );
 
-  // 5. Asegurar carga de brand.js, app.js, styles.css y superadmin-panel.js actualizados sin caché vieja
-  html = html
-    .replace(
-      /src="(?:\.\.\/sistema\/)?assets\/js\/brand\.js[^"]*"/gi,
-      'src="/sistema/assets/js/brand.js?v=268"'
-    )
-    .replace(
-      /href="assets\/css\/styles\.css[^"]*"/gi,
-      'href="assets/css/styles.css?v=268"'
-    )
-    .replace(
-      /src="assets\/js\/app\.js[^"]*"/gi,
-      'src="assets/js/app.js?v=268"'
-    )
-    .replace(
-      /href="assets\/css\/carrito\.css[^"]*"/gi,
-      'href="assets/css/carrito.css?v=268"'
-    )
-    .replace(
-      /src="assets\/js\/carrito\.js[^"]*"/gi,
-      'src="assets/js/carrito.js?v=268"'
-    );
+  // 5. Asegurar carga de brand.js y superadmin-panel.js con la versión sincronizada del ERP
+  html = html.replace(
+    /src="(?:\.\.\/sistema\/)?assets\/js\/brand\.js[^"]*"/gi,
+    `src="/sistema/assets/js/brand.js?v=${assetVer}"`
+  );
 
   if (kind === "sistema") {
     html = html.replace(
       "</body>",
-      '  <script src="/sistema/assets/js/superadmin-panel.js?v=268"></script>\n</body>'
+      `  <script src="/sistema/assets/js/superadmin-panel.js?v=${assetVer}"></script>\n</body>`
     );
   }
 
