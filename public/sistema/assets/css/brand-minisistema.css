@@ -1,0 +1,378 @@
+/* ==========================================================================
+   MINISISTEMA — MOTOR VISUAL CORPORATIVO Y MULTI-COMERCIO (CERO-FLASH)
+   Colores institucionales oficiales de MiniSistema:
+   - Azul petróleo oscuro: #112D3A
+   - Verde menta:          #56D7A1
+   - Blanco:               #FFFFFF
+   (En Opción 1 se inyectan --ms-primary y --ms-accent propios del comercio)
+   ========================================================================== */
+
+html[data-brand="minisistema"] {
+  --ms-primary: #112D3A;
+  --ms-accent: #56D7A1;
+  --ms-surface: #FFFFFF;
+
+  --gold-light: color-mix(in srgb, var(--ms-accent) 75%, #0a2028);
+  --gold-main: var(--ms-accent);
+  --gold-dark: var(--ms-primary);
+  --gold-border: color-mix(in srgb, var(--ms-accent) 55%, transparent);
+  --gold-glow: color-mix(in srgb, var(--ms-accent) 24%, transparent);
+
+  --theme-default: var(--ms-accent);
+  --theme-default-hover: color-mix(in srgb, var(--ms-accent) 86%, #000000);
+  --theme-default-soft: color-mix(in srgb, var(--ms-accent) 16%, transparent);
+  --theme-default-border: color-mix(in srgb, var(--ms-accent) 55%, transparent);
+  --theme-secondary: var(--ms-primary);
+}
+
+html[data-brand="minisistema"] img[src*="cn.com.ar/backend/public/storage/images/productos"] {
+  visibility: hidden !important;
+}
+
+html[data-brand="minisistema"] input:focus-visible,
+html[data-brand="minisistema"] select:focus-visible,
+html[data-brand="minisistema"] button:focus-visible,
+html[data-brand="minisistema"] a:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ms-accent) 68%, transparent);
+  outline-offset: 2px;
+}
+
+/* 1. PANTALLA DE LOGIN (/sistema) */
+html[data-brand="minisistema"] #login-view.auth-wrapper {
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--ms-accent) 18%, transparent) 0%, transparent 56%),
+    var(--ms-primary);
+}
+
+html[data-brand="minisistema"] .brand-emblem-wrap {
+  width: 240px;
+  height: auto;
+  margin: 0 auto 1.25rem;
+  padding: 0;
+  background-color: transparent !important;
+  border-radius: 0;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+html[data-brand="minisistema"] .brand-emblem {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  background-color: transparent !important;
+  border-radius: 0;
+  border: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35)) !important;
+}
+
+html[data-brand="minisistema"] #login-view .auth-card {
+  background: color-mix(in srgb, var(--ms-primary) 88%, #071319);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-top: 4px solid var(--ms-accent);
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.44);
+}
+
+html[data-brand="minisistema"] #login-view .brand-title,
+html[data-brand="minisistema"] #login-view .form-label {
+  color: #FFFFFF;
+}
+
+html[data-brand="minisistema"] #login-view .brand-subtitle,
+html[data-brand="minisistema"] #login-view .field-hint,
+html[data-brand="minisistema"] #login-view .pwa-banner {
+  color: rgba(255, 255, 255, 0.78);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+html[data-brand="minisistema"] #login-view .form-input {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #FFFFFF;
+}
+
+html[data-brand="minisistema"] #login-view .form-input:focus {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--ms-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ms-accent) 28%, transparent);
+}
+
+/* 2. BOTONES PRINCIPALES Y ACENTOS */
+html[data-brand="minisistema"] .btn-primary,
+html[data-brand="minisistema"] .btn-primary-theme,
+html[data-brand="minisistema"] .btn-header-search,
+html[data-brand="minisistema"] .pwa-update-toast__btn,
+html[data-brand="minisistema"] .reiki-btn-primary {
+  background: var(--ms-accent) !important;
+  border-color: color-mix(in srgb, var(--ms-accent) 82%, #000000) !important;
+  color: var(--ms-primary) !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ms-accent) 28%, transparent);
+}
+
+html[data-brand="minisistema"] .btn-primary:hover:not(:disabled),
+html[data-brand="minisistema"] .btn-primary-theme:hover:not(:disabled),
+html[data-brand="minisistema"] .btn-header-search:hover:not(:disabled),
+html[data-brand="minisistema"] .reiki-btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ms-accent) 88%, #ffffff) !important;
+  color: var(--ms-primary) !important;
+}
+
+/* 3. CABECERA SUPERIOR DEL ERP (.erp-topbar) */
+html[data-brand="minisistema"] .erp-topbar {
+  background: var(--ms-primary) !important;
+  border-block-end: 3px solid var(--ms-accent) !important;
+  box-shadow: 0 6px 20px rgba(17, 45, 58, 0.24);
+  padding: 0.55rem 1.25rem;
+}
+
+html[data-brand="minisistema"] .topbar-brand {
+  background: transparent;
+  padding: 0.2rem 0.45rem;
+  gap: 0.6rem;
+}
+
+html[data-brand="minisistema"] .topbar-icon {
+  width: auto !important;
+  height: 42px !important;
+  max-width: 220px;
+  object-fit: contain !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  filter: none !important;
+}
+
+html[data-brand="minisistema"] .topbar-titles {
+  display: none !important;
+}
+
+html[data-brand="minisistema"] .user-avatar {
+  background: var(--ms-accent) !important;
+  color: var(--ms-primary) !important;
+  font-weight: 900 !important;
+}
+
+html[data-brand="minisistema"] .user-meta span {
+  color: var(--ms-accent) !important;
+}
+
+html[data-brand="minisistema"] .badge--gold {
+  background: var(--ms-primary) !important;
+  color: var(--ms-accent) !important;
+  border: 1px solid color-mix(in srgb, var(--ms-accent) 55%, transparent) !important;
+}
+
+/* 4. TIENDA ONLINE / CARRITO Y VERIFICADOR */
+html[data-brand="minisistema"] .page-header.store-header,
+html[data-brand="minisistema"] .store-footer,
+html[data-brand="minisistema"] .nx-portal-topbar {
+  background-color: var(--ms-primary) !important;
+  border-color: var(--ms-accent) !important;
+}
+
+html[data-brand="minisistema"] .store-brand-logo {
+  width: auto !important;
+  height: 44px !important;
+  max-width: 220px;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  object-fit: contain !important;
+}
+
+html[data-brand="minisistema"] .store-brand-text {
+  display: none !important;
+}
+
+/* 5. BOTÓN Y PANEL EXCLUSIVO ADMINISTRADOR GENERAL (@danielg) */
+.ms-superadmin-topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.46rem 0.9rem;
+  border-radius: 999px;
+  background: #56D7A1;
+  color: #112D3A;
+  font-weight: 800;
+  font-size: 0.8rem;
+  border: 1.5px solid #FFFFFF;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(86, 215, 161, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.ms-superadmin-topbar-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(86, 215, 161, 0.5);
+}
+
+.ms-sa-dialog {
+  width: min(1240px, 96vw);
+  max-height: 92vh;
+  border: 2px solid #56D7A1;
+  border-radius: 20px;
+  padding: 0;
+  background: #FFFFFF;
+  color: #112D3A;
+  box-shadow: 0 28px 70px rgba(17, 45, 58, 0.55);
+  overflow: hidden;
+}
+
+.ms-sa-dialog::backdrop {
+  background: rgba(17, 45, 58, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.ms-sa-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.5rem;
+  background: #112D3A;
+  color: #FFFFFF;
+  border-bottom: 3px solid #56D7A1;
+}
+
+.ms-sa-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.85rem 1.5rem;
+  background: #f2f7f9;
+  border-bottom: 1px solid #d7e4ea;
+}
+
+.ms-sa-tab {
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #c5d8e0;
+  background: #FFFFFF;
+  color: #112D3A;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ms-sa-tab.is-active {
+  background: #112D3A;
+  color: #56D7A1;
+  border-color: #112D3A;
+}
+
+.ms-sa-body {
+  padding: 1.35rem 1.5rem 1.8rem;
+  overflow-y: auto;
+  max-height: calc(92vh - 140px);
+}
+
+.ms-sa-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.ms-sa-card {
+  background: #FFFFFF;
+  border: 1.5px solid #dbe7ec;
+  border-radius: 14px;
+  padding: 1.1rem;
+  box-shadow: 0 4px 14px rgba(17, 45, 58, 0.05);
+}
+
+.ms-sa-card--highlight {
+  background: #112D3A;
+  color: #FFFFFF;
+  border-color: #56D7A1;
+}
+
+.ms-sa-input,
+.ms-sa-select {
+  width: 100%;
+  padding: 0.6rem 0.78rem;
+  border-radius: 9px;
+  border: 1.5px solid #c4d7e0;
+  font-size: 0.9rem;
+  color: #112D3A;
+  background: #FFFFFF;
+  box-sizing: border-box;
+}
+
+.ms-sa-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #274959;
+  margin-bottom: 0.3rem;
+}
+
+.ms-sa-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.62rem 1.1rem;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.86rem;
+  cursor: pointer;
+  border: none;
+  background: #56D7A1;
+  color: #112D3A;
+  text-decoration: none;
+}
+
+.ms-sa-btn--dark {
+  background: #112D3A;
+  color: #FFFFFF;
+}
+
+.ms-sa-btn--outline {
+  background: #FFFFFF;
+  color: #112D3A;
+  border: 1.5px solid #112D3A;
+}
+
+.ms-sa-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  font-weight: 800;
+  background: rgba(86, 215, 161, 0.2);
+  color: #0b5336;
+}
+
+/* Modal Corporativo de Confirmación en MiniSistema */
+html[data-brand="minisistema"] .brand-confirm-dialog {
+  border-color: var(--ms-accent) !important;
+  box-shadow: 0 24px 60px rgba(17, 45, 58, 0.42), 0 0 0 1px rgba(86, 215, 161, 0.25) !important;
+}
+
+html[data-brand="minisistema"] .brand-confirm-header {
+  background: linear-gradient(135deg, var(--ms-primary) 0%, color-mix(in srgb, var(--ms-primary) 82%, #000000) 100%) !important;
+  border-bottom-color: var(--ms-accent) !important;
+}
+
+html[data-brand="minisistema"] .brand-confirm-logo-box {
+  border-color: var(--ms-accent) !important;
+}
+
+html[data-brand="minisistema"] .brand-confirm-eyebrow {
+  color: var(--ms-accent) !important;
+}
+
+html[data-brand="minisistema"] .brand-confirm-summary-card {
+  background: color-mix(in srgb, var(--ms-accent) 10%, #ffffff) !important;
+  border-color: color-mix(in srgb, var(--ms-accent) 48%, transparent) !important;
+}
+
+html[data-brand="minisistema"] .brand-confirm-dot {
+  color: var(--ms-primary) !important;
+}
+
