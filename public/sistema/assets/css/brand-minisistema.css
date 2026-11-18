@@ -45,25 +45,23 @@ html[data-brand="minisistema"] #login-view.auth-wrapper {
 }
 
 html[data-brand="minisistema"] .brand-emblem-wrap {
-  width: 240px;
-  height: auto;
-  margin: 0 auto 1.25rem;
-  padding: 0;
-  background-color: transparent !important;
-  border-radius: 0;
-  border: none !important;
-  box-shadow: none !important;
+  width: 184px;
+  height: 184px;
+  margin: 0 auto 1.15rem;
+  padding: 14px;
+  background-color: var(--ms-primary) !important;
+  border-radius: 22px;
+  border: 2px solid var(--ms-accent);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36);
 }
 
 html[data-brand="minisistema"] .brand-emblem {
   width: 100%;
-  height: auto;
+  height: 100%;
   object-fit: contain;
-  background-color: transparent !important;
-  border-radius: 0;
-  border: none !important;
-  box-shadow: none !important;
-  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35)) !important;
+  background-color: var(--ms-primary) !important;
+  border-radius: 12px;
+  filter: none !important;
 }
 
 html[data-brand="minisistema"] #login-view .auth-card {
@@ -134,13 +132,13 @@ html[data-brand="minisistema"] .topbar-brand {
 
 html[data-brand="minisistema"] .topbar-icon {
   width: auto !important;
-  height: 42px !important;
+  height: 44px !important;
   max-width: 220px;
   object-fit: contain !important;
-  background: transparent !important;
-  padding: 0 !important;
-  border-radius: 0 !important;
-  border: none !important;
+  background: var(--ms-primary) !important;
+  padding: 4px 10px;
+  border-radius: 9px;
+  border: 1.5px solid var(--ms-accent);
   filter: none !important;
 }
 
@@ -174,12 +172,12 @@ html[data-brand="minisistema"] .nx-portal-topbar {
 
 html[data-brand="minisistema"] .store-brand-logo {
   width: auto !important;
-  height: 44px !important;
+  height: 46px !important;
   max-width: 220px;
-  padding: 0 !important;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
+  padding: 4px 10px !important;
+  background: var(--ms-primary) !important;
+  border: 1.5px solid var(--ms-accent) !important;
+  border-radius: 9px !important;
   object-fit: contain !important;
 }
 
@@ -187,7 +185,7 @@ html[data-brand="minisistema"] .store-brand-text {
   display: none !important;
 }
 
-/* 5. BOTÓN Y PANEL EXCLUSIVO ADMINISTRADOR GENERAL (@danielg) */
+/* 5. BOTÓN Y SECCIÓN EXCLUSIVA ADMINISTRADOR GENERAL (@danielg) */
 .ms-superadmin-topbar-btn {
   display: inline-flex;
   align-items: center;
@@ -210,66 +208,6 @@ html[data-brand="minisistema"] .store-brand-text {
   box-shadow: 0 6px 18px rgba(86, 215, 161, 0.5);
 }
 
-.ms-sa-dialog {
-  width: min(1240px, 96vw);
-  max-height: 92vh;
-  border: 2px solid #56D7A1;
-  border-radius: 20px;
-  padding: 0;
-  background: #FFFFFF;
-  color: #112D3A;
-  box-shadow: 0 28px 70px rgba(17, 45, 58, 0.55);
-  overflow: hidden;
-}
-
-.ms-sa-dialog::backdrop {
-  background: rgba(17, 45, 58, 0.72);
-  backdrop-filter: blur(4px);
-}
-
-.ms-sa-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.1rem 1.5rem;
-  background: #112D3A;
-  color: #FFFFFF;
-  border-bottom: 3px solid #56D7A1;
-}
-
-.ms-sa-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.85rem 1.5rem;
-  background: #f2f7f9;
-  border-bottom: 1px solid #d7e4ea;
-}
-
-.ms-sa-tab {
-  padding: 0.55rem 1rem;
-  border-radius: 10px;
-  border: 1px solid #c5d8e0;
-  background: #FFFFFF;
-  color: #112D3A;
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.ms-sa-tab.is-active {
-  background: #112D3A;
-  color: #56D7A1;
-  border-color: #112D3A;
-}
-
-.ms-sa-body {
-  padding: 1.35rem 1.5rem 1.8rem;
-  overflow-y: auto;
-  max-height: calc(92vh - 140px);
-}
-
 .ms-sa-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -281,13 +219,20 @@ html[data-brand="minisistema"] .store-brand-text {
   border: 1.5px solid #dbe7ec;
   border-radius: 14px;
   padding: 1.1rem;
+  color: #112D3A;
   box-shadow: 0 4px 14px rgba(17, 45, 58, 0.05);
 }
 
-.ms-sa-card--highlight {
-  background: #112D3A;
+html[data-theme="dark"] .ms-sa-card:not(.ms-sa-card--highlight) {
+  background: #132f3d;
+  border-color: rgba(86, 215, 161, 0.28);
   color: #FFFFFF;
-  border-color: #56D7A1;
+}
+
+.ms-sa-card--highlight {
+  background: #112D3A !important;
+  color: #FFFFFF !important;
+  border-color: #56D7A1 !important;
 }
 
 .ms-sa-input,
@@ -302,12 +247,23 @@ html[data-brand="minisistema"] .store-brand-text {
   box-sizing: border-box;
 }
 
+html[data-theme="dark"] .ms-sa-input,
+html[data-theme="dark"] .ms-sa-select {
+  background: #0d222c;
+  border-color: rgba(86, 215, 161, 0.35);
+  color: #FFFFFF;
+}
+
 .ms-sa-label {
   display: block;
   font-size: 0.78rem;
   font-weight: 700;
   color: #274959;
   margin-bottom: 0.3rem;
+}
+
+html[data-theme="dark"] .ms-sa-label {
+  color: #56D7A1;
 }
 
 .ms-sa-btn {
@@ -329,12 +285,19 @@ html[data-brand="minisistema"] .store-brand-text {
 .ms-sa-btn--dark {
   background: #112D3A;
   color: #FFFFFF;
+  border: 1.5px solid #56D7A1;
 }
 
 .ms-sa-btn--outline {
   background: #FFFFFF;
   color: #112D3A;
   border: 1.5px solid #112D3A;
+}
+
+html[data-theme="dark"] .ms-sa-btn--outline {
+  background: #112D3A;
+  color: #FFFFFF;
+  border-color: #56D7A1;
 }
 
 .ms-sa-pill {
@@ -346,6 +309,45 @@ html[data-brand="minisistema"] .store-brand-text {
   font-weight: 800;
   background: rgba(86, 215, 161, 0.2);
   color: #0b5336;
+}
+
+html[data-theme="dark"] .ms-sa-pill {
+  color: #56D7A1;
+}
+
+/* Tarjetas de selección de módulos estilo ERP dentro de Habilitar Nuevo Sistema */
+.ms-sa-mod-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 1rem 1.1rem;
+  border-radius: 16px;
+  border: 2px solid #dbe7ec;
+  background: #FFFFFF;
+  color: #112D3A;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.ms-sa-mod-card:hover {
+  border-color: #56D7A1;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(17, 45, 58, 0.08);
+}
+
+.ms-sa-mod-card.is-selected {
+  border-color: #56D7A1;
+  background: linear-gradient(135deg, #112D3A 0%, #173b4c 100%);
+  color: #FFFFFF;
+  box-shadow: 0 10px 24px rgba(17, 45, 58, 0.22);
+}
+
+html[data-theme="dark"] .ms-sa-mod-card:not(.is-selected) {
+  background: #132f3d;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
 }
 
 /* Modal Corporativo de Confirmación en MiniSistema */
@@ -376,4 +378,3 @@ html[data-brand="minisistema"] .brand-confirm-summary-card {
 html[data-brand="minisistema"] .brand-confirm-dot {
   color: var(--ms-primary) !important;
 }
-
