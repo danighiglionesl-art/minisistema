@@ -844,9 +844,12 @@ const STATE = {
   movimientosPorCliente: {},
   fidelizacionConfig: {
     porcentajeSuma: 0.80,
+    porcentajeCompra: 0.80,
     factorCanje: 1.12,
     mostrarEnCatalogo: 'solo_stock',
     diasVencimiento: 365,
+    diasVigencia: 365,
+    reglasRubros: [],
     canalDefault: 'whatsapp',
     autoOpenWhatsapp: true,
     emailRemitente: ACTIVE_BRAND.emailFidelizacion,
@@ -1721,6 +1724,12 @@ async function loadCatalogDatabase(forceReload = false) {
     if (data.fidelizacionCatalogConfig.mostrarEnCatalogo) {
       STATE.fidelizacionConfig.mostrarEnCatalogo =
         data.fidelizacionCatalogConfig.mostrarEnCatalogo === 'todos' ? 'todos' : 'solo_stock';
+    }
+    if (
+      Array.isArray(data.fidelizacionCatalogConfig.reglasRubros) &&
+      (!Array.isArray(STATE.fidelizacionConfig.reglasRubros) || STATE.fidelizacionConfig.reglasRubros.length === 0)
+    ) {
+      STATE.fidelizacionConfig.reglasRubros = normalizeFidRubroRules(data.fidelizacionCatalogConfig.reglasRubros);
     }
   }
   const factorCanje = Number(STATE.fidelizacionConfig.factorCanje) || 1.12;
@@ -5106,6 +5115,19 @@ async function loadClientesDatabase(forceReload = false) {
     STATE.movimientosPorCliente = movsMap;
     if (data.fidelizacionConfig && typeof data.fidelizacionConfig === 'object') {
       STATE.fidelizacionConfig = Object.assign({}, STATE.fidelizacionConfig, data.fidelizacionConfig);
+      const srvPct = Number(data.fidelizacionConfig.porcentajeCompra ?? data.fidelizacionConfig.porcentajeSuma);
+      if (isFinite(srvPct) && srvPct > 0) {
+        const cleanSrvPct = Math.min(5.00, Math.max(0.25, round2(srvPct)));
+        STATE.fidelizacionConfig.porcentajeSuma = cleanSrvPct;
+        STATE.fidelizacionConfig.porcentajeCompra = cleanSrvPct;
+      }
+      const srvDias = Number(data.fidelizacionConfig.diasVigencia ?? data.fidelizacionConfig.diasVencimiento);
+      if (isFinite(srvDias) && srvDias > 0) {
+        const cleanDias = Math.max(1, Math.round(srvDias));
+        STATE.fidelizacionConfig.diasVencimiento = cleanDias;
+        STATE.fidelizacionConfig.diasVigencia = cleanDias;
+      }
+      STATE.fidelizacionConfig.reglasRubros = normalizeFidRubroRules(data.fidelizacionConfig.reglasRubros);
     }
     if (Array.isArray(data.movimientosFidelizacion)) {
       STATE.movimientosFidelizacion = data.movimientosFidelizacion;
@@ -7905,17 +7927,200 @@ function applyLocalFidelizacionClientState() {
   }
 }
 
-function calcPointsFromPurchase(monto, pctOverride = null) {
+const FID_DAY_NAMES_SHORT = {
+  1: 'Lun',
+  2: 'Mar',
+  3: 'Mié',
+  4: 'Jue',
+  5: 'Vie',
+  6: 'Sáb',
+  0: 'Dom'
+};
+
+function normalizeFidRubroRules(rawRules) {
+  if (!Array.isArray(rawRules)) return [];
+  const out = [];
+  for (const r of rawRules) {
+    if (!r || typeof r !== 'object') continue;
+    const usaPct = Boolean(r.usaPorcentaje);
+    const usaFactor = Boolean(r.usaFactorCanje);
+    if (!usaPct && !usaFactor) continue;
+    const rawPct = Number(r.porcentajeCompra ?? r.porcentajeSuma ?? 0.80);
+    const pctVal = Math.min(5.00, Math.max(0.25, round2(isFinite(rawPct) && rawPct > 0 ? rawPct : 0.80)));
+    const rawFac = Number(r.factorCanje ?? 1.12);
+    const factorVal = Math.min(1.40, Math.max(0.80, round2(isFinite(rawFac) && rawFac > 0 ? rawFac : 1.12)));
+
+    let dias = Array.isArray(r.diasSemana)
+      ? Array.from(new Set(r.diasSemana.map((d) => Number(d)).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)))
+      : [];
+    if (dias.length === 0) dias = [1, 2, 3, 4, 5, 6, 0];
+
+    let desde = /^\d{4}-\d{2}-\d{2}$/.test(String(r.fechaDesde || '')) ? String(r.fechaDesde) : '';
+    let hasta = /^\d{4}-\d{2}-\d{2}$/.test(String(r.fechaHasta || '')) ? String(r.fechaHasta) : '';
+    if (desde && hasta && hasta < desde) {
+      const tmp = desde;
+      desde = hasta;
+      hasta = tmp;
+    }
+
+    out.push({
+      id: String(r.id || `rr_${Date.now()}_${Math.floor(Math.random() * 10000)}`),
+      rubroId: Math.max(0, Math.floor(Number(r.rubroId) || 0)),
+      rubroNombre: String(r.rubroNombre || '').trim(),
+      usaPorcentaje: usaPct,
+      porcentajeCompra: pctVal,
+      porcentajeSuma: pctVal,
+      usaFactorCanje: usaFactor,
+      factorCanje: factorVal,
+      diasSemana: dias,
+      fechaDesde: desde,
+      fechaHasta: hasta,
+      activa: r.activa !== false,
+      updatedAt: r.updatedAt || new Date().toISOString()
+    });
+  }
+  return out;
+}
+
+function getLocalIsoAndDow(fechaIsoOpt = '') {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(fechaIsoOpt || ''))) {
+    const [yy, mm, dd] = String(fechaIsoOpt).split('-').map(Number);
+    const dt = new Date(yy, mm - 1, dd, 12, 0, 0);
+    return { iso: String(fechaIsoOpt), dow: dt.getDay() };
+  }
+  const now = new Date();
+  const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return { iso, dow: now.getDay() };
+}
+
+function getFidRubroRuleStatus(rule, fechaIsoOpt = '') {
+  if (!rule || rule.activa === false) {
+    return { code: 'pausada', label: '⏸️ PAUSADA', badgeCls: 'badge' };
+  }
+  const { iso, dow } = getLocalIsoAndDow(fechaIsoOpt);
+  if (rule.fechaHasta && iso > rule.fechaHasta) {
+    return { code: 'vencida', label: '⚪ VENCIDA', badgeCls: 'badge' };
+  }
+  if (rule.fechaDesde && iso < rule.fechaDesde) {
+    return { code: 'futura', label: '🟡 PRÓXIMA VIGENCIA', badgeCls: 'badge badge--gold' };
+  }
+  const dias = Array.isArray(rule.diasSemana) ? rule.diasSemana.map(Number) : [];
+  if (dias.length > 0 && !dias.includes(dow)) {
+    return { code: 'otro_dia', label: '🟡 ACTIVA (OTRO DÍA)', badgeCls: 'badge badge--gold' };
+  }
+  return { code: 'vigente_hoy', label: '🟢 VIGENTE HOY', badgeCls: 'badge badge--green' };
+}
+
+function resolveEffectiveFidParamsForRubro(rubroId = 0, fechaIsoOpt = '', overrides = null) {
+  const basePct =
+    overrides && isFinite(Number(overrides.basePct)) && Number(overrides.basePct) > 0
+      ? Number(overrides.basePct)
+      : Number(STATE.fidelizacionConfig.porcentajeSuma ?? STATE.fidelizacionConfig.porcentajeCompra) || 0.80;
+  const baseFactor =
+    overrides && isFinite(Number(overrides.baseFactor)) && Number(overrides.baseFactor) > 0
+      ? Number(overrides.baseFactor)
+      : Number(STATE.fidelizacionConfig.factorCanje) || 1.12;
+
+  const rules = Array.isArray(STATE.fidelizacionConfig.reglasRubros) ? STATE.fidelizacionConfig.reglasRubros : [];
+  if (rules.length === 0) {
+    return { pct: basePct, factor: baseFactor, pctRule: null, factorRule: null };
+  }
+
+  const { iso, dow } = getLocalIsoAndDow(fechaIsoOpt);
+  const rTarget = Math.max(0, Math.floor(Number(rubroId) || 0));
+
+  let specPctRule = null;
+  let genPctRule = null;
+  let specFactorRule = null;
+  let genFactorRule = null;
+
+  for (const r of rules) {
+    if (!r || r.activa === false) continue;
+    if (r.fechaDesde && iso < r.fechaDesde) continue;
+    if (r.fechaHasta && iso > r.fechaHasta) continue;
+    const dias = Array.isArray(r.diasSemana) ? r.diasSemana.map(Number) : [];
+    if (dias.length > 0 && !dias.includes(dow)) continue;
+
+    const rrId = Math.max(0, Math.floor(Number(r.rubroId) || 0));
+    if (r.usaPorcentaje) {
+      if (rTarget > 0 && rrId === rTarget) specPctRule = r;
+      else if (rrId === 0) genPctRule = r;
+    }
+    if (r.usaFactorCanje) {
+      if (rTarget > 0 && rrId === rTarget) specFactorRule = r;
+      else if (rrId === 0) genFactorRule = r;
+    }
+  }
+
+  const pctRule = specPctRule || genPctRule;
+  const factorRule = specFactorRule || genFactorRule;
+  return {
+    pct: pctRule ? Number(pctRule.porcentajeCompra ?? pctRule.porcentajeSuma ?? basePct) : basePct,
+    factor: factorRule ? Number(factorRule.factorCanje ?? baseFactor) : baseFactor,
+    pctRule,
+    factorRule
+  };
+}
+
+function calcPointsFromPosSaleItems(items, importeTotal, fechaIsoOpt = '') {
+  const cleanImp = Math.max(0, Number(importeTotal) || 0);
+  const basePct = Number(STATE.fidelizacionConfig.porcentajeSuma ?? STATE.fidelizacionConfig.porcentajeCompra) || 0.80;
+  if (cleanImp <= 0) return { raw: 0, points: 0, pct: basePct, usedSpecialRule: false };
+
+  if (Array.isArray(items) && items.length > 0) {
+    let lineSum = 0;
+    const validLines = [];
+    for (const it of items) {
+      if (!it) continue;
+      let sub = Number(it.subtotal) || 0;
+      if (sub <= 0) {
+        sub = (Number(it.qty ?? it.cantidad) || 0) * (Number(it.unitPrice ?? it.precioFinal) || 0);
+      }
+      if (sub > 0) {
+        const artMatch = it.artId ? STATE.articulos.find((a) => Number(a.id) === Number(it.artId)) : null;
+        const rId = Number(it.rId || it.r || artMatch?.r) || 0;
+        lineSum += sub;
+        validLines.push({ rId, sub });
+      }
+    }
+    if (validLines.length > 0 && lineSum > 0) {
+      const scale = cleanImp / lineSum;
+      let rawTotal = 0;
+      let usedSpecialRule = false;
+      for (const ln of validLines) {
+        const resolved = resolveEffectiveFidParamsForRubro(ln.rId, fechaIsoOpt);
+        if (resolved.pctRule) usedSpecialRule = true;
+        rawTotal += (ln.sub * scale) * (resolved.pct / 100);
+      }
+      const pts = Math.max(0, Math.round(rawTotal));
+      const effPct = cleanImp > 0 ? round2((rawTotal / cleanImp) * 100) : basePct;
+      return { raw: rawTotal, points: pts, pct: effPct, usedSpecialRule };
+    }
+  }
+
+  const genResolved = resolveEffectiveFidParamsForRubro(0, fechaIsoOpt);
+  const rawGen = cleanImp * (genResolved.pct / 100);
+  return {
+    raw: rawGen,
+    points: Math.max(0, Math.round(rawGen)),
+    pct: round2(genResolved.pct),
+    usedSpecialRule: Boolean(genResolved.pctRule)
+  };
+}
+
+function calcPointsFromPurchase(monto, pctOverride = null, rubroId = 0, fechaIsoOpt = '') {
+  const resolved = resolveEffectiveFidParamsForRubro(rubroId, fechaIsoOpt);
   const pct =
     pctOverride !== null && isFinite(Number(pctOverride))
       ? Number(pctOverride)
-      : Number(STATE.fidelizacionConfig.porcentajeSuma) || 0.80;
+      : resolved.pct;
   const cleanMonto = Math.max(0, Number(monto) || 0);
   const raw = cleanMonto * (pct / 100);
   return {
     raw,
     points: Math.max(0, Math.round(raw)),
-    pct
+    pct,
+    pctRule: pctOverride === null ? resolved.pctRule : null
   };
 }
 
@@ -7924,10 +8129,11 @@ function calcArticleCanjePoints(art, factorOverride = null) {
   if (Number(art.pfidManual) === 1 && Number(art.pfid) > 0) {
     return Math.max(1, Math.round(Number(art.pfid)));
   }
+  const resolved = resolveEffectiveFidParamsForRubro(Number(art.r) || 0);
   const factor =
     factorOverride !== null && isFinite(Number(factorOverride))
       ? Number(factorOverride)
-      : Number(STATE.fidelizacionConfig.factorCanje) || 1.12;
+      : resolved.factor;
   const p1f = Math.max(0, Number(art.p1f) || 0);
   return Math.max(1, Math.round(p1f * factor));
 }
@@ -9459,11 +9665,23 @@ function renderFidClientMovementsTable(page = null) {
   });
 }
 
-async function accreditClientPurchasePoints({ clientId, montoCompra, comprobante = '', observacion = '', notify = true, canalOverride = '' }) {
+async function accreditClientPurchasePoints({
+  clientId,
+  montoCompra,
+  comprobante = '',
+  observacion = '',
+  notify = true,
+  canalOverride = '',
+  items = null,
+  fechaIso = '',
+  rubroId = 0
+}) {
   const client = STATE.clientes.find((c) => Number(c.id) === Number(clientId));
   if (!client) return { ok: false, message: 'Cliente no encontrado.' };
 
-  const calc = calcPointsFromPurchase(montoCompra);
+  const calc = Array.isArray(items) && items.length > 0
+    ? calcPointsFromPosSaleItems(items, montoCompra, fechaIso)
+    : calcPointsFromPurchase(montoCompra, null, rubroId, fechaIso);
   if (calc.points <= 0) {
     return { ok: false, message: 'El monto ingresado no alcanza para generar al menos 1 punto entero.' };
   }
@@ -9937,13 +10155,19 @@ function renderFidCatalogoTable() {
     tdPrecio.innerHTML = `<span class="price-final-val">$ ${formatArs(art.p1f)}</span>`;
     tr.appendChild(tdPrecio);
 
-    // 6. Cálculo Base (Factor General x Minorista)
+    // 6. Cálculo Base (Factor General o Regla activa de Rubro × Minorista)
     const tdBase = document.createElement('td');
-    tdBase.dataset.label = `Puntos Automáticos (${factorStr}x)`;
+    const resolvedArtRule = resolveEffectiveFidParamsForRubro(Number(art.r) || 0);
+    const effArtFactor = resolvedArtRule.factor;
+    const effArtFactorStr = effArtFactor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    tdBase.dataset.label = `Puntos Automáticos (${effArtFactorStr}x)`;
     tdBase.style.textAlign = 'right';
     const p1fVal = Math.max(0, Number(art.p1f) || 0);
-    const autoPts = Math.max(1, Math.round(p1fVal * factor));
-    tdBase.innerHTML = `<div class="price-cell-stack"><strong>${autoPts.toLocaleString('es-AR')} pts</strong><span class="price-neto-val">${factorStr} × $ ${formatArs(art.p1f)}</span></div>`;
+    const autoPts = Math.max(1, Math.round(p1fVal * effArtFactor));
+    const rubroPromoTag = resolvedArtRule.factorRule
+      ? `<span class="badge badge--green" style="font-size:0.68rem; padding:0.1rem 0.4rem;">🎯 Regla Rubro</span>`
+      : '';
+    tdBase.innerHTML = `<div class="price-cell-stack"><strong>${autoPts.toLocaleString('es-AR')} pts</strong><span class="price-neto-val">${effArtFactorStr} × $ ${formatArs(art.p1f)}</span>${rubroPromoTag}</div>`;
     tr.appendChild(tdBase);
 
     // 7. Valor en Puntos (Configurable por producto con barra de elección 0,80 a 1,40)
@@ -10191,6 +10415,18 @@ async function recalcAllCatalogCanjePoints(newFactor, { persistBackend = true } 
   const cfgFactorInp = document.getElementById('cfg-fid-factor-canje');
   if (cfgFactorInp && document.activeElement !== cfgFactorInp) {
     cfgFactorInp.value = cleanFactor.toFixed(2);
+  }
+  const cfgFactorRange = document.getElementById('cfg-fid-factor-canje-range');
+  if (cfgFactorRange && document.activeElement !== cfgFactorRange) {
+    cfgFactorRange.value = cleanFactor.toFixed(2);
+  }
+  const catFactorInp = document.getElementById('fid-cat-factor-input');
+  if (catFactorInp && document.activeElement !== catFactorInp) {
+    catFactorInp.value = cleanFactor.toFixed(2);
+  }
+  const catFactorRange = document.getElementById('fid-cat-factor-range');
+  if (catFactorRange && document.activeElement !== catFactorRange) {
+    catFactorRange.value = cleanFactor.toFixed(2);
   }
 
   for (const a of STATE.articulos) {
@@ -10449,16 +10685,243 @@ function renderFidClientesSection(page = null) {
   });
 }
 
+function populateFidRubroRuleSelects() {
+  const rubros = Array.isArray(STATE.rubros)
+    ? [...STATE.rubros].filter((r) => Number(r.bl) !== 1).sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'))
+    : [];
+
+  const createSel = document.getElementById('fid-rr-rubro');
+  if (createSel) {
+    const prev = createSel.value;
+    createSel.innerHTML =
+      '<option value="">— Seleccionar Rubro —</option>' +
+      '<option value="0">🌟 TODOS LOS RUBROS (Promoción General)</option>' +
+      rubros.map((r) => `<option value="${r.id}">${escapeHtml(r.nombre || `RUBRO #${r.id}`)}</option>`).join('');
+    if (prev !== '' && [...createSel.options].some((o) => o.value === prev)) {
+      createSel.value = prev;
+    }
+  }
+
+  const editSel = document.getElementById('fid-rr-edit-rubro');
+  if (editSel) {
+    const prev = editSel.value;
+    editSel.innerHTML =
+      '<option value="0">🌟 TODOS LOS RUBROS (Promoción General)</option>' +
+      rubros.map((r) => `<option value="${r.id}">${escapeHtml(r.nombre || `RUBRO #${r.id}`)}</option>`).join('');
+    if (prev !== '' && [...editSel.options].some((o) => o.value === prev)) {
+      editSel.value = prev;
+    }
+  }
+
+  const simSel = document.getElementById('cfg-sim-rubro');
+  if (simSel) {
+    const prev = simSel.value || '0';
+    simSel.innerHTML =
+      '<option value="0">Regla General (Sin rubro específico)</option>' +
+      rubros.map((r) => `<option value="${r.id}">${escapeHtml(r.nombre || `RUBRO #${r.id}`)}</option>`).join('');
+    if ([...simSel.options].some((o) => o.value === prev)) {
+      simSel.value = prev;
+    }
+  }
+}
+
+function formatFidPctAr(val) {
+  return (Number(val) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function syncFidGeneralSlidersAndHints() {
+  const pctInp = document.getElementById('cfg-fid-porcentaje');
+  const pctRange = document.getElementById('cfg-fid-porcentaje-range');
+  const pctBadge = document.getElementById('cfg-fid-pct-badge');
+  const pctHint = document.getElementById('cfg-fid-pct-hint');
+
+  const rawPct = Number(pctInp?.value ?? STATE.fidelizacionConfig.porcentajeSuma ?? 0.80);
+  const cleanPct = Math.min(5.00, Math.max(0.25, round2(isFinite(rawPct) && rawPct > 0 ? rawPct : 0.80)));
+  if (pctRange && document.activeElement !== pctRange) {
+    pctRange.value = cleanPct.toFixed(2);
+  }
+  const pctFmt = formatFidPctAr(cleanPct);
+  if (pctBadge) {
+    pctBadge.textContent = `${pctFmt}% · Redondeo Entero`;
+  }
+  if (pctHint) {
+    const ej10k = Math.round(10000 * (cleanPct / 100));
+    const raw8450 = round2(8450 * (cleanPct / 100));
+    const ej8450 = Math.round(8450 * (cleanPct / 100));
+    pctHint.innerHTML = `Con <strong>${pctFmt}%</strong>: una compra de $10.000 suma <strong>${ej10k.toLocaleString('es-AR')} puntos</strong>; una de $8.450 (${raw8450.toLocaleString('es-AR')} exactos) redondea automáticamente a <strong>${ej8450.toLocaleString('es-AR')} puntos</strong>.`;
+  }
+
+  const facInp = document.getElementById('cfg-fid-factor-canje');
+  const facRange = document.getElementById('cfg-fid-factor-canje-range');
+  const facBadge = document.getElementById('cfg-fid-factor-badge');
+  const facHint = document.getElementById('cfg-fid-factor-hint');
+
+  const rawFac = Number(facInp?.value ?? STATE.fidelizacionConfig.factorCanje ?? 1.12);
+  const cleanFac = Math.min(1.40, Math.max(0.80, round2(isFinite(rawFac) && rawFac > 0 ? rawFac : 1.12)));
+  if (facRange && document.activeElement !== facRange) {
+    facRange.value = cleanFac.toFixed(2);
+  }
+  const facFmt = formatFidPctAr(cleanFac);
+  if (facBadge) {
+    facBadge.textContent = `${facFmt} × Precio Minorista`;
+  }
+  if (facHint) {
+    const pts1000 = Math.max(1, Math.round(1000 * cleanFac));
+    facHint.innerHTML = `Un producto de <strong>$1.000</strong> minorista requiere <strong>${pts1000.toLocaleString('es-AR')} puntos</strong> para su canje.`;
+  }
+
+  const vigInp = document.getElementById('cfg-fid-vigencia');
+  const vigBadge = document.getElementById('cfg-fid-vigencia-badge');
+  if (vigInp && vigBadge) {
+    const d = Math.max(1, Math.round(Number(vigInp.value) || 365));
+    vigBadge.textContent = d === 365 ? '365 días = 1 Año Exacto' : `${d.toLocaleString('es-AR')} días desde emisión`;
+  }
+}
+
+function formatFidRuleDaysLabel(diasSemana) {
+  const dias = Array.isArray(diasSemana) ? diasSemana.map(Number) : [];
+  if (dias.length === 0 || dias.length >= 7) {
+    return '<span class="badge badge--green">Todos los días</span>';
+  }
+  const ordered = [1, 2, 3, 4, 5, 6, 0].filter((d) => dias.includes(d));
+  return ordered
+    .map((d) => `<span class="badge badge--gold" style="margin-inline-end:0.2rem;">${FID_DAY_NAMES_SHORT[d] || d}</span>`)
+    .join('');
+}
+
+function renderFidRubroRulesTable() {
+  const tbody = document.getElementById('fid-rr-tbody');
+  const statusEl = document.getElementById('fid-rr-status-msg');
+  if (!tbody) return;
+
+  const rules = normalizeFidRubroRules(STATE.fidelizacionConfig.reglasRubros);
+  STATE.fidelizacionConfig.reglasRubros = rules;
+
+  if (statusEl) {
+    const vigCount = rules.filter((r) => getFidRubroRuleStatus(r).code === 'vigente_hoy').length;
+    statusEl.textContent = rules.length === 0
+      ? '0 reglas especiales configuradas'
+      : `${rules.length} regla${rules.length === 1 ? '' : 's'} especial${rules.length === 1 ? '' : 'es'} (${vigCount} vigente${vigCount === 1 ? '' : 's'} hoy)`;
+  }
+
+  tbody.textContent = '';
+  if (rules.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.className = 'table-loading-cell';
+    td.textContent = 'No hay reglas especiales por rubro configuradas. Se aplican las reglas generales en todos los rubros.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  const rubMap = new Map((Array.isArray(STATE.rubros) ? STATE.rubros : []).map((r) => [Number(r.id), r.nombre || '']));
+  const frag = document.createDocumentFragment();
+
+  rules.forEach((rule) => {
+    const tr = document.createElement('tr');
+    const rId = Number(rule.rubroId) || 0;
+    const rubroTitle = rId === 0
+      ? '🌟 TODOS LOS RUBROS (General)'
+      : (rubMap.get(rId) || rule.rubroNombre || `RUBRO #${rId}`);
+    const st = getFidRubroRuleStatus(rule);
+
+    const vigStr = rule.fechaDesde && rule.fechaHasta
+      ? `${formatIsoToDdMmYyyy(rule.fechaDesde)} al ${formatIsoToDdMmYyyy(rule.fechaHasta)}`
+      : rule.fechaDesde
+        ? `Desde ${formatIsoToDdMmYyyy(rule.fechaDesde)} (Sin fecha límite)`
+        : rule.fechaHasta
+          ? `Hasta ${formatIsoToDdMmYyyy(rule.fechaHasta)}`
+          : 'Vigencia permanente';
+
+    const pctCellHtml = rule.usaPorcentaje
+      ? `<strong style="color:var(--gold-main, #b7860b); font-size:0.96rem;">${formatFidPctAr(rule.porcentajeCompra)}%</strong>`
+      : '<span class="price-neto-val">Usa regla general</span>';
+
+    const facCellHtml = rule.usaFactorCanje
+      ? `<strong style="color:var(--success, #16a34a); font-size:0.96rem;">${formatFidPctAr(rule.factorCanje)} ×</strong>`
+      : '<span class="price-neto-val">Usa regla general</span>';
+
+    tr.innerHTML = `
+      <td>
+        <div class="price-cell-stack">
+          <strong>${escapeHtml(rubroTitle)}</strong>
+          ${rId > 0 ? `<span class="price-neto-val">Rubro ID #${rId}</span>` : '<span class="price-neto-val">Aplica a todo el padrón</span>'}
+        </div>
+      </td>
+      <td class="num-col">${pctCellHtml}</td>
+      <td class="num-col">${facCellHtml}</td>
+      <td><div style="display:flex; flex-wrap:wrap; gap:0.2rem;">${formatFidRuleDaysLabel(rule.diasSemana)}</div></td>
+      <td>
+        <div class="price-cell-stack">
+          <span class="${st.badgeCls}" style="width:fit-content;">${st.label}</span>
+          <span class="price-neto-val">📅 ${escapeHtml(vigStr)}</span>
+        </div>
+      </td>
+      <td class="actions-col">
+        <div style="display:flex; gap:0.35rem; justify-content:flex-end; flex-wrap:wrap;">
+          <button type="button" class="btn-secondary btn-sm btn-fid-rr-edit" data-rule-id="${escapeHtml(rule.id)}" style="width:auto;">
+            ✏️ Modificar
+          </button>
+          <button type="button" class="btn-secondary btn-sm btn-fid-rr-toggle" data-rule-id="${escapeHtml(rule.id)}" style="width:auto;">
+            ${rule.activa !== false ? '⏸️ Pausar' : '▶️ Activar'}
+          </button>
+          <button type="button" class="btn-secondary btn-sm btn-fid-rr-delete" data-rule-id="${escapeHtml(rule.id)}" style="width:auto; color:var(--danger, #dc2626);">
+            🗑️ Eliminar
+          </button>
+        </div>
+      </td>
+    `;
+    frag.appendChild(tr);
+  });
+
+  tbody.appendChild(frag);
+}
+
+async function persistFidConfigToBackend() {
+  saveLocalFidelizacionStore();
+  updateFidelizacionKpisAndSummary();
+  applyFidCatalogoFilters(STATE.fidCatPage || 1);
+  renderFidQuickCanjeCards();
+  updateFidConfigSimulators();
+  try {
+    await fetch('api/clientes.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save_fidelizacion_config',
+        config: STATE.fidelizacionConfig
+      })
+    });
+  } catch {}
+}
+
 function renderFidConfigSection() {
+  if (!Array.isArray(STATE.rubros) || STATE.rubros.length === 0) {
+    loadCatalogDatabase().then(() => {
+      populateFidRubroRuleSelects();
+      renderFidRubroRulesTable();
+      updateFidConfigSimulators();
+    });
+  }
+  populateFidRubroRuleSelects();
+
   const cfg = STATE.fidelizacionConfig;
   const setVal = (id, val) => {
     const el = document.getElementById(id);
     if (el) el.value = String(val ?? '');
   };
 
-  setVal('cfg-fid-porcentaje', cfg.porcentajeSuma ?? 0.80);
-  setVal('cfg-fid-vigencia', cfg.diasVencimiento ?? 365);
-  setVal('cfg-fid-factor-canje', cfg.factorCanje ?? 1.12);
+  const cleanPct = Math.min(5.00, Math.max(0.25, round2(Number(cfg.porcentajeSuma ?? cfg.porcentajeCompra) || 0.80)));
+  const cleanFac = Math.min(1.40, Math.max(0.80, round2(Number(cfg.factorCanje) || 1.12)));
+  const cleanDias = Math.max(1, Math.round(Number(cfg.diasVencimiento ?? cfg.diasVigencia) || 365));
+
+  setVal('cfg-fid-porcentaje', cleanPct.toFixed(2));
+  setVal('cfg-fid-porcentaje-range', cleanPct.toFixed(2));
+  setVal('cfg-fid-vigencia', cleanDias);
+  setVal('cfg-fid-factor-canje', cleanFac.toFixed(2));
+  setVal('cfg-fid-factor-canje-range', cleanFac.toFixed(2));
   setVal('cfg-fid-email-remitente', cfg.emailRemitente || 'fidelizacion@cn.com.ar');
   setVal('cfg-fid-webhook-wa', cfg.whatsappWebhookUrl || '');
   setVal('cfg-fid-twilio-sid', cfg.twilioAccountSid || '');
@@ -10466,6 +10929,11 @@ function renderFidConfigSection() {
   setVal('cfg-fid-twilio-from', cfg.twilioFromNumber || '');
   setVal('cfg-fid-tpl-suma', cfg.plantillaSuma || '');
   setVal('cfg-fid-tpl-canje', cfg.plantillaCanje || '');
+
+  const rrDesdeInp = document.getElementById('fid-rr-desde');
+  if (rrDesdeInp && !rrDesdeInp.value) {
+    rrDesdeInp.value = getLocalIsoAndDow().iso;
+  }
 
   const canalDef = String(cfg.canalDefault || 'whatsapp').toLowerCase();
   document.querySelectorAll('input[name="cfg_fid_canal_def"]').forEach((rad) => {
@@ -10475,23 +10943,41 @@ function renderFidConfigSection() {
   const chkAutoWa = document.getElementById('cfg-fid-auto-wa');
   if (chkAutoWa) chkAutoWa.checked = cfg.autoOpenWhatsapp !== false;
 
+  syncFidGeneralSlidersAndHints();
+  renderFidRubroRulesTable();
   updateFidConfigSimulators();
 }
 
 function updateFidConfigSimulators() {
-  const pct = Number(document.getElementById('cfg-fid-porcentaje')?.value || STATE.fidelizacionConfig.porcentajeSuma || 0.80);
-  const factor = Number(document.getElementById('cfg-fid-factor-canje')?.value || STATE.fidelizacionConfig.factorCanje || 1.12);
+  syncFidGeneralSlidersAndHints();
+  const basePct = Math.min(5.00, Math.max(0.25, Number(document.getElementById('cfg-fid-porcentaje')?.value || STATE.fidelizacionConfig.porcentajeSuma || 0.80)));
+  const baseFactor = Math.min(1.40, Math.max(0.80, Number(document.getElementById('cfg-fid-factor-canje')?.value || STATE.fidelizacionConfig.factorCanje || 1.12)));
+  const simRubroId = Number(document.getElementById('cfg-sim-rubro')?.value || 0);
   const simCompra = Number(document.getElementById('cfg-sim-compra')?.value || 25000);
   const simPrecio = Number(document.getElementById('cfg-sim-prod')?.value || 5000);
 
-  const ptsCompra = Math.max(0, Math.round(simCompra * (pct / 100)));
-  const ptsCanje = Math.max(1, Math.round(simPrecio * factor));
+  const resolved = resolveEffectiveFidParamsForRubro(simRubroId, '', { basePct, baseFactor });
+  const ptsCompra = Math.max(0, Math.round(simCompra * (resolved.pct / 100)));
+  const ptsCanje = Math.max(1, Math.round(simPrecio * resolved.factor));
+
+  const resRubroEl = document.getElementById('cfg-sim-rubro-res');
+  if (resRubroEl) {
+    if (resolved.pctRule || resolved.factorRule) {
+      resRubroEl.style.color = 'var(--success, #16a34a)';
+      resRubroEl.style.fontWeight = '700';
+      resRubroEl.textContent = `🎯 Regla especial vigente hoy (${formatFidPctAr(resolved.pct)}% · ${formatFidPctAr(resolved.factor)}×)`;
+    } else {
+      resRubroEl.style.color = '';
+      resRubroEl.style.fontWeight = '';
+      resRubroEl.textContent = `Aplicando regla general (${formatFidPctAr(resolved.pct)}% · ${formatFidPctAr(resolved.factor)}×)`;
+    }
+  }
 
   const resCompraEl = document.getElementById('cfg-sim-compra-res');
-  if (resCompraEl) resCompraEl.textContent = `+${ptsCompra.toLocaleString('es-AR')} pts`;
+  if (resCompraEl) resCompraEl.textContent = `+${ptsCompra.toLocaleString('es-AR')} pts (${formatFidPctAr(resolved.pct)}%)`;
 
   const resPrecioEl = document.getElementById('cfg-sim-prod-res');
-  if (resPrecioEl) resPrecioEl.innerHTML = `${erpClubFidelBadgeSvg(16)} ${ptsCanje.toLocaleString('es-AR')} pts`;
+  if (resPrecioEl) resPrecioEl.innerHTML = `${erpClubFidelBadgeSvg(16)} ${ptsCanje.toLocaleString('es-AR')} pts (${formatFidPctAr(resolved.factor)}×)`;
 }
 
 function resolveCanjeTicketNumber(mov) {
@@ -22065,6 +22551,8 @@ function initApp() {
           accreditClientPurchasePoints({
             clientId: selectedCliObj.id,
             montoCompra: importe,
+            items: itemsSnapshot,
+            fechaIso,
             comprobante: compFormatted,
             observacion: `VENTA POS ${cfg.nombre.toUpperCase()} ($ ${formatArs(importe)})`,
             notify: autoSumarPts && autoNotifyPts,
@@ -29357,9 +29845,379 @@ function initApp() {
     if (btn) btn.disabled = false;
   });
 
-  // Configuración del Programa de Fidelización
-  ['cfg-fid-porcentaje', 'cfg-fid-factor-canje', 'cfg-sim-compra', 'cfg-sim-prod'].forEach((id) => {
+  // Configuración del Programa de Fidelización (Barras unificadas 0,25%-5,00% y 0,80-1,40 + Reglas por Rubro)
+  const bindSyncedRangeAndNumber = ({ rangeId, numId, min, max, badgeId = '', formatBadge = null, onUpdate = null }) => {
+    const rangeEl = document.getElementById(rangeId);
+    const numEl = document.getElementById(numId);
+    const badgeEl = badgeId ? document.getElementById(badgeId) : null;
+    const refreshBadge = (v) => {
+      if (badgeEl && typeof formatBadge === 'function') {
+        badgeEl.textContent = formatBadge(v);
+      }
+      if (typeof onUpdate === 'function') onUpdate(v);
+    };
+    rangeEl?.addEventListener('input', () => {
+      const val = Math.min(max, Math.max(min, round2(Number(rangeEl.value) || min)));
+      if (numEl) numEl.value = val.toFixed(2);
+      refreshBadge(val);
+    });
+    numEl?.addEventListener('input', () => {
+      const raw = Number(numEl.value);
+      if (isFinite(raw) && raw >= min && raw <= max) {
+        const val = round2(raw);
+        if (rangeEl) rangeEl.value = val.toFixed(2);
+        refreshBadge(val);
+      }
+    });
+    numEl?.addEventListener('change', () => {
+      const val = Math.min(max, Math.max(min, round2(Number(numEl.value) || min)));
+      numEl.value = val.toFixed(2);
+      if (rangeEl) rangeEl.value = val.toFixed(2);
+      refreshBadge(val);
+    });
+  };
+
+  bindSyncedRangeAndNumber({
+    rangeId: 'cfg-fid-porcentaje-range',
+    numId: 'cfg-fid-porcentaje',
+    min: 0.25,
+    max: 5.00,
+    onUpdate: () => updateFidConfigSimulators()
+  });
+
+  bindSyncedRangeAndNumber({
+    rangeId: 'cfg-fid-factor-canje-range',
+    numId: 'cfg-fid-factor-canje',
+    min: 0.80,
+    max: 1.40,
+    onUpdate: () => updateFidConfigSimulators()
+  });
+
+  bindSyncedRangeAndNumber({
+    rangeId: 'fid-rr-pct-range',
+    numId: 'fid-rr-pct-input',
+    min: 0.25,
+    max: 5.00,
+    badgeId: 'fid-rr-pct-badge',
+    formatBadge: (v) => `${formatFidPctAr(v)}%`
+  });
+
+  bindSyncedRangeAndNumber({
+    rangeId: 'fid-rr-factor-range',
+    numId: 'fid-rr-factor-input',
+    min: 0.80,
+    max: 1.40,
+    badgeId: 'fid-rr-factor-badge',
+    formatBadge: (v) => `${formatFidPctAr(v)} ×`
+  });
+
+  bindSyncedRangeAndNumber({
+    rangeId: 'fid-rr-edit-pct-range',
+    numId: 'fid-rr-edit-pct-input',
+    min: 0.25,
+    max: 5.00,
+    badgeId: 'fid-rr-edit-pct-badge',
+    formatBadge: (v) => `${formatFidPctAr(v)}%`
+  });
+
+  bindSyncedRangeAndNumber({
+    rangeId: 'fid-rr-edit-factor-range',
+    numId: 'fid-rr-edit-factor-input',
+    min: 0.80,
+    max: 1.40,
+    badgeId: 'fid-rr-edit-factor-badge',
+    formatBadge: (v) => `${formatFidPctAr(v)} ×`
+  });
+
+  ['cfg-fid-vigencia', 'cfg-sim-compra', 'cfg-sim-prod'].forEach((id) => {
     document.getElementById(id)?.addEventListener('input', updateFidConfigSimulators);
+  });
+  document.getElementById('cfg-sim-rubro')?.addEventListener('change', updateFidConfigSimulators);
+
+  const bindRuleToggleCard = (chkId, cardId, rangeId, numId) => {
+    const chk = document.getElementById(chkId);
+    const applyState = () => {
+      const enabled = Boolean(chk?.checked);
+      document.getElementById(cardId)?.classList.toggle('is-disabled', !enabled);
+      const rEl = document.getElementById(rangeId);
+      const nEl = document.getElementById(numId);
+      if (rEl) rEl.disabled = !enabled;
+      if (nEl) nEl.disabled = !enabled;
+    };
+    chk?.addEventListener('change', applyState);
+    applyState();
+  };
+
+  bindRuleToggleCard('fid-rr-use-pct', 'fid-rr-pct-card', 'fid-rr-pct-range', 'fid-rr-pct-input');
+  bindRuleToggleCard('fid-rr-use-factor', 'fid-rr-factor-card', 'fid-rr-factor-range', 'fid-rr-factor-input');
+  bindRuleToggleCard('fid-rr-edit-use-pct', 'fid-rr-edit-pct-card', 'fid-rr-edit-pct-range', 'fid-rr-edit-pct-input');
+  bindRuleToggleCard('fid-rr-edit-use-factor', 'fid-rr-edit-factor-card', 'fid-rr-edit-factor-range', 'fid-rr-edit-factor-input');
+
+  const bindDaysPickerGroup = (pickerId, btnAllId, btnNoneId) => {
+    const picker = document.getElementById(pickerId);
+    if (!picker) return;
+    const syncChips = () => {
+      picker.querySelectorAll('.fid-day-chip').forEach((lbl) => {
+        const inp = lbl.querySelector('input[type="checkbox"]');
+        lbl.classList.toggle('is-selected', Boolean(inp?.checked));
+      });
+    };
+    picker.addEventListener('change', syncChips);
+    document.getElementById(btnAllId)?.addEventListener('click', () => {
+      picker.querySelectorAll('input[type="checkbox"]').forEach((inp) => {
+        inp.checked = true;
+      });
+      syncChips();
+    });
+    document.getElementById(btnNoneId)?.addEventListener('click', () => {
+      picker.querySelectorAll('input[type="checkbox"]').forEach((inp) => {
+        inp.checked = false;
+      });
+      syncChips();
+    });
+    syncChips();
+  };
+
+  bindDaysPickerGroup('fid-rr-days-picker', 'btn-fid-rr-days-all', 'btn-fid-rr-days-none');
+  bindDaysPickerGroup('fid-rr-edit-days-picker', 'btn-fid-rr-edit-days-all', 'btn-fid-rr-edit-days-none');
+
+  const showFidRrFeedback = (msg, isError = false) => {
+    const fb = document.getElementById('fid-rr-feedback');
+    if (!fb) return;
+    fb.textContent = msg;
+    fb.style.color = isError ? 'var(--danger, #dc2626)' : 'var(--success, #16a34a)';
+    fb.hidden = !msg;
+    clearTimeout(fb._timer);
+    if (msg) {
+      fb._timer = setTimeout(() => {
+        fb.hidden = true;
+      }, 5000);
+    }
+  };
+
+  document.getElementById('btn-fid-rr-add')?.addEventListener('click', async () => {
+    const rubSel = document.getElementById('fid-rr-rubro');
+    if (!rubSel || rubSel.value === '') {
+      showFidRrFeedback('⚠️ Seleccioná primero el Rubro al que aplica la regla.', true);
+      rubSel?.focus();
+      return;
+    }
+    const rubroId = Math.max(0, Math.floor(Number(rubSel.value) || 0));
+    const rubObj = STATE.rubros.find((r) => Number(r.id) === rubroId);
+    const rubroNombre = rubroId === 0 ? 'TODOS LOS RUBROS' : (rubObj?.nombre || '');
+
+    const desde = document.getElementById('fid-rr-desde')?.value || '';
+    const hasta = document.getElementById('fid-rr-hasta')?.value || '';
+    if (!desde) {
+      showFidRrFeedback('⚠️ Indicá la fecha de Vigencia Desde.', true);
+      document.getElementById('fid-rr-desde')?.focus();
+      return;
+    }
+    if (hasta && hasta < desde) {
+      showFidRrFeedback('⚠️ La fecha Vigencia Hasta no puede ser anterior a Desde.', true);
+      return;
+    }
+
+    const diasSemana = [];
+    document.querySelectorAll('#fid-rr-days-picker input[type="checkbox"]:checked').forEach((chk) => {
+      diasSemana.push(Number(chk.value));
+    });
+    if (diasSemana.length === 0) {
+      showFidRrFeedback('⚠️ Seleccioná al menos un día de la semana.', true);
+      return;
+    }
+
+    const usaPorcentaje = Boolean(document.getElementById('fid-rr-use-pct')?.checked);
+    const usaFactorCanje = Boolean(document.getElementById('fid-rr-use-factor')?.checked);
+    if (!usaPorcentaje && !usaFactorCanje) {
+      showFidRrFeedback('⚠️ Tildá al menos una regla a personalizar (Otorgamiento de Puntos o Canje).', true);
+      return;
+    }
+
+    const pctVal = Math.min(5.00, Math.max(0.25, round2(Number(document.getElementById('fid-rr-pct-input')?.value) || 0.80)));
+    const facVal = Math.min(1.40, Math.max(0.80, round2(Number(document.getElementById('fid-rr-factor-input')?.value) || 1.12)));
+
+    const currentList = normalizeFidRubroRules(STATE.fidelizacionConfig.reglasRubros);
+    currentList.push({
+      id: `rr_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      rubroId,
+      rubroNombre,
+      usaPorcentaje,
+      porcentajeCompra: pctVal,
+      porcentajeSuma: pctVal,
+      usaFactorCanje,
+      factorCanje: facVal,
+      diasSemana,
+      fechaDesde: desde,
+      fechaHasta: hasta,
+      activa: true,
+      updatedAt: new Date().toISOString()
+    });
+    STATE.fidelizacionConfig.reglasRubros = normalizeFidRubroRules(currentList);
+
+    renderFidRubroRulesTable();
+    await persistFidConfigToBackend();
+    rubSel.value = '';
+    showFidRrFeedback(`✓ Regla agregada y activada para ${rubroNombre || 'el rubro seleccionado'}.`);
+  });
+
+  const openFidRrEditDialog = (ruleId) => {
+    const rules = normalizeFidRubroRules(STATE.fidelizacionConfig.reglasRubros);
+    const rule = rules.find((r) => String(r.id) === String(ruleId));
+    const dlg = document.getElementById('fid-rr-edit-dialog');
+    if (!rule || !dlg) return;
+
+    populateFidRubroRuleSelects();
+    document.getElementById('fid-rr-edit-id').value = rule.id;
+    const rubSel = document.getElementById('fid-rr-edit-rubro');
+    if (rubSel) rubSel.value = String(rule.rubroId ?? 0);
+    document.getElementById('fid-rr-edit-desde').value = rule.fechaDesde || getLocalIsoAndDow().iso;
+    document.getElementById('fid-rr-edit-hasta').value = rule.fechaHasta || '';
+
+    const diasSet = new Set((rule.diasSemana || []).map(Number));
+    document.querySelectorAll('#fid-rr-edit-days-picker .fid-day-chip').forEach((lbl) => {
+      const inp = lbl.querySelector('input[type="checkbox"]');
+      if (inp) {
+        inp.checked = diasSet.has(Number(inp.value));
+        lbl.classList.toggle('is-selected', inp.checked);
+      }
+    });
+
+    const chkPct = document.getElementById('fid-rr-edit-use-pct');
+    const chkFac = document.getElementById('fid-rr-edit-use-factor');
+    if (chkPct) chkPct.checked = Boolean(rule.usaPorcentaje);
+    if (chkFac) chkFac.checked = Boolean(rule.usaFactorCanje);
+
+    const pVal = Math.min(5.00, Math.max(0.25, round2(Number(rule.porcentajeCompra ?? rule.porcentajeSuma) || 0.80)));
+    const fVal = Math.min(1.40, Math.max(0.80, round2(Number(rule.factorCanje) || 1.12)));
+
+    document.getElementById('fid-rr-edit-pct-range').value = pVal.toFixed(2);
+    document.getElementById('fid-rr-edit-pct-input').value = pVal.toFixed(2);
+    document.getElementById('fid-rr-edit-pct-badge').textContent = `${formatFidPctAr(pVal)}%`;
+
+    document.getElementById('fid-rr-edit-factor-range').value = fVal.toFixed(2);
+    document.getElementById('fid-rr-edit-factor-input').value = fVal.toFixed(2);
+    document.getElementById('fid-rr-edit-factor-badge').textContent = `${formatFidPctAr(fVal)} ×`;
+
+    chkPct?.dispatchEvent(new Event('change'));
+    chkFac?.dispatchEvent(new Event('change'));
+
+    const errEl = document.getElementById('fid-rr-edit-error');
+    if (errEl) errEl.hidden = true;
+
+    if (!dlg.open) dlg.showModal();
+  };
+
+  document.getElementById('fid-rr-tbody')?.addEventListener('click', async (e) => {
+    const btnEdit = e.target.closest('.btn-fid-rr-edit');
+    if (btnEdit) {
+      openFidRrEditDialog(btnEdit.getAttribute('data-rule-id'));
+      return;
+    }
+
+    const btnToggle = e.target.closest('.btn-fid-rr-toggle');
+    if (btnToggle) {
+      const rId = btnToggle.getAttribute('data-rule-id');
+      const list = normalizeFidRubroRules(STATE.fidelizacionConfig.reglasRubros);
+      const target = list.find((r) => String(r.id) === String(rId));
+      if (target) {
+        target.activa = target.activa === false;
+        target.updatedAt = new Date().toISOString();
+        STATE.fidelizacionConfig.reglasRubros = list;
+        renderFidRubroRulesTable();
+        await persistFidConfigToBackend();
+      }
+      return;
+    }
+
+    const btnDel = e.target.closest('.btn-fid-rr-delete');
+    if (btnDel) {
+      const rId = btnDel.getAttribute('data-rule-id');
+      if (!(await showBrandConfirmDialog('¿Confirmás eliminar esta regla especial por rubro?'))) {
+        return;
+      }
+      const list = normalizeFidRubroRules(STATE.fidelizacionConfig.reglasRubros).filter((r) => String(r.id) !== String(rId));
+      STATE.fidelizacionConfig.reglasRubros = list;
+      renderFidRubroRulesTable();
+      await persistFidConfigToBackend();
+      showFidRrFeedback('✓ Regla especial eliminada.');
+    }
+  });
+
+  ['btn-fid-rr-edit-close', 'btn-fid-rr-edit-cancel'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('click', () => {
+      document.getElementById('fid-rr-edit-dialog')?.close();
+    });
+  });
+
+  document.getElementById('fid-rr-edit-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('fid-rr-edit-error');
+    const showErr = (m) => {
+      if (errEl) {
+        errEl.textContent = m;
+        errEl.hidden = false;
+      }
+    };
+
+    const id = document.getElementById('fid-rr-edit-id')?.value || '';
+    const rubroId = Math.max(0, Math.floor(Number(document.getElementById('fid-rr-edit-rubro')?.value || 0)));
+    const rubObj = STATE.rubros.find((r) => Number(r.id) === rubroId);
+    const rubroNombre = rubroId === 0 ? 'TODOS LOS RUBROS' : (rubObj?.nombre || '');
+
+    const desde = document.getElementById('fid-rr-edit-desde')?.value || '';
+    const hasta = document.getElementById('fid-rr-edit-hasta')?.value || '';
+    if (!desde) {
+      showErr('⚠️ Indicá la fecha de Vigencia Desde.');
+      return;
+    }
+    if (hasta && hasta < desde) {
+      showErr('⚠️ La fecha Vigencia Hasta no puede ser anterior a Desde.');
+      return;
+    }
+
+    const diasSemana = [];
+    document.querySelectorAll('#fid-rr-edit-days-picker input[type="checkbox"]:checked').forEach((chk) => {
+      diasSemana.push(Number(chk.value));
+    });
+    if (diasSemana.length === 0) {
+      showErr('⚠️ Seleccioná al menos un día de la semana.');
+      return;
+    }
+
+    const usaPorcentaje = Boolean(document.getElementById('fid-rr-edit-use-pct')?.checked);
+    const usaFactorCanje = Boolean(document.getElementById('fid-rr-edit-use-factor')?.checked);
+    if (!usaPorcentaje && !usaFactorCanje) {
+      showErr('⚠️ Tildá al menos una regla a personalizar (Otorgamiento de Puntos o Canje).');
+      return;
+    }
+
+    const pctVal = Math.min(5.00, Math.max(0.25, round2(Number(document.getElementById('fid-rr-edit-pct-input')?.value) || 0.80)));
+    const facVal = Math.min(1.40, Math.max(0.80, round2(Number(document.getElementById('fid-rr-edit-factor-input')?.value) || 1.12)));
+
+    const list = normalizeFidRubroRules(STATE.fidelizacionConfig.reglasRubros);
+    const idx = list.findIndex((r) => String(r.id) === String(id));
+    if (idx >= 0) {
+      list[idx] = {
+        ...list[idx],
+        rubroId,
+        rubroNombre,
+        usaPorcentaje,
+        porcentajeCompra: pctVal,
+        porcentajeSuma: pctVal,
+        usaFactorCanje,
+        factorCanje: facVal,
+        diasSemana,
+        fechaDesde: desde,
+        fechaHasta: hasta,
+        updatedAt: new Date().toISOString()
+      };
+      STATE.fidelizacionConfig.reglasRubros = normalizeFidRubroRules(list);
+      document.getElementById('fid-rr-edit-dialog')?.close();
+      renderFidRubroRulesTable();
+      await persistFidConfigToBackend();
+      showFidRrFeedback('✓ Regla por rubro actualizada correctamente.');
+    }
   });
 
   document.getElementById('btn-fid-test-twilio')?.addEventListener('click', async () => {
@@ -29426,11 +30284,19 @@ function initApp() {
     const plantillaSuma = document.getElementById('cfg-fid-tpl-suma')?.value || STATE.fidelizacionConfig.plantillaSuma;
     const plantillaCanje = document.getElementById('cfg-fid-tpl-canje')?.value || STATE.fidelizacionConfig.plantillaCanje;
 
+    const cleanPctSave = isFinite(pctSuma) && pctSuma > 0 ? Math.min(5.00, Math.max(0.25, round2(pctSuma))) : 0.80;
+    const cleanFactorSave = isFinite(factorCanje) && factorCanje > 0 ? Math.min(1.40, Math.max(0.80, round2(factorCanje))) : 1.12;
+    const existingReglasRubros = normalizeFidRubroRules(STATE.fidelizacionConfig.reglasRubros);
+
     STATE.fidelizacionConfig = {
-      porcentajeSuma: isFinite(pctSuma) && pctSuma > 0 ? round2(pctSuma) : 0.80,
-      factorCanje: isFinite(factorCanje) && factorCanje > 0 ? round2(factorCanje) : 1.12,
+      ...STATE.fidelizacionConfig,
+      porcentajeSuma: cleanPctSave,
+      porcentajeCompra: cleanPctSave,
+      factorCanje: cleanFactorSave,
       mostrarEnCatalogo: STATE.fidelizacionConfig.mostrarEnCatalogo === 'todos' ? 'todos' : 'solo_stock',
       diasVencimiento: diasVenc,
+      diasVigencia: diasVenc,
+      reglasRubros: existingReglasRubros,
       canalDefault,
       autoOpenWhatsapp,
       emailRemitente,
@@ -29443,9 +30309,33 @@ function initApp() {
       plantillaCanje
     };
 
-    await recalcAllCatalogCanjePoints(STATE.fidelizacionConfig.factorCanje);
+    await recalcAllCatalogCanjePoints(STATE.fidelizacionConfig.factorCanje, { persistBackend: false });
+    try {
+      await Promise.all([
+        fetch('api/clientes.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'save_fidelizacion_config',
+            config: STATE.fidelizacionConfig
+          })
+        }),
+        fetch('api/catalog.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'recalc_all_canje_points',
+            factorCanje: STATE.fidelizacionConfig.factorCanje,
+            mostrarEnCatalogo: STATE.fidelizacionConfig.mostrarEnCatalogo,
+            reglasRubros: STATE.fidelizacionConfig.reglasRubros,
+            overrideManual: false
+          })
+        })
+      ]);
+    } catch {}
     saveLocalFidelizacionStore();
     updateFidelizacionKpisAndSummary();
+    renderFidConfigSection();
 
     ['fid-config-saved-banner', 'fid-config-notif-saved-banner', 'fid-config-save-alert'].forEach((bannerId) => {
       const okEl = document.getElementById(bannerId);
