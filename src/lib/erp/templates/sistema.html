@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon-64.png?v=161">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png?v=161">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="assets/css/styles.css?v=275">
+  <link rel="stylesheet" href="assets/css/styles.css?v=279">
   <script src="assets/js/brand.js?v=7"></script>
   <style>
     html[data-has-session="1"] #login-view { display: none !important; }
@@ -10515,11 +10515,11 @@
            ================================================================ -->
       <section id="sec-atajos" class="erp-section" hidden>
         <div class="module-back-bar">
-          <button type="button" class="btn-back-home" data-open-section="sec-inicio">
-            ← Volver a Pantalla Principal
+          <button type="button" class="btn-back-home" data-open-section="sec-menu-ayuda">
+            ← Volver a Ayuda
           </button>
           <span class="module-breadcrumb">
-            ERP en Línea · <strong>Atajos de Teclado (CTRL + Tecla)</strong>
+            Ayuda · <strong>Atajos de Teclado (CTRL + Tecla)</strong>
           </span>
         </div>
 
@@ -12500,11 +12500,11 @@
            ================================================================ -->
       <section id="sec-manual-usuario" class="erp-section" hidden>
         <div class="module-back-bar">
-          <button type="button" class="btn-back-home" data-open-section="sec-inicio">
-            ← Volver a Pantalla Principal
+          <button type="button" class="btn-back-home" data-open-section="sec-menu-ayuda">
+            ← Volver a Ayuda
           </button>
           <span class="module-breadcrumb">
-            ERP en Línea · <strong>Manual del Usuario (Procesos por Módulo Habilitado, IA y PDF)</strong>
+            Ayuda · <strong>Manual del Usuario (Procesos por Módulo Habilitado, IA y PDF)</strong>
           </span>
         </div>
 
@@ -12650,8 +12650,331 @@
         <div id="manual-modules-container" style="display:flex; flex-direction:column; gap:1.35rem;"></div>
       </section>
 
+      <!-- ================================================================
+           SUBMÓDULO DE AYUDA: REPORTE DE MEJORAS (TIPO CRM CON CAPTURA)
+           ================================================================ -->
+      <section id="sec-reporte-mejoras" class="erp-section" hidden>
+        <div class="module-back-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <button type="button" class="btn-back-home" data-open-section="sec-menu-ayuda">
+              ← Volver a Ayuda
+            </button>
+            <span class="module-breadcrumb">
+              Ayuda · <strong>Reporte de Mejoras</strong>
+            </span>
+          </div>
+          <button type="button" id="btn-reporte-go-crm" class="btn-secondary btn-sm" data-open-section="sec-crm" style="width:auto; font-weight:700;" hidden>
+            📋 Ir al Módulo CRM (Administrador General)
+          </button>
+        </div>
+
+        <div class="section-header-card" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem;">
+          <div style="max-width:780px;">
+            <h2>📝 Reporte de Mejoras · Problemas, Soluciones e Implementaciones</h2>
+            <p>
+              Registrá un <strong>problema detectado</strong>, una <strong>necesidad de solución operativa</strong> o una propuesta de <strong>implementación de mejora</strong> con fecha y hora automática y captura de pantalla opcional. Tu reporte se envía directamente al módulo <strong>CRM del Administrador General</strong>.
+            </p>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap;">
+            <span id="crm-rep-live-clock" class="badge badge--gold" style="font-size:0.84rem; padding:0.45rem 0.85rem;">🕒 —</span>
+            <button type="button" id="btn-crm-rep-refresh" class="btn-secondary" style="width:auto;">
+              🔄 Actualizar Estado
+            </button>
+          </div>
+        </div>
+
+        <!-- Formulario de Nuevo Reporte de Mejora / Problema -->
+        <fieldset class="erp-fieldset" style="margin-block-end:1.25rem; border-color:var(--brand-gold);">
+          <legend class="erp-legend">➕ Nuevo Reporte para el CRM del Administrador General</legend>
+          <form id="crm-reporte-form" novalidate>
+            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap:0.85rem; margin-block-end:0.9rem;">
+              <div class="form-group" style="margin:0;">
+                <label for="crm-rep-fecha-hora" class="form-label">Fecha y Hora del Reporte</label>
+                <input type="text" id="crm-rep-fecha-hora" class="form-input" readonly style="font-weight:700; background:var(--surface-elevated);">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="crm-rep-usuario" class="form-label">Usuario Solicitante</label>
+                <input type="text" id="crm-rep-usuario" class="form-input" readonly style="font-weight:700; background:var(--surface-elevated);">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="crm-rep-tipo" class="form-label">Tipo de Reporte *</label>
+                <select id="crm-rep-tipo" class="form-select" required>
+                  <option value="PROBLEMA">🛠️ Problema / Error a Resolver</option>
+                  <option value="SOLUCION">💡 Necesidad de Solución Operativa</option>
+                  <option value="MEJORA" selected>🚀 Implementación de Mejora / Nueva Función</option>
+                  <option value="CONSULTA">💬 Consulta / Sugerencia</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="crm-rep-modulo" class="form-label">Módulo o Sector Relacionado *</label>
+                <select id="crm-rep-modulo" class="form-select" required>
+                  <option value="facturacion">Facturación Electrónica ARCA / Cajas</option>
+                  <option value="articulos">Artículos, Stock y Precios</option>
+                  <option value="clientes">Clientes y Cuentas Corrientes</option>
+                  <option value="proveedores">Proveedores y Ventas</option>
+                  <option value="fondos">Fondos y Cierre de Caja</option>
+                  <option value="carrito">Carrito Web / Tienda Online</option>
+                  <option value="fidelizacion">Fidelización de Clientes (Club Fidel)</option>
+                  <option value="whatsapp">WhatsApp Oficial</option>
+                  <option value="estadisticas">Estadísticas</option>
+                  <option value="verificador">Verificador de Precios</option>
+                  <option value="perfil">Perfil de Usuario / Organigrama</option>
+                  <option value="ayuda">Ayuda (Atajos / Manual del Usuario)</option>
+                  <option value="general">General / Todo el Sistema</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="crm-rep-prioridad" class="form-label">Prioridad *</label>
+                <select id="crm-rep-prioridad" class="form-select" required>
+                  <option value="NORMAL" selected>🟢 Normal</option>
+                  <option value="ALTA">🟡 Alta</option>
+                  <option value="URGENTE">🔴 Urgente</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-grid" style="grid-template-columns: 1fr; gap:0.85rem; margin-block-end:0.9rem;">
+              <div class="form-group" style="margin:0;">
+                <label for="crm-rep-titulo" class="form-label">Asunto / Título Breve del Problema o Mejora *</label>
+                <input
+                  type="text"
+                  id="crm-rep-titulo"
+                  class="form-input"
+                  placeholder="Ej: Agregar filtro por proveedor en planilla / Error al imprimir etiqueta / Nueva función en facturador..."
+                  required
+                >
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="crm-rep-descripcion" class="form-label">Descripción Detallada del Problema, Necesidad de Solución o Implementación *</label>
+                <textarea
+                  id="crm-rep-descripcion"
+                  class="form-input"
+                  rows="4"
+                  placeholder="Describí con detalle cuál es el problema, qué solución necesitás o cómo te gustaría que funcione la mejora..."
+                  required
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Incorporación de Captura de Pantalla (Archivo, Pegar con CTRL+V o Arrastrar) -->
+            <div class="form-group" style="margin-block-end:1rem;">
+              <label class="form-label">📷 Incorporar Captura de Pantalla (Opcional · Seleccionar archivo, Arrastrar o Pegar con CTRL + V)</label>
+              <div
+                id="crm-rep-dropzone"
+                style="border:2px dashed var(--brand-gold); border-radius:var(--radius-md); padding:1rem; background:var(--surface-elevated); display:flex; flex-direction:column; gap:0.75rem; align-items:center; justify-content:center; text-align:center; transition:border-color 0.2s, background 0.2s;"
+              >
+                <input type="file" id="crm-rep-file-input" accept="image/*" hidden>
+                <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:0.65rem;">
+                  <button type="button" id="btn-crm-rep-select-img" class="btn-secondary btn-sm" style="width:auto; font-weight:700;">
+                    🖼️ Seleccionar Captura de Pantalla (Imagen)
+                  </button>
+                  <span style="font-size:0.82rem; color:var(--text-secondary);">
+                    o presioná <strong>CTRL + V</strong> en esta pantalla para pegar una captura del portapapeles
+                  </span>
+                </div>
+                <div id="crm-rep-preview-wrap" hidden style="width:100%; max-width:560px; background:var(--surface-card); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.65rem; display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
+                  <img id="crm-rep-preview-img" src="" alt="Vista previa de captura de pantalla" style="max-width:100%; max-height:240px; object-fit:contain; border-radius:6px; cursor:pointer;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:0.5rem;">
+                    <span id="crm-rep-preview-info" style="font-size:0.76rem; color:var(--text-secondary); font-weight:600;">Captura adjunta lista para enviar</span>
+                    <button type="button" id="btn-crm-rep-clear-img" class="btn-danger btn-sm" style="width:auto;">
+                      ✕ Quitar Captura
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:0.65rem; flex-wrap:wrap;">
+              <button type="button" id="btn-crm-rep-limpiar" class="btn-secondary" style="width:auto;">
+                🧹 Limpiar Formulario
+              </button>
+              <button type="submit" id="btn-crm-rep-submit" class="btn-primary" style="width:auto; font-weight:800;">
+                📨 Enviar Reporte al Administrador General (CRM)
+              </button>
+            </div>
+          </form>
+        </fieldset>
+
+        <!-- Historial de Reportes Enviados por el Usuario y Estado de Seguimiento CRM -->
+        <div class="table-card">
+          <div style="padding:0.9rem 1.1rem; border-block-end:1px solid var(--border-subtle); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.6rem;">
+            <div>
+              <h3 style="margin:0; font-size:1rem;">📋 Seguimiento de Mis Reportes Enviados (Estado en CRM)</h3>
+              <p style="margin:0.15rem 0 0; font-size:0.8rem; color:var(--text-secondary);">
+                Consultá el estado de resolución y las respuestas del Administrador General sobre tus reportes.
+              </p>
+            </div>
+            <span id="crm-my-reports-count-badge" class="badge badge--gold">0 reportes</span>
+          </div>
+          <div class="table-scroll">
+            <table class="erp-table" aria-label="Mis reportes de mejoras enviados">
+              <thead>
+                <tr>
+                  <th>Ticket / Fecha y Hora</th>
+                  <th>Tipo / Prioridad</th>
+                  <th>Módulo</th>
+                  <th>Asunto y Descripción</th>
+                  <th class="text-center">Captura</th>
+                  <th class="text-center">Estado CRM</th>
+                  <th>Respuesta Administrador General</th>
+                </tr>
+              </thead>
+              <tbody id="crm-my-reports-tbody">
+                <tr>
+                  <td colspan="7" class="empty-state">Todavía no enviaste reportes desde este usuario.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           MÓDULO CRM (EXCLUSIVO ADMINISTRADOR GENERAL)
+           ================================================================ -->
+      <section id="sec-crm" class="erp-section" hidden>
+        <div class="module-back-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <button type="button" class="btn-back-home" data-open-section="sec-inicio">
+              ← Volver a Pantalla Principal
+            </button>
+            <span class="module-breadcrumb">
+              ERP en Línea · <strong>CRM · Bandeja de Reportes de Mejoras y Problemas (Administrador General)</strong>
+            </span>
+          </div>
+          <button type="button" class="btn-secondary btn-sm" data-open-section="sec-reporte-mejoras" style="width:auto; font-weight:700;">
+            ➕ Cargar Nuevo Reporte
+          </button>
+        </div>
+
+        <div class="section-header-card" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem;">
+          <div style="max-width:780px;">
+            <h2>🗂️ Módulo CRM · Administración General de Reportes, Problemas y Mejoras</h2>
+            <p>
+              Central de recepción de todos los tickets enviados desde <strong>Ayuda → Reporte de Mejoras</strong> con fecha, hora, usuario, módulo, descripción detallada y captura de pantalla. Actualizá el estado de cada ticket y enviá notas o respuestas de resolución al usuario.
+            </p>
+          </div>
+          <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+            <button type="button" id="btn-crm-admin-refresh" class="btn-secondary" style="width:auto;">
+              🔄 Sincronizar Tickets
+            </button>
+          </div>
+        </div>
+
+        <!-- KPIs del CRM -->
+        <div class="kpi-strip" style="margin-block-end:1rem;">
+          <div class="kpi-box kpi-box--gold">
+            <span class="kpi-label">Total Reportes Recibidos</span>
+            <strong id="crm-kpi-total" class="kpi-value">0</strong>
+            <span class="kpi-sub">Histórico acumulado en CRM</span>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">Pendientes / Nuevos</span>
+            <strong id="crm-kpi-pendientes" class="kpi-value" style="color:#d97706;">0</strong>
+            <span class="kpi-sub">Requieren revisión del Administrador General</span>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">En Análisis / Desarrollo</span>
+            <strong id="crm-kpi-en-proceso" class="kpi-value" style="color:#2563eb;">0</strong>
+            <span class="kpi-sub">En curso de implementación o solución</span>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">Resueltos / Implementados</span>
+            <strong id="crm-kpi-resueltos" class="kpi-value" style="color:#16a34a;">0</strong>
+            <span class="kpi-sub">Completados y notificados al usuario</span>
+          </div>
+        </div>
+
+        <!-- Filtros del CRM -->
+        <div class="filters-card" style="margin-block-end:1rem;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:0.8rem; align-items:end;">
+            <div class="form-group" style="margin:0;">
+              <label for="crm-filter-q" class="form-label">Buscar por ticket, usuario, asunto o texto</label>
+              <input type="search" id="crm-filter-q" class="form-input" placeholder="Ej: CRM-0001, @danielg, facturación, etiqueta...">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="crm-filter-estado" class="form-label">Estado CRM</label>
+              <select id="crm-filter-estado" class="form-select">
+                <option value="TODOS">Todos los estados</option>
+                <option value="PENDIENTE">🟠 Pendientes / Nuevos</option>
+                <option value="EN_PROCESO">🔵 En Análisis / En Desarrollo</option>
+                <option value="RESUELTO">🟢 Resueltos / Implementados</option>
+                <option value="DESCARTADO">⚪ Descartados / Cerrados</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="crm-filter-tipo" class="form-label">Tipo de Reporte</label>
+              <select id="crm-filter-tipo" class="form-select">
+                <option value="TODOS">Todos los tipos</option>
+                <option value="PROBLEMA">🛠️ Problema / Error</option>
+                <option value="SOLUCION">💡 Necesidad de Solución</option>
+                <option value="MEJORA">🚀 Implementación de Mejora</option>
+                <option value="CONSULTA">💬 Consulta / Sugerencia</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="crm-filter-prioridad" class="form-label">Prioridad</label>
+              <select id="crm-filter-prioridad" class="form-select">
+                <option value="TODOS">Todas las prioridades</option>
+                <option value="URGENTE">🔴 Urgente</option>
+                <option value="ALTA">🟡 Alta</option>
+                <option value="NORMAL">🟢 Normal</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla Principal del CRM -->
+        <div class="table-card">
+          <div class="table-scroll">
+            <table class="erp-table" aria-label="Listado general de reportes CRM">
+              <thead>
+                <tr>
+                  <th>Ticket / Fecha y Hora</th>
+                  <th>Usuario / Sucursal</th>
+                  <th>Tipo / Prioridad</th>
+                  <th>Módulo</th>
+                  <th>Problema, Necesidad o Mejora Reportada</th>
+                  <th class="text-center">Captura</th>
+                  <th class="text-center">Estado y Gestión CRM</th>
+                  <th class="text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="crm-admin-tbody">
+                <tr>
+                  <td colspan="8" class="empty-state">No hay reportes registrados en el CRM.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
     </div>
   </div>
+
+  <!-- MODAL NATIVO (<dialog>): VISOR DE CAPTURA DE PANTALLA Y GESTIÓN DE TICKET CRM -->
+  <dialog id="crm-screenshot-dialog" class="erp-dialog" aria-labelledby="crm-screenshot-dialog-title" style="max-width:860px; width:95%;">
+    <div class="dialog-form">
+      <header class="dialog-header">
+        <div class="dialog-title-wrap">
+          <span id="crm-dialog-badge" class="badge badge--gold">CRM</span>
+          <h2 id="crm-screenshot-dialog-title">Detalle de Reporte y Captura de Pantalla</h2>
+        </div>
+        <button type="button" id="btn-close-crm-dialog" class="btn-icon-close" aria-label="Cerrar ventana">✕</button>
+      </header>
+      <div class="dialog-body" style="display:flex; flex-direction:column; gap:0.9rem;">
+        <div id="crm-dialog-meta" style="font-size:0.86rem; color:var(--text-secondary);"></div>
+        <div id="crm-dialog-desc" style="padding:0.85rem; border-radius:var(--radius-sm); background:var(--surface-elevated); border:1px solid var(--border-subtle); white-space:pre-wrap; font-size:0.92rem;"></div>
+        <div id="crm-dialog-img-wrap" hidden style="text-align:center; background:#0f172a; padding:0.75rem; border-radius:var(--radius-md);">
+          <img id="crm-dialog-img" src="" alt="Captura de pantalla del reporte" style="max-width:100%; max-height:62vh; object-fit:contain; border-radius:6px;">
+        </div>
+      </div>
+      <footer class="dialog-footer">
+        <button type="button" id="btn-close-crm-dialog-footer" class="btn-secondary">Cerrar</button>
+      </footer>
+    </div>
+  </dialog>
 
   <!-- ====================================================================
        MODAL NATIVO (<dialog>): FICHA INTEGRAL DEL ARTÍCULO
@@ -18302,7 +18625,7 @@
     </form>
   </dialog>
 
-  <script src="assets/js/zxing.min.js?v=275" defer></script>
-  <script src="assets/js/app.js?v=275" defer></script>
+  <script src="assets/js/zxing.min.js?v=279" defer></script>
+  <script src="assets/js/app.js?v=279" defer></script>
 </body>
 </html>

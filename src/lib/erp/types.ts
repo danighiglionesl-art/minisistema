@@ -202,8 +202,10 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "tema",
   "verificador",
   "perfil",
-  "atajos",
-  "manual_usuario",
+  "ayuda",
+  "ayuda:atajos",
+  "ayuda:manual_usuario",
+  "ayuda:reporte_mejoras",
 ];
 
 export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [

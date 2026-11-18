@@ -161,8 +161,16 @@ const ALL_SYSTEM_MODULES = [
   { key: 'tema', label: 'Fondo Claro / Fondo Oscuro', sections: [], submodules: [] },
   { key: 'verificador', label: 'Consulta de Precios', sections: ['sec-verificador-precios'], submodules: [] },
   { key: 'perfil', label: 'Perfil de Usuario', sections: ['sec-perfil-usuario'], submodules: [] },
-  { key: 'atajos', label: 'Atajos', sections: ['sec-atajos'], submodules: [] },
-  { key: 'manual_usuario', label: 'Manual del Usuario (Procesos, IA y PDF)', sections: ['sec-manual-usuario'], submodules: [] }
+  {
+    key: 'ayuda',
+    label: 'Ayuda',
+    sections: ['sec-menu-ayuda', 'sec-atajos', 'sec-manual-usuario', 'sec-reporte-mejoras'],
+    submodules: [
+      { key: 'ayuda:atajos', label: 'Atajos', selector: '#sec-menu-ayuda [data-open-section="sec-atajos"]', sections: ['sec-atajos'] },
+      { key: 'ayuda:manual_usuario', label: 'Manual del Usuario (Procesos, IA y PDF)', selector: '#sec-menu-ayuda [data-open-section="sec-manual-usuario"]', sections: ['sec-manual-usuario'] },
+      { key: 'ayuda:reporte_mejoras', label: 'Reporte de Mejoras', selector: '#sec-menu-ayuda [data-open-section="sec-reporte-mejoras"]', sections: ['sec-reporte-mejoras'] }
+    ]
+  }
 ];
 
 const DEFAULT_MODULE_KEYS = ALL_SYSTEM_MODULES.flatMap((m) => [
@@ -221,7 +229,9 @@ const LEGACY_MODULE_KEY_ALIASES = {
   'proveedores:gondola': 'proveedores:precios_gondola',
   'fondos:caja_tesoreria': 'fondos:caja',
   'fondos:stock_val': 'fondos:stock_valorizado',
-  'carrito:registro_online': 'carrito:reg_online'
+  'carrito:registro_online': 'carrito:reg_online',
+  'atajos': 'ayuda:atajos',
+  'manual_usuario': 'ayuda:manual_usuario'
 };
 
 function expandUserModulesWithDefaults(rawModules) {
@@ -234,7 +244,13 @@ function expandUserModulesWithDefaults(rawModules) {
   });
   const set = new Set(normalized);
   set.add('perfil');
+  set.add('ayuda');
+  set.add('ayuda:manual_usuario');
+  set.add('ayuda:reporte_mejoras');
   set.add('manual_usuario');
+  if (set.has('ayuda:atajos')) {
+    set.add('atajos');
+  }
   if (set.has('carrito:banners') || set.has('carrito')) {
     set.add('carrito:ventana_emergente');
   }
@@ -1085,7 +1101,7 @@ function getUserAllowedModules(username) {
   const dir = ADMIN_DIRECTORY[uKey];
   if (dir && Array.isArray(dir.modules) && dir.modules.length > 0) {
     const expanded = expandUserModulesWithDefaults(dir.modules);
-    const mods = new Set([...expanded, 'perfil', 'manual_usuario']);
+    const mods = new Set([...expanded, 'perfil', 'ayuda', 'ayuda:manual_usuario', 'ayuda:reporte_mejoras', 'manual_usuario']);
     return Array.from(mods);
   }
   return [...DEFAULT_MODULE_KEYS];
@@ -1094,10 +1110,15 @@ function getUserAllowedModules(username) {
 function applyUserAllowedModules(user) {
   const uKey = String(user?.username || STATE.currentUser?.username || '').toLowerCase();
   const isPrimary = uKey === PRIMARY_ADMIN_USER;
+  const isGenAdmin = isPrimary || isErpGeneralAdminUser(user || STATE.currentUser || uKey);
   const allowed = new Set(getUserAllowedModules(uKey));
   document.querySelectorAll('#sec-inicio [data-module-key]').forEach((card) => {
     const modKey = card.getAttribute('data-module-key');
     if (!modKey) return;
+    if (modKey === 'crm') {
+      card.hidden = !isGenAdmin;
+      return;
+    }
     card.hidden = !isPrimary && !allowed.has(modKey);
   });
   ALL_SYSTEM_MODULES.forEach((mod) => {
@@ -1109,14 +1130,33 @@ function applyUserAllowedModules(user) {
       });
     });
   });
+  const btnGoCrm = document.getElementById('btn-reporte-go-crm');
+  if (btnGoCrm) {
+    btnGoCrm.hidden = !isGenAdmin;
+  }
+  if (typeof window.refreshCrmPendingBadge === 'function') {
+    window.refreshCrmPendingBadge();
+  }
   if (typeof window.refreshManualUsuarioViewIfOpen === 'function') {
     window.refreshManualUsuarioViewIfOpen();
   }
 }
 
 function isSectionAllowedForCurrentUser(sectionId) {
-  if (!sectionId || sectionId === 'sec-inicio' || sectionId === 'sec-perfil-usuario' || sectionId === 'sec-manual-usuario') return true;
+  if (
+    !sectionId ||
+    sectionId === 'sec-inicio' ||
+    sectionId === 'sec-perfil-usuario' ||
+    sectionId === 'sec-menu-ayuda' ||
+    sectionId === 'sec-manual-usuario' ||
+    sectionId === 'sec-reporte-mejoras'
+  ) {
+    return true;
+  }
   const uKey = String(STATE.currentUser?.username || '').toLowerCase();
+  if (sectionId === 'sec-crm') {
+    return uKey === PRIMARY_ADMIN_USER || isErpGeneralAdminUser(STATE.currentUser || uKey);
+  }
   if (!uKey || uKey === PRIMARY_ADMIN_USER) return true;
   const allowed = new Set(getUserAllowedModules(uKey));
   for (const mod of ALL_SYSTEM_MODULES) {
@@ -11573,8 +11613,11 @@ const SECTION_TOPBAR_META = {
   'sec-whatsapp-cloud': { title: 'WhatsApp Oficial · Minorista y Mayorista', back: 'sec-inicio' },
   'sec-verificador-precios': { title: 'Verificador de Precios', back: 'sec-inicio' },
   'sec-perfil-usuario': { title: 'Perfil de Usuario', back: 'sec-inicio' },
-  'sec-atajos': { title: 'Atajos', back: 'sec-inicio' },
-  'sec-manual-usuario': { title: '📘 Manual del Usuario (Procesos, IA y PDF)', back: 'sec-inicio' },
+  'sec-menu-ayuda': { title: 'Ayuda', back: 'sec-inicio' },
+  'sec-atajos': { title: 'Atajos', back: 'sec-menu-ayuda' },
+  'sec-manual-usuario': { title: '📘 Manual del Usuario (Procesos, IA y PDF)', back: 'sec-menu-ayuda' },
+  'sec-reporte-mejoras': { title: '📝 Reporte de Mejoras', back: 'sec-menu-ayuda' },
+  'sec-crm': { title: '🗂️ CRM · Reportes de Mejoras (Administrador General)', back: 'sec-inicio' },
   'sec-menu-estadisticas': { title: 'Estadísticas', back: 'sec-inicio' },
   'sec-est-facturacion': { title: 'Estadísticas · Facturación', back: 'sec-menu-estadisticas' },
   'sec-est-ranking': { title: 'Estadísticas · Ranking', back: 'sec-menu-estadisticas' },
@@ -12409,6 +12452,15 @@ function initApp() {
     }
     if (targetId === 'sec-manual-usuario' && typeof window.initOrRefreshManualUsuarioSection === 'function') {
       window.initOrRefreshManualUsuarioSection();
+    }
+    if (targetId === 'sec-reporte-mejoras' && typeof window.initOrRefreshReporteMejorasSection === 'function') {
+      window.initOrRefreshReporteMejorasSection();
+    }
+    if (targetId === 'sec-crm' && typeof window.initOrRefreshCrmSection === 'function') {
+      window.initOrRefreshCrmSection();
+    }
+    if ((targetId === 'sec-inicio' || targetId === 'sec-menu-ayuda') && typeof window.refreshCrmPendingBadge === 'function') {
+      window.refreshCrmPendingBadge();
     }
     if (
       targetId === 'sec-menu-estadisticas' ||
@@ -34549,11 +34601,12 @@ function initApp() {
           : `${Number(v || 0).toLocaleString('es-AR')} unid.`;
 
     if (chartType === 'pie') {
-      const centerX = Math.min(cssWidth * 0.34, cssHeight * 0.52);
+      const centerX = Math.min(cssWidth * 0.25, cssHeight * 0.52);
       const centerY = cssHeight / 2;
-      const radius = Math.max(55, Math.min(centerX - 24, cssHeight / 2 - 24));
+      const radius = Math.max(55, Math.min(centerX - 18, cssHeight / 2 - 22));
       const innerRadius = radius * 0.52;
       const slicesMeta = [];
+      const legendRowsMeta = [];
 
       let startAngle = -Math.PI / 2;
       safeValues.forEach((val, idx) => {
@@ -34562,7 +34615,7 @@ function initApp() {
         const color = EST_CHART_PALETTE[idx % EST_CHART_PALETTE.length];
         const isHovered = idx === hoverIndex;
         const midAngle = startAngle + sliceAngle / 2;
-        const offset = isHovered ? 5 : 0;
+        const offset = isHovered ? 6 : 0;
         const cx = centerX + Math.cos(midAngle) * offset;
         const cy = centerY + Math.sin(midAngle) * offset;
 
@@ -34577,7 +34630,7 @@ function initApp() {
         ctx.stroke();
 
         const pct = (val / totalSum) * 100;
-        if (pct >= 6) {
+        if (pct >= 5) {
           const labelR = (radius + innerRadius) / 2 + offset;
           const lx = centerX + Math.cos(midAngle) * labelR;
           const ly = centerY + Math.sin(midAngle) * labelR;
@@ -34614,28 +34667,53 @@ function initApp() {
       ctx.font = `800 12px ${fontFamily}`;
       ctx.fillText(fmtVal(totalSum), centerX, centerY + 9);
 
-      // Leyenda lateral derecha
-      const legendX = centerX + radius + 26;
-      const maxItems = Math.min(safeLabels.length, 9);
-      const rowH = Math.min(24, Math.max(17, (cssHeight - 24) / maxItems));
-      const startY = Math.max(18, (cssHeight - maxItems * rowH) / 2);
+      // Leyenda lateral derecha: Primero porcentaje, luego descripción completa sin cortar
+      const legendX = centerX + radius + 22;
+      const maxItems = Math.min(safeLabels.length, 12);
+      const rowH = Math.min(23, Math.max(16, (cssHeight - 18) / Math.max(1, maxItems)));
+      const startY = Math.max(14, (cssHeight - maxItems * rowH) / 2 + rowH / 2);
+      const availTextW = Math.max(180, cssWidth - (legendX + 18) - 8);
 
       for (let i = 0; i < maxItems; i++) {
         const y = startY + i * rowH;
         const color = EST_CHART_PALETTE[i % EST_CHART_PALETTE.length];
         const pct = ((safeValues[i] / totalSum) * 100).toFixed(1);
+        const isHovered = i === hoverIndex;
+
+        if (isHovered) {
+          ctx.fillStyle = isDark ? 'rgba(217, 119, 6, 0.18)' : 'rgba(217, 119, 6, 0.10)';
+          ctx.beginPath();
+          ctx.roundRect(legendX - 4, y - rowH / 2 + 1, Math.max(160, cssWidth - legendX - 6), rowH - 2, 5);
+          ctx.fill();
+        }
+
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.roundRect(legendX, y - 6, 11, 11, 3);
+        ctx.roundRect(legendX, y - 5.5, 11, 11, 3);
         ctx.fill();
 
-        const rawLbl = String(safeLabels[i] || '');
-        const cleanLbl = rawLbl.length > 24 ? `${rawLbl.slice(0, 23)}…` : rawLbl;
-        ctx.fillStyle = i === hoverIndex ? '#d97706' : textColor;
-        ctx.font = `${i === hoverIndex ? '800' : '600'} 11px ${fontFamily}`;
+        const fullLbl = String(fullLabels[i] || safeLabels[i] || '').trim();
+        const legendLine = `(${pct}%)  ${fullLbl}`;
+        const weight = isHovered ? '800' : '600';
+        let fontSize = 11;
+        ctx.font = `${weight} ${fontSize}px ${fontFamily}`;
+        while (fontSize > 8.5 && ctx.measureText(legendLine).width > availTextW) {
+          fontSize -= 0.5;
+          ctx.font = `${weight} ${fontSize}px ${fontFamily}`;
+        }
+
+        ctx.fillStyle = isHovered ? '#d97706' : textColor;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${cleanLbl} (${pct}%)`, legendX + 17, y);
+        ctx.fillText(legendLine, legendX + 17, y);
+
+        legendRowsMeta.push({
+          idx: i,
+          xMin: legendX - 4,
+          xMax: cssWidth - 4,
+          yMin: y - rowH / 2,
+          yMax: y + rowH / 2
+        });
       }
 
       canvas.__estChartMeta = {
@@ -34649,6 +34727,7 @@ function initApp() {
         radius,
         innerRadius,
         slicesMeta,
+        legendRowsMeta,
         fmtExactVal
       };
       bindEstCanvasHoverEvents(canvas);
@@ -34942,10 +35021,18 @@ function initApp() {
         const dx = mx - meta.centerX;
         const dy = my - meta.centerY;
         const dist = Math.hypot(dx, dy);
-        if (dist >= meta.innerRadius && dist <= meta.radius + 6) {
+        if (dist >= meta.innerRadius * 0.45 && dist <= meta.radius + 8) {
           let ang = Math.atan2(dy, dx);
           if (ang < -Math.PI / 2) ang += Math.PI * 2;
           foundItem = (meta.slicesMeta || []).find((s) => ang >= s.startAngle && ang <= s.endAngle) || null;
+        }
+        if (!foundItem && Array.isArray(meta.legendRowsMeta)) {
+          const hitRow = meta.legendRowsMeta.find(
+            (r) => mx >= r.xMin && mx <= r.xMax && my >= r.yMin && my <= r.yMax
+          );
+          if (hitRow) {
+            foundItem = (meta.slicesMeta || [])[hitRow.idx] || null;
+          }
         }
       } else {
         if (
@@ -35266,7 +35353,7 @@ function initApp() {
 
     // Gráfico Top 12 (se rearma dinámicamente sólo con los productos tildados)
     const chartSlice = activeProducts.slice(0, 12);
-    const chartLabels = chartSlice.map((p) => p.n.slice(0, 16));
+    const chartLabels = chartSlice.map((p) => p.n);
     const chartValues = chartSlice.map((p) => {
       if (criterio === 'importe') return p.facturado;
       if (criterio === 'ganancia') return p.ganancia;
@@ -70239,6 +70326,781 @@ function initApp() {
         renderManualUsuarioSection();
       }
     };
+  })();
+
+  // =========================================================================
+  // MÓDULO AYUDA -> REPORTE DE MEJORAS Y MÓDULO CRM (ADMINISTRADOR GENERAL)
+  // =========================================================================
+  (function initReporteMejorasAndCrmModule() {
+    const CRM_LOCAL_STORAGE_KEY = 'cn_erp_crm_reports_v1';
+    let crmReportsList = [];
+    let currentDraftScreenshotBase64 = '';
+    let crmEventsBound = false;
+    let crmClockTimer = null;
+
+    const CRM_TIPO_META = {
+      PROBLEMA: { label: '🛠️ Problema / Error', bg: 'rgba(239,68,68,0.14)', color: '#dc2626', border: 'rgba(239,68,68,0.35)' },
+      SOLUCION: { label: '💡 Necesidad de Solución', bg: 'rgba(217,119,6,0.14)', color: '#d97706', border: 'rgba(217,119,6,0.35)' },
+      MEJORA: { label: '🚀 Implementación de Mejora', bg: 'rgba(37,99,235,0.14)', color: '#2563eb', border: 'rgba(37,99,235,0.35)' },
+      CONSULTA: { label: '💬 Consulta / Sugerencia', bg: 'rgba(100,116,139,0.14)', color: '#475569', border: 'rgba(100,116,139,0.35)' }
+    };
+
+    const CRM_PRIORIDAD_META = {
+      NORMAL: { label: '🟢 Normal', bg: 'rgba(22,163,74,0.12)', color: '#15803d' },
+      ALTA: { label: '🟡 Alta', bg: 'rgba(217,119,6,0.15)', color: '#b45309' },
+      URGENTE: { label: '🔴 Urgente', bg: 'rgba(220,38,38,0.15)', color: '#b91c1c' }
+    };
+
+    const CRM_ESTADO_META = {
+      PENDIENTE: { label: '🟠 Pendiente / Nuevo', bg: 'rgba(217,119,6,0.15)', color: '#b45309', border: 'rgba(217,119,6,0.4)' },
+      EN_PROCESO: { label: '🔵 En Análisis / Desarrollo', bg: 'rgba(37,99,235,0.15)', color: '#1d4ed8', border: 'rgba(37,99,235,0.4)' },
+      RESUELTO: { label: '🟢 Resuelto / Implementado', bg: 'rgba(22,163,74,0.15)', color: '#15803d', border: 'rgba(22,163,74,0.4)' },
+      DESCARTADO: { label: '⚪ Descartado / Cerrado', bg: 'rgba(100,116,139,0.15)', color: '#475569', border: 'rgba(100,116,139,0.4)' }
+    };
+
+    function formatNowDateTimeAr() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function loadLocalCrmReports() {
+      try {
+        const raw = localStorage.getItem(CRM_LOCAL_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveLocalCrmReports(list) {
+      try {
+        localStorage.setItem(CRM_LOCAL_STORAGE_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+      } catch {}
+    }
+
+    async function fetchCrmReportsFromServer() {
+      try {
+        const res = await fetch(`api/manual_ai.php?action=crm_reports&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.ok && Array.isArray(data.reports)) {
+            crmReportsList = data.reports;
+            saveLocalCrmReports(crmReportsList);
+            updateCrmPendingBadgeUI();
+            return crmReportsList;
+          }
+        }
+      } catch {}
+      if (crmReportsList.length === 0) {
+        crmReportsList = loadLocalCrmReports();
+      }
+      updateCrmPendingBadgeUI();
+      return crmReportsList;
+    }
+
+    function updateCrmPendingBadgeUI() {
+      const badge = document.getElementById('badge-inicio-crm-pendientes');
+      const pendingCount = crmReportsList.filter((r) => (r.estado || 'PENDIENTE') === 'PENDIENTE').length;
+      if (badge) {
+        if (pendingCount > 0) {
+          badge.hidden = false;
+          badge.textContent = `${pendingCount} ${pendingCount === 1 ? 'pendiente' : 'pendientes'}`;
+        } else {
+          badge.hidden = true;
+          badge.textContent = '';
+        }
+      }
+    }
+
+    function updateReporteClockAndUserFields() {
+      const nowStr = formatNowDateTimeAr();
+      const inpFecha = document.getElementById('crm-rep-fecha-hora');
+      const liveClock = document.getElementById('crm-rep-live-clock');
+      const inpUser = document.getElementById('crm-rep-usuario');
+      if (inpFecha) inpFecha.value = nowStr;
+      if (liveClock) liveClock.textContent = `🕒 ${nowStr}`;
+      if (inpUser) {
+        const uname = STATE.currentUser?.username || 'admin';
+        const fullName = STATE.currentUser?.name || uname.toUpperCase();
+        const branch = STATE.currentUser?.branch || ACTIVE_BRAND?.defaultBranch || 'Casa Central';
+        inpUser.value = `${fullName} (@${uname}) · ${branch}`;
+      }
+      const btnGoCrm = document.getElementById('btn-reporte-go-crm');
+      if (btnGoCrm) {
+        const uKey = String(STATE.currentUser?.username || '').toLowerCase();
+        btnGoCrm.hidden = !(uKey === PRIMARY_ADMIN_USER || isErpGeneralAdminUser(STATE.currentUser || uKey));
+      }
+    }
+
+    function compressImageFileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        if (!file || !String(file.type || '').startsWith('image/')) {
+          reject(new Error('El archivo seleccionado no es una imagen válida.'));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = () => reject(new Error('No se pudo procesar la captura de pantalla.'));
+          img.onload = () => {
+            const maxDim = 1280;
+            let w = img.naturalWidth || img.width || 800;
+            let h = img.naturalHeight || img.height || 600;
+            if (w > maxDim || h > maxDim) {
+              if (w >= h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(String(reader.result || ''));
+              return;
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            resolve(dataUrl);
+          };
+          img.src = String(reader.result || '');
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleAttachScreenshotFile(file) {
+      if (!file) return;
+      try {
+        const dataUrl = await compressImageFileToDataUrl(file);
+        currentDraftScreenshotBase64 = dataUrl;
+        const wrap = document.getElementById('crm-rep-preview-wrap');
+        const img = document.getElementById('crm-rep-preview-img');
+        const info = document.getElementById('crm-rep-preview-info');
+        if (img) img.src = dataUrl;
+        if (wrap) wrap.hidden = false;
+        if (info) {
+          const kb = Math.max(1, Math.round((dataUrl.length * 0.75) / 1024));
+          info.textContent = `✅ Captura de pantalla incorporada (${kb} KB) · Clic en la imagen para ampliar`;
+        }
+        if (typeof showToast === 'function') {
+          showToast('📷 Captura de pantalla adjuntada al reporte');
+        }
+      } catch (err) {
+        if (typeof showToast === 'function') {
+          showToast(err?.message || 'No se pudo adjuntar la captura de pantalla', 'error');
+        }
+      }
+    }
+
+    function clearDraftScreenshot() {
+      currentDraftScreenshotBase64 = '';
+      const wrap = document.getElementById('crm-rep-preview-wrap');
+      const img = document.getElementById('crm-rep-preview-img');
+      const fileInp = document.getElementById('crm-rep-file-input');
+      if (img) img.src = '';
+      if (wrap) wrap.hidden = true;
+      if (fileInp) fileInp.value = '';
+    }
+
+    function openCrmReportModal(report) {
+      const dlg = document.getElementById('crm-screenshot-dialog');
+      if (!dlg || !report) return;
+      const badge = document.getElementById('crm-dialog-badge');
+      const title = document.getElementById('crm-screenshot-dialog-title');
+      const meta = document.getElementById('crm-dialog-meta');
+      const desc = document.getElementById('crm-dialog-desc');
+      const imgWrap = document.getElementById('crm-dialog-img-wrap');
+      const img = document.getElementById('crm-dialog-img');
+
+      const tipoInfo = CRM_TIPO_META[report.tipo] || CRM_TIPO_META.MEJORA;
+      const estInfo = CRM_ESTADO_META[report.estado] || CRM_ESTADO_META.PENDIENTE;
+      if (badge) badge.textContent = report.codigo || report.id || 'CRM';
+      if (title) title.textContent = report.titulo || 'Detalle de Reporte CRM';
+      if (meta) {
+        meta.innerHTML = `<strong>Fecha y Hora:</strong> ${escapeHtml(report.fechaHora || '—')} · <strong>Usuario:</strong> ${escapeHtml(report.usuario || '—')} (@${escapeHtml(report.username || '—')}) · <strong>Módulo:</strong> ${escapeHtml(report.moduloLabel || 'General')} · <strong>Tipo:</strong> ${escapeHtml(tipoInfo.label)} · <strong>Estado:</strong> ${escapeHtml(estInfo.label)}`;
+      }
+      if (desc) {
+        let fullText = report.descripcion || '';
+        if (report.respuestaAdmin) {
+          fullText += `\n\n────────────────────────────────────────\n📌 RESPUESTA ADMINISTRADOR GENERAL:\n${report.respuestaAdmin}`;
+        }
+        desc.textContent = fullText;
+      }
+      if (imgWrap && img) {
+        if (report.capturaBase64) {
+          img.src = report.capturaBase64;
+          imgWrap.hidden = false;
+        } else {
+          img.src = '';
+          imgWrap.hidden = true;
+        }
+      }
+      if (typeof dlg.showModal === 'function') {
+        if (!dlg.open) dlg.showModal();
+      } else {
+        dlg.setAttribute('open', 'open');
+      }
+    }
+
+    function renderMyReportsTable() {
+      const tbody = document.getElementById('crm-my-reports-tbody');
+      const countBadge = document.getElementById('crm-my-reports-count-badge');
+      if (!tbody) return;
+
+      const uKey = String(STATE.currentUser?.username || '').toLowerCase();
+      const isGenAdmin = uKey === PRIMARY_ADMIN_USER || isErpGeneralAdminUser(STATE.currentUser || uKey);
+      const myReports = crmReportsList.filter((r) => {
+        if (isGenAdmin) return true;
+        return String(r.username || '').toLowerCase() === uKey;
+      });
+
+      if (countBadge) {
+        countBadge.textContent = `${myReports.length} ${myReports.length === 1 ? 'reporte' : 'reportes'}`;
+      }
+
+      if (myReports.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Todavía no hay reportes registrados para mostrar.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = myReports
+        .map((r) => {
+          const tipoInfo = CRM_TIPO_META[r.tipo] || CRM_TIPO_META.MEJORA;
+          const prioInfo = CRM_PRIORIDAD_META[r.prioridad] || CRM_PRIORIDAD_META.NORMAL;
+          const estInfo = CRM_ESTADO_META[r.estado] || CRM_ESTADO_META.PENDIENTE;
+          const hasImg = Boolean(r.capturaBase64);
+          return `
+            <tr>
+              <td style="white-space:nowrap;">
+                <strong style="color:var(--brand-gold); font-size:0.88rem;">${escapeHtml(r.codigo || r.id)}</strong>
+                <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.15rem;">🕒 ${escapeHtml(r.fechaHora || '—')}</div>
+                <div style="font-size:0.74rem; color:var(--text-secondary);">👤 ${escapeHtml(r.usuario || r.username || '—')}</div>
+              </td>
+              <td>
+                <span class="badge" style="background:${tipoInfo.bg}; color:${tipoInfo.color}; border:1px solid ${tipoInfo.border}; font-size:0.74rem; display:inline-block; margin-bottom:0.25rem;">
+                  ${escapeHtml(tipoInfo.label)}
+                </span>
+                <div>
+                  <span class="badge" style="background:${prioInfo.bg}; color:${prioInfo.color}; font-size:0.72rem;">
+                    Prioridad: ${escapeHtml(prioInfo.label)}
+                  </span>
+                </div>
+              </td>
+              <td style="font-weight:700; font-size:0.83rem;">${escapeHtml(r.moduloLabel || 'General')}</td>
+              <td style="max-width:360px;">
+                <div style="font-weight:800; color:var(--text-primary); margin-bottom:0.2rem;">${escapeHtml(r.titulo || '—')}</div>
+                <div style="font-size:0.82rem; color:var(--text-secondary); white-space:pre-wrap; line-height:1.38;">${escapeHtml(r.descripcion || '')}</div>
+              </td>
+              <td class="text-center">
+                ${
+                  hasImg
+                    ? `<button type="button" class="btn-secondary btn-sm btn-crm-view-ticket" data-crm-id="${escapeHtml(r.id)}" style="width:auto; padding:0.25rem 0.5rem;">
+                        📷 Ver Captura
+                      </button>`
+                    : `<span style="font-size:0.76rem; color:var(--text-secondary);">Sin captura</span>`
+                }
+              </td>
+              <td class="text-center">
+                <span class="badge" style="background:${estInfo.bg}; color:${estInfo.color}; border:1px solid ${estInfo.border}; font-weight:800; font-size:0.76rem;">
+                  ${escapeHtml(estInfo.label)}
+                </span>
+                ${
+                  r.updatedAt
+                    ? `<div style="font-size:0.71rem; color:var(--text-secondary); margin-top:0.2rem;">Act: ${escapeHtml(r.updatedAt)}</div>`
+                    : ''
+                }
+              </td>
+              <td style="max-width:270px;">
+                ${
+                  r.respuestaAdmin
+                    ? `<div style="padding:0.45rem 0.6rem; border-radius:6px; background:rgba(212,160,23,0.1); border:1px solid rgba(212,160,23,0.35); font-size:0.81rem; white-space:pre-wrap;">${escapeHtml(r.respuestaAdmin)}</div>`
+                    : `<span style="font-size:0.78rem; color:var(--text-secondary); font-style:italic;">Aguardando revisión del Administrador General</span>`
+                }
+              </td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      tbody.querySelectorAll('.btn-crm-view-ticket').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-crm-id');
+          const found = crmReportsList.find((item) => String(item.id) === String(id));
+          if (found) openCrmReportModal(found);
+        });
+      });
+    }
+
+    function renderCrmAdminSection() {
+      const kpiTotal = document.getElementById('crm-kpi-total');
+      const kpiPend = document.getElementById('crm-kpi-pendientes');
+      const kpiProc = document.getElementById('crm-kpi-en-proceso');
+      const kpiRes = document.getElementById('crm-kpi-resueltos');
+      const tbody = document.getElementById('crm-admin-tbody');
+
+      const total = crmReportsList.length;
+      const pendientes = crmReportsList.filter((r) => (r.estado || 'PENDIENTE') === 'PENDIENTE').length;
+      const enProceso = crmReportsList.filter((r) => r.estado === 'EN_PROCESO').length;
+      const resueltos = crmReportsList.filter((r) => r.estado === 'RESUELTO').length;
+
+      if (kpiTotal) kpiTotal.textContent = String(total);
+      if (kpiPend) kpiPend.textContent = String(pendientes);
+      if (kpiProc) kpiProc.textContent = String(enProceso);
+      if (kpiRes) kpiRes.textContent = String(resueltos);
+
+      updateCrmPendingBadgeUI();
+      if (!tbody) return;
+
+      const q = (document.getElementById('crm-filter-q')?.value || '').trim().toLowerCase();
+      const fEstado = document.getElementById('crm-filter-estado')?.value || 'TODOS';
+      const fTipo = document.getElementById('crm-filter-tipo')?.value || 'TODOS';
+      const fPrio = document.getElementById('crm-filter-prioridad')?.value || 'TODOS';
+
+      const filtered = crmReportsList.filter((r) => {
+        if (fEstado !== 'TODOS' && (r.estado || 'PENDIENTE') !== fEstado) return false;
+        if (fTipo !== 'TODOS' && (r.tipo || 'MEJORA') !== fTipo) return false;
+        if (fPrio !== 'TODOS' && (r.prioridad || 'NORMAL') !== fPrio) return false;
+        if (q) {
+          const hay = [
+            r.codigo,
+            r.id,
+            r.usuario,
+            r.username,
+            r.sucursal,
+            r.moduloLabel,
+            r.titulo,
+            r.descripcion,
+            r.respuestaAdmin
+          ]
+            .join(' ')
+            .toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">No se encontraron reportes en el CRM con los filtros seleccionados.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered
+        .map((r) => {
+          const tipoInfo = CRM_TIPO_META[r.tipo] || CRM_TIPO_META.MEJORA;
+          const prioInfo = CRM_PRIORIDAD_META[r.prioridad] || CRM_PRIORIDAD_META.NORMAL;
+          const est = r.estado || 'PENDIENTE';
+          const hasImg = Boolean(r.capturaBase64);
+          return `
+            <tr data-crm-row-id="${escapeHtml(r.id)}">
+              <td style="white-space:nowrap;">
+                <strong style="color:var(--brand-gold); font-size:0.92rem;">${escapeHtml(r.codigo || r.id)}</strong>
+                <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.18rem;">🕒 ${escapeHtml(r.fechaHora || '—')}</div>
+              </td>
+              <td>
+                <div style="font-weight:800; font-size:0.85rem;">${escapeHtml(r.usuario || 'Usuario')}</div>
+                <div style="font-size:0.76rem; color:var(--text-secondary);">@${escapeHtml(r.username || 'admin')} · ${escapeHtml(r.rol || 'Operador')}</div>
+                <div style="font-size:0.74rem; color:var(--text-secondary);">🏢 ${escapeHtml(r.sucursal || 'Casa Central')}</div>
+              </td>
+              <td>
+                <span class="badge" style="background:${tipoInfo.bg}; color:${tipoInfo.color}; border:1px solid ${tipoInfo.border}; font-size:0.74rem; display:inline-block; margin-bottom:0.3rem;">
+                  ${escapeHtml(tipoInfo.label)}
+                </span>
+                <div>
+                  <span class="badge" style="background:${prioInfo.bg}; color:${prioInfo.color}; font-size:0.73rem;">
+                    ${escapeHtml(prioInfo.label)}
+                  </span>
+                </div>
+              </td>
+              <td style="font-weight:700; font-size:0.83rem;">${escapeHtml(r.moduloLabel || 'General')}</td>
+              <td style="max-width:340px;">
+                <div style="font-weight:800; color:var(--text-primary); margin-bottom:0.25rem;">${escapeHtml(r.titulo || '—')}</div>
+                <div style="font-size:0.82rem; color:var(--text-secondary); white-space:pre-wrap; line-height:1.38;">${escapeHtml(r.descripcion || '')}</div>
+              </td>
+              <td class="text-center">
+                ${
+                  hasImg
+                    ? `<div style="display:flex; flex-direction:column; align-items:center; gap:0.35rem;">
+                        <img src="${escapeHtml(r.capturaBase64)}" alt="Miniatura captura" class="btn-crm-admin-view-img" data-crm-id="${escapeHtml(r.id)}" style="width:76px; height:52px; object-fit:cover; border-radius:6px; border:1px solid var(--brand-gold); cursor:pointer;">
+                        <button type="button" class="btn-secondary btn-sm btn-crm-admin-view-img" data-crm-id="${escapeHtml(r.id)}" style="width:auto; font-size:0.72rem; padding:0.15rem 0.45rem;">
+                          🔍 Ampliar
+                        </button>
+                      </div>`
+                    : `<span style="font-size:0.75rem; color:var(--text-secondary);">Sin captura</span>`
+                }
+              </td>
+              <td style="min-width:240px;">
+                <div style="display:flex; flex-direction:column; gap:0.4rem;">
+                  <select class="form-select form-input--compact crm-admin-estado-sel" data-crm-id="${escapeHtml(r.id)}" style="font-weight:700; font-size:0.8rem;">
+                    <option value="PENDIENTE" ${est === 'PENDIENTE' ? 'selected' : ''}>🟠 PENDIENTE / NUEVO</option>
+                    <option value="EN_PROCESO" ${est === 'EN_PROCESO' ? 'selected' : ''}>🔵 EN ANÁLISIS / DESARROLLO</option>
+                    <option value="RESUELTO" ${est === 'RESUELTO' ? 'selected' : ''}>🟢 RESUELTO / IMPLEMENTADO</option>
+                    <option value="DESCARTADO" ${est === 'DESCARTADO' ? 'selected' : ''}>⚪ DESCARTADO / CERRADO</option>
+                  </select>
+                  <textarea
+                    class="form-input crm-admin-resp-inp"
+                    data-crm-id="${escapeHtml(r.id)}"
+                    rows="2"
+                    placeholder="Escribir respuesta o nota de resolución para el usuario..."
+                    style="font-size:0.79rem; padding:0.4rem 0.55rem;"
+                  >${escapeHtml(r.respuestaAdmin || '')}</textarea>
+                </div>
+              </td>
+              <td class="text-center" style="white-space:nowrap;">
+                <div style="display:flex; flex-direction:column; gap:0.35rem; align-items:center;">
+                  <button type="button" class="btn-primary btn-sm btn-crm-admin-save" data-crm-id="${escapeHtml(r.id)}" style="width:100%; font-size:0.76rem;">
+                    💾 Guardar
+                  </button>
+                  <button type="button" class="btn-secondary btn-sm btn-crm-admin-view-img" data-crm-id="${escapeHtml(r.id)}" style="width:100%; font-size:0.74rem;">
+                    👁️ Detalle
+                  </button>
+                  <button type="button" class="btn-danger btn-sm btn-crm-admin-delete" data-crm-id="${escapeHtml(r.id)}" style="width:100%; font-size:0.74rem;">
+                    🗑️ Eliminar
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      tbody.querySelectorAll('.btn-crm-admin-view-img').forEach((el) => {
+        el.addEventListener('click', () => {
+          const id = el.getAttribute('data-crm-id');
+          const found = crmReportsList.find((item) => String(item.id) === String(id));
+          if (found) openCrmReportModal(found);
+        });
+      });
+
+      tbody.querySelectorAll('.btn-crm-admin-save').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-crm-id');
+          const row = tbody.querySelector(`tr[data-crm-row-id="${CSS.escape(id)}"]`);
+          const estSel = row?.querySelector('.crm-admin-estado-sel');
+          const respInp = row?.querySelector('.crm-admin-resp-inp');
+          const nuevoEstado = estSel?.value || 'PENDIENTE';
+          const nuevaResp = (respInp?.value || '').trim();
+
+          btn.disabled = true;
+          try {
+            const res = await fetch('api/manual_ai.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'update_crm_report',
+                id,
+                estado: nuevoEstado,
+                respuestaAdmin: nuevaResp,
+                resueltoPor: STATE.currentUser?.name || 'Administrador General'
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.ok && Array.isArray(data.reports)) {
+                crmReportsList = data.reports;
+                saveLocalCrmReports(crmReportsList);
+              }
+            } else {
+              crmReportsList = crmReportsList.map((item) =>
+                String(item.id) === String(id)
+                  ? { ...item, estado: nuevoEstado, respuestaAdmin: nuevaResp, updatedAt: formatNowDateTimeAr() }
+                  : item
+              );
+              saveLocalCrmReports(crmReportsList);
+            }
+            if (typeof showToast === 'function') {
+              showToast('✅ Ticket CRM actualizado correctamente');
+            }
+          } catch {
+            crmReportsList = crmReportsList.map((item) =>
+              String(item.id) === String(id)
+                ? { ...item, estado: nuevoEstado, respuestaAdmin: nuevaResp, updatedAt: formatNowDateTimeAr() }
+                : item
+            );
+            saveLocalCrmReports(crmReportsList);
+            if (typeof showToast === 'function') {
+              showToast('✅ Ticket CRM actualizado');
+            }
+          } finally {
+            btn.disabled = false;
+            renderCrmAdminSection();
+            renderMyReportsTable();
+          }
+        });
+      });
+
+      tbody.querySelectorAll('.btn-crm-admin-delete').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-crm-id');
+          const found = crmReportsList.find((item) => String(item.id) === String(id));
+          if (!window.confirm(`¿Eliminar el reporte ${found?.codigo || id} del CRM?`)) return;
+          try {
+            const res = await fetch('api/manual_ai.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'delete_crm_report', id })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.ok && Array.isArray(data.reports)) {
+                crmReportsList = data.reports;
+                saveLocalCrmReports(crmReportsList);
+              }
+            } else {
+              crmReportsList = crmReportsList.filter((item) => String(item.id) !== String(id));
+              saveLocalCrmReports(crmReportsList);
+            }
+          } catch {
+            crmReportsList = crmReportsList.filter((item) => String(item.id) !== String(id));
+            saveLocalCrmReports(crmReportsList);
+          }
+          renderCrmAdminSection();
+          renderMyReportsTable();
+          if (typeof showToast === 'function') {
+            showToast('🗑️ Reporte eliminado del CRM');
+          }
+        });
+      });
+    }
+
+    function bindReporteMejorasAndCrmEvents() {
+      if (crmEventsBound) return;
+      crmEventsBound = true;
+
+      const form = document.getElementById('crm-reporte-form');
+      const fileInp = document.getElementById('crm-rep-file-input');
+      const btnSelectImg = document.getElementById('btn-crm-rep-select-img');
+      const btnClearImg = document.getElementById('btn-crm-rep-clear-img');
+      const previewImg = document.getElementById('crm-rep-preview-img');
+      const dropzone = document.getElementById('crm-rep-dropzone');
+      const btnLimpiar = document.getElementById('btn-crm-rep-limpiar');
+      const btnRefreshRep = document.getElementById('btn-crm-rep-refresh');
+      const btnRefreshAdmin = document.getElementById('btn-crm-admin-refresh');
+
+      btnSelectImg?.addEventListener('click', () => fileInp?.click());
+      fileInp?.addEventListener('change', () => {
+        const f = fileInp.files?.[0];
+        if (f) handleAttachScreenshotFile(f);
+      });
+      btnClearImg?.addEventListener('click', clearDraftScreenshot);
+
+      previewImg?.addEventListener('click', () => {
+        if (!currentDraftScreenshotBase64) return;
+        openCrmReportModal({
+          codigo: 'VISTA PREVIA',
+          titulo: document.getElementById('crm-rep-titulo')?.value || 'Captura de Pantalla Adjunta',
+          fechaHora: formatNowDateTimeAr(),
+          usuario: STATE.currentUser?.name || 'Usuario',
+          username: STATE.currentUser?.username || 'admin',
+          moduloLabel: document.getElementById('crm-rep-modulo')?.selectedOptions?.[0]?.textContent || 'General',
+          tipo: document.getElementById('crm-rep-tipo')?.value || 'MEJORA',
+          estado: 'PENDIENTE',
+          descripcion: document.getElementById('crm-rep-descripcion')?.value || 'Vista previa de la captura de pantalla adjunta.',
+          capturaBase64: currentDraftScreenshotBase64
+        });
+      });
+
+      if (dropzone) {
+        dropzone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          dropzone.style.borderColor = '#16a34a';
+        });
+        dropzone.addEventListener('dragleave', () => {
+          dropzone.style.borderColor = 'var(--brand-gold)';
+        });
+        dropzone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dropzone.style.borderColor = 'var(--brand-gold)';
+          const f = e.dataTransfer?.files?.[0];
+          if (f) handleAttachScreenshotFile(f);
+        });
+      }
+
+      document.addEventListener('paste', (e) => {
+        const secRep = document.getElementById('sec-reporte-mejoras');
+        if (!secRep || secRep.hidden) return;
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (const item of items) {
+          if (item.type && item.type.startsWith('image/')) {
+            const blob = item.getAsFile();
+            if (blob) {
+              e.preventDefault();
+              handleAttachScreenshotFile(blob);
+              break;
+            }
+          }
+        }
+      });
+
+      btnLimpiar?.addEventListener('click', () => {
+        const tit = document.getElementById('crm-rep-titulo');
+        const desc = document.getElementById('crm-rep-descripcion');
+        if (tit) tit.value = '';
+        if (desc) desc.value = '';
+        clearDraftScreenshot();
+        updateReporteClockAndUserFields();
+      });
+
+      btnRefreshRep?.addEventListener('click', async () => {
+        await fetchCrmReportsFromServer();
+        renderMyReportsTable();
+        if (typeof showToast === 'function') showToast('🔄 Estado de reportes actualizado');
+      });
+
+      btnRefreshAdmin?.addEventListener('click', async () => {
+        await fetchCrmReportsFromServer();
+        renderCrmAdminSection();
+        if (typeof showToast === 'function') showToast('🔄 Bandeja CRM sincronizada');
+      });
+
+      ['crm-filter-q', 'crm-filter-estado', 'crm-filter-tipo', 'crm-filter-prioridad'].forEach((id) => {
+        const el = document.getElementById(id);
+        el?.addEventListener('input', renderCrmAdminSection);
+        el?.addEventListener('change', renderCrmAdminSection);
+      });
+
+      const dlg = document.getElementById('crm-screenshot-dialog');
+      document.getElementById('btn-close-crm-dialog')?.addEventListener('click', () => dlg?.close?.());
+      document.getElementById('btn-close-crm-dialog-footer')?.addEventListener('click', () => dlg?.close?.());
+
+      form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const tipo = document.getElementById('crm-rep-tipo')?.value || 'MEJORA';
+        const modSel = document.getElementById('crm-rep-modulo');
+        const moduloKey = modSel?.value || 'general';
+        const moduloLabel = modSel?.selectedOptions?.[0]?.textContent?.trim() || 'General';
+        const prioridad = document.getElementById('crm-rep-prioridad')?.value || 'NORMAL';
+        const tituloInp = document.getElementById('crm-rep-titulo');
+        const descInp = document.getElementById('crm-rep-descripcion');
+        const titulo = (tituloInp?.value || '').trim();
+        const descripcion = (descInp?.value || '').trim();
+
+        if (!titulo || !descripcion) {
+          if (typeof showToast === 'function') {
+            showToast('Completá el asunto y la descripción del problema o mejora.', 'warning');
+          }
+          if (!titulo) tituloInp?.focus();
+          else descInp?.focus();
+          return;
+        }
+
+        const submitBtn = document.getElementById('btn-crm-rep-submit');
+        if (submitBtn) submitBtn.disabled = true;
+
+        const payload = {
+          action: 'save_crm_report',
+          fechaHora: formatNowDateTimeAr(),
+          usuario: STATE.currentUser?.name || STATE.currentUser?.username || 'Usuario',
+          username: STATE.currentUser?.username || 'admin',
+          rol: STATE.currentUser?.role || 'Usuario',
+          sucursal: STATE.currentUser?.branch || ACTIVE_BRAND?.defaultBranch || 'Casa Central',
+          marca: ACTIVE_BRAND?.name || 'Casa Nueva',
+          tipo,
+          prioridad,
+          moduloKey,
+          moduloLabel,
+          titulo,
+          descripcion,
+          capturaBase64: currentDraftScreenshotBase64 || ''
+        };
+
+        try {
+          const res = await fetch('api/manual_ai.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.ok && Array.isArray(data.reports)) {
+              crmReportsList = data.reports;
+              saveLocalCrmReports(crmReportsList);
+            }
+          } else {
+            const nextNum = crmReportsList.length + 1;
+            const fallbackItem = {
+              ...payload,
+              id: `CRM-${Date.now()}`,
+              numero: nextNum,
+              codigo: `CRM-${String(nextNum).padStart(4, '0')}`,
+              estado: 'PENDIENTE',
+              respuestaAdmin: '',
+              updatedAt: payload.fechaHora
+            };
+            crmReportsList.unshift(fallbackItem);
+            saveLocalCrmReports(crmReportsList);
+          }
+        } catch {
+          const nextNum = crmReportsList.length + 1;
+          const fallbackItem = {
+            ...payload,
+            id: `CRM-${Date.now()}`,
+            numero: nextNum,
+            codigo: `CRM-${String(nextNum).padStart(4, '0')}`,
+            estado: 'PENDIENTE',
+            respuestaAdmin: '',
+            updatedAt: payload.fechaHora
+          };
+          crmReportsList.unshift(fallbackItem);
+          saveLocalCrmReports(crmReportsList);
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+        }
+
+        if (tituloInp) tituloInp.value = '';
+        if (descInp) descInp.value = '';
+        clearDraftScreenshot();
+        updateReporteClockAndUserFields();
+        renderMyReportsTable();
+        updateCrmPendingBadgeUI();
+
+        if (typeof showToast === 'function') {
+          showToast('📨 Reporte enviado con éxito al módulo CRM del Administrador General');
+        }
+      });
+
+      if (!crmClockTimer) {
+        crmClockTimer = setInterval(() => {
+          const secRep = document.getElementById('sec-reporte-mejoras');
+          if (secRep && !secRep.hidden) {
+            updateReporteClockAndUserFields();
+          }
+        }, 15000);
+      }
+    }
+
+    window.initOrRefreshReporteMejorasSection = async function () {
+      bindReporteMejorasAndCrmEvents();
+      updateReporteClockAndUserFields();
+      await fetchCrmReportsFromServer();
+      renderMyReportsTable();
+    };
+
+    window.initOrRefreshCrmSection = async function () {
+      bindReporteMejorasAndCrmEvents();
+      await fetchCrmReportsFromServer();
+      renderCrmAdminSection();
+    };
+
+    window.refreshCrmPendingBadge = function () {
+      fetchCrmReportsFromServer();
+    };
+
+    // Cargar conteo inicial de tickets pendientes para el Administrador General
+    setTimeout(() => {
+      fetchCrmReportsFromServer();
+    }, 1200);
   })();
 
   // PWA Install button
