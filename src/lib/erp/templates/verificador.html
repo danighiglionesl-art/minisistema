@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f4eae0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Verificador Casa Nueva">
+  <meta name="description" content="Consultor y Verificador de Precios en Salón - Casa Nueva Supermercado">
+
+  <title>Verificador de Precios | Casa Nueva Supermercado</title>
+
+  <link rel="icon" type="image/png" sizes="64x64" href="../sistema/assets/img/favicon-64.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../sistema/assets/img/apple-touch-icon.png">
+  <link rel="stylesheet" href="../sistema/assets/css/styles.css?v=237">
+  <script src="../sistema/assets/js/brand.js?v=7"></script>
+  <script src="../sistema/assets/js/zxing.min.js?v=237"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100dvh;
+      min-height: 100dvh;
+      background: #f4eae0 !important;
+      overflow-x: hidden;
+    }
+    #sec-verificador-precios,
+    .verificador-salon-stage,
+    .verificador-salon-stage:fullscreen,
+    .verificador-salon-stage.is-salon-fullscreen {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-height: 100dvh !important;
+      height: 100dvh !important;
+      width: 100vw !important;
+      background: #f4eae0 !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 2rem !important;
+      box-sizing: border-box !important;
+    }
+    .verificador-public-fs-btn {
+      position: fixed;
+      top: 1rem;
+      right: 1.25rem;
+      z-index: 10005;
+      opacity: 0.65;
+      transition: opacity 0.2s ease;
+    }
+    .verificador-public-fs-btn:hover,
+    .verificador-public-fs-btn:focus-visible {
+      opacity: 1;
+    }
+    .verificador-search-bar {
+      display: block !important;
+      position: relative;
+      width: min(100%, 780px) !important;
+      margin-inline: auto !important;
+      z-index: 50 !important;
+    }
+    .verificador-input-wrap {
+      position: relative !important;
+      display: flex !important;
+      align-items: center !important;
+      width: 100% !important;
+    }
+    .verificador-scan-icon {
+      position: absolute !important;
+      left: 1.15rem !important;
+      color: #b47b09 !important;
+      pointer-events: none !important;
+      z-index: 2 !important;
+    }
+    .verificador-input {
+      display: block !important;
+      width: 100% !important;
+      min-height: 58px !important;
+      padding-inline: 3.1rem 6.2rem !important;
+      font-size: 1.05rem !important;
+      font-weight: 600 !important;
+      border-radius: 999px !important;
+      border: 3px solid #d4a017 !important;
+      background: #ffffff !important;
+      color: #0f172a !important;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12) !important;
+    }
+    .verificador-input::placeholder {
+      color: #64748b !important;
+      opacity: 1 !important;
+    }
+    .verificador-standby-card {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 1rem 1.5rem !important;
+      gap: 1.5rem !important;
+    }
+    .verificador-standby-title {
+      color: #9a6b00 !important;
+    }
+    .verificador-cachita-avatar-wrap {
+      border: none !important;
+      border-radius: 0 !important;
+      outline: none !important;
+      box-shadow: none !important;
+      background: #f4eae0 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+    }
+    .verificador-cachita-img {
+      display: block !important;
+      width: 100% !important;
+      height: auto !important;
+      object-fit: contain !important;
+      border: none !important;
+      border-radius: 0 !important;
+      outline: none !important;
+      box-shadow: none !important;
+      background: #f4eae0 !important;
+      mix-blend-mode: normal !important;
+      -webkit-mask-image: radial-gradient(ellipse 95% 95% at 50% 50%, #000 84%, transparent 100%);
+      mask-image: radial-gradient(ellipse 95% 95% at 50% 50%, #000 84%, transparent 100%);
+    }
+    .verificador-speech-bubble {
+      width: fit-content !important;
+      max-width: 495px !important;
+      padding: clamp(1.35rem, 2.6vw, 2rem) clamp(1.1rem, 1.8vw, 1.45rem) clamp(1.35rem, 2.6vw, 2rem) clamp(1.5rem, 2.6vw, 2.1rem) !important;
+      background: #ffffff !important;
+      border: 3px solid #d4a017 !important;
+      border-radius: 28px !important;
+      box-shadow: 0 18px 44px rgba(212, 160, 23, 0.2) !important;
+    }
+    .verificador-speech-bubble::after {
+      border-color: transparent #ffffff transparent transparent !important;
+    }
+    .verificador-speech-bubble p {
+      margin: 0 !important;
+      font-size: clamp(1.35rem, 2.4vw, 1.95rem) !important;
+      font-weight: 500 !important;
+      line-height: 1.35 !important;
+      color: #1e293b !important;
+    }
+    .verificador-speech-bubble p strong {
+      font-weight: 900 !important;
+      color: #000000 !important;
+    }
+  </style>
+</head>
+<body>
+
+  <main id="sec-verificador-precios">
+    <div id="verificador-stage" class="verificador-salon-stage is-salon-fullscreen">
+      <button
+        type="button"
+        id="btn-verificador-fullscreen"
+        class="btn-secondary btn-sm verificador-public-fs-btn"
+        title="Alternar Pantalla Completa"
+      >
+        ⛶ Pantalla Completa
+      </button>
+
+      <!-- Barra lectora para código de barras / QR / código interno / nombre -->
+      <form id="verificador-form" class="verificador-search-bar" action="#" method="GET" novalidate>
+        <label for="verificador-input" class="visually-hidden">
+          Escanear código de barras o QR del producto
+        </label>
+        <div class="verificador-input-wrap">
+          <button
+            type="button"
+            id="btn-verificador-scan-icon"
+            title="Abrir cámara lectora de código de barras / QR"
+            aria-label="Abrir cámara lectora de código de barras"
+            style="position:absolute; left:0.65rem; z-index:3; background:transparent; border:none; padding:0.4rem; display:inline-flex; align-items:center; justify-content:center; color:#b47b09; cursor:pointer;"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+              <path d="M3 5v14"></path>
+              <path d="M8 5v14"></path>
+              <path d="M12 5v14"></path>
+              <path d="M17 5v14"></path>
+              <path d="M21 5v14"></path>
+            </svg>
+          </button>
+          <input
+            type="search"
+            id="verificador-input"
+            name="codigo_verificador"
+            class="form-input verificador-input"
+            placeholder="Escaneá código de barras / QR o escribí..."
+            enterkeyhint="search"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            autofocus
+          >
+          <button
+            type="button"
+            id="btn-verificador-clear"
+            class="btn-clear-q"
+            hidden
+            aria-label="Limpiar consulta"
+            style="right:3.4rem;"
+          >
+            ✕
+          </button>
+          <button
+            type="button"
+            id="btn-verificador-camera"
+            title="Escanear código de barras o QR con la cámara"
+            aria-label="Escanear con cámara"
+            style="position:absolute; right:0.55rem; z-index:3; width:42px; height:42px; border-radius:999px; border:2px solid #d4a017; background:#fef3c7; color:#92400e; display:inline-flex; align-items:center; justify-content:center; font-size:1.15rem; cursor:pointer; box-shadow:0 2px 8px rgba(212,160,23,0.25);"
+          >
+            📷
+          </button>
+        </div>
+        <div id="verificador-suggestions" class="fact-suggestions-dropdown" role="listbox" hidden></div>
+      </form>
+
+      <!-- Estado en espera (Standby de Salón con Cachita y globo de diálogo) -->
+      <div id="verificador-standby" class="verificador-standby-card">
+        <h2 class="verificador-standby-title">CONSULTA DE PRECIOS</h2>
+
+        <div class="verificador-cachita-hero">
+          <div class="verificador-cachita-avatar-wrap">
+            <img
+              src="../sistema/assets/img/cachita.jpg"
+              alt="Cachita - Mascota de Casa Nueva"
+              class="verificador-cachita-img"
+              width="260"
+              height="295"
+            >
+          </div>
+          <div class="verificador-speech-bubble" role="note">
+            <p>
+              “Pasá el <strong>código de barras</strong> o <strong>QR</strong> del producto por el lector para ver su precio”
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estado Producto Consultado: ÚNICAMENTE Foto, Nombre y Precio Minorista Final en tamaño gigante -->
+      <article id="verificador-result" class="verificador-result-card" aria-live="polite" hidden>
+        <div class="verificador-photo-frame">
+          <img
+            id="verificador-img"
+            src="../sistema/assets/img/icon-512.png"
+            alt="Imagen del producto consultado"
+            class="verificador-product-img"
+          >
+        </div>
+        <div class="verificador-info-col">
+          <h2 id="verificador-nombre" class="verificador-product-name">—</h2>
+          <p
+            id="verificador-scale-meta"
+            hidden
+            style="margin:0.25rem 0 0.55rem; font-size:1.25rem; font-weight:700; color:#facc15; letter-spacing:0.01em;"
+          ></p>
+          <div class="verificador-price-giant-box">
+            <span class="verificador-currency-symbol">$</span>
+            <span id="verificador-precio" class="verificador-price-giant">0,00</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Aviso cuando un código escaneado no existe -->
+      <div id="verificador-notfound" class="verificador-notfound-card" role="status" aria-live="polite" hidden>
+        <h3>Producto no encontrado</h3>
+        <p>Por favor intentá escanear nuevamente el código de barras o consultá en línea de cajas.</p>
+      </div>
+
+      <!-- Modal de Cámara Lectora de Código de Barras / QR -->
+      <dialog id="verificador-camera-dialog" class="erp-dialog" style="width:min(94vw, 540px); padding:0; border-radius:16px; border:2px solid #d4a017;">
+        <div class="dialog-form" style="padding:0;">
+          <header class="dialog-header" style="padding:0.9rem 1.15rem;">
+            <h3 style="margin:0; font-size:1.05rem;">📷 Lector de Código de Barras y QR</h3>
+            <button type="button" id="btn-ver-cam-close" class="btn-icon-close" aria-label="Cerrar">✕</button>
+          </header>
+          <div style="padding:0.85rem 1.15rem 1rem;">
+            <div style="border-radius:12px; overflow:hidden; background:#090d16; position:relative; aspect-ratio:16/10; max-height:54vh;">
+              <video id="ver-cam-video" playsinline webkit-playsinline autoplay muted style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+              <div class="cs-camera-aim"></div>
+            </div>
+            <p id="ver-cam-status" class="field-hint" style="text-align:center; margin:0.55rem 0 0; font-weight:600;">
+              Apuntá la cámara al código de barras o QR del producto...
+            </p>
+          </div>
+          <footer class="dialog-footer" style="padding:0.75rem 1.15rem; justify-content:flex-end;">
+            <button type="button" id="btn-ver-cam-cancel" class="btn-secondary" style="width:auto;">Cerrar Cámara</button>
+          </footer>
+        </div>
+      </dialog>
+    </div>
+  </main>
+
+  <script>
+    'use strict';
+    (function () {
+      const SINERGIAL_IMG_BASE = 'https://apisinergial.cn.com.ar/Imagenes/';
+      const CATALOG_API_URL = '../sistema/api/catalog.php?action=all';
+      const CATALOG_FALLBACK_URL = '../sistema/data/catalog_db.json';
+
+      const STATE = {
+        loaded: false,
+        loadingPromise: null,
+        articulos: []
+      };
+
+      const verificadorStage = document.getElementById('verificador-stage');
+      const verificadorInput = document.getElementById('verificador-input');
+      const verificadorClearBtn = document.getElementById('btn-verificador-clear');
+      const verificadorSugBox = document.getElementById('verificador-suggestions');
+      const verificadorStandby = document.getElementById('verificador-standby');
+      const verificadorResult = document.getElementById('verificador-result');
+      const verificadorNotFound = document.getElementById('verificador-notfound');
+      const verificadorImg = document.getElementById('verificador-img');
+      const verificadorNombre = document.getElementById('verificador-nombre');
+      const verificadorPrecio = document.getElementById('verificador-precio');
+      const btnVerificadorFs = document.getElementById('btn-verificador-fullscreen');
+
+      let verificadorResetTimer = null;
+
+      function formatArs(num) {
+        const val = Number(num) || 0;
+        return val.toLocaleString('es-AR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+      }
+
+      function normalizeStr(str) {
+        return String(str || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+      }
+
+      function resolveArticleImageUrl(art) {
+        if (art && art.im) {
+          if (art.im.startsWith('assets/')) {
+            return { url: '../sistema/' + art.im, isSystem: true };
+          }
+          if (
+            art.im.startsWith('http://') ||
+            art.im.startsWith('https://') ||
+            art.im.startsWith('../sistema/') ||
+            art.im.startsWith('data:image/')
+          ) {
+            return { url: art.im, isSystem: art.ims !== 'web' };
+          }
+          return { url: SINERGIAL_IMG_BASE + encodeURIComponent(art.im), isSystem: true };
+        }
+        const mainBc = art && Array.isArray(art.bc) && art.bc.length > 0 ? art.bc[0].c : '';
+        const query = `${mainBc ? mainBc + ' ' : ''}${(art && art.n) || ''} supermercado producto fondo blanco`.trim();
+        const hostIdx = ((art && art.id) || 1) % 4 + 1;
+        return {
+          url: `https://tse${hostIdx}.mm.bing.net/th?q=${encodeURIComponent(query)}&w=400&h=400&c=7&rs=1&p=0`,
+          isSystem: false
+        };
+      }
+
+      async function loadCatalogDatabase(forceReload = false) {
+        if (STATE.loaded && !forceReload) return;
+        if (STATE.loadingPromise) return STATE.loadingPromise;
+
+        STATE.loadingPromise = (async () => {
+          let data = null;
+          try {
+            const res = await fetch(CATALOG_API_URL + '&_t=' + Date.now(), { cache: 'no-store' });
+            if (res.ok) {
+              data = await res.json();
+            }
+          } catch (_e) {}
+
+          if (!data || !Array.isArray(data.articulos)) {
+            try {
+              const resFallback = await fetch(CATALOG_FALLBACK_URL + '?_t=' + Date.now(), { cache: 'no-store' });
+              if (resFallback.ok) {
+                data = await resFallback.json();
+              }
+            } catch (_e2) {}
+          }
+
+          if (data && Array.isArray(data.articulos)) {
+            STATE.articulos = data.articulos;
+            STATE.loaded = true;
+          }
+        })();
+
+        try {
+          await STATE.loadingPromise;
+        } finally {
+          STATE.loadingPromise = null;
+        }
+      }
+
+      function showVerificadorStandby() {
+        clearTimeout(verificadorResetTimer);
+        if (verificadorStandby) verificadorStandby.hidden = false;
+        if (verificadorResult) verificadorResult.hidden = true;
+        if (verificadorNotFound) verificadorNotFound.hidden = true;
+        if (verificadorSugBox) verificadorSugBox.hidden = true;
+        if (verificadorInput) {
+          verificadorInput.value = '';
+          if (verificadorClearBtn) verificadorClearBtn.hidden = true;
+          verificadorInput.focus();
+        }
+      }
+
+      function sanitizeScannerBarcode(rawCode) {
+        let s = String(rawCode || '').trim();
+        if (!s) return '';
+        s = s.replace(/^\][A-Za-z]\d/, '').trim();
+        if (/^[\d\s\r\n\t-]+$/.test(s) && s.replace(/\D/g, '').length >= 12) {
+          s = s.replace(/\D/g, '');
+        }
+        return s;
+      }
+
+      function parseScaleBarcodeVerificador(rawCode) {
+        let clean = sanitizeScannerBarcode(rawCode);
+        if (!clean) return null;
+        if (/^0(21|23)\d{11}$/.test(clean)) {
+          clean = clean.slice(1);
+        } else if (/^(21|23)\d{10}$/.test(clean)) {
+          clean = clean + '0';
+        }
+        if (!/^(21|23)\d{11}$/.test(clean)) return null;
+
+        const cod5 = clean.slice(2, 7);
+        const weightGrams = parseInt(clean.slice(7, 12), 10);
+        const weightKg = isFinite(weightGrams) && weightGrams > 0 ? Math.round(weightGrams) / 1000 : 0;
+
+        let matchedArt =
+          STATE.articulos.find((a) => a.bl !== 1 && String(a.c || '').padStart(5, '0') === cod5) || null;
+        if (!matchedArt && cod5.endsWith('00')) {
+          matchedArt =
+            STATE.articulos.find(
+              (a) => a.bl !== 1 && String(a.c || '').padStart(5, '0') === '00' + cod5.slice(0, 3)
+            ) || null;
+        }
+        if (!matchedArt) return null;
+
+        const fixedOwner = STATE.articulos.find(
+          (a) =>
+            a.bl !== 1 &&
+            a.id !== matchedArt.id &&
+            Array.isArray(a.bc) &&
+            a.bc.some((b) => String(b.c || '').trim() === clean)
+        );
+        if (fixedOwner && Number(matchedArt.fr) !== 1) return null;
+
+        return { art: matchedArt, weightKg };
+      }
+
+      function showVerificadorArticle(art, scaleInfo = null) {
+        if (!art) return;
+        clearTimeout(verificadorResetTimer);
+        if (verificadorStandby) verificadorStandby.hidden = true;
+        if (verificadorNotFound) verificadorNotFound.hidden = true;
+        if (verificadorSugBox) verificadorSugBox.hidden = true;
+
+        const resolved = resolveArticleImageUrl(art);
+        if (verificadorImg) {
+          verificadorImg.src = resolved.url;
+          verificadorImg.alt = art.n || 'Producto';
+          verificadorImg.onerror = () => {
+            verificadorImg.onerror = null;
+            verificadorImg.src = '../sistema/assets/img/icon-512.png';
+          };
+        }
+        if (verificadorNombre) {
+          verificadorNombre.textContent = art.n || '—';
+        }
+        const scaleMetaEl = document.getElementById('verificador-scale-meta');
+        const unitPrice = Number(art.p1f) || 0;
+        if (scaleInfo && scaleInfo.weightKg > 0) {
+          const exactTicketTotal = Math.round(scaleInfo.weightKg * unitPrice);
+          if (verificadorPrecio) {
+            verificadorPrecio.textContent = formatArs(exactTicketTotal);
+          }
+          if (scaleMetaEl) {
+            const wFmt = scaleInfo.weightKg.toLocaleString('es-AR', {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3
+            });
+            scaleMetaEl.textContent = `⚖️ PLU ${art.c} · Peso: ${wFmt} kg × $ ${formatArs(unitPrice)} / kg`;
+            scaleMetaEl.hidden = false;
+          }
+        } else {
+          if (verificadorPrecio) {
+            verificadorPrecio.textContent = formatArs(unitPrice);
+          }
+          if (scaleMetaEl) {
+            scaleMetaEl.textContent = '';
+            scaleMetaEl.hidden = true;
+          }
+        }
+        if (verificadorResult) {
+          verificadorResult.hidden = false;
+        }
+
+        if (verificadorInput) {
+          verificadorInput.value = '';
+          if (verificadorClearBtn) verificadorClearBtn.hidden = true;
+          verificadorInput.focus();
+        }
+
+        // Volver automáticamente a pantalla de espera luego de 5 segundos
+        verificadorResetTimer = setTimeout(() => {
+          showVerificadorStandby();
+        }, 5000);
+      }
+
+      function showVerificadorNotFound() {
+        clearTimeout(verificadorResetTimer);
+        if (verificadorStandby) verificadorStandby.hidden = true;
+        if (verificadorResult) verificadorResult.hidden = true;
+        if (verificadorSugBox) verificadorSugBox.hidden = true;
+        if (verificadorNotFound) verificadorNotFound.hidden = false;
+
+        if (verificadorInput) {
+          verificadorInput.value = '';
+          if (verificadorClearBtn) verificadorClearBtn.hidden = true;
+          verificadorInput.focus();
+        }
+
+        verificadorResetTimer = setTimeout(() => {
+          showVerificadorStandby();
+        }, 5000);
+      }
+
+      function findArticleForVerificador(rawTerm) {
+        const clean = sanitizeScannerBarcode(rawTerm);
+        if (!clean) return null;
+
+        // 0. Lectura de código de barras de balanza estilo Oliver (prefijos 21 y 23 + PLU + Peso)
+        const scaleHit = parseScaleBarcodeVerificador(clean);
+        if (scaleHit && scaleHit.art) {
+          return scaleHit;
+        }
+
+        const upper = clean.toUpperCase();
+        const padded5 = /^\d{1,5}$/.test(clean) ? clean.padStart(5, '0') : null;
+
+        // 1. Coincidencia exacta por Código de Barras o Código Interno
+        for (const art of STATE.articulos) {
+          if (art.bl === 1) continue;
+          if (String(art.c).toUpperCase() === upper || (padded5 && String(art.c) === padded5)) {
+            return { art, weightKg: 0 };
+          }
+          if (Array.isArray(art.bc) && art.bc.some((b) => String(b.c).trim().toUpperCase() === upper)) {
+            return { art, weightKg: 0 };
+          }
+        }
+
+        // 2. Coincidencia por nombre
+        const norm = normalizeStr(clean);
+        const tokens = norm.split(/\s+/).filter(Boolean);
+        const byName =
+          STATE.articulos.find((art) => {
+            if (art.bl === 1) return false;
+            const hay = normalizeStr(`${art.c} ${art.n}`);
+            return tokens.every((t) => hay.includes(t));
+          }) || null;
+        return byName ? { art: byName, weightKg: 0 } : null;
+      }
+
+      async function executeVerificadorLookup(rawQuery) {
+        const q = String(rawQuery || '').trim();
+        if (!q) return;
+        if (!STATE.loaded) {
+          await loadCatalogDatabase();
+        }
+        const found = findArticleForVerificador(q);
+        if (found && found.art) {
+          showVerificadorArticle(found.art, found.weightKg > 0 ? found : null);
+        } else {
+          showVerificadorNotFound();
+        }
+      }
+
+      let verificadorBarcodeAutoTimer = null;
+      let verCamStream = null;
+      let verCamTimer = null;
+      let verZXingReaders = null;
+      let verZXingCanvas = null;
+
+      function getVerZXingReaders() {
+        if (verZXingReaders) return verZXingReaders;
+        const ZX = window.ZXing;
+        if (!ZX) return null;
+        try {
+          const hints = new Map();
+          if (ZX.DecodeHintType && ZX.BarcodeFormat) {
+            hints.set(ZX.DecodeHintType.TRY_HARDER, true);
+            hints.set(ZX.DecodeHintType.POSSIBLE_FORMATS, [
+              ZX.BarcodeFormat.EAN_13,
+              ZX.BarcodeFormat.EAN_8,
+              ZX.BarcodeFormat.UPC_A,
+              ZX.BarcodeFormat.UPC_E,
+              ZX.BarcodeFormat.CODE_128,
+              ZX.BarcodeFormat.CODE_39,
+              ZX.BarcodeFormat.ITF,
+              ZX.BarcodeFormat.QR_CODE
+            ]);
+          }
+          const multi = new ZX.MultiFormatReader();
+          if (typeof multi.setHints === 'function') multi.setHints(hints);
+          const oneD = ZX.MultiFormatOneDReader ? new ZX.MultiFormatOneDReader(hints) : null;
+          const qr = ZX.QRCodeReader ? new ZX.QRCodeReader() : null;
+          verZXingReaders = { multi, oneD, qr, hints };
+          return verZXingReaders;
+        } catch (_e) {
+          return null;
+        }
+      }
+
+      function decodeVerGrayBuffer(ZX, readers, grayBuf, w, h) {
+        try {
+          const lumSource = new ZX.RGBLuminanceSource(grayBuf, w, h);
+          const bmpHist = new ZX.BinaryBitmap(new ZX.GlobalHistogramBinarizer(lumSource));
+          if (readers.oneD) {
+            try {
+              const r1 = readers.oneD.decode(bmpHist, readers.hints);
+              if (r1 && r1.getText()) return String(r1.getText()).trim();
+            } catch (_e) {}
+          }
+          try {
+            const r1 = readers.multi.decodeWithState(bmpHist);
+            if (r1 && r1.getText()) return String(r1.getText()).trim();
+          } catch (_e) {}
+          if (ZX.HybridBinarizer) {
+            const bmpHyb = new ZX.BinaryBitmap(new ZX.HybridBinarizer(lumSource));
+            if (readers.oneD) {
+              try {
+                const r2 = readers.oneD.decode(bmpHyb, readers.hints);
+                if (r2 && r2.getText()) return String(r2.getText()).trim();
+              } catch (_e) {}
+            }
+            if (readers.qr) {
+              try {
+                const rQr = readers.qr.decode(bmpHyb, readers.hints);
+                if (rQr && rQr.getText()) return String(rQr.getText()).trim();
+              } catch (_e) {}
+            }
+          }
+        } catch (_e) {}
+        return null;
+      }
+
+      async function decodeVerVideoFrame(video) {
+        if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return null;
+        if ('BarcodeDetector' in window && typeof window.BarcodeDetector === 'function') {
+          try {
+            if (!window.__verNativeDetector) {
+              window.__verNativeDetector = new window.BarcodeDetector({
+                formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code']
+              });
+            }
+            const codes = await Promise.race([
+              window.__verNativeDetector.detect(video),
+              new Promise((r) => setTimeout(() => r(null), 80))
+            ]);
+            if (codes && codes.length > 0 && codes[0].rawValue) {
+              return String(codes[0].rawValue).trim();
+            }
+          } catch (_e) {}
+        }
+        const ZX = window.ZXing;
+        const readers = getVerZXingReaders();
+        if (!ZX || !readers) return null;
+        if (!verZXingCanvas) verZXingCanvas = document.createElement('canvas');
+        const ctx = verZXingCanvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return null;
+
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+        const regions = [
+          { x: 0.05, y: 0.26, w: 0.90, h: 0.48, maxW: 960 },
+          { x: 0.0, y: 0.0, w: 1.0, h: 1.0, maxW: 720 }
+        ];
+        for (const reg of regions) {
+          const sx = Math.floor(vw * reg.x);
+          const sy = Math.floor(vh * reg.y);
+          const sw = Math.max(32, Math.floor(vw * reg.w));
+          const sh = Math.max(32, Math.floor(vh * reg.h));
+          const scale = sw > reg.maxW ? reg.maxW / sw : 1;
+          const dw = Math.max(32, Math.round(sw * scale));
+          const dh = Math.max(32, Math.round(sh * scale));
+          verZXingCanvas.width = dw;
+          verZXingCanvas.height = dh;
+          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, dw, dh);
+          const rgba = ctx.getImageData(0, 0, dw, dh).data;
+          const len = dw * dh;
+          const rawGray = new Uint8ClampedArray(len);
+          for (let i = 0, p = 0; i < len; i++, p += 4) {
+            rawGray[i] = (306 * rgba[p] + 601 * rgba[p + 1] + 117 * rgba[p + 2] + 512) >> 10;
+          }
+          const hit = decodeVerGrayBuffer(ZX, readers, rawGray, dw, dh);
+          if (hit) return hit;
+        }
+        return null;
+      }
+
+      function stopVerCameraScanner() {
+        if (verCamTimer) {
+          clearInterval(verCamTimer);
+          verCamTimer = null;
+        }
+        if (verCamStream) {
+          verCamStream.getTracks().forEach((t) => t.stop());
+          verCamStream = null;
+        }
+        const video = document.getElementById('ver-cam-video');
+        if (video) video.srcObject = null;
+        const dlg = document.getElementById('verificador-camera-dialog');
+        if (dlg && dlg.open) dlg.close();
+      }
+
+      async function openVerCameraScanner() {
+        const dlg = document.getElementById('verificador-camera-dialog');
+        const video = document.getElementById('ver-cam-video');
+        const statusEl = document.getElementById('ver-cam-status');
+        if (!dlg || !video) return;
+        if (!dlg.open && typeof dlg.showModal === 'function') {
+          dlg.showModal();
+        }
+        try {
+          stopVerCameraScanner();
+          if (!dlg.open && typeof dlg.showModal === 'function') dlg.showModal();
+          let stream;
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+              audio: false
+            });
+          } catch (_e) {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+          }
+          verCamStream = stream;
+          video.srcObject = stream;
+          await video.play().catch(() => {});
+          let busy = false;
+          verCamTimer = setInterval(async () => {
+            if (busy || !verCamStream) return;
+            if (video.paused && !video.ended) video.play().catch(() => {});
+            if (video.readyState < 2) return;
+            busy = true;
+            try {
+              const code = await Promise.race([
+                decodeVerVideoFrame(video),
+                new Promise((r) => setTimeout(() => r(null), 400))
+              ]);
+              if (code) {
+                stopVerCameraScanner();
+                if (verificadorInput) verificadorInput.value = code;
+                executeVerificadorLookup(code);
+              }
+            } catch (_e2) {}
+            busy = false;
+          }, 150);
+        } catch (_err) {
+          if (statusEl) statusEl.textContent = 'No se pudo acceder a la cámara en este navegador.';
+        }
+      }
+
+      document.getElementById('btn-verificador-camera')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openVerCameraScanner();
+      });
+      document.getElementById('btn-verificador-scan-icon')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openVerCameraScanner();
+      });
+      document.getElementById('btn-ver-cam-close')?.addEventListener('click', stopVerCameraScanner);
+      document.getElementById('btn-ver-cam-cancel')?.addEventListener('click', stopVerCameraScanner);
+      document.getElementById('verificador-camera-dialog')?.addEventListener('close', stopVerCameraScanner);
+      verificadorStandby?.querySelector('.verificador-speech-bubble')?.addEventListener('click', (e) => {
+        if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '') || navigator.maxTouchPoints > 0) {
+          e.stopPropagation();
+          openVerCameraScanner();
+        }
+      });
+
+      if (verificadorInput) {
+        verificadorInput.addEventListener('input', () => {
+          clearTimeout(verificadorBarcodeAutoTimer);
+          const rawVal = verificadorInput.value || '';
+          const hasNewline = /[\r\n]/.test(rawVal);
+          const val = rawVal.trim();
+          if (verificadorClearBtn) verificadorClearBtn.hidden = val.length === 0;
+          if (hasNewline && val) {
+            executeVerificadorLookup(val);
+            return;
+          }
+          if (!verificadorSugBox) return;
+
+          if (!val) {
+            verificadorSugBox.hidden = true;
+            return;
+          }
+
+          if (/^\d+$/.test(val)) {
+            verificadorSugBox.hidden = true;
+            if (val.length >= 8 && val.length <= 14) {
+              verificadorBarcodeAutoTimer = setTimeout(() => {
+                const currentVal = (verificadorInput.value || '').trim();
+                if (currentVal === val && currentVal.length >= 8) {
+                  executeVerificadorLookup(currentVal);
+                }
+              }, 140);
+            }
+            return;
+          }
+
+          if (val.length < 2) {
+            verificadorSugBox.hidden = true;
+            return;
+          }
+
+          const tokens = normalizeStr(val).split(/\s+/).filter(Boolean);
+          const matches = STATE.articulos
+            .filter((art) => {
+              if (art.bl === 1) return false;
+              const hay = normalizeStr(`${art.c} ${art.n}`);
+              return tokens.every((t) => hay.includes(t));
+            })
+            .slice(0, 8);
+
+          if (matches.length === 0) {
+            verificadorSugBox.hidden = true;
+            return;
+          }
+
+          verificadorSugBox.textContent = '';
+          matches.forEach((art) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'fact-sug-item';
+            btn.innerHTML = `<span><strong>${art.n}</strong></span><span class="price-final-val">$ ${formatArs(art.p1f)}</span>`;
+            btn.addEventListener('mousedown', (e) => {
+              e.preventDefault();
+              showVerificadorArticle(art);
+            });
+            btn.addEventListener('click', (e) => {
+              e.preventDefault();
+              showVerificadorArticle(art);
+            });
+            verificadorSugBox.appendChild(btn);
+          });
+          verificadorSugBox.hidden = false;
+        });
+
+        verificadorInput.addEventListener('search', () => {
+          const val = (verificadorInput.value || '').trim();
+          if (val) {
+            clearTimeout(verificadorBarcodeAutoTimer);
+            executeVerificadorLookup(val);
+          }
+        });
+
+        verificadorInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            clearTimeout(verificadorBarcodeAutoTimer);
+            executeVerificadorLookup(verificadorInput.value);
+          } else if (e.key === 'Escape') {
+            clearTimeout(verificadorBarcodeAutoTimer);
+            showVerificadorStandby();
+          }
+        });
+      }
+
+      // Captura global para lector de código de barras / QR aún si el input pierde el foco
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (document.activeElement === verificadorInput) return;
+
+        if ((e.key === 'Enter' || e.keyCode === 13) && verificadorInput && verificadorInput.value.trim()) {
+          e.preventDefault();
+          clearTimeout(verificadorBarcodeAutoTimer);
+          executeVerificadorLookup(verificadorInput.value);
+          return;
+        }
+
+        if (e.key === 'Escape') {
+          showVerificadorStandby();
+          return;
+        }
+
+        if (e.key && e.key.length === 1 && verificadorInput) {
+          e.preventDefault();
+          verificadorInput.focus();
+          verificadorInput.value = (verificadorInput.value || '') + e.key;
+          verificadorInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
+
+      document.getElementById('verificador-form')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        executeVerificadorLookup(verificadorInput?.value || '');
+      });
+
+      verificadorClearBtn?.addEventListener('click', () => {
+        showVerificadorStandby();
+      });
+
+      let userExitedFullscreenManually = false;
+      let fsRequestInFlight = false;
+      let lastFsAttemptAt = 0;
+
+      function isEmbeddedOrIdeEnvironment() {
+        try {
+          if (window.self !== window.top) return true;
+          const ua = navigator.userAgent || '';
+          if (/Electron|Antigravity|VSCode|Code\/|HeadlessChrome/i.test(ua)) return true;
+          if (typeof window.acquireVsCodeApi === 'function') return true;
+        } catch (_e) {
+          return true;
+        }
+        return false;
+      }
+
+      function isInFullscreenMode() {
+        const tolerance = 12;
+        const isBrowserOrF11Fullscreen =
+          window.innerWidth >= window.screen.width - tolerance &&
+          window.innerHeight >= window.screen.height - tolerance;
+        return Boolean(
+          document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            isBrowserOrF11Fullscreen
+        );
+      }
+
+      function syncFullscreenButtonUI() {
+        if (!btnVerificadorFs) return;
+        const activeFs = isInFullscreenMode();
+        btnVerificadorFs.textContent = activeFs
+          ? '✕ Salir de Pantalla Completa (F11)'
+          : '⛶ Pantalla Completa (F11)';
+      }
+
+      async function requestDefaultFullscreen(forceManual = false) {
+        if (!forceManual && userExitedFullscreenManually) return;
+        if (!forceManual && isEmbeddedOrIdeEnvironment()) {
+          syncFullscreenButtonUI();
+          return;
+        }
+        if (isInFullscreenMode()) {
+          syncFullscreenButtonUI();
+          return;
+        }
+        const now = Date.now();
+        if (fsRequestInFlight || (!forceManual && now - lastFsAttemptAt < 750)) {
+          return;
+        }
+        fsRequestInFlight = true;
+        lastFsAttemptAt = now;
+        const rootEl = document.documentElement;
+        try {
+          if (rootEl.requestFullscreen) {
+            await rootEl.requestFullscreen({ navigationUI: 'hide' });
+          } else if (rootEl.webkitRequestFullscreen) {
+            rootEl.webkitRequestFullscreen();
+          }
+        } catch (_e) {
+          // Si el navegador requiere un gesto de usuario inicial, se activará automáticamente en el primer toque/clic/escaneo
+        } finally {
+          fsRequestInFlight = false;
+          syncFullscreenButtonUI();
+        }
+      }
+
+      function onFirstUserGestureForFullscreen(e) {
+        if (userExitedFullscreenManually || isEmbeddedOrIdeEnvironment()) return;
+        if (e.type === 'keydown' && e.key === 'Escape') {
+          userExitedFullscreenManually = true;
+          return;
+        }
+        if (e.type === 'keydown' && e.key === 'F11') {
+          e.preventDefault();
+          userExitedFullscreenManually = false;
+        }
+        if (e.target && e.target.closest && e.target.closest('#btn-verificador-fullscreen')) {
+          return;
+        }
+        if (!isInFullscreenMode()) {
+          requestDefaultFullscreen(false);
+        }
+      }
+
+      ['click', 'touchstart', 'keydown'].forEach((evtName) => {
+        document.addEventListener(evtName, onFirstUserGestureForFullscreen, {
+          capture: false,
+          passive: evtName !== 'keydown'
+        });
+      });
+
+      verificadorStage?.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('input')) return;
+        verificadorInput?.focus();
+      });
+
+      btnVerificadorFs?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          if (document.fullscreenElement || document.webkitFullscreenElement) {
+            userExitedFullscreenManually = true;
+            if (document.exitFullscreen) {
+              await document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+              document.webkitExitFullscreen();
+            }
+          } else {
+            userExitedFullscreenManually = false;
+            await requestDefaultFullscreen(true);
+          }
+        } catch (_e) {}
+        syncFullscreenButtonUI();
+        verificadorInput?.focus();
+      });
+
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          userExitedFullscreenManually = true;
+        }
+        syncFullscreenButtonUI();
+      });
+
+      window.addEventListener('resize', syncFullscreenButtonUI);
+
+      // Carga inicial de la base de artículos y actualización periódica silenciosa cada 2 minutos
+      loadCatalogDatabase();
+      setInterval(() => {
+        loadCatalogDatabase(true);
+      }, 120000);
+
+      window.addEventListener('DOMContentLoaded', () => {
+        requestDefaultFullscreen(false);
+        syncFullscreenButtonUI();
+        if (!isEmbeddedOrIdeEnvironment() && document.hasFocus()) {
+          verificadorInput?.focus();
+        }
+      });
+
+      window.addEventListener('load', () => {
+        requestDefaultFullscreen(false);
+        syncFullscreenButtonUI();
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const initialCode = params.get('codigo') || params.get('q');
+          if (initialCode) {
+            executeVerificadorLookup(initialCode);
+          }
+        } catch (_e) {}
+      });
+    })();
+  </script>
+</body>
+</html>

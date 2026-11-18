@@ -1,0 +1,2682 @@
+<!DOCTYPE html>
+<html lang="es-AR" data-theme="black-bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#050507" />
+  <meta name="description" content="Catálogo y Carrito Web Oficial de Casa Nueva Supermercado." />
+  <title>Catálogo | Casa Nueva Supermercado · Carrito Web</title>
+
+  <link rel="manifest" href="manifest.webmanifest?v=25" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Casa Nueva" />
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon-64.png?v=25" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png?v=25" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png?v=25" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Rubik:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="assets/css/carrito.css?v=v48-20261118140309" />
+  <script src="../sistema/assets/js/brand.js?v=7"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    html[data-has-client="1"] #view-catalogo:not(.force-visible) { display: none !important; }
+    html[data-has-client="1"] #view-panel-cliente[hidden]:not(.force-hidden) { display: block !important; }
+    html[data-has-client="1"] #productos-hero-wrap { display: none !important; }
+    html[data-has-client="1"] #store-footer { display: none !important; }
+    html[data-has-client="1"] #btn-open-login { display: none !important; }
+    html[data-has-client="1"] #nx-bottom-nav[hidden] { display: grid !important; }
+    html[data-has-client="1"] .store-header .header-logo-group,
+    html[data-has-client="1"] .store-header .header-search-box,
+    html[data-has-client="1"] .store-header #btn-open-client-panel,
+    html[data-has-client="1"] .store-header #logged-user-lista,
+    html[data-has-client="1"] .store-header #btn-open-my-qr,
+    html[data-has-client="1"] .store-header #btn-open-cart,
+    html[data-has-client="1"] .nx-portal-topbar { display: none !important; }
+    html[data-has-client="1"] .store-user-actions,
+    html[data-has-client="1"] #logged-actions { width: 100%; display: flex !important; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: nowrap; }
+  </style>
+  <script>
+    window.CARRITO_APP_VERSION = 'v48-20261118140309';
+    (function () {
+      try {
+        var _pfx = (window.ERP_BRAND && window.ERP_BRAND.storagePrefix) || 'cn_';
+        var saved = localStorage.getItem(_pfx + 'carrito_theme_v1');
+        var t = saved === 'light' || saved === 'black-bg' || saved === 'dark' ? saved : 'black-bg';
+        document.documentElement.setAttribute('data-theme', t);
+        var metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) metaTheme.setAttribute('content', t === 'light' ? '#d4a41e' : '#050507');
+
+        var rawSess = localStorage.getItem(_pfx + 'carrito_client_session_v2');
+        var parsedSess = null;
+        if (rawSess) {
+          parsedSess = JSON.parse(rawSess);
+          if (parsedSess && parsedSess.id) {
+            document.documentElement.setAttribute('data-has-client', '1');
+            document.addEventListener('DOMContentLoaded', function () {
+              if (document.body) document.body.classList.add('has-nx-bottom-nav');
+              var bNav = document.getElementById('nx-bottom-nav');
+              if (bNav) bNav.hidden = false;
+              var lAct = document.getElementById('logged-actions');
+              if (lAct) lAct.hidden = false;
+              var uName = document.getElementById('logged-user-name');
+              if (uName) {
+                var hr = new Date().getHours();
+                var greet = hr >= 5 && hr < 13 ? 'Buen Día' : hr >= 13 && hr < 20 ? 'Buenas Tardes' : 'Buenas Noches';
+                var rawN = String(parsedSess.nombrePila || parsedSess.givenName || parsedSess.googleGivenName || '').trim();
+                if (!rawN) {
+                  var fullN = String(parsedSess.nombre || parsedSess.no || '').trim();
+                  if (fullN.indexOf(',') !== -1) {
+                    rawN = fullN.split(',').slice(1).join(' ').trim();
+                  } else {
+                    var parts = fullN.split(/\s+/).filter(Boolean);
+                    rawN = parts.length > 1 ? parts[1] : (parts[0] || 'Cliente');
+                  }
+                }
+                var firstW = String(rawN.split(/[\s,]+/).filter(Boolean)[0] || 'Cliente');
+                var niceFirst = firstW.charAt(0).toUpperCase() + firstW.slice(1).toLowerCase();
+                uName.textContent = greet + ' ' + niceFirst;
+              }
+              var avSpan = document.querySelector('#chip-open-client-panel .logged-user-avatar');
+              var fUrl = String(parsedSess.fotoUrl || parsedSess.picture || '').trim();
+              if (avSpan && fUrl) {
+                avSpan.innerHTML = '<img src="' + fUrl.replace(/"/g, '&quot;') + '" alt="" referrerpolicy="no-referrer" style="width:34px;height:34px;border-radius:50%;object-fit:cover;display:block;" />';
+              }
+            });
+          }
+        }
+
+        var appVer = window.CARRITO_APP_VERSION || 'v48';
+        var swVerKey = _pfx + 'carrito_sw_ver';
+        if (localStorage.getItem(swVerKey) !== appVer) {
+          localStorage.setItem(swVerKey, appVer);
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              regs.forEach(function (r) { r.update().catch(function () {}); });
+            });
+          }
+          if ('caches' in window) {
+            caches.keys().then(function (keys) {
+              keys.forEach(function (k) {
+                if (k.indexOf('-' + appVer) === -1) caches.delete(k).catch(function () {});
+              });
+            });
+          }
+        }
+
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            if (!window.__CARRITO_BOOTED__) {
+              var healKey = _pfx + 'carrito_selfheal_v1';
+              if (sessionStorage.getItem(healKey) !== appVer) {
+                sessionStorage.setItem(healKey, appVer);
+                var p1 = ('serviceWorker' in navigator)
+                  ? navigator.serviceWorker.getRegistrations().then(function (rs) {
+                      return Promise.all(rs.map(function (r) { return r.unregister().catch(function () {}); }));
+                    })
+                  : Promise.resolve();
+                var p2 = ('caches' in window)
+                  ? caches.keys().then(function (ks) {
+                      return Promise.all(ks.map(function (k) { return caches.delete(k).catch(function () {}); }));
+                    })
+                  : Promise.resolve();
+                Promise.all([p1, p2]).finally(function () {
+                  window.location.reload();
+                });
+              }
+            }
+          }, 1200);
+        });
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- ==========================================
+       HEADER PRINCIPAL (Estética cn.com.ar/productos)
+       ========================================== -->
+  <header class="page-header store-header">
+    <div class="header-wrapper store-header-inner">
+      <div class="header-logo-group">
+        <button type="button" class="toggle-sidebar-btn" id="btn-toggle-sidebar" title="Mostrar / Ocultar panel de filtros" aria-label="Alternar barra lateral de filtros">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="15" y2="12"></line>
+            <line x1="3" y1="18" x2="18" y2="18"></line>
+          </svg>
+        </button>
+
+        <a href="?searchComp=N&searchCat=N&page=1" class="store-brand" id="brand-home-link">
+          <img
+            src="../sistema/assets/img/logo-full.png?v=75"
+            alt="Casa Nueva Supermercado"
+            class="store-brand-logo"
+            width="52"
+            height="52"
+            fetchpriority="high"
+          />
+          <div class="store-brand-text">
+            <strong class="store-brand-title">CASA NUEVA</strong>
+            <span class="store-brand-kicker">Catálogo &amp; Carrito Web</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Buscador rápido integrado en cabecera -->
+      <div class="header-search-box" role="search">
+        <div class="header-inputgroup">
+          <input
+            type="search"
+            id="header-search-input"
+            class="header-search-control"
+            placeholder="Buscar productos por nombre, marca, código o EAN..."
+            autocomplete="off"
+            aria-label="Buscar productos"
+          />
+          <button type="button" id="btn-header-search-clear" class="btn-header-clear" hidden title="Limpiar búsqueda" aria-label="Limpiar búsqueda">✕</button>
+          <button type="button" id="btn-header-search-submit" class="btn-header-search" title="Buscar productos" aria-label="Buscar">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Acciones de Usuario / Carrito -->
+      <div class="store-user-actions">
+        <!-- El botón unificado "Iniciar Sesión" para invitados se ubica fijo abajo (#store-floating-dock) -->
+        <div id="guest-actions" class="user-action-group" hidden></div>
+
+        <!-- Visible cuando SÍ está logueado: únicamente Foto + Nombre y Apellido + Volver al Panel -->
+        <div id="logged-actions" class="user-action-group" hidden>
+          <button type="button" class="btn-primary-theme" id="btn-open-client-panel" title="Abrir Panel del Cliente" hidden>
+            📱 Mi Panel
+          </button>
+          <div class="logged-user-chip" id="chip-open-client-panel" role="button" tabindex="0" title="Abrir Mi Panel del Cliente" style="cursor:pointer;">
+            <span class="logged-user-avatar" aria-hidden="true">👤</span>
+            <div class="logged-user-meta">
+              <strong id="logged-user-name">CLIENTE</strong>
+              <small id="logged-user-lista" hidden>LISTA MINORISTA</small>
+            </div>
+          </div>
+          <button type="button" class="btn-outline-theme" id="btn-open-my-qr" title="Ver mi Código QR de Socio Club Fidel" hidden>
+            <svg class="cf-badge-svg" width="18" height="18" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#092837" stroke="rgba(60,224,150,0.35)" stroke-width="1"/><path d="M7.5 22.2V13a5.5 5.5 0 0 1 5.5-5.5h6A5.5 5.5 0 0 1 24.5 13v6a5.5 5.5 0 0 1-5.5 5.5h-3.2" fill="none" stroke="#3ce096" stroke-width="2.8" stroke-linecap="round"/><path d="M11.8 23.5v-9.3a2.6 2.6 0 0 1 2.6-2.6h5.2M11.8 17.3h6.2" fill="none" stroke="#ffffff" stroke-width="3.1" stroke-linecap="round"/></svg> Mi QR Club
+          </button>
+          <button type="button" class="btn-cart-trigger" id="btn-open-cart" hidden>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            <span class="cart-count-badge" id="cart-count-badge">0</span>
+            <strong class="cart-total-badge" id="cart-total-badge">$ 0,00</strong>
+          </button>
+          <button type="button" class="nx-back-btn" id="btn-header-volver-panel" data-nx-open-sec="home" title="Volver al Panel">
+            Volver al Panel
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-body store-main">
+    <!-- ==========================================
+         VISTA 1: CATÁLOGO DE PRODUCTOS (/productos?searchComp=N&searchCat=N&page=1)
+         ========================================== -->
+    <section id="view-catalogo" class="store-view is-active">
+
+      <!-- Barra interna de búsqueda y carrito cuando el cliente está en Compra Web -->
+      <div id="catalog-logged-subbar" class="page-title-bar catalog-logged-subbar" hidden style="display:flex; align-items:center; justify-content:space-between; gap:0.55rem; flex-wrap:wrap;">
+        <div class="header-inputgroup" style="flex:1 1 220px; max-width:100%;">
+          <input
+            type="search"
+            id="catalog-inline-search-input"
+            class="header-search-control"
+            placeholder="Buscar productos en Compra Web..."
+            autocomplete="off"
+            aria-label="Buscar productos en Compra Web"
+          />
+        </div>
+        <button type="button" class="btn-cart-trigger" id="btn-open-cart-inline" title="Ver mi carrito de compras">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+          <span class="cart-count-badge" id="cart-inline-count-badge">0</span>
+          <strong class="cart-total-badge" id="cart-inline-total-badge">$ 0,00</strong>
+        </button>
+      </div>
+
+      <!-- Carrusel de Banners Homepage (Medida nativa 1530x370 · Compatible 1920x370) -->
+      <div class="productos-hero-wrap" id="productos-hero-wrap" hidden>
+        <div class="productos-carousel-banner hero-banner-carousel" id="homepage-hero-carousel" aria-roledescription="carousel" aria-label="Banners destacados Casa Nueva">
+          <div class="hero-carousel-track" id="hero-carousel-track"></div>
+
+          <button type="button" class="hero-carousel-nav hero-carousel-prev" id="btn-hero-prev" hidden aria-label="Banner anterior" title="Anterior">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <button type="button" class="hero-carousel-nav hero-carousel-next" id="btn-hero-next" hidden aria-label="Siguiente banner" title="Siguiente">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+
+          <div class="hero-carousel-dots" id="hero-carousel-dots" hidden role="tablist" aria-label="Seleccionar banner"></div>
+        </div>
+      </div>
+
+      <!-- ESTRUCTURA EN 2 COLUMNAS: SIDEBAR IZQUIERDO DE FILTROS (OCULTO POR DEFECTO) + GRILLA DE PRODUCTOS -->
+      <div class="product-wrapper sidebar-collapsed" id="product-wrapper">
+        <!-- COLUMNA IZQUIERDA: FILTROS (app-product-filters) -->
+        <aside class="product-sidebar" id="product-sidebar" aria-label="Filtros de productos">
+          <div class="filter-card">
+            <div class="filter-card-header">
+              <div class="filter-title-group">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <h2>Filtros</h2>
+                <span id="active-filters-badge" class="filter-count-badge" hidden>0</span>
+              </div>
+              <button type="button" id="btn-reset-filters" class="btn-reset-filters" title="Restablecer todos los filtros">
+                Limpiar
+              </button>
+            </div>
+
+            <!-- Chips de filtros activos (p-chip) -->
+            <div id="active-filter-chips" class="active-filter-chips" hidden></div>
+
+            <div class="filter-card-body">
+              <!-- 1. Búsqueda por texto -->
+              <div class="filter-block">
+                <label for="store-search-input" class="filter-block-label">Buscar productos</label>
+                <div class="sidebar-search-wrap">
+                  <input
+                    type="search"
+                    id="store-search-input"
+                    class="sidebar-input"
+                    placeholder="Nombre, código, EAN, marca..."
+                    autocomplete="off"
+                  />
+                </div>
+              </div>
+
+              <!-- 2. Disponibilidad de Stock -->
+              <details class="filter-accordion" open>
+                <summary class="filter-accordion-header">
+                  <span>Disponibilidad de Stock</span>
+                  <span class="accordion-chevron" aria-hidden="true">▾</span>
+                </summary>
+                <div class="filter-accordion-content">
+                  <select id="store-filter-stock" class="sidebar-select" aria-label="Filtrar por disponibilidad de stock">
+                    <option value="ALL">Todos los productos</option>
+                    <option value="IN_STOCK">Solo Disponible</option>
+                    <option value="OUT_OF_STOCK">Solo Sin Stock</option>
+                  </select>
+                  <div class="stock-quick-pills" role="group" aria-label="Filtro rápido de stock">
+                    <button type="button" class="stock-pill-btn is-active" data-stock-filter="ALL">Todos</button>
+                    <button type="button" class="stock-pill-btn" data-stock-filter="IN_STOCK">Disponible</button>
+                    <button type="button" class="stock-pill-btn" data-stock-filter="OUT_OF_STOCK">Sin Stock</button>
+                  </div>
+                </div>
+              </details>
+
+              <!-- 3. Categoría / Rubro (p-listbox + select sincronizado) -->
+              <details class="filter-accordion" open>
+                <summary class="filter-accordion-header">
+                  <span>Categoría / Rubro</span>
+                  <span class="accordion-chevron" aria-hidden="true">▾</span>
+                </summary>
+                <div class="filter-accordion-content">
+                  <select id="store-filter-rubro" class="sidebar-select" aria-label="Seleccionar categoría o rubro">
+                    <option value="ALL">Todas las categorías</option>
+                  </select>
+                  <div class="listbox-search-wrap">
+                    <input
+                      type="search"
+                      id="rubro-list-search"
+                      class="listbox-search-input"
+                      placeholder="Filtrar categoría..."
+                      autocomplete="off"
+                    />
+                  </div>
+                  <ul id="rubro-listbox" class="p-listbox-list" role="listbox" aria-label="Lista de categorías"></ul>
+                </div>
+              </details>
+
+              <!-- 4. Marcas (p-listbox + select sincronizado) -->
+              <details class="filter-accordion" open>
+                <summary class="filter-accordion-header">
+                  <span>Marcas</span>
+                  <span class="accordion-chevron" aria-hidden="true">▾</span>
+                </summary>
+                <div class="filter-accordion-content">
+                  <select id="store-filter-marca" class="sidebar-select" aria-label="Seleccionar marca">
+                    <option value="ALL">Todas las marcas</option>
+                  </select>
+                  <div class="listbox-search-wrap">
+                    <input
+                      type="search"
+                      id="marca-list-search"
+                      class="listbox-search-input"
+                      placeholder="Filtrar marca..."
+                      autocomplete="off"
+                    />
+                  </div>
+                  <ul id="marca-listbox" class="p-listbox-list" role="listbox" aria-label="Lista de marcas"></ul>
+                </div>
+              </details>
+            </div>
+          </div>
+        </aside>
+
+        <!-- COLUMNA DERECHA: GRILLA DE PRODUCTOS (app-product-card) -->
+        <div class="product-grid-column">
+          <!-- Barra superior de vista, columnas, ordenamiento y copiar enlace (feature-products) -->
+          <div class="feature-products-bar">
+            <div class="feature-bar-left">
+              <!-- Botón Mostrar / Ocultar Filtros en la barra -->
+              <button
+                type="button"
+                class="btn-bar-filter-toggle"
+                id="btn-bar-toggle-filters"
+                title="Mostrar filtros"
+                aria-label="Mostrar filtros"
+                aria-expanded="false"
+                aria-controls="product-sidebar"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <span id="btn-bar-toggle-filters-label" class="btn-bar-filter-toggle-label">Mostrar filtros</span>
+                <span id="bar-active-filters-badge" class="filter-count-badge" hidden>0</span>
+              </button>
+
+              <!-- Botones Vista Cuadrícula / Lista -->
+              <div class="view-toggle-group" role="group" aria-label="Modo de visualización">
+                <button type="button" class="square-setting-btn is-active" id="btn-view-grid" title="Vista en cuadrícula" aria-label="Vista en cuadrícula">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                  </svg>
+                </button>
+                <button type="button" class="square-setting-btn" id="btn-view-list" title="Vista en lista" aria-label="Vista en lista">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Selector de cantidad de columnas (3, 4, 6 como en cn.com.ar/productos) -->
+              <div class="grid-cols-options" role="group" aria-label="Columnas por fila">
+                <button type="button" class="col-layout-btn" data-cols="3" title="3 productos por fila">
+                  <span class="line-grid"></span><span class="line-grid"></span><span class="line-grid"></span>
+                </button>
+                <button type="button" class="col-layout-btn is-active" data-cols="4" title="4 productos por fila">
+                  <span class="line-grid"></span><span class="line-grid"></span><span class="line-grid"></span><span class="line-grid"></span>
+                </button>
+                <button type="button" class="col-layout-btn" data-cols="6" title="6 productos por fila">
+                  <span class="line-grid"></span><span class="line-grid"></span><span class="line-grid"></span><span class="line-grid"></span><span class="line-grid"></span><span class="line-grid"></span>
+                </button>
+              </div>
+            </div>
+
+            <div class="feature-bar-right">
+              <div class="sort-select-wrap">
+                <label for="store-sort-select" class="sort-label">Ordenar:</label>
+                <select id="store-sort-select" class="sort-select">
+                  <option value="NAME_ASC">Nombre (A → Z)</option>
+                  <option value="STOCK_FIRST">Disponibles primero</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paginación Superior -->
+          <div class="catalog-results-bar">
+            <div class="catalog-pagination">
+              <button type="button" class="btn-page" id="btn-page-prev" disabled>‹ Anterior</button>
+              <div id="pagination-numbers-top" class="pagination-numbers"></div>
+              <span id="catalog-page-indicator" class="page-indicator">Página 1 de 473</span>
+              <button type="button" class="btn-page" id="btn-page-next" disabled>Siguiente ›</button>
+            </div>
+          </div>
+
+          <!-- Grilla de Tarjetas de Productos (ppcard / product-box) -->
+          <div id="store-grid" class="store-product-grid cols-4" aria-live="polite"></div>
+
+          <!-- Paginación Inferior -->
+          <div class="catalog-results-bar catalog-results-bottom">
+            <div class="catalog-pagination">
+              <button type="button" class="btn-page" id="btn-page-prev-bottom" disabled>‹ Anterior</button>
+              <div id="pagination-numbers-bottom" class="pagination-numbers"></div>
+              <span id="catalog-page-indicator-bottom" class="page-indicator">Página 1 de 473</span>
+              <button type="button" class="btn-page" id="btn-page-next-bottom" disabled>Siguiente ›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         VISTA 2: REGISTRACIÓN ONLINE DE CLIENTES (MISMA FICHA Y SOLAPAS QUE EL ERP)
+         ========================================== -->
+    <section id="view-registro" class="store-view" hidden>
+      <div class="registration-container">
+        <header class="registration-header">
+          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <span class="badge-reg-status" id="reg-dialog-badge">NUEVO CLIENTE</span>
+            <h2 id="reg-dialog-title" style="margin:0; font-size:1.25rem;" hidden></h2>
+          </div>
+          <div style="display:flex; gap:0.65rem; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="btn-google-auth" id="btn-google-from-register" title="Tomar foto y datos desde tu cuenta de Google">
+              <svg class="google-g-icon" width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              </svg>
+              <span>Tomar mis datos y foto de Google</span>
+            </button>
+            <button type="button" class="btn-outline-theme" id="btn-back-to-catalog">
+              ← Volver al Catálogo
+            </button>
+          </div>
+        </header>
+
+        <!-- Banner de Foto y Datos de Google (permite revisar y corregir) -->
+        <div id="reg-google-profile-banner" class="reg-google-banner" hidden>
+          <img id="reg-google-avatar-img" src="../sistema/assets/img/icon-192.png" alt="Foto de perfil de Google" class="reg-google-avatar" referrerpolicy="no-referrer" />
+          <div class="reg-google-banner-text">
+            <strong id="reg-google-banner-name">Cuenta de Google vinculada</strong>
+            <span id="reg-google-banner-email">Se tomaron tu foto, nombre y correo de Google. Podés revisar y corregir cualquier dato antes de guardar.</span>
+          </div>
+        </div>
+
+        <!-- Banner de Invitación Club Fidel (?ref=CF-XXX · +1.000 puntos de regalo para ambos) -->
+        <div id="reg-referral-invite-banner" class="reg-erp-match-banner" hidden style="background:linear-gradient(135deg, #092837 0%, #0e3b50 100%); border:1.5px solid #3ce096; color:#ffffff; margin-bottom:0.85rem;">
+          <span class="reg-erp-match-icon" style="font-size:1.45rem;">🎁</span>
+          <div class="reg-erp-match-text">
+            <strong id="reg-referral-invite-title" style="color:#4be39a;">¡Invitación Especial a Club Fidel (+1.000 Puntos)!</strong>
+            <span id="reg-referral-invite-desc" style="color:#e2f1f8;">Completá tu registración y sumás +1.000 puntos de regalo para canjear en el Catálogo de Premios (y tu amigo/a también suma +1.000 puntos).</span>
+          </div>
+        </div>
+
+        <!-- Banner de Coincidencia en ERP (DNI / CUIT ya cargado previamente -> sin duplicar) -->
+        <div id="reg-erp-match-banner" class="reg-erp-match-banner" hidden>
+          <span class="reg-erp-match-icon">✅</span>
+          <div class="reg-erp-match-text">
+            <strong id="reg-erp-match-title">Cliente ya registrado en Casa Nueva ERP</strong>
+            <span id="reg-erp-match-desc">Se recuperaron tus datos previamente cargados para que no se duplique tu ficha. Podés revisarlos o corregirlos y confirmar.</span>
+          </div>
+        </div>
+
+        <form id="online-registration-form" class="registration-form" autocomplete="on" novalidate>
+          <input type="hidden" id="reg-existing-id" value="" />
+          <input type="hidden" id="reg-existing-codigo" value="" />
+          <input type="hidden" id="reg-google-sub" value="" />
+          <input type="hidden" id="reg-foto-url" value="" />
+          <input type="hidden" id="reg-whatsapp-registrado" value="0" />
+
+          <!-- Barra de Solapas idéntica a la Ficha de Cliente del ERP -->
+          <div class="reg-erp-tabs-bar" role="tablist" aria-label="Secciones de la ficha del cliente">
+            <button
+              type="button"
+              class="reg-erp-tab-btn is-active"
+              role="tab"
+              aria-selected="true"
+              aria-controls="reg-tab-generales"
+              id="reg-tab-btn-generales"
+              data-reg-tab="reg-tab-generales"
+            >
+              1. Datos Generales
+            </button>
+            <button
+              type="button"
+              class="reg-erp-tab-btn"
+              role="tab"
+              aria-selected="false"
+              aria-controls="reg-tab-impositivos"
+              id="reg-tab-btn-impositivos"
+              data-reg-tab="reg-tab-impositivos"
+            >
+              2. Datos Impositivos
+            </button>
+          </div>
+
+          <!-- ==============================================================
+               SOLAPA 1: 1. DATOS GENERALES -> DATOS PERSONALES
+               ============================================================== -->
+          <div id="reg-tab-generales" class="reg-erp-tab-panel" role="tabpanel" aria-labelledby="reg-tab-btn-generales">
+            <fieldset class="reg-fieldset reg-erp-fieldset">
+              <legend>DATOS PERSONALES</legend>
+
+              <!-- Fila 1: Verificación rápida de DNI / CUIT (para traer datos si ya está en el ERP) + Nombre -->
+              <div class="form-row-grid reg-row-doc-name">
+                <div class="form-field">
+                  <label for="reg-quick-doc"><span class="req-star">*</span> DNI o CUIT (Verifica si ya estás en el sistema)</label>
+                  <div class="cuit-arca-group">
+                    <input
+                      type="text"
+                      id="reg-quick-doc"
+                      class="uppercase-input mono-input"
+                      placeholder="INGRESÁ TU DNI O CUIT..."
+                      maxlength="20"
+                    />
+                    <button
+                      type="button"
+                      id="btn-reg-check-erp-doc"
+                      class="btn-arca-lupa"
+                      title="Verificar si el DNI o CUIT ya está cargado en el ERP o buscar en Padrón ARCA"
+                    >
+                      🔍
+                    </button>
+                  </div>
+                  <small id="reg-quick-doc-hint" class="field-mini-hint">Si ya estás cargado en el ERP, trae tus datos automáticamente.</small>
+                </div>
+
+                <div class="form-field">
+                  <label for="reg-nombre"><span class="req-star">*</span> Nombre</label>
+                  <input
+                    type="text"
+                    id="reg-nombre"
+                    name="given-name"
+                    autocomplete="given-name"
+                    class="uppercase-input"
+                    required
+                    placeholder="EJ: DANIEL ALEJANDRO"
+                  />
+                </div>
+
+                <div class="form-field">
+                  <label for="reg-apellido"><span class="req-star">*</span> Apellido</label>
+                  <input
+                    type="text"
+                    id="reg-apellido"
+                    name="family-name"
+                    autocomplete="family-name"
+                    class="uppercase-input"
+                    required
+                    placeholder="EJ: GHIGLIONE"
+                  />
+                </div>
+              </div>
+
+              <!-- Fila 2: Calle, Número, Piso, Depto., Torre, Barrio -->
+              <div class="form-row-grid reg-address-grid-6">
+                <div class="form-field">
+                  <label for="reg-calle"><span class="req-star">*</span> Calle</label>
+                  <input
+                    type="text"
+                    id="reg-calle"
+                    autocomplete="shipping address-line1"
+                    class="uppercase-input"
+                    required
+                    placeholder="EJ: SAN MARTIN"
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="reg-numero"><span class="req-star">*</span> Número</label>
+                  <input
+                    type="text"
+                    id="reg-numero"
+                    class="uppercase-input"
+                    placeholder="S/N"
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="reg-piso">Piso</label>
+                  <input type="text" id="reg-piso" class="uppercase-input" />
+                </div>
+                <div class="form-field">
+                  <label for="reg-dpto">Depto.</label>
+                  <input type="text" id="reg-dpto" class="uppercase-input" />
+                </div>
+                <div class="form-field">
+                  <label for="reg-torre">Torre</label>
+                  <input type="text" id="reg-torre" class="uppercase-input" />
+                </div>
+                <div class="form-field">
+                  <label for="reg-barrio">Barrio</label>
+                  <input
+                    type="text"
+                    id="reg-barrio"
+                    autocomplete="shipping address-line2"
+                    class="uppercase-input"
+                    placeholder="EJ: CENTRO"
+                  />
+                </div>
+              </div>
+
+              <!-- Fila 3: País, Provincia (+), Localidad (+), C.P. -->
+              <div class="form-row-grid cols-4">
+                <div class="form-field">
+                  <label for="reg-pais"><span class="req-star">*</span> País</label>
+                  <select id="reg-pais" autocomplete="shipping country-name" required></select>
+                </div>
+                <div class="form-field">
+                  <label for="reg-provincia">Provincia</label>
+                  <div class="inline-select-Action">
+                    <select id="reg-provincia" autocomplete="shipping address-level1" required></select>
+                    <button type="button" class="btn-mini-add" id="btn-add-prov-reg" title="Agregar otra provincia manualmente">+</button>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="reg-localidad"><span class="req-star">*</span> Localidad</label>
+                  <div class="inline-select-Action">
+                    <select id="reg-localidad" autocomplete="shipping address-level2" required></select>
+                    <button type="button" class="btn-mini-add" id="btn-add-localidad-reg" title="Agregar nueva localidad al desplegable">+</button>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="reg-cp">C.P.</label>
+                  <input type="text" id="reg-cp" autocomplete="shipping postal-code" class="uppercase-input" placeholder="5813" />
+                </div>
+              </div>
+
+              <!-- Fila 4: Teléfono Celular (con selector código país + botón envío mensaje para registrar WhatsApp) y * Fecha de Nacimiento -->
+              <div class="form-row-grid cols-2">
+                <div class="form-field">
+                  <label for="reg-celular">Teléfono Celular</label>
+                  <div class="reg-phone-wa-row">
+                    <select id="reg-celular-cod-pais" class="reg-phone-country-select" aria-label="Código telefónico de país">
+                      <option value="+549" selected>🇦🇷 +54 9 (Argentina)</option>
+                      <option value="+55">🇧🇷 +55 (Brasil)</option>
+                      <option value="+56">🇨🇱 +56 (Chile)</option>
+                      <option value="+595">🇵🇾 +595 (Paraguay)</option>
+                      <option value="+598">🇺🇾 +598 (Uruguay)</option>
+                      <option value="+591">🇧🇴 +591 (Bolivia)</option>
+                      <option value="+1">🇺🇸 +1 (EE.UU.)</option>
+                      <option value="+34">🇪🇸 +34 (España)</option>
+                    </select>
+                    <input
+                      type="tel"
+                      id="reg-celular"
+                      name="tel"
+                      autocomplete="tel-national"
+                      class="uppercase-input"
+                      required
+                      placeholder="3585XXXXXX"
+                    />
+                    <button
+                      type="button"
+                      id="btn-reg-verify-whatsapp"
+                      class="btn-wa-register"
+                      title="Enviar código numérico de verificación por WhatsApp"
+                    >
+                      📲 Enviar Código
+                    </button>
+                  </div>
+                  <div id="reg-otp-verify-box" class="wa-otp-verify-box" hidden>
+                    <input
+                      type="text"
+                      id="reg-otp-code-input"
+                      inputmode="numeric"
+                      maxlength="6"
+                      placeholder="Código de 6 dígitos"
+                      style="max-width:170px; font-family:'JetBrains Mono', monospace; font-weight:700; letter-spacing:0.15em; text-align:center;"
+                    />
+                    <button type="button" id="btn-reg-confirm-otp" class="btn-primary-theme" style="padding:0.48rem 0.9rem; font-size:0.82rem;">
+                      ✓ Confirmar Código
+                    </button>
+                  </div>
+                  <small id="reg-whatsapp-status" class="field-mini-hint">Solicitá el código de 6 dígitos para verificar tu WhatsApp.</small>
+                </div>
+
+                <div class="form-field">
+                  <label for="reg-fecha-nacimiento"><span class="req-star">*</span> Fecha de Nacimiento</label>
+                  <input type="date" id="reg-fecha-nacimiento" autocomplete="bday" required />
+                </div>
+              </div>
+
+              <!-- Fila 5: E-mail (utiliza el correo con que se registra) -->
+              <div class="form-row-grid" style="grid-template-columns:1fr;">
+                <div class="form-field">
+                  <label for="reg-email">E-mail (Correo con el que te registrás e ingresás al Carrito)</label>
+                  <input
+                    type="email"
+                    id="reg-email"
+                    name="email"
+                    autocomplete="email"
+                    spellcheck="false"
+                    class="uppercase-input"
+                    required
+                    placeholder="CLIENTE@CORREO.COM.AR"
+                  />
+                </div>
+              </div>
+
+              <!-- Campos internos ocultos (Observación, Usuario y Clave Web se completan automáticamente desde el inicio) -->
+              <input type="hidden" id="reg-observacion" value="" />
+              <input type="hidden" id="reg-clave-web" value="" />
+              <input type="hidden" id="reg-usuario-web" value="" />
+              <input type="hidden" id="reg-telefono" value="" />
+
+              <!-- Fila 7: Código de Invitación de Amigo (Club Fidel · +1.000 puntos para ambos) -->
+              <div class="form-row-grid" style="grid-template-columns:1fr; margin-top:0.35rem;">
+                <div class="form-field">
+                  <label for="reg-codigo-referido">🎁 Código de Invitación de un Amigo (Opcional · +1.000 puntos en Club Fidel para ambos)</label>
+                  <input
+                    type="text"
+                    id="reg-codigo-referido"
+                    class="uppercase-input mono-input"
+                    placeholder="EJ: CF-106 (SI ENTRÁS DESDE UN LINK DE WHATSAPP SE COMPLETA SOLO)"
+                    maxlength="24"
+                  />
+                </div>
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- ==============================================================
+               SOLAPA 2: 2. DATOS IMPOSITIVOS -> DATOS FISCALES
+               ============================================================== -->
+          <div id="reg-tab-impositivos" class="reg-erp-tab-panel" role="tabpanel" aria-labelledby="reg-tab-btn-impositivos" hidden>
+            <fieldset class="reg-fieldset reg-erp-fieldset">
+              <legend>DATOS FISCALES</legend>
+
+              <div style="display:flex; justify-content:flex-end; margin-bottom:0.65rem;">
+                <button type="button" id="btn-reg-copy-personal-to-fiscal" class="btn-repeat-personal">
+                  📋 Repetir Nombre y Domicilio de Datos Personales
+                </button>
+              </div>
+
+              <!-- Razón social -->
+              <div class="form-row-grid" style="grid-template-columns:1fr;">
+                <div class="form-field">
+                  <label for="reg-razon-social"><span class="req-star">*</span> Razón social</label>
+                  <input
+                    type="text"
+                    id="reg-razon-social"
+                    class="uppercase-input"
+                    required
+                    placeholder="EJ: GHIGLIONE, ANTONIO ANGEL"
+                  />
+                </div>
+              </div>
+
+              <!-- Calle, Número, Piso, Depto., Torre, Barrio Fiscal -->
+              <div class="form-row-grid reg-address-grid-6">
+                <div class="form-field">
+                  <label for="reg-calle-fiscal"><span class="req-star">*</span> Calle</label>
+                  <input
+                    type="text"
+                    id="reg-calle-fiscal"
+                    autocomplete="billing address-line1"
+                    class="uppercase-input"
+                    required
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="reg-numero-fiscal"><span class="req-star">*</span> Número</label>
+                  <input
+                    type="text"
+                    id="reg-numero-fiscal"
+                    class="uppercase-input"
+                    placeholder="S/N"
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="reg-piso-fiscal">Piso</label>
+                  <input type="text" id="reg-piso-fiscal" class="uppercase-input" />
+                </div>
+                <div class="form-field">
+                  <label for="reg-dpto-fiscal">Depto.</label>
+                  <input type="text" id="reg-dpto-fiscal" class="uppercase-input" />
+                </div>
+                <div class="form-field">
+                  <label for="reg-torre-fiscal">Torre</label>
+                  <input type="text" id="reg-torre-fiscal" class="uppercase-input" />
+                </div>
+                <div class="form-field">
+                  <label for="reg-barrio-fiscal">Barrio</label>
+                  <input
+                    type="text"
+                    id="reg-barrio-fiscal"
+                    autocomplete="billing address-line2"
+                    class="uppercase-input"
+                  />
+                </div>
+              </div>
+
+              <!-- País, Provincia (+), Localidad (+), C.P. Fiscal -->
+              <div class="form-row-grid cols-4">
+                <div class="form-field">
+                  <label for="reg-pais-fiscal"><span class="req-star">*</span> País</label>
+                  <select id="reg-pais-fiscal" autocomplete="billing country-name" required></select>
+                </div>
+                <div class="form-field">
+                  <label for="reg-provincia-fiscal">Provincia</label>
+                  <div class="inline-select-Action">
+                    <select id="reg-provincia-fiscal" autocomplete="billing address-level1" required></select>
+                    <button type="button" class="btn-mini-add" id="btn-add-prov-reg-fiscal" title="Agregar otra provincia manualmente">+</button>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="reg-localidad-fiscal"><span class="req-star">*</span> Localidad</label>
+                  <div class="inline-select-Action">
+                    <select id="reg-localidad-fiscal" autocomplete="billing address-level2" required></select>
+                    <button type="button" class="btn-mini-add" id="btn-add-localidad-reg-fiscal" title="Agregar nueva localidad al desplegable">+</button>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="reg-cp-fiscal">C.P.</label>
+                  <input type="text" id="reg-cp-fiscal" autocomplete="billing postal-code" class="uppercase-input" placeholder="5813" />
+                </div>
+              </div>
+
+              <!-- Resp. IVA, Tipo Doc., Número con Lupa Padrón ARCA / ERP -->
+              <div class="form-row-grid cols-3">
+                <div class="form-field">
+                  <label for="reg-resp-iva"><span class="req-star">*</span> Resp. IVA</label>
+                  <select id="reg-resp-iva" required>
+                    <option value="CONSUMIDOR FINAL">CONSUMIDOR FINAL</option>
+                    <option value="MONOTRIBUTO">MONOTRIBUTO</option>
+                    <option value="INSCRIPTO">INSCRIPTO</option>
+                    <option value="EXENTO">EXENTO</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label for="reg-tipo-doc"><span class="req-star">*</span> Tipo Doc.</label>
+                  <select id="reg-tipo-doc" required>
+                    <option value="CUIT">CUIT</option>
+                    <option value="DNI" selected>DNI</option>
+                    <option value="CUIL">CUIL</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label for="reg-nro-doc"><span class="req-star">*</span> Número</label>
+                  <div class="cuit-arca-group">
+                    <input
+                      type="text"
+                      id="reg-nro-doc"
+                      class="uppercase-input mono-input"
+                      required
+                      placeholder="00-00000000-0"
+                      maxlength="20"
+                    />
+                    <button
+                      type="button"
+                      id="btn-reg-search-arca"
+                      class="btn-arca-lupa"
+                      title="Corroborar en ERP y buscar CUIT en Padrón ARCA (AFIP)"
+                      aria-label="Buscar en ERP o Padrón ARCA"
+                    >
+                      🔍
+                    </button>
+                  </div>
+                  <small id="reg-cuit-status" class="field-mini-hint">Formato CUIT: XX-XXXXXXXX-X (11 dígitos) o DNI (8 dígitos)</small>
+                </div>
+              </div>
+
+              <input type="hidden" id="reg-regimen-iibb" value="NO INSCRIPTO" />
+              <input type="hidden" id="reg-nro-iibb" value="" />
+            </fieldset>
+          </div>
+
+          <div id="reg-feedback" class="form-feedback" hidden></div>
+
+          <footer class="reg-form-footer">
+            <button type="button" class="btn-outline-theme" id="btn-cancel-reg">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-primary-theme btn-lg" id="btn-submit-reg">
+              ✅ Guardar Mis Datos y Ver Precios Ahora
+            </button>
+          </footer>
+        </form>
+      </div>
+    </section>
+
+    <!-- ==================================================================
+         VISTA 3: PANEL DEL CLIENTE REGISTRADO (ESTÉTICA APP MÓVIL NARANJA X)
+         - Cabecera superior con avatar CN, nombre del cliente, QR y Ayuda
+         - Secciones desplegables hacia la derecha (carrusel horizontal)
+         - Grilla de "Tus atajos" con las 7 secciones solicitadas
+         - Barra fija abajo con botón central flotante (Soy Cajero / QR)
+         ================================================================== -->
+    <section id="view-panel-cliente" class="store-view" hidden>
+      <div class="nx-client-portal">
+
+        <!-- CABECERA DEL PANEL DEL CLIENTE (Oculta porque la barra superior ya muestra Foto, Nombre y Apellido + Salir) -->
+        <header class="nx-portal-topbar" hidden>
+          <div class="nx-user-greeting">
+            <div class="nx-avatar-badge" id="nx-portal-avatar">
+              <img src="assets/img/icon-192.png?v=25" alt="CN" style="width:100%;height:100%;border-radius:50%;object-fit:contain;background:#ffffff;" />
+            </div>
+            <div class="nx-greeting-texts">
+              <strong id="nx-portal-user-name">Hola, Cliente</strong>
+              <span id="nx-portal-user-sub" hidden></span>
+            </div>
+          </div>
+          <div class="nx-topbar-actions">
+            <button type="button" class="nx-icon-btn" id="nx-btn-top-qr" title="Mi Credencial QR Club Fidel" aria-label="Ver mi código QR">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+            </button>
+            <a href="https://wa.me/5493584198605" target="_blank" rel="noopener" class="nx-help-pill" title="Ayuda por WhatsApp">
+              <span class="nx-help-q">?</span>
+              <span>Ayuda</span>
+            </a>
+          </div>
+        </header>
+
+        <!-- SUBVISTA 0: HOME DEL PANEL (Tarjetas principales + Tus atajos) -->
+        <div id="nx-subview-home" class="nx-subview is-active">
+
+          <!-- SECCIONES PRINCIPALES DEL PANEL (Puntos Club Fidel + Soy Cajero) -->
+          <div class="nx-cards-track-wrap" aria-label="Secciones principales del panel">
+            <div class="nx-cards-track" id="nx-cards-track">
+
+              <!-- TARJETA 1: PUNTOS CLUB FIDEL -->
+              <article class="nx-slide-card nx-slide-card--points">
+                <div class="nx-slide-card-head">
+                  <div class="nx-slide-title-group">
+                    <span class="nx-slide-title">Puntos Club Fidel</span>
+                  </div>
+                  <button type="button" class="nx-chevron-btn" data-nx-open-sec="puntos" aria-label="Ir a Consulta de puntos">›</button>
+                </div>
+
+                <div class="nx-slide-balance-row">
+                  <strong class="nx-slide-balance" id="nx-card-pts-balance">
+                    <svg class="cf-badge-svg" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#092837" stroke="rgba(60,224,150,0.35)" stroke-width="1"/><path d="M7.5 22.2V13a5.5 5.5 0 0 1 5.5-5.5h6A5.5 5.5 0 0 1 24.5 13v6a5.5 5.5 0 0 1-5.5 5.5h-3.2" fill="none" stroke="#3ce096" stroke-width="2.8" stroke-linecap="round"/><path d="M11.8 23.5v-9.3a2.6 2.6 0 0 1 2.6-2.6h5.2M11.8 17.3h6.2" fill="none" stroke="#ffffff" stroke-width="3.1" stroke-linecap="round"/></svg>
+                    <span>0 pts</span>
+                  </strong>
+                  <button type="button" class="nx-eye-toggle" id="nx-btn-toggle-privacy" title="Mostrar u ocultar saldos" aria-label="Mostrar u ocultar saldos">
+                    👁️
+                  </button>
+                </div>
+                <p class="nx-slide-helper" id="nx-card-pts-helper">Acumulás puntos en cada compra presentando tu DNI o QR en Caja.</p>
+
+                <div class="nx-slide-actions-row">
+                  <button type="button" class="nx-circle-action" id="nx-quick-open-qr">
+                    <span class="nx-circle-icon" aria-hidden="true">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#8a6a1f;">
+                        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                        <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                        <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                        <path d="M14 14h3v3h-3z"></path>
+                        <path d="M20 14v3h-2"></path>
+                        <path d="M14 20h3"></path>
+                        <path d="M20 20h.01"></path>
+                      </svg>
+                    </span>
+                    <span class="nx-circle-label">Mi QR Club</span>
+                  </button>
+                  <button type="button" class="nx-circle-action" data-nx-open-sec="premios">
+                    <span class="nx-circle-icon">🎁</span>
+                    <span class="nx-circle-label">Catálogo de Premios</span>
+                  </button>
+                  <button type="button" class="nx-circle-action" data-nx-open-sec="puntos">
+                    <span class="nx-circle-icon" aria-hidden="true">
+                      <svg class="cf-badge-svg" width="23" height="23" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#092837" stroke="rgba(60,224,150,0.35)" stroke-width="1"/><path d="M7.5 22.2V13a5.5 5.5 0 0 1 5.5-5.5h6A5.5 5.5 0 0 1 24.5 13v6a5.5 5.5 0 0 1-5.5 5.5h-3.2" fill="none" stroke="#3ce096" stroke-width="2.8" stroke-linecap="round"/><path d="M11.8 23.5v-9.3a2.6 2.6 0 0 1 2.6-2.6h5.2M11.8 17.3h6.2" fill="none" stroke="#ffffff" stroke-width="3.1" stroke-linecap="round"/></svg>
+                    </span>
+                    <span class="nx-circle-label">Mis Puntos</span>
+                  </button>
+                </div>
+              </article>
+
+              <!-- TARJETA 2: SOY CAJERO -->
+              <article class="nx-slide-card nx-slide-card--cajero">
+                <div class="nx-slide-card-head">
+                  <div class="nx-slide-title-group">
+                    <span class="nx-slide-title">Soy Cajero</span>
+                  </div>
+                  <button type="button" class="nx-chevron-btn" data-nx-open-sec="soy-cajero" aria-label="Abrir Soy Cajero">›</button>
+                </div>
+
+                <div class="nx-slide-balance-row">
+                  <strong class="nx-slide-balance" id="nx-card-sc-total">$ 0,00</strong>
+                </div>
+                <p class="nx-slide-helper" id="nx-card-sc-sub">Confirmá tu compra y presentá el QR o código en Caja.</p>
+
+                <div class="nx-slide-actions-row">
+                  <button type="button" class="nx-circle-action" data-nx-open-sec="soy-cajero" data-nx-sc-scan="1">
+                    <span class="nx-circle-icon">📷</span>
+                    <span class="nx-circle-label">Escanear</span>
+                  </button>
+                  <button type="button" class="nx-circle-action" data-nx-open-sec="soy-cajero">
+                    <span class="nx-circle-icon">🧾</span>
+                    <span class="nx-circle-label">Confirmar Compra</span>
+                  </button>
+                  <button type="button" class="nx-circle-action" data-nx-open-sec="consultador">
+                    <span class="nx-circle-icon">🏷️</span>
+                    <span class="nx-circle-label">Ver Precio</span>
+                  </button>
+                </div>
+              </article>
+
+              <!-- TARJETA 3: PROMO +1.000 PTS · INSTALAR APP & RECOMENDÁ A UN AMIGO -->
+              <article class="nx-slide-card nx-slide-card--promo" id="nx-slide-card-promo-pts">
+                <div class="nx-slide-card-head">
+                  <div class="nx-slide-title-group">
+                    <span class="nx-slide-title" id="nx-card-promo-title">Instalá la App Oficial</span>
+                    <span class="nx-pill-badge nx-pill-badge--green" id="nx-card-promo-pill">+1.000 pts</span>
+                  </div>
+                  <button type="button" class="nx-chevron-btn" data-nx-open-sec="instalar-app" aria-label="Abrir Instalar App y Recomendar Amigo">›</button>
+                </div>
+
+                <div class="nx-slide-balance-row">
+                  <strong class="nx-slide-balance" id="nx-card-promo-balance">
+                    <svg class="cf-badge-svg" width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#092837" stroke="rgba(60,224,150,0.35)" stroke-width="1"/><path d="M7.5 22.2V13a5.5 5.5 0 0 1 5.5-5.5h6A5.5 5.5 0 0 1 24.5 13v6a5.5 5.5 0 0 1-5.5 5.5h-3.2" fill="none" stroke="#3ce096" stroke-width="2.8" stroke-linecap="round"/><path d="M11.8 23.5v-9.3a2.6 2.6 0 0 1 2.6-2.6h5.2M11.8 17.3h6.2" fill="none" stroke="#ffffff" stroke-width="3.1" stroke-linecap="round"/></svg>
+                    <span>+1.000 pts</span>
+                  </strong>
+                </div>
+                <p class="nx-slide-helper" id="nx-card-promo-sub">Instalá la App (+1.000 pts) o invitá amigos por WhatsApp (+1.000 pts c/u).</p>
+
+                <div class="nx-slide-actions-row">
+                  <button type="button" class="nx-circle-action" id="nx-card-promo-btn-install" data-nx-open-sec="instalar-app">
+                    <span class="nx-circle-icon">📲</span>
+                    <span class="nx-circle-label" id="nx-card-promo-install-lbl">Instalar App</span>
+                  </button>
+                  <button type="button" class="nx-circle-action" id="nx-card-promo-btn-wa">
+                    <span class="nx-circle-icon" style="background:#dcfce7; border-color:#86efac; color:#15803d;">💬</span>
+                    <span class="nx-circle-label">Invitar Amigo</span>
+                  </button>
+                  <button type="button" class="nx-circle-action" id="nx-card-promo-btn-copy">
+                    <span class="nx-circle-icon">🔗</span>
+                    <span class="nx-circle-label">Copiar Link</span>
+                  </button>
+                </div>
+              </article>
+
+            </div>
+            <div class="nx-carousel-dots" id="nx-cards-dots" aria-label="Indicador de tarjeta activa">
+              <span class="nx-dot is-active" data-nx-card-dot="0" role="button" tabindex="0" aria-label="Ver Puntos Club Fidel"></span>
+              <span class="nx-dot" data-nx-card-dot="1" role="button" tabindex="0" aria-label="Ver Soy Cajero"></span>
+              <span class="nx-dot" data-nx-card-dot="2" role="button" tabindex="0" aria-label="Ver Promoción +1.000 Puntos"></span>
+            </div>
+          </div>
+
+          <!-- GRILLA DE ATAJOS ("Tus atajos") -->
+          <div class="nx-section-heading">
+            <h2>Tus atajos</h2>
+          </div>
+
+          <div class="nx-shortcuts-grid">
+            <!-- 1. Selector de 3 temas: Fondo Claro / Fondo Negro (Rectángulos Gris Claro) / Fondo Oscuro -->
+            <button type="button" class="nx-shortcut-card" id="nx-shortcut-toggle-theme-btn" title="Alternar entre Fondo Claro, Fondo Negro con rectángulos gris claro y Modo Oscuro" aria-label="Cambiar modo de fondo">
+              <span class="nx-shortcut-badge" id="nx-shortcut-theme-badge">3 Modos</span>
+              <span class="nx-shortcut-icon">
+                <svg class="nx-theme-svg-light" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4"></circle>
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+                </svg>
+                <svg class="nx-theme-svg-blackbg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"></path>
+                </svg>
+                <svg class="nx-theme-svg-dark" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+              </span>
+              <span class="nx-shortcut-label" id="nx-shortcut-theme-label">Fondo Claro / Fondo Oscuro</span>
+            </button>
+
+            <!-- 2. Consultador de Precios -->
+            <button type="button" class="nx-shortcut-card" data-nx-open-sec="consultador">
+              <span class="nx-shortcut-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14"></path>
+                </svg>
+              </span>
+              <span class="nx-shortcut-label">Consultador de Precios</span>
+            </button>
+
+            <!-- 3. Soy Cajero -->
+            <button type="button" class="nx-shortcut-card nx-shortcut-card--highlight" data-nx-open-sec="soy-cajero">
+              <span class="nx-shortcut-badge nx-shortcut-badge--orange">Nuevo</span>
+              <span class="nx-shortcut-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                  <line x1="7" y1="9" x2="17" y2="9"></line>
+                  <line x1="7" y1="13" x2="13" y2="13"></line>
+                  <circle cx="16.5" cy="14.5" r="2"></circle>
+                </svg>
+              </span>
+              <span class="nx-shortcut-label">Soy Cajero</span>
+            </button>
+
+            <!-- 4. Instalar App (+1.000 pts) -->
+            <button type="button" class="nx-shortcut-card" data-nx-open-sec="instalar-app" id="nx-shortcut-install-app-btn">
+              <span class="nx-shortcut-badge nx-shortcut-badge--orange" id="nx-shortcut-install-badge">+1.000 pts</span>
+              <span class="nx-shortcut-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                  <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                  <path d="M12 7v6"></path>
+                  <path d="M9.5 10.5 12 13l2.5-2.5"></path>
+                </svg>
+              </span>
+              <span class="nx-shortcut-label" id="nx-shortcut-install-label">Instalar App</span>
+            </button>
+
+            <!-- 5. Consulta de puntos -->
+            <button type="button" class="nx-shortcut-card" data-nx-open-sec="puntos">
+              <span class="nx-shortcut-icon">
+                <svg class="cf-badge-svg" width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#092837" stroke="rgba(60,224,150,0.35)" stroke-width="1"/><path d="M7.5 22.2V13a5.5 5.5 0 0 1 5.5-5.5h6A5.5 5.5 0 0 1 24.5 13v6a5.5 5.5 0 0 1-5.5 5.5h-3.2" fill="none" stroke="#3ce096" stroke-width="2.8" stroke-linecap="round"/><path d="M11.8 23.5v-9.3a2.6 2.6 0 0 1 2.6-2.6h5.2M11.8 17.3h6.2" fill="none" stroke="#ffffff" stroke-width="3.1" stroke-linecap="round"/></svg>
+              </span>
+              <span class="nx-shortcut-label">Consulta de puntos</span>
+            </button>
+
+            <!-- 6. Mis Compras -->
+            <button type="button" class="nx-shortcut-card" data-nx-open-sec="compras">
+              <span class="nx-shortcut-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="8" y1="13" x2="16" y2="13"></line>
+                  <line x1="8" y1="17" x2="13" y2="17"></line>
+                </svg>
+              </span>
+              <span class="nx-shortcut-label">Mis Compras</span>
+            </button>
+
+            <!-- 7. Catálogo de Premios -->
+            <button type="button" class="nx-shortcut-card" data-nx-open-sec="premios">
+              <span class="nx-shortcut-badge">Canje</span>
+              <span class="nx-shortcut-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 12 20 22 4 22 4 12"></polyline>
+                  <rect x="2" y="7" width="20" height="5"></rect>
+                  <line x1="12" y1="22" x2="12" y2="7"></line>
+                  <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+                  <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                </svg>
+              </span>
+              <span class="nx-shortcut-label">Catálogo de Premios</span>
+            </button>
+
+            <!-- Atajo extra a Credencial QR para completar grilla de 4x2 armónica -->
+            <button type="button" class="nx-shortcut-card" id="nx-shortcut-qr-btn">
+              <span class="nx-shortcut-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+              </span>
+              <span class="nx-shortcut-label">Mi QR Club</span>
+            </button>
+          </div>
+
+          <!-- BANNER INFERIOR DESTACADO + CARRUSEL APP (ROTACIÓN PERMANENTE) -->
+          <div class="nx-section-heading" style="margin-top:1.4rem;">
+            <h2>Autogestión Casa Nueva</h2>
+          </div>
+
+          <div class="nx-app-carousel" id="nx-app-carousel-viewport">
+            <div class="nx-app-carousel-track" id="nx-app-carousel-track">
+              <div class="nx-app-carousel-slide" data-nx-app-slide-fixed="1">
+                <div class="nx-promo-feature-card" id="nx-feature-banner-soycajero" role="button" tabindex="0">
+                  <div class="nx-promo-card-visual">
+                    <span>Casa Nueva</span>
+                    <strong>Soy Cajero</strong>
+                  </div>
+                  <div class="nx-promo-card-info">
+                    <span class="nx-promo-kicker">Disponible en tu celular</span>
+                    <strong id="nx-promo-last-code">Armá tu ticket mientras recorrés el súper</strong>
+                    <p id="nx-promo-last-desc">Escaneá los productos, generá tu Código Interno y pasá directo a pagar por el Facturador Móvil de cualquier Caja.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="nx-app-carousel-dots" id="nx-app-carousel-dots" hidden></div>
+          </div>
+
+        </div>
+
+        <!-- ==============================================================
+             SECCIÓN 1: MI PERFIL (Datos del cliente Google o Correo con clave)
+             ============================================================== -->
+        <div id="nx-subview-perfil" class="nx-subview" hidden>
+          <div class="nx-panel-box">
+            <div class="nx-profile-header-strip">
+              <div style="display:flex; align-items:center; gap:0.85rem;">
+                <div style="position:relative; width:62px; height:62px; flex-shrink:0;">
+                  <img id="nx-perfil-avatar-img" src="../sistema/assets/img/icon-192.png" alt="Foto de perfil" class="reg-google-avatar" style="width:62px; height:62px; border-radius:50%; object-fit:cover; border:2px solid #4be39a;" referrerpolicy="no-referrer" />
+                </div>
+                <div>
+                  <h4 id="nx-perfil-title-name" style="margin:0 0 0.15rem; font-size:1.15rem;">CLIENTE</h4>
+                  <p id="nx-perfil-title-meta" style="margin:0; font-size:0.84rem; color:var(--text-secondary);"></p>
+                </div>
+              </div>
+              <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                <input type="file" id="nx-perfil-photo-input" accept="image/*" hidden />
+                <button type="button" class="btn-outline-theme" id="nx-perfil-btn-photo">📷 Elegir mi foto</button>
+                <button type="button" class="btn-outline-theme" id="nx-perfil-btn-qr"><svg class="cf-badge-svg" width="18" height="18" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#092837" stroke="rgba(60,224,150,0.35)" stroke-width="1"/><path d="M7.5 22.2V13a5.5 5.5 0 0 1 5.5-5.5h6A5.5 5.5 0 0 1 24.5 13v6a5.5 5.5 0 0 1-5.5 5.5h-3.2" fill="none" stroke="#3ce096" stroke-width="2.8" stroke-linecap="round"/><path d="M11.8 23.5v-9.3a2.6 2.6 0 0 1 2.6-2.6h5.2M11.8 17.3h6.2" fill="none" stroke="#ffffff" stroke-width="3.1" stroke-linecap="round"/></svg> Ver Mi Credencial</button>
+              </div>
+            </div>
+
+            <form id="nx-perfil-form" class="registration-form" autocomplete="on" novalidate style="margin-top:1rem;">
+              <!-- Barra de 2 Solapas directamente en Mi Perfil -->
+              <div class="reg-erp-tabs-bar" role="tablist" aria-label="Secciones de Mi Perfil">
+                <button
+                  type="button"
+                  class="reg-erp-tab-btn is-active"
+                  role="tab"
+                  aria-selected="true"
+                  aria-controls="nx-prof-tab-generales"
+                  id="nx-prof-tab-btn-generales"
+                  data-prof-tab="nx-prof-tab-generales"
+                >
+                  1. Datos Generales
+                </button>
+                <button
+                  type="button"
+                  class="reg-erp-tab-btn"
+                  role="tab"
+                  aria-selected="false"
+                  aria-controls="nx-prof-tab-impositivos"
+                  id="nx-prof-tab-btn-impositivos"
+                  data-prof-tab="nx-prof-tab-impositivos"
+                >
+                  2. Datos Impositivos
+                </button>
+              </div>
+
+              <!-- SOLAPA 1: 1. DATOS GENERALES -->
+              <div id="nx-prof-tab-generales" class="reg-erp-tab-panel" role="tabpanel" aria-labelledby="nx-prof-tab-btn-generales">
+                <fieldset class="reg-fieldset reg-erp-fieldset">
+                  <legend>DATOS PERSONALES</legend>
+
+                  <div class="form-row-grid reg-row-doc-name">
+                    <div class="form-field">
+                      <label for="nx-prof-quick-doc"><span class="req-star">*</span> DNI o CUIT</label>
+                      <div class="cuit-arca-group">
+                        <input
+                          type="text"
+                          id="nx-prof-quick-doc"
+                          class="uppercase-input mono-input"
+                          placeholder="DNI O CUIT..."
+                          maxlength="20"
+                        />
+                        <button
+                          type="button"
+                          id="btn-prof-check-erp-doc"
+                          class="btn-arca-lupa"
+                          title="Verificar DNI o CUIT en Padrón ARCA"
+                        >
+                          🔍
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="form-field">
+                      <label for="nx-prof-nombre"><span class="req-star">*</span> Nombre</label>
+                      <input
+                        type="text"
+                        id="nx-prof-nombre"
+                        autocomplete="given-name"
+                        class="uppercase-input"
+                        required
+                        placeholder="EJ: DANIEL ALEJANDRO"
+                      />
+                    </div>
+
+                    <div class="form-field">
+                      <label for="nx-prof-apellido"><span class="req-star">*</span> Apellido</label>
+                      <input
+                        type="text"
+                        id="nx-prof-apellido"
+                        autocomplete="family-name"
+                        class="uppercase-input"
+                        required
+                        placeholder="EJ: GHIGLIONE"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Calle, Número, Piso, Depto., Torre, Barrio -->
+                  <div class="form-row-grid reg-address-grid-6">
+                    <div class="form-field">
+                      <label for="nx-prof-calle"><span class="req-star">*</span> Calle</label>
+                      <input type="text" id="nx-prof-calle" class="uppercase-input" placeholder="EJ: SAN MARTIN" />
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-numero"><span class="req-star">*</span> Número</label>
+                      <input type="text" id="nx-prof-numero" class="uppercase-input" placeholder="S/N" />
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-piso">Piso</label>
+                      <input type="text" id="nx-prof-piso" class="uppercase-input" />
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-dpto">Depto.</label>
+                      <input type="text" id="nx-prof-dpto" class="uppercase-input" />
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-torre">Torre</label>
+                      <input type="text" id="nx-prof-torre" class="uppercase-input" />
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-barrio">Barrio</label>
+                      <input type="text" id="nx-prof-barrio" class="uppercase-input" placeholder="EJ: CENTRO" />
+                    </div>
+                  </div>
+
+                  <!-- País, Provincia (+), Localidad (+), C.P. -->
+                  <div class="form-row-grid cols-4">
+                    <div class="form-field">
+                      <label for="nx-prof-pais"><span class="req-star">*</span> País</label>
+                      <select id="nx-prof-pais"></select>
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-provincia">Provincia</label>
+                      <div class="inline-select-Action">
+                        <select id="nx-prof-provincia"></select>
+                        <button type="button" class="btn-mini-add" id="btn-add-prov-prof" title="Agregar otra provincia manualmente">+</button>
+                      </div>
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-localidad"><span class="req-star">*</span> Localidad</label>
+                      <div class="inline-select-Action">
+                        <select id="nx-prof-localidad"></select>
+                        <button type="button" class="btn-mini-add" id="btn-add-localidad-prof" title="Agregar nueva localidad al desplegable">+</button>
+                      </div>
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-cp">C.P.</label>
+                      <input type="text" id="nx-prof-cp" class="uppercase-input" placeholder="5813" />
+                    </div>
+                  </div>
+
+                  <!-- Teléfono Celular (WhatsApp) y Fecha de Nacimiento -->
+                  <div class="form-row-grid cols-2">
+                    <div class="form-field">
+                      <label for="nx-prof-celular"><span class="req-star">*</span> Teléfono Celular / WhatsApp</label>
+                      <div class="reg-phone-wa-row">
+                        <select id="nx-prof-celular-cod-pais" class="reg-phone-country-select" aria-label="Código telefónico de país">
+                          <option value="+549" selected>🇦🇷 +54 9 (Argentina)</option>
+                          <option value="+55">🇧🇷 +55 (Brasil)</option>
+                          <option value="+56">🇨🇱 +56 (Chile)</option>
+                          <option value="+595">🇵🇾 +595 (Paraguay)</option>
+                          <option value="+598">🇺🇾 +598 (Uruguay)</option>
+                          <option value="+591">🇧🇴 +591 (Bolivia)</option>
+                          <option value="+1">🇺🇸 +1 (EE.UU.)</option>
+                          <option value="+34">🇪🇸 +34 (España)</option>
+                        </select>
+                        <input type="tel" id="nx-prof-celular" class="uppercase-input" required placeholder="3585XXXXXX" />
+                        <button type="button" id="btn-prof-verify-whatsapp" class="btn-wa-register" title="Enviar código numérico de verificación por WhatsApp">
+                          📲 Enviar Código
+                        </button>
+                      </div>
+                      <div id="nx-prof-otp-verify-box" class="wa-otp-verify-box" hidden>
+                        <input
+                          type="text"
+                          id="nx-prof-otp-code-input"
+                          inputmode="numeric"
+                          maxlength="6"
+                          placeholder="Código de 6 dígitos"
+                          style="max-width:170px; font-family:'JetBrains Mono', monospace; font-weight:700; letter-spacing:0.15em; text-align:center;"
+                        />
+                        <button type="button" id="btn-prof-confirm-otp" class="btn-primary-theme" style="padding:0.48rem 0.9rem; font-size:0.82rem;">
+                          ✓ Confirmar Código
+                        </button>
+                      </div>
+                      <small id="nx-prof-whatsapp-status" class="field-mini-hint">Recibí un código de 6 dígitos para verificar tu número en Club Fidel.</small>
+                    </div>
+
+                    <div class="form-field">
+                      <label for="nx-prof-fecha-nacimiento"><span class="req-star">*</span> Fecha de Nacimiento</label>
+                      <input type="date" id="nx-prof-fecha-nacimiento" autocomplete="bday" required />
+                    </div>
+                  </div>
+
+                  <!-- E-mail -->
+                  <div class="form-row-grid" style="grid-template-columns:1fr;">
+                    <div class="form-field">
+                      <label for="nx-prof-email"><span class="req-star">*</span> E-mail (Correo de acceso)</label>
+                      <input type="email" id="nx-prof-email" class="uppercase-input" required />
+                    </div>
+                  </div>
+
+                  <!-- Campos internos ocultos para preservar Observación, Usuario Web y Clave -->
+                  <input type="hidden" id="nx-prof-observacion" value="" />
+                  <input type="hidden" id="nx-prof-usuario" value="" />
+                  <input type="hidden" id="nx-prof-clave" value="" />
+                </fieldset>
+              </div>
+
+              <!-- SOLAPA 2: 2. DATOS IMPOSITIVOS -->
+              <div id="nx-prof-tab-impositivos" class="reg-erp-tab-panel" role="tabpanel" aria-labelledby="nx-prof-tab-btn-impositivos" hidden>
+                <fieldset class="reg-fieldset reg-erp-fieldset">
+                  <legend>DATOS FISCALES</legend>
+
+                  <div style="display:flex; justify-content:flex-end; margin-bottom:0.65rem;">
+                    <button type="button" id="btn-prof-copy-personal-to-fiscal" class="btn-repeat-personal">
+                      📋 Repetir Nombre y Domicilio de Datos Personales
+                    </button>
+                  </div>
+
+                  <!-- Razón social -->
+                  <div class="form-row-grid" style="grid-template-columns:1fr;">
+                    <div class="form-field">
+                      <label for="nx-prof-razon-social"><span class="req-star">*</span> Razón social</label>
+                      <input type="text" id="nx-prof-razon-social" class="uppercase-input" placeholder="EJ: GHIGLIONE, DANIEL ALEJANDRO" />
+                    </div>
+                  </div>
+
+                  <!-- Calle, Número, Piso, Depto., Torre, Barrio Fiscal -->
+                  <div class="form-row-grid reg-address-grid-6">
+                    <div class="form-field">
+                      <label for="nx-prof-calle-fiscal"><span class="req-star">*</span> Calle</label>
+                      <input type="text" id="nx-prof-calle-fiscal" class="uppercase-input" />
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-numero-fiscal"><span class="req-star">*</span> Número</label>
+                      <input type="text" id="nx-prof-numero-fiscal" class="uppercase-input" placeholder="S/N" />
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-piso-fiscal">Piso</label>
+                      <input type="text" id="nx-prof-piso-fiscal" class="uppercase-input" />
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-dpto-fiscal">Depto.</label>
+                      <input type="text" id="nx-prof-dpto-fiscal" class="uppercase-input" />
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-torre-fiscal">Torre</label>
+                      <input type="text" id="nx-prof-torre-fiscal" class="uppercase-input" />
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-barrio-fiscal">Barrio</label>
+                      <input type="text" id="nx-prof-barrio-fiscal" class="uppercase-input" />
+                    </div>
+                  </div>
+
+                  <!-- País, Provincia (+), Localidad (+), C.P. Fiscal -->
+                  <div class="form-row-grid cols-4">
+                    <div class="form-field">
+                      <label for="nx-prof-pais-fiscal"><span class="req-star">*</span> País</label>
+                      <select id="nx-prof-pais-fiscal"></select>
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-provincia-fiscal">Provincia</label>
+                      <div class="inline-select-Action">
+                        <select id="nx-prof-provincia-fiscal"></select>
+                        <button type="button" class="btn-mini-add" id="btn-add-prov-prof-fiscal" title="Agregar otra provincia manualmente">+</button>
+                      </div>
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-localidad-fiscal"><span class="req-star">*</span> Localidad</label>
+                      <div class="inline-select-Action">
+                        <select id="nx-prof-localidad-fiscal"></select>
+                        <button type="button" class="btn-mini-add" id="btn-add-localidad-prof-fiscal" title="Agregar nueva localidad al desplegable">+</button>
+                      </div>
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-cp-fiscal">C.P.</label>
+                      <input type="text" id="nx-prof-cp-fiscal" class="uppercase-input" placeholder="5813" />
+                    </div>
+                  </div>
+
+                  <!-- Resp. IVA, Tipo Doc., Número con Lupa Padrón ARCA -->
+                  <div class="form-row-grid cols-3">
+                    <div class="form-field">
+                      <label for="nx-prof-respiva"><span class="req-star">*</span> Resp. IVA</label>
+                      <select id="nx-prof-respiva">
+                        <option value="CONSUMIDOR FINAL">Consumidor Final</option>
+                        <option value="MONOTRIBUTO">Responsable Monotributo</option>
+                        <option value="INSCRIPTO">IVA Responsable Inscripto</option>
+                        <option value="EXENTO">IVA Sujeto Exento</option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-tipodoc"><span class="req-star">*</span> Tipo Doc.</label>
+                      <select id="nx-prof-tipodoc">
+                        <option value="DNI">DNI</option>
+                        <option value="CUIT">CUIT</option>
+                        <option value="CUIL">CUIL</option>
+                        <option value="OTRO">OTRO</option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label for="nx-prof-nrodoc"><span class="req-star">*</span> Número</label>
+                      <div class="cuit-arca-group">
+                        <input
+                          type="text"
+                          id="nx-prof-nrodoc"
+                          class="uppercase-input mono-input"
+                          required
+                          placeholder="00-00000000-0"
+                          maxlength="20"
+                        />
+                        <button
+                          type="button"
+                          id="btn-prof-search-arca"
+                          class="btn-arca-lupa"
+                          title="Buscar CUIT en Padrón ARCA (AFIP)"
+                          aria-label="Buscar en Padrón ARCA"
+                        >
+                          🔍
+                        </button>
+                      </div>
+                      <small id="nx-prof-cuit-status" class="field-mini-hint">Formato CUIT: XX-XXXXXXXX-X (11 dígitos) o DNI (8 dígitos)</small>
+                    </div>
+                  </div>
+                </fieldset>
+              </div>
+
+              <div id="nx-perfil-feedback" class="form-feedback" hidden style="margin-top:0.85rem;"></div>
+
+              <div style="display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-top:1.15rem; padding-top:0.9rem; border-top:1px solid var(--surface-border-subtle);">
+                <button type="submit" class="btn-primary-theme" id="nx-perfil-btn-save">💾 Guardar Cambios en Mi Perfil</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- ==============================================================
+             SECCIÓN 2: CONSULTADOR DE PRECIOS
+             ============================================================== -->
+        <div id="nx-subview-consultador" class="nx-subview" hidden>
+          <div class="nx-panel-box">
+            <div class="nx-search-scanner-bar nx-sc-scanner-stack">
+              <input
+                type="text"
+                id="nx-cons-input"
+                class="nx-scanner-input uppercase-input nx-sc-uniform-box"
+                placeholder="ESCANEAR EAN O ESCRIBIR NOMBRE / CÓDIGO DEL PRODUCTO..."
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="characters"
+                spellcheck="false"
+              />
+              <button type="button" class="btn-primary-theme nx-sc-uniform-btn" id="nx-cons-btn-camera">
+                📷 Escanear con Cámara
+              </button>
+            </div>
+
+            <!-- Visor de cámara para Consultador -->
+            <div id="nx-cons-camera-wrap" class="nx-camera-box" hidden>
+              <video id="nx-cons-video" playsinline muted autoplay></video>
+              <div class="nx-camera-footer-bar">
+                <div class="nx-camera-overlay">Apuntá al código de barras o QR</div>
+                <button type="button" class="btn-ghost-danger btn-sm" id="nx-cons-btn-stop-cam" style="padding:0.25rem 0.55rem; font-size:0.74rem; flex-shrink:0;">⏹️ Cerrar</button>
+              </div>
+            </div>
+
+            <!-- Resultado destacado del producto consultado -->
+            <div id="nx-cons-featured-result" class="nx-cons-featured" hidden></div>
+
+            <!-- Lista de coincidencias -->
+            <div id="nx-cons-results-list" class="nx-cons-results-list"></div>
+          </div>
+        </div>
+
+        <!-- ==============================================================
+             SECCIÓN 3: SOY CAJERO (Facturador Móvil)
+             ============================================================== -->
+        <div id="nx-subview-soy-cajero" class="nx-subview" hidden>
+          <div class="nx-panel-box">
+            <!-- Buscador + Escáner para agregar artículos -->
+            <div class="nx-search-scanner-bar nx-sc-scanner-stack">
+              <input
+                type="text"
+                id="nx-sc-search-input"
+                class="nx-scanner-input uppercase-input nx-sc-uniform-box"
+                placeholder="ESCANEAR CÓDIGO DE BARRAS / BALANZA O BUSCAR PRODUCTO..."
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="characters"
+                spellcheck="false"
+              />
+              <button type="button" class="btn-primary-theme nx-sc-uniform-btn" id="nx-sc-btn-camera">
+                📷 Escanear Producto
+              </button>
+            </div>
+
+            <!-- Visor de cámara para Soy Cajero -->
+            <div id="nx-sc-camera-wrap" class="nx-camera-box" hidden>
+              <video id="nx-sc-video" playsinline muted autoplay></video>
+              <div class="nx-camera-footer-bar">
+                <div class="nx-camera-overlay">Escaneá el código de barras o QR para sumarlo</div>
+                <button type="button" class="btn-ghost-danger btn-sm" id="nx-sc-btn-stop-cam" style="padding:0.25rem 0.55rem; font-size:0.74rem; flex-shrink:0;">⏹️ Cerrar</button>
+              </div>
+            </div>
+
+            <!-- Sugerencias rápidas para agregar -->
+            <div id="nx-sc-suggestions" class="nx-sc-suggestions" hidden></div>
+
+            <!-- Lista de ítems cargados por el cliente en Soy Cajero -->
+            <div class="nx-sc-items-wrap" id="nx-sc-items-wrap"></div>
+
+            <!-- Pie con Total a la derecha y Botón de Grabar Compra del mismo tamaño que Escanear Producto -->
+            <div class="nx-sc-footer" id="nx-sc-footer">
+              <div class="nx-sc-footer-top-row">
+                <button type="button" class="btn-ghost-danger" id="nx-sc-btn-clear">🗑️ Vaciar</button>
+                <div class="nx-sc-totals">
+                  <span id="nx-sc-footer-count">0 producto(s) cargado(s)</span>
+                  <strong id="nx-sc-footer-total">$ 0,00</strong>
+                </div>
+              </div>
+              <div class="nx-sc-footer-actions">
+                <button type="button" class="btn-primary-theme nx-sc-uniform-btn" id="nx-sc-btn-generate">
+                  Grabar Compra
+                </button>
+              </div>
+            </div>
+
+            <!-- Explicación mostrada recién abajo cuando hay artículos cargados -->
+            <div id="nx-sc-bottom-explain" class="nx-soycajero-intro" style="margin-top:0.85rem;" hidden>
+              <div>
+                <p style="margin:0; font-size:0.84rem; color:var(--text-secondary);">
+                  Al finalizar de cargar los artículos que comprás, presioná <strong>Grabar Compra</strong> para presentar tu código o QR en cualquier Caja. ¡Así de fácil! ¡Elegis la forma de pago con el cajero y la compra es tuya!
+                </p>
+              </div>
+            </div>
+
+            <!-- Tarjeta del Código Interno con próximo número en fila y QR preparado -->
+            <div id="nx-sc-generated-code-banner" class="nx-sc-code-banner">
+              <div class="nx-sc-code-banner-left">
+                <span class="nx-sc-code-eyebrow" id="nx-sc-code-eyebrow">PRESENTÁ ESTE CÓDIGO INTERNO EN CAJA</span>
+                <strong class="nx-sc-code-big" id="nx-sc-code-display">...</strong>
+              </div>
+              <div class="nx-sc-code-banner-right">
+                <canvas id="nx-sc-qr-canvas" width="130" height="130" style="background:#fff; padding:6px; border-radius:8px; border:1px solid #e0e0e0;"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==============================================================
+             SECCIÓN 5: CONSULTA DE PUNTOS
+             ============================================================== -->
+        <div id="nx-subview-puntos" class="nx-subview" hidden>
+          <div class="nx-panel-box">
+            <div class="nx-points-kpi-grid">
+              <div class="nx-points-kpi nx-points-kpi--primary">
+                <span>Puntos Vigentes Disponibles</span>
+                <strong id="nx-pts-kpi-vigentes" style="display:inline-flex; align-items:center; gap:0.45rem;"><svg class="cf-badge-svg" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#092837" stroke="rgba(60,224,150,0.35)" stroke-width="1"/><path d="M7.5 22.2V13a5.5 5.5 0 0 1 5.5-5.5h6A5.5 5.5 0 0 1 24.5 13v6a5.5 5.5 0 0 1-5.5 5.5h-3.2" fill="none" stroke="#3ce096" stroke-width="2.8" stroke-linecap="round"/><path d="M11.8 23.5v-9.3a2.6 2.6 0 0 1 2.6-2.6h5.2M11.8 17.3h6.2" fill="none" stroke="#ffffff" stroke-width="3.1" stroke-linecap="round"/></svg> <span>0 pts</span></strong>
+                <small>Listos para canjear en el Catálogo de Premios</small>
+              </div>
+              <div class="nx-points-kpi nx-points-kpi--secondary">
+                <span>Puntos Históricos</span>
+                <strong id="nx-pts-kpi-acum">0 pts</strong>
+                <small id="nx-pts-kpi-rule">Validez: 365 días desde cada compra</small>
+              </div>
+              <div class="nx-points-kpi nx-points-kpi--secondary">
+                <span>Puntos Canjeados</span>
+                <strong id="nx-pts-kpi-canjeados">0 pts</strong>
+                <small>En premios de fidelización</small>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; align-items:stretch; gap:0.55rem; margin:1.1rem 0 0.65rem;">
+              <h4 style="margin:0; font-size:0.96rem;">Historial de Movimientos de Puntos</h4>
+              <button type="button" class="btn-primary-theme" data-nx-open-sec="premios" style="width:100%; justify-content:center; box-sizing:border-box;">🎁 Ir al Catálogo de Premios</button>
+            </div>
+
+            <!-- Barra de avance simple (10 movimientos por página) -->
+            <div id="nx-pts-pager-top" class="catalog-results-bar" style="margin-bottom:0.75rem;" hidden></div>
+
+            <div id="nx-pts-movs-list" class="nx-compact-list"></div>
+
+            <!-- Barra de avance inferior -->
+            <div id="nx-pts-pager-bottom" class="catalog-results-bar catalog-results-bottom" style="margin-top:0.75rem;" hidden></div>
+          </div>
+        </div>
+
+        <!-- ==============================================================
+             SECCIÓN 6: MIS COMPRAS (Tickets y Comprobantes Emitidos)
+             ============================================================== -->
+        <div id="nx-subview-compras" class="nx-subview" hidden>
+          <div class="nx-panel-box">
+            <!-- Barra de avance simple (10 comprobantes por página) -->
+            <div id="nx-compras-pager-top" class="catalog-results-bar" style="margin-bottom:0.75rem;" hidden></div>
+
+            <!-- Lista limpia de 10 comprobantes visibles por página -->
+            <div id="nx-compras-list" class="nx-compact-list"></div>
+
+            <!-- Barra de avance inferior -->
+            <div id="nx-compras-pager-bottom" class="catalog-results-bar catalog-results-bottom" style="margin-top:0.75rem;" hidden></div>
+          </div>
+        </div>
+
+        <!-- ==============================================================
+             SECCIÓN 7: CATÁLOGO DE PREMIOS (Carrito de Premios Fidelización)
+             ============================================================== -->
+        <div id="nx-subview-premios" class="nx-subview" hidden>
+          <div class="nx-panel-box">
+            <div class="nx-premios-header-banner">
+              <div>
+                <h4 style="margin:0 0 0.25rem; font-size:1.05rem; display:flex; flex-direction:column; align-items:flex-start; gap:0.25rem;">
+                  <span>Tus Puntos Disponibles:</span>
+                  <strong id="nx-premios-user-pts" style="color:#28a745; font-size:1.75rem; font-weight:900; line-height:1.15; display:inline-flex; align-items:center; gap:0.42rem;"><svg class="cf-badge-svg" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#092837" stroke="rgba(60,224,150,0.35)" stroke-width="1"/><path d="M7.5 22.2V13a5.5 5.5 0 0 1 5.5-5.5h6A5.5 5.5 0 0 1 24.5 13v6a5.5 5.5 0 0 1-5.5 5.5h-3.2" fill="none" stroke="#3ce096" stroke-width="2.8" stroke-linecap="round"/><path d="M11.8 23.5v-9.3a2.6 2.6 0 0 1 2.6-2.6h5.2M11.8 17.3h6.2" fill="none" stroke="#ffffff" stroke-width="3.1" stroke-linecap="round"/></svg> 0 pts</strong>
+                </h4>
+                <p style="margin:0; font-size:0.83rem; color:var(--text-secondary);">Agregá tu premio favorito al Carrito y confirmá el canje</p>
+              </div>
+              <div class="nx-premios-cart-summary">
+                <span id="nx-premios-cart-count">0 premios en carrito (0 pts)</span>
+                <button type="button" class="btn-primary-theme" id="nx-premios-btn-redeem" disabled>
+                  🎁 Confirmar Canje de Premios
+                </button>
+              </div>
+            </div>
+
+            <!-- Carrito de premios seleccionados -->
+            <div id="nx-premios-cart-box" class="nx-premios-cart-box" hidden></div>
+
+            <!-- Tickets de retiro de canje emitidos -->
+            <div id="nx-premios-my-tickets-box" hidden style="margin-top:0.75rem; margin-bottom:0.85rem;"></div>
+
+            <div class="nx-search-scanner-bar" style="margin:0.9rem 0;">
+              <input
+                type="search"
+                id="nx-premios-search"
+                class="nx-scanner-input uppercase-input"
+                placeholder="BUSCAR PREMIO POR NOMBRE O CÓDIGO..."
+                autocomplete="off"
+              />
+            </div>
+
+            <div id="nx-premios-feedback" class="form-feedback" hidden style="margin-bottom:0.85rem;"></div>
+
+            <!-- Grilla de productos habilitados para canje -->
+            <div id="nx-premios-grid" class="nx-premios-grid"></div>
+          </div>
+        </div>
+
+        <!-- ==============================================================
+             SECCIÓN 8: INSTALAR APP OFICIAL CASA NUEVA (+1.000 PTS) Y RECOMENDÁ A UN AMIGO (+1.000 PTS C/U)
+             ============================================================== -->
+        <div id="nx-subview-instalar-app" class="nx-subview" hidden>
+          <div class="nx-panel-box">
+            <div style="display:flex; align-items:center; justify-content:center; gap:1.15rem; flex-wrap:wrap; padding-bottom:1rem; border-bottom:1px solid #f1f1f5;">
+              <img
+                src="assets/img/icon-192.png?v=25"
+                alt="App Casa Nueva"
+                width="72"
+                height="72"
+                style="width:72px; height:72px; border-radius:18px; border:2px solid #d4a41e; background:#ffffff; object-fit:contain; box-shadow:0 6px 18px rgba(212,164,30,0.22);"
+              />
+              <button type="button" class="btn-primary-theme btn-lg" id="nx-btn-install-pwa" style="font-weight:800; padding:0.75rem 1.45rem;">
+                📲 Instalar App Ahora (+1.000 pts)
+              </button>
+            </div>
+
+            <!-- Banner del Bono de +1.000 puntos por instalar y abrir la App -->
+            <div id="nx-install-bonus-banner" style="margin-top:0.9rem; background:linear-gradient(135deg, #092837 0%, #0e3b50 100%); border:1.5px solid #3ce096; border-radius:14px; padding:0.9rem 1rem; color:#ffffff; display:flex; align-items:center; justify-content:space-between; gap:0.85rem; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:0.7rem;">
+                <svg class="cf-badge-svg" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#092837" stroke="rgba(60,224,150,0.65)" stroke-width="1.5"/><path d="M7.5 22.2V13a5.5 5.5 0 0 1 5.5-5.5h6A5.5 5.5 0 0 1 24.5 13v6a5.5 5.5 0 0 1-5.5 5.5h-3.2" fill="none" stroke="#3ce096" stroke-width="2.8" stroke-linecap="round"/><path d="M11.8 23.5v-9.3a2.6 2.6 0 0 1 2.6-2.6h5.2M11.8 17.3h6.2" fill="none" stroke="#ffffff" stroke-width="3.1" stroke-linecap="round"/></svg>
+                <div>
+                  <strong id="nx-install-bonus-title" style="display:block; font-size:0.95rem; color:#4be39a;">🎁 Obsequio de +1.000 puntos por instalar la App</strong>
+                  <span id="nx-install-bonus-desc" style="font-size:0.81rem; color:#e2f1f8;">Instalá la App y abrila desde el ícono de tu pantalla de inicio para recibir +1.000 puntos en el Catálogo de Premios.</span>
+                </div>
+              </div>
+              <span id="nx-install-bonus-pill" style="background:#3ce096; color:#092837; font-weight:900; font-size:0.78rem; padding:0.28rem 0.7rem; border-radius:999px; white-space:nowrap;">+1.000 PTS</span>
+            </div>
+
+            <div id="nx-install-pwa-status" class="form-feedback" hidden style="margin-top:0.9rem;"></div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:1rem; margin-top:1.1rem;">
+              <div style="background:#fdf8e7; border:1px solid rgba(212,164,30,0.45); border-radius:14px; padding:1rem;">
+                <strong style="display:flex; align-items:center; gap:0.5rem; color:#8a6405; font-size:0.94rem; margin-bottom:0.55rem;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="#3DDC84" aria-hidden="true" style="flex-shrink:0;">
+                    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993.0001.5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+                  </svg>
+                  <span>En Android / Chrome o PC</span>
+                </strong>
+                <ol style="margin:0; padding-left:1.2rem; font-size:0.84rem; color:#27272a; line-height:1.55;">
+                  <li>Tocá el botón <strong>"📲 Instalar App Ahora"</strong>.</li>
+                  <li>Si no aparece el aviso automático, tocá el menú <strong>⋮</strong> (arriba a la derecha) y elegí <strong>"Instalar aplicación"</strong>.</li>
+                </ol>
+              </div>
+
+              <div style="background:#fafafa; border:1px solid #e4e4e7; border-radius:14px; padding:1rem;">
+                <strong style="display:flex; align-items:center; gap:0.5rem; color:#202020; font-size:0.94rem; margin-bottom:0.55rem;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#18181b" aria-hidden="true" style="flex-shrink:0;">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.33c.64-.78 1.08-1.86.96-2.94-.93.04-2.06.62-2.72 1.4-.58.68-1.1 1.79-.96 2.84 1.04.08 2.08-.52 2.72-1.3"/>
+                  </svg>
+                  <span>En iPhone / iPad</span>
+                </strong>
+                <div style="display:flex; flex-direction:column; gap:0.5rem; font-size:0.84rem; color:#27272a; line-height:1.45;">
+                  <div style="display:flex; align-items:center; gap:0.55rem;">
+                    <span style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:7px; background:#ffffff; border:1px solid #d4d4d8; color:#007AFF; flex-shrink:0;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                    </span>
+                    <span><strong>1.</strong> Tocá <strong>"📲 Instalar App Ahora"</strong> (o el ícono <strong>Compartir</strong>).</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:0.55rem;">
+                    <span style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:7px; background:#ffffff; border:1px solid #d4d4d8; color:#18181b; flex-shrink:0;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    </span>
+                    <span><strong>2.</strong> Elegí <strong>"Agregar a inicio"</strong> en el menú que se abre.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="background:#ffffff; border:1px solid #e4e4e7; border-radius:14px; padding:1rem; display:flex; align-items:center; gap:0.9rem;">
+                <img
+                  src="assets/img/qr-instalar-app.png?v=25"
+                  alt="Código QR para instalar App Casa Nueva"
+                  width="96"
+                  height="96"
+                  style="width:96px; height:96px; object-fit:contain; border-radius:10px; border:1px solid #e4e4e7; padding:4px; background:#ffffff; flex-shrink:0;"
+                />
+                <div>
+                  <strong style="display:block; color:#202020; font-size:0.9rem; margin-bottom:0.25rem;">📷 Código QR Oficial de Instalación</strong>
+                  <p style="margin:0; font-size:0.8rem; color:#52525b; line-height:1.45;">
+                    Escaneá este QR con la cámara de cualquier celular para abrir e instalar directamente la App de Casa Nueva.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- SECCIÓN RECOMENDÁ A UN AMIGO POR WHATSAPP (+1.000 PTS PARA CADA UNO) -->
+            <div id="nx-referral-share-card" style="margin-top:1.25rem; background:linear-gradient(180deg, #ffffff 0%, #fdf8e7 100%); border:1.5px solid #d4a41e; border-radius:16px; padding:1.1rem;">
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:0.85rem; flex-wrap:wrap;">
+                <div>
+                  <span style="display:inline-block; background:#dcfce7; color:#15803d; font-size:0.72rem; font-weight:800; padding:0.18rem 0.6rem; border-radius:999px; margin-bottom:0.35rem;">+1.000 PTS PARA VOS Y +1.000 PTS PARA TU AMIGO</span>
+                  <h4 style="margin:0; font-size:1.05rem; font-weight:900; color:#202020;">🤝 Recomendá a un Amigo por WhatsApp</h4>
+                  <p style="margin:0.3rem 0 0; font-size:0.83rem; color:#52525b; line-height:1.45;">
+                    Compartí tu link o código personal. Cuando tu amigo se registre, <strong>ambos reciben +1.000 puntos</strong> automáticamente en el Catálogo de Premios.
+                  </p>
+                </div>
+                <div style="background:#ffffff; border:1px dashed #d4a41e; border-radius:12px; padding:0.5rem 0.85rem; text-align:center; min-width:130px;">
+                  <span style="display:block; font-size:0.68rem; font-weight:700; color:#8a6405; text-transform:uppercase;">Tu Código</span>
+                  <strong id="nx-ref-my-code" style="font-size:1.15rem; font-weight:900; color:#202020; font-family:'JetBrains Mono', monospace;">CF-1</strong>
+                  <small id="nx-ref-friends-count" style="display:block; font-size:0.7rem; color:#15803d; font-weight:700; margin-top:0.1rem;">0 amigos sumados</small>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:0.65rem; flex-wrap:wrap; margin-top:0.9rem;">
+                <button type="button" class="btn-primary-theme" id="nx-btn-share-ref-wa" style="background:#16a34a; border-color:#15803d; color:#ffffff; font-weight:800; flex:1 1 220px; justify-content:center;">
+                  📲 Invitar Amigo por WhatsApp
+                </button>
+                <button type="button" class="btn-outline-theme" id="nx-btn-copy-ref-link" style="font-weight:700; flex:1 1 160px; justify-content:center;">
+                  🔗 Copiar mi Link
+                </button>
+              </div>
+
+              <!-- Opción para ingresar manualmente el código de quien lo invitó si aún no lo usó -->
+              <div id="nx-manual-ref-claim-box" style="margin-top:0.9rem; padding-top:0.8rem; border-top:1px solid rgba(212,164,30,0.3); display:flex; align-items:center; justify-content:space-between; gap:0.6rem; flex-wrap:wrap;">
+                <span style="font-size:0.8rem; font-weight:700; color:#52525b;">¿Te recomendó un amigo? Ingresá su código y sumen +1.000 pts c/u:</span>
+                <div style="display:flex; gap:0.45rem; flex:1 1 220px; max-width:320px;">
+                  <input type="text" id="nx-manual-ref-input" class="uppercase-input mono-input" placeholder="EJ: CF-106" maxlength="20" style="flex:1; padding:0.42rem 0.65rem; font-size:0.82rem; border:1px solid #d4d4d8; border-radius:8px;" />
+                  <button type="button" class="btn-outline-theme" id="nx-btn-apply-manual-ref" style="padding:0.42rem 0.8rem; font-size:0.8rem; font-weight:800; white-space:nowrap;">
+                    🎁 Acreditar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================================================================
+       BARRA FIJA INFERIOR CON BOTÓN CENTRAL FLOTANTE (ESTÉTICA NARANJA X)
+       Visible para el cliente registrado en todo momento
+       ================================================================== -->
+  <nav id="nx-bottom-nav" class="nx-bottom-nav" aria-label="Navegación rápida del cliente" hidden>
+    <button type="button" class="nx-bottom-item is-active" data-nx-nav="home">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Inicio</span>
+    </button>
+
+    <button type="button" class="nx-bottom-item" data-nx-nav="compra-web">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="9" cy="21" r="1"></circle>
+        <circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span>Compra Web</span>
+    </button>
+
+    <div class="nx-bottom-fab-slot">
+      <button type="button" class="nx-bottom-fab" data-nx-nav="soy-cajero" title="Soy Cajero · Escaneá y armá tu ticket">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+          <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+          <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+          <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+          <line x1="7" y1="12" x2="17" y2="12"></line>
+          <line x1="9" y1="8" x2="9" y2="16"></line>
+          <line x1="15" y1="8" x2="15" y2="16"></line>
+        </svg>
+      </button>
+      <span class="nx-bottom-fab-label">Soy Cajero</span>
+    </div>
+
+    <button type="button" class="nx-bottom-item" data-nx-nav="premios">
+      <svg class="cf-badge-svg" width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#092837" stroke="rgba(60,224,150,0.35)" stroke-width="1"/><path d="M7.5 22.2V13a5.5 5.5 0 0 1 5.5-5.5h6A5.5 5.5 0 0 1 24.5 13v6a5.5 5.5 0 0 1-5.5 5.5h-3.2" fill="none" stroke="#3ce096" stroke-width="2.8" stroke-linecap="round"/><path d="M11.8 23.5v-9.3a2.6 2.6 0 0 1 2.6-2.6h5.2M11.8 17.3h6.2" fill="none" stroke="#ffffff" stroke-width="3.1" stroke-linecap="round"/></svg>
+      <span>Premios</span>
+    </button>
+
+    <button type="button" class="nx-bottom-item" data-nx-nav="perfil">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+        <circle cx="12" cy="7" r="4"></circle>
+      </svg>
+      <span>Mi Perfil</span>
+    </button>
+  </nav>
+
+  <!-- ==========================================
+       MODAL: VISTA RÁPIDA DE PRODUCTO (QuickView cn.com.ar/productos)
+       ========================================== -->
+  <dialog id="product-detail-dialog" class="store-dialog store-dialog-wide" closedby="any" aria-labelledby="detail-dialog-title">
+    <div class="dialog-card">
+      <header class="dialog-header">
+        <div>
+          <span class="promo-eyebrow" id="detail-dialog-rubro">CATÁLOGO CASA NUEVA</span>
+          <h3 id="detail-dialog-title">Detalle del Producto</h3>
+        </div>
+        <button type="button" class="dialog-close-btn" data-close-dialog="product-detail-dialog" aria-label="Cerrar">✕</button>
+      </header>
+      <div class="dialog-body">
+        <div class="quickview-grid" id="quickview-content"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- =========================================================
+       MODAL UNIFICADO ESTILO REIKIONLINE (COLORES CASA NUEVA):
+       INGRESAR · REGISTRARME · RECUPERAR CONTRASEÑA
+       ========================================================= -->
+  <dialog id="login-dialog" class="store-dialog reiki-auth-dialog" closedby="any" aria-labelledby="login-dialog-title">
+    <div class="reiki-auth-card">
+      <header class="reiki-auth-header">
+        <div class="reiki-auth-brand">
+          <div class="reiki-brand-badge">
+            <img src="../sistema/assets/img/logo-full.png?v=75" alt="Casa Nueva" width="40" height="40" />
+          </div>
+          <h3 id="login-dialog-title">Ingresar</h3>
+        </div>
+        <button type="button" class="reiki-close-btn" data-close-dialog="login-dialog" aria-label="Cerrar ventana de acceso">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </header>
+
+      <div class="reiki-auth-body">
+        <!-- 1. MODO INGRESAR -->
+        <div id="auth-pane-login" class="reiki-auth-pane">
+          <form id="login-form" class="reiki-form-stack" method="dialog" autocomplete="on">
+            <div class="reiki-field">
+              <label for="login-identifier" class="reiki-label">Correo electrónico</label>
+              <input
+                type="text"
+                id="login-identifier"
+                name="username"
+                autocomplete="username"
+                spellcheck="false"
+                autocapitalize="none"
+                autocorrect="off"
+                enterkeyhint="next"
+                class="reiki-input"
+                required
+                placeholder="tucorreo@ejemplo.com"
+              />
+            </div>
+
+            <div class="reiki-field">
+              <div class="reiki-label-row">
+                <label for="login-password" class="reiki-label">Contraseña</label>
+                <button type="button" class="reiki-forgot-btn" id="btn-open-recover-mode">
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+              <div class="reiki-pwd-wrap">
+                <input
+                  type="password"
+                  id="login-password"
+                  name="password"
+                  autocomplete="current-password"
+                  enterkeyhint="done"
+                  class="reiki-input reiki-input--pwd"
+                  required
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  class="reiki-pwd-toggle"
+                  id="btn-toggle-login-pwd"
+                  aria-pressed="false"
+                  aria-label="Mostrar contraseña"
+                >
+                  <svg class="reiki-eye-open" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg class="reiki-eye-off" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                    <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"></path>
+                    <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"></path>
+                    <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"></path>
+                    <path d="m2 2 20 20"></path>
+                  </svg>
+                  <span class="reiki-pwd-toggle-text">Mostrar</span>
+                </button>
+              </div>
+            </div>
+
+            <div id="login-feedback" class="form-feedback" hidden></div>
+
+            <button type="submit" class="reiki-btn-primary" id="btn-login-submit">
+              Ingresar
+            </button>
+          </form>
+
+          <div id="google-gsi-btn-login" class="google-gsi-host" hidden style="margin-top:0.75rem;"></div>
+
+          <div class="reiki-or-divider" aria-hidden="true">
+            <span>o</span>
+          </div>
+
+          <div class="reiki-alt-grid">
+            <button type="button" class="reiki-btn-google" id="btn-google-login">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/>
+                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"/>
+                <path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"/>
+                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/>
+              </svg>
+              <span>Google</span>
+            </button>
+
+            <button type="button" class="reiki-btn-secondary-gold" id="btn-switch-to-register">
+              <span>Registrarme</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. MODO REGISTRARME (FORMATO REIKIONLINE EN COLORES CASA NUEVA) -->
+        <div id="auth-pane-register" class="reiki-auth-pane" hidden>
+          <div id="quick-reg-referral-banner" hidden style="margin-bottom:0.75rem; background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border:1.5px solid #16a34a; border-radius:10px; padding:0.6rem 0.75rem; display:flex; align-items:center; gap:0.55rem;">
+            <span style="font-size:1.15rem;">🎁</span>
+            <div style="font-size:0.77rem; color:#14532d; line-height:1.35;">
+              <strong id="quick-reg-referral-title" style="display:block; color:#15803d;">¡Invitación Club Fidel!</strong>
+              <span id="quick-reg-referral-desc">Al completar tu registro sumás <strong>+1.000 puntos</strong> gratis.</span>
+            </div>
+          </div>
+          <form id="quick-register-form" class="reiki-form-stack" autocomplete="on">
+            <div class="form-row-grid cols-2">
+              <div class="reiki-field">
+                <label for="quick-reg-nombre" class="reiki-label">Nombre</label>
+                <input
+                  type="text"
+                  id="quick-reg-nombre"
+                  name="given-name"
+                  autocomplete="given-name"
+                  enterkeyhint="next"
+                  class="reiki-input"
+                  required
+                  placeholder="Tu nombre"
+                />
+              </div>
+              <div class="reiki-field">
+                <label for="quick-reg-apellido" class="reiki-label">Apellido</label>
+                <input
+                  type="text"
+                  id="quick-reg-apellido"
+                  name="family-name"
+                  autocomplete="family-name"
+                  enterkeyhint="next"
+                  class="reiki-input"
+                  required
+                  placeholder="Tu apellido"
+                />
+              </div>
+            </div>
+
+            <div class="reiki-field">
+              <label for="quick-reg-email" class="reiki-label">Correo electrónico</label>
+              <input
+                type="email"
+                id="quick-reg-email"
+                name="email"
+                autocomplete="email"
+                spellcheck="false"
+                autocapitalize="none"
+                enterkeyhint="next"
+                class="reiki-input"
+                required
+                placeholder="tucorreo@ejemplo.com"
+              />
+            </div>
+
+            <div class="reiki-field">
+              <label for="quick-reg-password" class="reiki-label">Contraseña</label>
+              <div class="reiki-pwd-wrap">
+                <input
+                  type="password"
+                  id="quick-reg-password"
+                  name="new-password"
+                  autocomplete="new-password"
+                  enterkeyhint="done"
+                  minlength="4"
+                  class="reiki-input reiki-input--pwd"
+                  required
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  class="reiki-pwd-toggle"
+                  id="btn-toggle-quick-reg-pwd"
+                  aria-pressed="false"
+                  aria-label="Mostrar contraseña"
+                >
+                  <svg class="reiki-eye-open" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg class="reiki-eye-off" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                    <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"></path>
+                    <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"></path>
+                    <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"></path>
+                    <path d="m2 2 20 20"></path>
+                  </svg>
+                  <span class="reiki-pwd-toggle-text">Mostrar</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="reiki-field">
+              <label for="quick-reg-codigo-referido" class="reiki-label">🎁 Código de amigo (opcional · +1.000 pts)</label>
+              <input
+                type="text"
+                id="quick-reg-codigo-referido"
+                class="reiki-input"
+                placeholder="Ej: CF-106"
+                style="text-transform:uppercase; font-weight:700;"
+              />
+            </div>
+
+            <div id="quick-reg-feedback" class="form-feedback" hidden></div>
+
+            <button type="submit" class="reiki-btn-primary" id="btn-quick-reg-submit">
+              Registrarme
+            </button>
+          </form>
+
+          <div class="reiki-register-footer">
+            <button type="button" class="reiki-back-link" id="btn-back-to-login-from-reg">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m12 19-7-7 7-7"></path>
+                <path d="M19 12H5"></path>
+              </svg>
+              <span>Volver</span>
+            </button>
+
+            <button type="button" class="reiki-google-link" id="btn-google-from-quick-reg">
+              Google
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. MODO RECUPERAR CONTRASEÑA -->
+        <div id="auth-pane-recover" class="reiki-auth-pane" hidden>
+          <form id="recover-password-form" class="reiki-form-stack" autocomplete="on">
+            <div class="reiki-field">
+              <label for="recover-email-input" class="reiki-label">Correo electrónico</label>
+              <input
+                type="text"
+                id="recover-email-input"
+                name="email"
+                autocomplete="email"
+                spellcheck="false"
+                class="reiki-input"
+                required
+                placeholder="tucorreo@ejemplo.com"
+              />
+            </div>
+
+            <button type="submit" class="reiki-btn-primary" id="btn-recover-submit">
+              Enviar enlace
+            </button>
+          </form>
+
+          <div id="recover-sent-box" class="reiki-recover-sent" hidden></div>
+
+          <div class="reiki-register-footer reiki-register-footer--plain">
+            <button type="button" class="reiki-back-link" id="btn-back-to-login-from-recover">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m12 19-7-7 7-7"></path>
+                <path d="M19 12H5"></path>
+              </svg>
+              <span>Volver</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ==========================================
+       MODAL: REGISTRO / INGRESO RÁPIDO CON GOOGLE
+       ========================================== -->
+  <dialog id="google-auth-dialog" class="store-dialog reiki-auth-dialog" closedby="any" aria-labelledby="google-auth-dialog-title">
+    <form id="google-auth-form" class="reiki-auth-card" method="dialog" autocomplete="on">
+      <header class="reiki-auth-header">
+        <div class="reiki-auth-brand">
+          <div class="reiki-brand-badge">
+            <img src="../sistema/assets/img/logo-full.png?v=75" alt="Casa Nueva" width="40" height="40" />
+          </div>
+          <h3 id="google-auth-dialog-title" style="display:flex; align-items:center; gap:0.5rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"/>
+              <path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/>
+            </svg>
+            <span>Continuar con Google</span>
+          </h3>
+        </div>
+        <button type="button" class="reiki-close-btn" data-close-dialog="google-auth-dialog" aria-label="Cerrar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </header>
+
+      <div class="reiki-auth-body">
+        <div id="google-auth-referral-banner" hidden style="margin-bottom:0.75rem; background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border:1.5px solid #16a34a; border-radius:10px; padding:0.6rem 0.75rem; display:flex; align-items:center; gap:0.55rem;">
+          <span style="font-size:1.15rem;">🎁</span>
+          <div style="font-size:0.77rem; color:#14532d; line-height:1.35;">
+            <strong id="google-auth-referral-title" style="display:block; color:#15803d;">¡Invitación Club Fidel!</strong>
+            <span id="google-auth-referral-desc">Al registrarte con Google sumás <strong>+1.000 puntos</strong> gratis.</span>
+          </div>
+        </div>
+        <p class="dialog-lead" id="google-auth-lead" style="margin-bottom:0.85rem;">
+          Confirmá tu cuenta de Google y tu <strong>DNI / WhatsApp</strong> para habilitar los precios y obtener tu <strong>Credencial QR de Socio Club Fidel</strong>.
+        </p>
+
+        <!-- Contenedor nativo de Google Identity Services cuando el Client ID está activo -->
+        <div id="google-gsi-modal-render" class="google-gsi-host" hidden style="margin-bottom:0.85rem;"></div>
+
+        <input type="hidden" id="google-auth-sub" value="" />
+        <input type="hidden" id="google-auth-picture" value="" />
+
+        <div id="google-auth-photo-preview" class="reg-google-banner" hidden style="margin-bottom:0.75rem;">
+          <img id="google-auth-photo-img" src="../sistema/assets/img/icon-192.png" alt="Foto de Google" class="reg-google-avatar" referrerpolicy="no-referrer" />
+          <div class="reg-google-banner-text">
+            <strong id="google-auth-photo-name">Foto y datos de Google listos</strong>
+            <span>Podés corregir cualquier dato o continuar a la ficha completa.</span>
+          </div>
+        </div>
+
+        <div class="reiki-form-stack">
+          <div class="reiki-field">
+            <label for="google-auth-email" class="reiki-label">Correo de Google</label>
+            <input
+              type="email"
+              id="google-auth-email"
+              name="email"
+              autocomplete="email"
+              spellcheck="false"
+              class="reiki-input"
+              required
+              placeholder="tunombre@gmail.com"
+            />
+          </div>
+
+          <div class="form-row-grid cols-2">
+            <div class="reiki-field">
+              <label for="google-auth-nombre" class="reiki-label">Nombre</label>
+              <input
+                type="text"
+                id="google-auth-nombre"
+                name="given-name"
+                autocomplete="given-name"
+                class="reiki-input"
+                required
+                placeholder="Tu nombre"
+              />
+            </div>
+            <div class="reiki-field">
+              <label for="google-auth-apellido" class="reiki-label">Apellido</label>
+              <input
+                type="text"
+                id="google-auth-apellido"
+                name="family-name"
+                autocomplete="family-name"
+                class="reiki-input"
+                required
+                placeholder="Tu apellido"
+              />
+            </div>
+          </div>
+
+          <div class="form-row-grid cols-2">
+            <div class="reiki-field">
+              <label for="google-auth-dni" class="reiki-label">DNI o CUIT</label>
+              <input
+                type="text"
+                id="google-auth-dni"
+                inputmode="numeric"
+                class="reiki-input"
+                required
+                placeholder="Ej: 30123456"
+              />
+            </div>
+            <div class="reiki-field">
+              <label for="google-auth-celular" class="reiki-label">WhatsApp / Celular</label>
+              <input
+                type="tel"
+                id="google-auth-celular"
+                name="tel"
+                autocomplete="tel"
+                class="reiki-input"
+                required
+                placeholder="Ej: 3584198605"
+              />
+            </div>
+          </div>
+
+          <div class="reiki-field">
+            <label for="google-auth-codigo-referido" class="reiki-label">🎁 Código de amigo (opcional · +1.000 pts)</label>
+            <input
+              type="text"
+              id="google-auth-codigo-referido"
+              class="reiki-input"
+              placeholder="Ej: CF-106"
+              style="text-transform:uppercase; font-weight:700;"
+            />
+          </div>
+
+          <div id="google-auth-feedback" class="form-feedback" hidden></div>
+
+          <button type="submit" class="reiki-btn-primary" id="btn-google-auth-submit">
+            Continuar con Google
+          </button>
+        </div>
+
+        <!-- Configuración rápida de Google Client ID para el Administrador -->
+        <details class="google-admin-cfg" style="margin-top:0.85rem;">
+          <summary>⚙️ Configurar Client ID de Google Cloud (Administrador)</summary>
+          <div class="google-admin-cfg-body">
+            <label for="google-admin-client-id">ID de Cliente OAuth 2.0 (<code>...apps.googleusercontent.com</code>)</label>
+            <div style="display:flex; gap:0.4rem;">
+              <input
+                type="text"
+                id="google-admin-client-id"
+                spellcheck="false"
+                placeholder="Ej: 1234567890-abc123def.apps.googleusercontent.com"
+                style="flex:1; font-size:0.78rem; padding:0.42rem 0.6rem; border:1px solid var(--surface-border); border-radius:6px;"
+              />
+              <button type="button" class="btn-outline-theme" id="btn-save-google-client-id" style="padding:0.4rem 0.7rem; font-size:0.78rem;">
+                💾 Guardar
+              </button>
+            </div>
+            <small id="google-admin-cfg-status" style="display:block; margin-top:0.35rem; font-size:0.73rem; color:var(--text-secondary);">
+              Al guardar tu Client ID de Google Cloud Console, se activará el selector emergente oficial (One-Tap / Popup) de Google para todos los clientes.
+            </small>
+          </div>
+        </details>
+
+        <div class="reiki-register-footer">
+          <button type="button" class="reiki-back-link" id="btn-back-to-login-from-google">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m12 19-7-7 7-7"></path>
+              <path d="M19 12H5"></path>
+            </svg>
+            <span>Volver</span>
+          </button>
+          <button type="button" class="reiki-google-link" id="btn-google-fill-full-form">
+            Formulario fiscal completo
+          </button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ==========================================
+       MODAL: MI CARRITO / CONFIRMAR PEDIDO
+       ========================================== -->
+  <dialog id="cart-dialog" class="store-dialog store-dialog-wide" closedby="any" aria-labelledby="cart-dialog-title">
+    <div class="dialog-card">
+      <header class="dialog-header">
+        <div>
+          <span class="promo-eyebrow">PEDIDO ONLINE · CASA NUEVA SUPERMERCADO</span>
+          <h3 id="cart-dialog-title">🛒 Detalle de Mi Pedido</h3>
+        </div>
+        <button type="button" class="dialog-close-btn" data-close-dialog="cart-dialog" aria-label="Cerrar">✕</button>
+      </header>
+
+      <div class="dialog-body">
+        <div id="cart-items-container" class="cart-items-container"></div>
+
+        <div class="cart-summary-box">
+          <div class="form-field">
+            <label for="cart-order-notes">Observaciones para la entrega o preparación del pedido</label>
+            <input type="text" id="cart-order-notes" class="uppercase-input" placeholder="EJ: ENTREGAR POR LA MAÑANA / AVISAR AL LLEGAR" />
+          </div>
+          <div class="cart-totals-panel">
+            <span>Total Estimado del Pedido:</span>
+            <strong id="cart-modal-total">$ 0,00</strong>
+          </div>
+        </div>
+
+        <div id="cart-feedback" class="form-feedback" hidden></div>
+      </div>
+
+      <footer class="dialog-footer">
+        <button type="button" class="btn-ghost-danger" id="btn-clear-cart">
+          🗑️ Vaciar Carrito
+        </button>
+        <div class="dialog-footer-right">
+          <button type="button" class="btn-outline-theme" data-close-dialog="cart-dialog">
+            Seguir Comprando
+          </button>
+          <button type="button" class="btn-primary-theme" id="btn-submit-order">
+            ✅ Confirmar y Enviar Pedido
+          </button>
+        </div>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- Toast de notificaciones -->
+  <div id="store-toast" class="store-toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- ==========================================
+       FOOTER OSCURO (Idéntico a cn.com.ar/productos · Se oculta cuando el cliente está logueado)
+       ========================================== -->
+  <footer class="footer-dark store-footer" id="store-footer">
+    <div class="footer-columns">
+      <div class="footer-col footer-col-brand">
+        <div class="footer-brand-row">
+          <img src="../sistema/assets/img/logo-full.png?v=75" alt="Casa Nueva" width="48" height="48" loading="lazy" />
+          <div>
+            <strong>CASA NUEVA SUPERMERCADO</strong>
+            <span>Catálogo y Carrito Web Oficial</span>
+          </div>
+        </div>
+        <p class="footer-desc">
+          Plataforma en línea sincronizada en tiempo real con Casa Nueva Supermercado.
+        </p>
+        <div class="footer-socials">
+          <a href="https://wa.me/5493584198605" target="_blank" rel="noopener" class="social-pill" title="WhatsApp Casa Nueva">💬 WhatsApp</a>
+          <a href="https://www.facebook.com/casanuevasuper" target="_blank" rel="noopener" class="social-pill" title="Facebook Casa Nueva">📘 Facebook</a>
+          <a href="/sistema/" class="social-pill" title="Acceso Administración ERP">⚙️ Sistema ERP</a>
+        </div>
+      </div>
+
+      <div class="footer-col">
+        <h4>Horario Corrido</h4>
+        <ul>
+          <li>🕒 Lunes a viernes de 7,30 a 0 hs.</li>
+          <li>🕒 Sábados de 8 a 0 hs.</li>
+          <li>🕒 Domingos de 9 a 0 hs.</li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>Contacto</h4>
+        <ul>
+          <li>✉️ <a href="mailto:ventas@cn.com.ar">ventas@cn.com.ar</a></li>
+          <li>📱 <a href="https://wa.me/5493584198605" target="_blank" rel="noopener">3584198605 (WhatsApp)</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>Donde encontrarnos</h4>
+        <ul>
+          <li>📍 <a href="https://maps.app.goo.gl/JcWxK1TzMys6bAVH7" target="_blank" rel="noopener">Riveros Gigena N° 50 - Alcira Gigena (Córdoba)</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="store-footer-bottom">
+      <p>© Casa Nueva Supermercado · Todos los derechos reservados.</p>
+    </div>
+  </footer>
+
+  <!-- MODAL CREDENCIAL QR CLUB FIDEL (DIRECTAMENTE LA CREDENCIAL 9:16 + BAJAR PNG) -->
+  <dialog id="store-club-qr-dialog" class="store-dialog nx-credencial-dialog" closedby="any" aria-label="Credencial Club Fidel">
+    <div class="nx-credencial-popup">
+      <div class="nx-credencial-toolbar">
+        <button type="button" class="btn-primary-theme nx-credencial-download-btn" id="btn-store-download-qr">
+          📥 Bajar Imagen
+        </button>
+        <button type="button" class="nx-credencial-close-btn" data-close-dialog="store-club-qr-dialog" aria-label="Cerrar">✕</button>
+      </div>
+      <canvas id="store-qr-preview-canvas" width="1080" height="1920" aria-label="Vista previa de tu Credencial Club Fidel"></canvas>
+    </div>
+  </dialog>
+
+  <!-- =========================================================
+       MODAL VISOR Y DESCARGA DE COMPROBANTE PDF EN FORMATO A4
+       ========================================================= -->
+  <dialog id="nx-comprobante-a4-dialog" class="store-dialog nx-a4-dialog" aria-label="Vista previa de comprobante">
+    <div class="dialog-card nx-a4-dialog-surface">
+      <header class="dialog-header nx-a4-dialog-header">
+        <div class="nx-a4-dialog-actions">
+          <button type="button" class="btn-primary-theme" id="btn-nx-download-a4-pdf">
+            📥 Bajar PDF (Formato A4)
+          </button>
+          <button type="button" class="btn-outline-theme" id="btn-nx-print-a4">
+            🖨️ Imprimir A4
+          </button>
+          <button type="button" class="dialog-close-btn" id="btn-nx-close-a4-dialog" data-close-dialog="nx-comprobante-a4-dialog" aria-label="Cerrar">✕</button>
+        </div>
+      </header>
+      <div class="dialog-body nx-a4-dialog-body">
+        <div id="nx-a4-preview-stage" class="nx-a4-preview-stage"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- =========================================================
+       MODAL TICKET DE RETIRO DE CANJE PARA PRESENTAR EN SUPERMERCADO
+       ========================================================= -->
+  <dialog id="nx-canje-ticket-dialog" class="store-dialog" closedby="any" aria-labelledby="nx-canje-ticket-title">
+    <div class="dialog-card" style="max-width:440px; width:94vw; margin:auto;">
+      <header class="dialog-header">
+        <div>
+          <span class="promo-eyebrow">CLUB FIDEL · CASA NUEVA</span>
+          <h3 id="nx-canje-ticket-title">🎫 Ticket de Retiro de Canje</h3>
+        </div>
+        <button type="button" class="dialog-close-btn" id="btn-nx-close-canje-ticket" data-close-dialog="nx-canje-ticket-dialog" aria-label="Cerrar">✕</button>
+      </header>
+      <div class="dialog-body" style="padding:1rem;">
+        <div id="nx-canje-ticket-stage"></div>
+      </div>
+      <footer class="dialog-footer" style="display:flex; justify-content:space-between; gap:0.65rem; flex-wrap:wrap;">
+        <button type="button" class="btn-primary-theme" id="btn-nx-print-canje-ticket" style="flex:1 1 180px; justify-content:center;">
+          🖨️ Imprimir / Guardar Ticket
+        </button>
+        <button type="button" class="btn-outline-theme" id="btn-nx-done-canje-ticket" data-close-dialog="nx-canje-ticket-dialog" style="flex:1 1 110px; justify-content:center;">
+          Cerrar
+        </button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- =========================================================
+       VENTANA EMERGENTE PROMOCIONAL (SOLO CLIENTES LOGUEADOS)
+       Optimizada para Android e iOS (1080 × 1350 px · 4:5 vertical)
+       ========================================================= -->
+  <div id="logged-promo-popup-overlay" class="logged-promo-popup-overlay" hidden role="dialog" aria-modal="true" aria-label="Promoción exclusiva para clientes registrados">
+    <div class="logged-promo-popup-card" id="logged-promo-popup-card">
+      <div class="logged-promo-popup-progress" id="logged-promo-popup-progress" hidden>
+        <div class="logged-promo-popup-progress-bar" id="logged-promo-popup-progress-bar"></div>
+      </div>
+      <div class="logged-promo-popup-top">
+        <span class="logged-promo-popup-badge" id="logged-promo-popup-badge">✨ PROMO EXCLUSIVA</span>
+        <div class="logged-promo-popup-actions">
+          <span class="logged-promo-popup-timer" id="logged-promo-popup-timer" hidden>6s</span>
+          <button type="button" class="logged-promo-popup-close" id="btn-close-logged-promo-popup" aria-label="Cerrar promoción" title="Cerrar">✕</button>
+        </div>
+      </div>
+      <div class="logged-promo-popup-stage" id="logged-promo-popup-stage"></div>
+      <div class="logged-promo-popup-footer" id="logged-promo-popup-footer" hidden>
+        <div class="logged-promo-popup-dots" id="logged-promo-popup-dots"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       BOTONES FLOTANTES FIJOS ABAJO (Diseño y ubicación Reikionline + WhatsApp, colores Casa Nueva)
+       ========================================================= -->
+  <div class="store-floating-dock" id="store-floating-dock" aria-label="Accesos rápidos">
+    <button
+      type="button"
+      class="floating-login-pill"
+      id="btn-open-login"
+      title="Iniciar Sesión o Registrarme"
+      aria-label="Iniciar Sesión"
+    >
+      <span class="floating-login-brand" aria-hidden="true">
+        <img src="../sistema/assets/img/logo-full.png?v=75" alt="" width="38" height="38" />
+      </span>
+      <span class="floating-login-label">Iniciar Sesión</span>
+      <span class="floating-login-arrow" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 7h10v10"></path>
+          <path d="M7 17 17 7"></path>
+        </svg>
+      </span>
+    </button>
+
+    <a
+      href="https://wa.me/5493584198605"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="floating-whatsapp-fab"
+      id="floating-whatsapp-btn"
+      title="Escribinos por WhatsApp (+54 9 3584 19-8605)"
+      aria-label="Contactar por WhatsApp al +54 9 3584 19-8605"
+    >
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+        <path d="M16.004 3.2c-7.068 0-12.8 5.731-12.8 12.8 0 2.257.589 4.46 1.708 6.402L3.104 28.8l6.564-1.722a12.748 12.748 0 0 0 6.332 1.688h.005c7.066 0 12.795-5.731 12.795-12.8 0-3.42-1.332-6.636-3.751-9.055A12.712 12.712 0 0 0 16.004 3.2zm0 23.404h-.004a10.61 10.61 0 0 1-5.408-1.481l-.388-.23-3.895 1.022 1.039-3.797-.253-.402a10.59 10.59 0 0 1-1.629-5.65c0-5.869 4.775-10.644 10.646-10.644 2.842 0 5.514 1.108 7.523 3.118a10.575 10.575 0 0 1 3.115 7.527c0 5.871-4.775 10.646-10.746 10.646zm5.839-7.969c-.32-.16-1.894-.935-2.188-1.042-.293-.107-.507-.16-.72.16-.214.32-.827 1.042-1.014 1.255-.187.214-.374.24-.694.08-.32-.16-1.351-.498-2.573-1.588-.951-.848-1.594-1.897-1.78-2.217-.187-.32-.02-.493.14-.653.144-.144.32-.374.48-.56.16-.187.213-.32.32-.534.107-.213.053-.4-.027-.56-.08-.16-.72-1.735-.987-2.376-.26-.624-.524-.539-.72-.549l-.614-.011c-.213 0-.56.08-.854.4-.293.32-1.121 1.095-1.121 2.67 0 1.575 1.148 3.097 1.308 3.311.16.213 2.259 3.449 5.472 4.836.764.33 1.361.527 1.826.675.767.244 1.466.209 2.018.127.616-.092 1.894-.774 2.161-1.522.267-.747.267-1.388.187-1.522-.08-.133-.294-.213-.614-.373z"/>
+      </svg>
+    </a>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+  <script src="assets/js/zxing.min.js?v=v48-20261118140309"></script>
+  <script src="assets/js/carrito.js?v=v48-20261118140309"></script>
+</body>
+</html>

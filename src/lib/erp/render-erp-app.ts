@@ -252,16 +252,33 @@ export function renderErpHtmlResponse(params: {
     `$1src="${brand.logoSymbolUrl}"`
   );
 
-  // 5. Asegurar carga de brand.js actualizado y superadmin-panel.js en /sistema
-  html = html.replace(
-    /src="(?:\.\.\/sistema\/)?assets\/js\/brand\.js[^"]*"/gi,
-    'src="/sistema/assets/js/brand.js?v=2"'
-  );
+  // 5. Asegurar carga de brand.js, app.js, styles.css y superadmin-panel.js actualizados sin caché vieja
+  html = html
+    .replace(
+      /src="(?:\.\.\/sistema\/)?assets\/js\/brand\.js[^"]*"/gi,
+      'src="/sistema/assets/js/brand.js?v=268"'
+    )
+    .replace(
+      /href="assets\/css\/styles\.css[^"]*"/gi,
+      'href="assets/css/styles.css?v=268"'
+    )
+    .replace(
+      /src="assets\/js\/app\.js[^"]*"/gi,
+      'src="assets/js/app.js?v=268"'
+    )
+    .replace(
+      /href="assets\/css\/carrito\.css[^"]*"/gi,
+      'href="assets/css/carrito.css?v=268"'
+    )
+    .replace(
+      /src="assets\/js\/carrito\.js[^"]*"/gi,
+      'src="assets/js/carrito.js?v=268"'
+    );
 
   if (kind === "sistema") {
     html = html.replace(
       "</body>",
-      '  <script src="/sistema/assets/js/superadmin-panel.js?v=2"></script>\n</body>'
+      '  <script src="/sistema/assets/js/superadmin-panel.js?v=268"></script>\n</body>'
     );
   }
 

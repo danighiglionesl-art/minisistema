@@ -1,0 +1,20 @@
+import { NextRequest } from "next/server";
+import { dispatchErpEndpoint } from "@/lib/erp/dispatch-endpoint";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ endpoint: string }> }
+) {
+  const { endpoint } = await context.params;
+  return dispatchErpEndpoint(req, endpoint);
+}
+
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<{ endpoint: string }> }
+) {
+  const { endpoint } = await context.params;
+  return dispatchErpEndpoint(req, endpoint);
+}

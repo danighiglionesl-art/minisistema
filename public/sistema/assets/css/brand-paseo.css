@@ -1,0 +1,438 @@
+/* ==========================================================================
+   PASEO ALBERDI SUPERMERCADO · SISTEMA DE IDENTIDAD VISUAL OFICIAL (V1.0)
+   Manual de Marca:
+   - Verde lima: HEX #BDF200 | RGB 189 / 242 / 0
+   - Blanco:     HEX #FFFFFF | RGB 255 / 255 / 255
+   - Carbón:     HEX #1C1B1E | RGB 28 / 27 / 30
+   - Tipografía de apoyo: Nunito Sans
+   - Regla principal: Mantener fondo oscuro Carbón (#1C1B1E) en marcas aprobadas,
+     respetar proporciones y >=10% de área libre sin recrear el logotipo con fuente.
+   ========================================================================== */
+
+html[data-brand="paseo-alberdi"] {
+  /* Variables del Sistema ERP (/sistema) */
+  --pa-lime: #BDF200;
+  --pa-lime-hover: #aee000;
+  --pa-lime-ink-on-light: #4a6200;
+  --pa-carbon: #1C1B1E;
+  --pa-carbon-elevated: #262529;
+  --pa-white: #FFFFFF;
+
+  --gold-light: #5c7800;
+  --gold-main: #BDF200;
+  --gold-dark: #3f5400;
+  --gold-border: rgba(189, 242, 0, 0.52);
+  --gold-glow: rgba(189, 242, 0, 0.24);
+
+  /* Variables del Catálogo & Carrito Web (/carrito) */
+  --theme-default: #BDF200;
+  --theme-default-hover: #a8d900;
+  --theme-default-soft: rgba(189, 242, 0, 0.16);
+  --theme-default-border: rgba(189, 242, 0, 0.55);
+  --theme-secondary: #1C1B1E;
+
+  /* Tipografía de apoyo oficial: Nunito Sans */
+  --font-sans: 'Nunito Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Nunito Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+html[data-brand="paseo-alberdi"][data-theme="dark"] {
+  --gold-light: #d0ff38;
+  --gold-main: #BDF200;
+  --gold-dark: #BDF200;
+  --pa-lime-ink-on-light: #BDF200;
+}
+
+html[data-brand="paseo-alberdi"] body,
+html[data-brand="paseo-alberdi"] input,
+html[data-brand="paseo-alberdi"] select,
+html[data-brand="paseo-alberdi"] textarea,
+html[data-brand="paseo-alberdi"] button {
+  font-family: var(--font-sans);
+}
+
+/* Focus accesible en Verde Lima */
+html[data-brand="paseo-alberdi"] input:focus-visible,
+html[data-brand="paseo-alberdi"] select:focus-visible,
+html[data-brand="paseo-alberdi"] button:focus-visible,
+html[data-brand="paseo-alberdi"] a:focus-visible {
+  outline: 3px solid rgba(189, 242, 0, 0.65);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   1. PANTALLA DE LOGIN (/sistema) - Versión Vertical 1x1 sobre Carbón #1C1B1E
+   ========================================================================== */
+html[data-brand="paseo-alberdi"] #login-view.auth-wrapper {
+  background: radial-gradient(circle at 50% 0%, rgba(189, 242, 0, 0.10) 0%, transparent 55%), #141316;
+}
+
+html[data-brand="paseo-alberdi"] .brand-emblem-wrap {
+  width: 196px;
+  height: 196px;
+  margin: 0 auto 1.15rem;
+  padding: 12px;
+  background-color: #1C1B1E;
+  border-radius: 20px;
+  border: 1.5px solid rgba(189, 242, 0, 0.38);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+html[data-brand="paseo-alberdi"] .brand-emblem {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background-color: #1C1B1E;
+  border-radius: 12px;
+  filter: none !important;
+}
+
+html[data-brand="paseo-alberdi"] #login-view .auth-card {
+  background: #1C1B1E;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-top: 3px solid #BDF200;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.5);
+}
+
+html[data-brand="paseo-alberdi"] #login-view .brand-title {
+  color: #FFFFFF;
+}
+
+html[data-brand="paseo-alberdi"] #login-view .brand-subtitle,
+html[data-brand="paseo-alberdi"] #login-view .field-hint,
+html[data-brand="paseo-alberdi"] #login-view .pwa-banner {
+  color: rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+html[data-brand="paseo-alberdi"] #login-view .form-label {
+  color: #FFFFFF;
+}
+
+html[data-brand="paseo-alberdi"] #login-view .form-input {
+  background-color: #262529;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #FFFFFF;
+}
+
+html[data-brand="paseo-alberdi"] #login-view .form-input:focus {
+  background-color: #2d2c31;
+  border-color: #BDF200;
+  box-shadow: 0 0 0 3px rgba(189, 242, 0, 0.22);
+}
+
+/* ==========================================================================
+   2. BOTONES PRINCIPALES Y ACENTOS (Verde Lima #BDF200 + Texto Carbón #1C1B1E)
+   Contraste AAA 13.9:1 para legibilidad inmediata en salón y cajas
+   ========================================================================== */
+html[data-brand="paseo-alberdi"] .btn-primary,
+html[data-brand="paseo-alberdi"] .btn-primary-theme,
+html[data-brand="paseo-alberdi"] .btn-header-search,
+html[data-brand="paseo-alberdi"] .pwa-update-toast__btn {
+  background: #BDF200 !important;
+  border-color: #a6d600 !important;
+  color: #1C1B1E !important;
+  font-weight: 800 !important;
+  box-shadow: 0 3px 10px rgba(189, 242, 0, 0.25);
+}
+
+html[data-brand="paseo-alberdi"] .btn-primary:hover:not(:disabled),
+html[data-brand="paseo-alberdi"] .btn-primary-theme:hover:not(:disabled),
+html[data-brand="paseo-alberdi"] .btn-header-search:hover:not(:disabled) {
+  background: #aee000 !important;
+  border-color: #98c400 !important;
+  color: #1C1B1E !important;
+}
+
+html[data-brand="paseo-alberdi"] .btn-outline-theme {
+  border-color: #BDF200 !important;
+  color: #FFFFFF !important;
+  background: rgba(189, 242, 0, 0.12) !important;
+}
+
+html[data-brand="paseo-alberdi"] .btn-outline-theme:hover {
+  background: #BDF200 !important;
+  color: #1C1B1E !important;
+}
+
+/* ==========================================================================
+   3. CABECERA SUPERIOR DEL ERP (/sistema .erp-topbar)
+   Fondo Carbón #1C1B1E + Logotipo Horizontal Oficial (Manual pág. 4 y 8)
+   ========================================================================== */
+html[data-brand="paseo-alberdi"] .erp-topbar {
+  background: #1C1B1E !important;
+  border-block-end: 2.5px solid #BDF200 !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
+  padding: 0.6rem 1.35rem;
+}
+
+html[data-brand="paseo-alberdi"] .topbar-brand {
+  background: #1C1B1E;
+  padding: 0.2rem 0.4rem;
+  gap: 0;
+}
+
+html[data-brand="paseo-alberdi"] .topbar-icon {
+  width: auto !important;
+  height: 46px !important;
+  max-width: 230px;
+  object-fit: contain !important;
+  background: #1C1B1E;
+  border-radius: 6px;
+  filter: none !important;
+}
+
+/* No reconstruir el nombre con fuente al lado del logo horizontal oficial (Manual pág. 2) */
+html[data-brand="paseo-alberdi"] .topbar-titles {
+  display: none !important;
+}
+
+html[data-brand="paseo-alberdi"] .omnibox-icon {
+  color: #4d6600 !important;
+}
+
+html[data-brand="paseo-alberdi"] .omnibox-input:focus {
+  border-color: #BDF200 !important;
+  box-shadow: 0 0 0 3px rgba(189, 242, 0, 0.32) !important;
+}
+
+html[data-brand="paseo-alberdi"] .user-avatar {
+  background: #BDF200 !important;
+  color: #1C1B1E !important;
+  font-weight: 900 !important;
+}
+
+html[data-brand="paseo-alberdi"] .user-meta span,
+html[data-brand="paseo-alberdi"] .topbar-titles p {
+  color: #BDF200 !important;
+}
+
+html[data-brand="paseo-alberdi"] .nav-tab.is-active,
+html[data-brand="paseo-alberdi"] .omnibox-item:hover,
+html[data-brand="paseo-alberdi"] .omnibox-item.is-highlighted {
+  background: rgba(189, 242, 0, 0.18) !important;
+  border-color: #94bd00 !important;
+  color: #1C1B1E !important;
+}
+
+html[data-brand="paseo-alberdi"][data-theme="dark"] .nav-tab.is-active {
+  color: #BDF200 !important;
+}
+
+html[data-brand="paseo-alberdi"] .badge--gold {
+  background: #1C1B1E !important;
+  color: #BDF200 !important;
+  border: 1px solid rgba(189, 242, 0, 0.55) !important;
+}
+
+/* ==========================================================================
+   4. CATÁLOGO & CARRITO WEB (/carrito)
+   Header Carbón #1C1B1E con Logotipo Horizontal Oficial + Acentos Verde Lima
+   ========================================================================== */
+html[data-brand="paseo-alberdi"] .page-header.store-header {
+  background-color: #1C1B1E !important;
+  border-bottom: 2.5px solid #BDF200 !important;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
+}
+
+html[data-brand="paseo-alberdi"] .store-header .toggle-sidebar-btn {
+  background: #262529;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #FFFFFF;
+}
+
+html[data-brand="paseo-alberdi"] .store-header .toggle-sidebar-btn:hover {
+  border-color: #BDF200;
+  color: #BDF200;
+}
+
+html[data-brand="paseo-alberdi"] .store-brand-logo {
+  width: auto !important;
+  height: 48px !important;
+  max-width: 225px;
+  padding: 2px 6px !important;
+  background: #1C1B1E !important;
+  border: none !important;
+  border-radius: 8px !important;
+  object-fit: contain !important;
+}
+
+html[data-brand="paseo-alberdi"] .store-brand-text {
+  display: none !important;
+}
+
+html[data-brand="paseo-alberdi"] .logged-user-chip {
+  background: #262529 !important;
+  border-color: rgba(189, 242, 0, 0.4) !important;
+  color: #FFFFFF !important;
+}
+
+html[data-brand="paseo-alberdi"] .logged-user-chip strong {
+  color: #FFFFFF !important;
+}
+
+html[data-brand="paseo-alberdi"] .logged-user-chip small {
+  color: #BDF200 !important;
+}
+
+html[data-brand="paseo-alberdi"] .store-footer {
+  background: #1C1B1E !important;
+  border-top: 3px solid #BDF200 !important;
+}
+
+html[data-brand="paseo-alberdi"] .store-footer img {
+  width: auto !important;
+  height: 52px !important;
+  background: #1C1B1E;
+  object-fit: contain;
+}
+
+html[data-brand="paseo-alberdi"] .pa-maps-address-link {
+  color: #f4f4f5 !important;
+  text-decoration: none;
+  line-height: 1.45;
+  transition: color 0.16s ease;
+}
+
+html[data-brand="paseo-alberdi"] .pa-maps-address-link:hover {
+  color: #BDF200 !important;
+  text-decoration: underline;
+}
+
+html[data-brand="paseo-alberdi"] .pa-maps-cta-wrap {
+  margin-top: 0.45rem;
+}
+
+html[data-brand="paseo-alberdi"] .pa-maps-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(189, 242, 0, 0.55);
+  background: rgba(189, 242, 0, 0.12);
+  color: #BDF200 !important;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-decoration: none !important;
+  transition: background-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+html[data-brand="paseo-alberdi"] .pa-maps-pill:hover {
+  background: #BDF200;
+  color: #1C1B1E !important;
+  transform: translateY(-1px);
+}
+
+/* Botones flotantes fijos abajo a la derecha (Acceso + Icono fijo de WhatsApp) */
+html[data-brand="paseo-alberdi"] .store-floating-dock {
+  position: fixed !important;
+  right: 1.5rem !important;
+  bottom: 1.5rem !important;
+  z-index: 98 !important;
+}
+
+html[data-brand="paseo-alberdi"] body.has-nx-bottom-nav .store-floating-dock {
+  bottom: calc(68px + 0.85rem) !important;
+}
+
+html[data-brand="paseo-alberdi"] .floating-login-pill {
+  background: #1C1B1E !important;
+  border-color: #BDF200 !important;
+  color: #FFFFFF !important;
+}
+
+html[data-brand="paseo-alberdi"] .floating-login-pill:hover {
+  background: #27262b !important;
+  border-color: #d1ff26 !important;
+}
+
+html[data-brand="paseo-alberdi"] .floating-login-brand {
+  background: #1C1B1E !important;
+  border-color: rgba(189, 242, 0, 0.65) !important;
+}
+
+html[data-brand="paseo-alberdi"] .floating-login-arrow {
+  background: #BDF200 !important;
+  color: #1C1B1E !important;
+}
+
+html[data-brand="paseo-alberdi"] #floating-whatsapp-btn {
+  display: inline-flex !important;
+  width: 58px;
+  height: 58px;
+  border: 2.5px solid #FFFFFF;
+  box-shadow: 0 12px 28px rgba(22, 163, 74, 0.48);
+}
+
+/* ==========================================================================
+   5. CLUB FIDEL Y VERIFICADOR DE PRECIOS EN SALÓN
+   ========================================================================== */
+html[data-brand="paseo-alberdi"] .club-previo-hero {
+  background: #FFFFFF !important;
+  border-color: #BDF200 !important;
+}
+
+html[data-brand="paseo-alberdi"] .club-previo-mascot-wrap {
+  background: #FFFFFF !important;
+  padding: 0 !important;
+  border-radius: 16px !important;
+  border: none !important;
+}
+
+html[data-brand="paseo-alberdi"] .club-previo-mascot {
+  object-fit: contain !important;
+  background: #FFFFFF !important;
+  border-radius: 14px !important;
+}
+
+html[data-brand="paseo-alberdi"] #sec-verificador-precios,
+html[data-brand="paseo-alberdi"] .verificador-salon-stage,
+html[data-brand="paseo-alberdi"] .verificador-salon-stage:fullscreen,
+html[data-brand="paseo-alberdi"] .verificador-salon-stage.is-salon-fullscreen {
+  background: #1C1B1E !important;
+  color: #FFFFFF !important;
+}
+
+html[data-brand="paseo-alberdi"] .verificador-standby-title {
+  color: #BDF200 !important;
+  letter-spacing: 0.06em;
+}
+
+html[data-brand="paseo-alberdi"] .verificador-scan-icon {
+  color: #4d6600 !important;
+}
+
+html[data-brand="paseo-alberdi"] .verificador-input {
+  border: 3px solid #BDF200 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+}
+
+html[data-brand="paseo-alberdi"] .verificador-cachita-avatar-wrap {
+  background: #1C1B1E !important;
+  padding: 16px !important;
+  border-radius: 24px !important;
+  border: 2px solid rgba(189, 242, 0, 0.45) !important;
+  max-width: 280px;
+}
+
+html[data-brand="paseo-alberdi"] .verificador-cachita-img {
+  background: #1C1B1E !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  border-radius: 14px !important;
+}
+
+html[data-brand="paseo-alberdi"] .verificador-speech-bubble {
+  border: 3px solid #BDF200 !important;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Impresión de tickets 78mm y Facturas A4: fondo Carbón en contenedor de logo aprobado */
+html[data-brand="paseo-alberdi"] .t78-logo,
+html[data-brand="paseo-alberdi"] .a4-logo-img {
+  background: #1C1B1E !important;
+  padding: 6px 10px !important;
+  border-radius: 6px !important;
+  object-fit: contain !important;
+}
