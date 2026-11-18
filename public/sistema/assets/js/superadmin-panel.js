@@ -1,17 +1,16 @@
 /* ==========================================================================
-   PANEL EXCLUSIVO DEL ADMINISTRADOR GENERAL (@danielg) — MINISISTEMA ERP
-   1. Habilitación de nuevos comercios:
-      - Opción 1: www.nuevoerp.com.ar/sistema (Dominio propio Vercel+GitHub + Marca propia)
-      - Opción 2: www.minisistema.com.ar/nuevosistema (Subruta + Marca MiniSistema)
-   2. Habilitación de Administradores y Usuarios por comercio.
-   3. Módulo de Obtención de Valor Mensual, Descuentos (Temporales ej. 3 meses o
-      Permanentes) y Adhesión a Débito Automático con Mercado Pago.
+   MÓDULO EXCLUSIVO DEL ADMINISTRADOR GENERAL (@danielg) — MINISISTEMA ERP
+   Integrado con el diseño nativo de Módulos y Submódulos (.erp-section / .modules-grid / .module-card):
+   1. Comercios Habilitados (y gestión de Administradores / Usuarios por comercio)
+   2. Habilitar Nuevo Sistema (Opción 1 / Opción 2) con selección visual por tarjetas de módulos
+   3. Valor Mensual, Descuentos y Mercado Pago
+   4. Credenciales API (MP · GitHub · Vercel)
    ========================================================================== */
 (function () {
   'use strict';
 
   var STATE_SA = {
-    activeTab: 'tenants',
+    activeView: 'menu', // 'menu' | 'tenants' | 'new' | 'pricing' | 'secrets'
     data: null,
     loading: false,
     quoteOptionType: 1,
@@ -34,6 +33,31 @@
     maximumFractionDigits: 0
   });
 
+  var MODULE_ICONS_SVG = {
+    facturacion:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="14" y2="12"></line><line x1="6" y1="16" x2="10" y2="16"></line></svg>',
+    articulos:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>',
+    clientes:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
+    proveedores:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>',
+    fondos:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M3 10h18"></path><polygon points="12 3 20 7 4 7"></polygon><line x1="6" y1="10" x2="6" y2="17"></line><line x1="10" y1="10" x2="10" y2="17"></line><line x1="14" y1="10" x2="14" y2="17"></line><line x1="18" y1="10" x2="18" y2="17"></line></svg>',
+    carrito:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>',
+    fidelizacion:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
+    whatsapp:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>',
+    estadisticas:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>',
+    verificador:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5v14"></path><path d="M8 5v14"></path><path d="M12 5v14"></path><path d="M17 5v14"></path><path d="M21 5v14"></path></svg>',
+    manual_usuario:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>'
+  };
+
   function esc(str) {
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;')
@@ -49,7 +73,9 @@
     }
     try {
       var pfx = (window.ERP_BRAND && window.ERP_BRAND.storagePrefix) || 'ms_minisistema_';
-      var raw = sessionStorage.getItem(pfx + 'erp_active_admin_v1') || localStorage.getItem(pfx + 'erp_active_admin_v1');
+      var raw =
+        sessionStorage.getItem(pfx + 'erp_active_admin_v1') ||
+        localStorage.getItem(pfx + 'erp_active_admin_v1');
       if (raw) return JSON.parse(raw);
     } catch (_e) {}
     return null;
@@ -74,53 +100,176 @@
     return res.json();
   }
 
-  function ensureDialogMounted() {
-    var existing = document.getElementById('ms-superadmin-dialog');
-    if (existing) return existing;
+  function getViewTitle(viewKey) {
+    if (viewKey === 'tenants') return 'Comercios Habilitados';
+    if (viewKey === 'new') return 'Habilitar Nuevo Sistema (Opción 1 / 2)';
+    if (viewKey === 'pricing') return 'Valor Mensual, Descuentos y Mercado Pago';
+    if (viewKey === 'secrets') return 'Credenciales API (MP · GitHub · Vercel)';
+    return 'Administrador General';
+  }
 
-    var dlg = document.createElement('dialog');
-    dlg.id = 'ms-superadmin-dialog';
-    dlg.className = 'ms-sa-dialog';
-    dlg.innerHTML =
-      '<div class="ms-sa-header">' +
-        '<div style="display:flex;align-items:center;gap:0.85rem;">' +
-          '<img src="/sistema/assets/img/minisistema/logo-symbol.png" alt="MiniSistema" style="width:40px;height:40px;border-radius:10px;background:#fff;padding:3px;object-fit:contain;">' +
-          '<div>' +
-            '<div style="font-size:1.1rem;font-weight:800;color:#FFFFFF;">Panel de Administrador General · @danielg</div>' +
-            '<div style="font-size:0.78rem;color:#56D7A1;">Comercialización Multi-Sistema · Supabase Independiente · Abonos Mercado Pago</div>' +
+  function ensureSectionsMounted() {
+    var erpMain = document.querySelector('.erp-main');
+    if (!erpMain) return null;
+
+    var menuSec = document.getElementById('sec-menu-superadmin');
+    var detailSec = document.getElementById('sec-superadmin-detail');
+
+    if (!menuSec) {
+      menuSec = document.createElement('section');
+      menuSec.id = 'sec-menu-superadmin';
+      menuSec.className = 'erp-section';
+      menuSec.hidden = true;
+      menuSec.innerHTML =
+        '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
+          '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
+            '<button type="button" class="btn-back-home" id="ms-sa-back-home-btn">← Volver a Pantalla Principal</button>' +
+            '<span class="module-breadcrumb">ERP en Línea · <strong>Administrador General (@danielg)</strong></span>' +
+          '</div>' +
+          '<div style="display:inline-flex;align-items:center;gap:0.65rem;background:#112D3A;border:1.5px solid #56D7A1;border-radius:12px;padding:0.35rem 0.85rem;">' +
+            '<img src="/sistema/assets/img/minisistema/logo-horizontal.png" alt="MiniSistema" style="height:26px;width:auto;object-fit:contain;background:#112D3A;display:block;">' +
+            '<span style="background:#56D7A1;color:#112D3A;font-size:0.68rem;font-weight:900;padding:0.15rem 0.5rem;border-radius:999px;">EXCLUSIVO @danielg</span>' +
           '</div>' +
         '</div>' +
-        '<button type="button" id="ms-sa-close-btn" class="ms-sa-btn" style="padding:0.45rem 0.85rem;">✕ Cerrar</button>' +
-      '</div>' +
-      '<div class="ms-sa-tabs" id="ms-sa-tabs">' +
-        '<button type="button" class="ms-sa-tab is-active" data-tab="tenants">🏢 Comercios Habilitados</button>' +
-        '<button type="button" class="ms-sa-tab" data-tab="new">🚀 Habilitar Nuevo Sistema (Opción 1 / 2)</button>' +
-        '<button type="button" class="ms-sa-tab" data-tab="pricing">💳 Valor Mensual, Descuentos y Mercado Pago</button>' +
-        '<button type="button" class="ms-sa-tab" data-tab="secrets">🔐 Credenciales API (MP · GitHub · Vercel)</button>' +
-      '</div>' +
-      '<div id="ms-sa-feedback" style="display:none;margin:0.85rem 1.5rem 0;padding:0.75rem 1rem;border-radius:10px;font-weight:700;font-size:0.86rem;"></div>' +
-      '<div class="ms-sa-body" id="ms-sa-body">Cargando datos...</div>';
+        '<div class="modules-grid" aria-label="Submódulos de Administrador General">' +
+          '<article class="module-card" role="button" tabindex="0" data-sa-open-view="tenants">' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                '<rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>' +
+                '<path d="M9 22v-4h6v4"></path>' +
+                '<path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path>' +
+                '<path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path>' +
+                '<path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path>' +
+              '</svg>' +
+            '</div>' +
+            '<h3>Comercios Habilitados</h3>' +
+          '</article>' +
+          '<article class="module-card" role="button" tabindex="0" data-sa-open-view="new">' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                '<circle cx="12" cy="12" r="10"></circle>' +
+                '<line x1="12" y1="8" x2="12" y2="16"></line>' +
+                '<line x1="8" y1="12" x2="16" y2="12"></line>' +
+              '</svg>' +
+            '</div>' +
+            '<h3>Habilitar Nuevo Sistema (Opción 1 / 2)</h3>' +
+          '</article>' +
+          '<article class="module-card" role="button" tabindex="0" data-sa-open-view="pricing">' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                '<rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>' +
+                '<line x1="1" y1="10" x2="23" y2="10"></line>' +
+              '</svg>' +
+            '</div>' +
+            '<h3>Valor Mensual, Descuentos y Mercado Pago</h3>' +
+          '</article>' +
+          '<article class="module-card" role="button" tabindex="0" data-sa-open-view="secrets">' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>' +
+                '<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>' +
+              '</svg>' +
+            '</div>' +
+            '<h3>Credenciales API (MP · GitHub · Vercel)</h3>' +
+          '</article>' +
+        '</div>';
 
-    document.body.appendChild(dlg);
+      erpMain.appendChild(menuSec);
 
-    dlg.querySelector('#ms-sa-close-btn').addEventListener('click', function () {
-      dlg.close();
-    });
+      menuSec.querySelector('#ms-sa-back-home-btn').addEventListener('click', function () {
+        closeSuperAdminSectionsToHome();
+      });
 
-    dlg.addEventListener('click', function (ev) {
-      if (ev.target === dlg) dlg.close();
-    });
+      menuSec.querySelectorAll('[data-sa-open-view]').forEach(function (card) {
+        card.addEventListener('click', function () {
+          var v = card.getAttribute('data-sa-open-view');
+          openSuperAdminView(v);
+        });
+        card.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            var v = card.getAttribute('data-sa-open-view');
+            openSuperAdminView(v);
+          }
+        });
+      });
+    }
 
-    dlg.querySelector('#ms-sa-tabs').addEventListener('click', function (ev) {
-      var btn = ev.target.closest('[data-tab]');
-      if (!btn) return;
-      STATE_SA.activeTab = btn.getAttribute('data-tab');
+    if (!detailSec) {
+      detailSec = document.createElement('section');
+      detailSec.id = 'sec-superadmin-detail';
+      detailSec.className = 'erp-section';
+      detailSec.hidden = true;
+      detailSec.innerHTML =
+        '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
+          '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
+            '<button type="button" class="btn-back-home" id="ms-sa-back-menu-btn">← Volver a Administrador General</button>' +
+            '<span class="module-breadcrumb">ERP en Línea · Administrador General · <strong id="ms-sa-detail-breadcrumb">Comercios Habilitados</strong></span>' +
+          '</div>' +
+          '<div style="display:inline-flex;align-items:center;gap:0.65rem;background:#112D3A;border:1.5px solid #56D7A1;border-radius:12px;padding:0.35rem 0.85rem;">' +
+            '<img src="/sistema/assets/img/minisistema/logo-horizontal.png" alt="MiniSistema" style="height:26px;width:auto;object-fit:contain;background:#112D3A;display:block;">' +
+            '<span style="background:#56D7A1;color:#112D3A;font-size:0.68rem;font-weight:900;padding:0.15rem 0.5rem;border-radius:999px;">@danielg</span>' +
+          '</div>' +
+        '</div>' +
+        '<div id="ms-sa-feedback" style="display:none;margin:0 0 1rem;padding:0.75rem 1rem;border-radius:10px;font-weight:700;font-size:0.86rem;"></div>' +
+        '<div id="ms-sa-body">Cargando datos...</div>';
+
+      erpMain.appendChild(detailSec);
+
+      detailSec.querySelector('#ms-sa-back-menu-btn').addEventListener('click', function () {
+        openSuperAdminView('menu');
+      });
+    }
+
+    return { menuSec: menuSec, detailSec: detailSec };
+  }
+
+  function closeSuperAdminSectionsToHome() {
+    var menuSec = document.getElementById('sec-menu-superadmin');
+    var detailSec = document.getElementById('sec-superadmin-detail');
+    if (menuSec) menuSec.hidden = true;
+    if (detailSec) detailSec.hidden = true;
+    var inicioSec = document.getElementById('sec-inicio');
+    if (inicioSec) inicioSec.hidden = false;
+    var backBtn = document.getElementById('btn-topbar-back-facturacion');
+    if (backBtn) backBtn.hidden = true;
+  }
+
+  async function openSuperAdminView(viewKey) {
+    var secs = ensureSectionsMounted();
+    if (!secs) return;
+    STATE_SA.activeView = viewKey || 'menu';
+    if (viewKey !== 'tenants') {
       STATE_SA.managingUsersSlug = null;
-      syncTabsUi();
-      renderBody();
+    }
+
+    // Ocultar todas las demás secciones de .erp-main
+    document.querySelectorAll('.erp-main > .erp-section').forEach(function (sec) {
+      sec.hidden = true;
     });
 
-    return dlg;
+    var backTopBtn = document.getElementById('btn-topbar-back-facturacion');
+    if (backTopBtn) {
+      backTopBtn.hidden = false;
+    }
+
+    if (STATE_SA.activeView === 'menu') {
+      secs.menuSec.hidden = false;
+      secs.detailSec.hidden = true;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Pre-cargar datos en segundo plano
+      if (!STATE_SA.data) {
+        reloadSuperAdminData(false);
+      }
+      return;
+    }
+
+    secs.menuSec.hidden = true;
+    secs.detailSec.hidden = false;
+    var bc = document.getElementById('ms-sa-detail-breadcrumb');
+    if (bc) bc.textContent = getViewTitle(STATE_SA.activeView);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    await reloadSuperAdminData(true);
   }
 
   function showFeedback(msg, isError) {
@@ -136,42 +285,32 @@
     }, 7000);
   }
 
-  function syncTabsUi() {
-    var tabs = document.querySelectorAll('#ms-sa-tabs [data-tab]');
-    tabs.forEach(function (t) {
-      t.classList.toggle('is-active', t.getAttribute('data-tab') === STATE_SA.activeTab);
-    });
-  }
-
-  async function openSuperAdminModal(initialTab) {
-    if (initialTab) STATE_SA.activeTab = initialTab;
-    var dlg = ensureDialogMounted();
-    syncTabsUi();
-    if (!dlg.open) dlg.showModal();
-    await reloadSuperAdminData();
-  }
-
-  async function reloadSuperAdminData() {
+  async function reloadSuperAdminData(shouldRender) {
     var bodyEl = document.getElementById('ms-sa-body');
-    if (bodyEl && !STATE_SA.data) {
+    if (shouldRender && bodyEl && !STATE_SA.data) {
       bodyEl.innerHTML = '<p style="font-weight:700;">Conectando con Supabase (minisistema-erp)...</p>';
     }
     var json = await apiSuperAdmin('GET');
     if (!json || !json.ok) {
-      if (bodyEl) {
-        bodyEl.innerHTML = '<p style="color:#991b1b;font-weight:700;">' + esc((json && json.message) || 'No se pudo cargar el panel.') + '</p>';
+      if (shouldRender && bodyEl) {
+        bodyEl.innerHTML =
+          '<p style="color:#991b1b;font-weight:700;">' +
+          esc((json && json.message) || 'No se pudo cargar el módulo.') +
+          '</p>';
       }
       return;
     }
     STATE_SA.data = json;
     if (Object.keys(STATE_SA.quoteSelected).length === 0 && Array.isArray(json.commercialModules)) {
       json.commercialModules.forEach(function (m) {
-        if (['facturacion', 'articulos', 'clientes'].indexOf(m.key) !== -1) {
+        if (['facturacion', 'articulos', 'clientes', 'manual_usuario'].indexOf(m.key) !== -1) {
           STATE_SA.quoteSelected[m.key] = true;
         }
       });
     }
-    renderBody();
+    if (shouldRender) {
+      renderBody();
+    }
   }
 
   function computeLocalQuote(optionType, selectedMap, modDiscountMap, globalType, globalPct, globalFixed, tempMonths) {
@@ -182,7 +321,11 @@
     var modTotal = 0;
     (data.commercialModules || []).forEach(function (m) {
       if (!selectedMap[m.key]) return;
-      var baseP = Number((cfg.module_prices && cfg.module_prices[m.key] && cfg.module_prices[m.key].price) ?? m.defaultMonthlyArs) || 0;
+      var baseP =
+        Number(
+          (cfg.module_prices && cfg.module_prices[m.key] && cfg.module_prices[m.key].price) ??
+            m.defaultMonthlyArs
+        ) || 0;
       var discP = Math.min(100, Math.max(0, Number(modDiscountMap[m.key] || 0)));
       modTotal += Math.round(baseP * (1 - discP / 100));
     });
@@ -192,12 +335,33 @@
     var discounted = Math.max(0, Math.round(subtotal * (1 - gPct / 100) - gFix));
 
     if (globalType === 'permanent') {
-      return { optionBase: optionBase, modTotal: modTotal, subtotal: subtotal, promoMonthly: discounted, regularMonthly: discounted, months: 0 };
+      return {
+        optionBase: optionBase,
+        modTotal: modTotal,
+        subtotal: subtotal,
+        promoMonthly: discounted,
+        regularMonthly: discounted,
+        months: 0
+      };
     }
     if (globalType === 'temporary') {
-      return { optionBase: optionBase, modTotal: modTotal, subtotal: subtotal, promoMonthly: discounted, regularMonthly: subtotal, months: Math.max(1, Number(tempMonths || 3)) };
+      return {
+        optionBase: optionBase,
+        modTotal: modTotal,
+        subtotal: subtotal,
+        promoMonthly: discounted,
+        regularMonthly: subtotal,
+        months: Math.max(1, Number(tempMonths || 3))
+      };
     }
-    return { optionBase: optionBase, modTotal: modTotal, subtotal: subtotal, promoMonthly: subtotal, regularMonthly: subtotal, months: 0 };
+    return {
+      optionBase: optionBase,
+      modTotal: modTotal,
+      subtotal: subtotal,
+      promoMonthly: subtotal,
+      regularMonthly: subtotal,
+      months: 0
+    };
   }
 
   function renderTenantsTab() {
@@ -205,113 +369,206 @@
     var tenants = (d && d.tenants) || [];
 
     if (STATE_SA.managingUsersSlug) {
-      var targetT = tenants.find(function (x) { return x.slug === STATE_SA.managingUsersSlug; });
-      var rowsHtml = STATE_SA.managingUsersList.map(function (u) {
-        var isDaniel = String(u.username).toLowerCase() === 'danielg';
-        return '<tr style="border-bottom:1px solid #e2ecf0;">' +
-          '<td style="padding:0.55rem;"><strong>' + esc(u.name) + '</strong><br><small>@' + esc(u.username) + '</small></td>' +
-          '<td style="padding:0.55rem;"><span class="ms-sa-pill">' + esc(u.role) + '</span></td>' +
-          '<td style="padding:0.55rem;"><code>' + esc(isDaniel ? '••••••••' : (u.pass || '')) + '</code></td>' +
-          '<td style="padding:0.55rem;">' + (u.active !== false ? '🟢 Habilitado' : '⛔ Suspendido') + '</td>' +
-          '<td style="padding:0.55rem;">' +
-            (isDaniel ? '<small>Fijo (Admin. General)</small>' :
-              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.3rem 0.65rem;font-size:0.76rem;" data-del-tuser="' + esc(u.username) + '">Dar de baja</button>') +
-          '</td>' +
-        '</tr>';
-      }).join('');
+      var targetT = tenants.find(function (x) {
+        return x.slug === STATE_SA.managingUsersSlug;
+      });
+      var rowsHtml = STATE_SA.managingUsersList
+        .map(function (u) {
+          var isDaniel = String(u.username).toLowerCase() === 'danielg';
+          return (
+            '<tr style="border-bottom:1px solid #e2ecf0;">' +
+            '<td style="padding:0.55rem;"><strong>' +
+            esc(u.name) +
+            '</strong><br><small>@' +
+            esc(u.username) +
+            '</small></td>' +
+            '<td style="padding:0.55rem;"><span class="ms-sa-pill">' +
+            esc(u.role) +
+            '</span></td>' +
+            '<td style="padding:0.55rem;"><code>' +
+            esc(isDaniel ? '••••••••' : u.pass || '') +
+            '</code></td>' +
+            '<td style="padding:0.55rem;">' +
+            (u.active !== false ? '🟢 Habilitado' : '⛔ Suspendido') +
+            '</td>' +
+            '<td style="padding:0.55rem;">' +
+            (isDaniel
+              ? '<small>Fijo (Admin. General)</small>'
+              : '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.3rem 0.65rem;font-size:0.76rem;" data-del-tuser="' +
+                esc(u.username) +
+                '">Dar de baja</button>') +
+            '</td>' +
+            '</tr>'
+          );
+        })
+        .join('');
 
-      return '<div>' +
+      return (
+        '<div>' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">' +
-          '<h3 style="margin:0;">👥 Habilitar Administradores y Usuarios — ' + esc(targetT ? targetT.fantasy_name : STATE_SA.managingUsersSlug) + '</h3>' +
-          '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-sa-back-tenants">← Volver a Comercios</button>' +
+        '<h3 style="margin:0;">👥 Habilitar Administradores y Usuarios — ' +
+        esc(targetT ? targetT.fantasy_name : STATE_SA.managingUsersSlug) +
+        '</h3>' +
+        '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-sa-back-tenants">← Volver a Comercios</button>' +
         '</div>' +
         '<div class="ms-sa-grid">' +
-          '<div class="ms-sa-card">' +
-            '<h4 style="margin-top:0;">Usuarios del Sistema (Esquema <code>' + esc(targetT ? targetT.db_schema : '') + '</code>)</h4>' +
-            '<table style="width:100%;border-collapse:collapse;font-size:0.86rem;">' +
-              '<thead><tr style="text-align:left;border-bottom:2px solid #112D3A;"><th style="padding:0.45rem;">Usuario</th><th style="padding:0.45rem;">Jerarquía</th><th style="padding:0.45rem;">Clave</th><th style="padding:0.45rem;">Estado</th><th style="padding:0.45rem;">Acción</th></tr></thead>' +
-              '<tbody>' + rowsHtml + '</tbody>' +
-            '</table>' +
-          '</div>' +
-          '<div class="ms-sa-card">' +
-            '<h4 style="margin-top:0;">➕ Habilitar / Actualizar Administrador o Usuario</h4>' +
-            '<p style="font-size:0.8rem;color:#3d5a68;margin-top:0;">Como Administrador General (@danielg), podés habilitar el <strong>Administrador</strong> del comercio (quien luego podrá habilitar a sus propios Usuarios) o crear Usuarios directamente.</p>' +
-            '<form id="ms-sa-save-tuser-form" style="display:grid;gap:0.7rem;">' +
-              '<div><label class="ms-sa-label">Usuario (@login)</label><input class="ms-sa-input" name="username" required placeholder="ej: admincomercio"></div>' +
-              '<div><label class="ms-sa-label">Nombre y Apellido</label><input class="ms-sa-input" name="name" required placeholder="Ej: Juan Pérez"></div>' +
-              '<div><label class="ms-sa-label">Rol en Jerarquía</label><select class="ms-sa-select" name="role"><option value="Administrador">👑 Administrador (habilita Usuarios)</option><option value="Usuario">👤 Usuario / Operador</option></select></div>' +
-              '<div><label class="ms-sa-label">Contraseña</label><input class="ms-sa-input" name="password" required placeholder="Mínimo 4 caracteres"></div>' +
-              '<div><label class="ms-sa-label">WhatsApp (opcional)</label><input class="ms-sa-input" name="whatsapp" placeholder="+54 9 358..."></div>' +
-              '<button type="submit" class="ms-sa-btn">Guardar y Habilitar Usuario</button>' +
-            '</form>' +
-          '</div>' +
+        '<div class="ms-sa-card">' +
+        '<h4 style="margin-top:0;">Usuarios del Sistema (Esquema <code>' +
+        esc(targetT ? targetT.db_schema : '') +
+        '</code>)</h4>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:0.86rem;">' +
+        '<thead><tr style="text-align:left;border-bottom:2px solid #112D3A;"><th style="padding:0.45rem;">Usuario</th><th style="padding:0.45rem;">Jerarquía</th><th style="padding:0.45rem;">Clave</th><th style="padding:0.45rem;">Estado</th><th style="padding:0.45rem;">Acción</th></tr></thead>' +
+        '<tbody>' +
+        rowsHtml +
+        '</tbody>' +
+        '</table>' +
         '</div>' +
-      '</div>';
+        '<div class="ms-sa-card">' +
+        '<h4 style="margin-top:0;">➕ Habilitar / Actualizar Administrador o Usuario</h4>' +
+        '<form id="ms-sa-save-tuser-form" style="display:grid;gap:0.7rem;">' +
+        '<div><label class="ms-sa-label">Usuario (@login)</label><input class="ms-sa-input" name="username" required placeholder="ej: admincomercio"></div>' +
+        '<div><label class="ms-sa-label">Nombre y Apellido</label><input class="ms-sa-input" name="name" required placeholder="Ej: Juan Pérez"></div>' +
+        '<div><label class="ms-sa-label">Rol en Jerarquía</label><select class="ms-sa-select" name="role"><option value="Administrador">👑 Administrador (habilita Usuarios)</option><option value="Usuario">👤 Usuario / Operador</option></select></div>' +
+        '<div><label class="ms-sa-label">Contraseña</label><input class="ms-sa-input" name="password" required placeholder="Mínimo 4 caracteres"></div>' +
+        '<div><label class="ms-sa-label">WhatsApp (opcional)</label><input class="ms-sa-input" name="whatsapp" placeholder="+54 9 358..."></div>' +
+        '<button type="submit" class="ms-sa-btn">Guardar y Habilitar Usuario</button>' +
+        '</form>' +
+        '</div>' +
+        '</div>' +
+        '</div>'
+      );
     }
 
-    var cards = tenants.map(function (t) {
-      var sub = t.subscription || {};
-      var dep = t.deployment || {};
-      var mpBadge = t.is_base
-        ? '<span class="ms-sa-pill">Sistema Base Propio</span>'
-        : sub.mpStatus === 'authorized'
-          ? '<span class="ms-sa-pill" style="background:#dcfce7;color:#065f46;">✅ Débito MP Activo</span>'
-          : sub.mpStatus === 'sandbox_ready'
-            ? '<span class="ms-sa-pill" style="background:#fef3c7;color:#92400e;">🧪 Link Adhesión Prueba</span>'
-            : '<span class="ms-sa-pill" style="background:#e0f2fe;color:#075985;">⏳ Pendiente Adhesión MP</span>';
+    var cards = tenants
+      .map(function (t) {
+        var sub = t.subscription || {};
+        var dep = t.deployment || {};
+        var mpBadge = t.is_base
+          ? '<span class="ms-sa-pill">Sistema Base Propio</span>'
+          : sub.mpStatus === 'authorized'
+            ? '<span class="ms-sa-pill" style="background:#dcfce7;color:#065f46;">✅ Débito MP Activo</span>'
+            : sub.mpStatus === 'sandbox_ready'
+              ? '<span class="ms-sa-pill" style="background:#fef3c7;color:#92400e;">🧪 Link Adhesión Prueba</span>'
+              : '<span class="ms-sa-pill" style="background:#e0f2fe;color:#075985;">⏳ Pendiente Adhesión MP</span>';
 
-      var optBadge = t.is_base
-        ? 'Base Oficial MiniSistema'
-        : t.option_type === 1
-          ? 'Opción 1 · Dominio + Marca Propia'
-          : 'Opción 2 · minisistema.com.ar/' + t.slug;
+        var optBadge = t.is_base
+          ? 'Base Oficial MiniSistema'
+          : t.option_type === 1
+            ? 'Opción 1 · Dominio + Marca Propia'
+            : 'Opción 2 · minisistema.com.ar/' + t.slug;
 
-      var waMsg = sub.mpInitPoint
-        ? 'https://wa.me/?text=' + encodeURIComponent('¡Hola! Ya habilitamos el sistema ERP de ' + t.fantasy_name + ' (' + dep.publicErpUrl + '). Te compartimos el enlace de adhesión al abono mensual por débito automático de Mercado Pago (' + fmtArs.format(sub.activeMonthlyAmount || 0) + '/mes): ' + sub.mpInitPoint)
-        : '';
+        var waMsg = sub.mpInitPoint
+          ? 'https://wa.me/?text=' +
+            encodeURIComponent(
+              '¡Hola! Ya habilitamos el sistema ERP de ' +
+                t.fantasy_name +
+                ' (' +
+                dep.publicErpUrl +
+                '). Te compartimos el enlace de adhesión al abono mensual por débito automático de Mercado Pago (' +
+                fmtArs.format(sub.activeMonthlyAmount || 0) +
+                '/mes): ' +
+                sub.mpInitPoint
+            )
+          : '';
 
-      return '<div class="ms-sa-card" style="display:flex;flex-direction:column;justify-content:space-between;gap:0.85rem;">' +
-        '<div>' +
+        return (
+          '<div class="ms-sa-card" style="display:flex;flex-direction:column;justify-content:space-between;gap:0.85rem;">' +
+          '<div>' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">' +
-            '<div>' +
-              '<div style="font-size:1.05rem;font-weight:800;color:#112D3A;">' + esc(t.fantasy_name) + '</div>' +
-              '<div style="font-size:0.78rem;color:#486575;">' + esc(optBadge) + '</div>' +
-            '</div>' +
-            mpBadge +
+          '<div>' +
+          '<div style="font-size:1.05rem;font-weight:800;">' +
+          esc(t.fantasy_name) +
           '</div>' +
-          '<div style="margin-top:0.7rem;padding:0.65rem;background:#f4f8fa;border-radius:10px;font-size:0.8rem;display:grid;gap:0.28rem;">' +
-            '<div><strong>BD Supabase independiente:</strong> <code>' + esc(t.db_schema) + '</code></div>' +
-            '<div><strong>URL Sistema:</strong> <a href="' + esc(dep.publicErpUrl || '/sistema') + '" target="_blank" style="color:#0d5c3e;font-weight:700;">' + esc(dep.publicErpUrl || '/sistema') + '</a></div>' +
-            (t.is_base ? '' : '<div><strong>Abono Mensual:</strong> ' + fmtArs.format(sub.activeMonthlyAmount || 0) + '/mes' +
-              (sub.globalDiscountType === 'temporary' && sub.temporaryMonths > 0 ? ' <small>(Promo ' + sub.temporaryMonths + 'm · luego ' + fmtArs.format(sub.monthlyRegularAmount || 0) + ')</small>' : '') +
-            '</div>') +
-            (dep.githubRepoUrl ? '<div><strong>GitHub:</strong> <a href="' + esc(dep.githubRepoUrl) + '" target="_blank">' + esc(dep.githubRepoUrl) + '</a></div>' : '') +
+          '<div style="font-size:0.78rem;opacity:0.75;">' +
+          esc(optBadge) +
           '</div>' +
-        '</div>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:0.45rem;">' +
-          '<a class="ms-sa-btn" style="padding:0.42rem 0.75rem;font-size:0.78rem;" href="' + esc(dep.publicErpUrl || '/sistema') + '" target="_blank">Abrir ERP</a>' +
-          '<button type="button" class="ms-sa-btn ms-sa-btn--dark" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-manage-users="' + esc(t.slug) + '">👥 Admin / Usuarios</button>' +
-          (t.is_base ? '' :
-            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-gen-mp="' + esc(t.slug) + '">💳 Link Débito MP</button>' +
-            (sub.mpInitPoint ? '<a class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" href="' + esc(sub.mpInitPoint) + '" target="_blank">Ver Adhesión</a>' : '') +
-            (waMsg ? '<a class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" href="' + esc(waMsg) + '" target="_blank">📲 Enviar WA</a>' : '') +
-            (t.option_type === 1 ? '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-reprov-opt1="' + esc(t.slug) + '">🔗 Vercel+GitHub</button>' : '') +
-            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-toggle-status="' + esc(t.slug) + '" data-curr-status="' + esc(t.status) + '">' + (t.status === 'active' ? '⏸ Suspender' : '▶ Reactivar') + '</button>'
-          ) +
-        '</div>' +
-      '</div>';
-    }).join('');
+          '</div>' +
+          mpBadge +
+          '</div>' +
+          '<div style="margin-top:0.7rem;padding:0.65rem;background:rgba(86,215,161,0.08);border:1px solid rgba(86,215,161,0.25);border-radius:10px;font-size:0.8rem;display:grid;gap:0.28rem;">' +
+          '<div><strong>BD Supabase independiente:</strong> <code>' +
+          esc(t.db_schema) +
+          '</code></div>' +
+          '<div><strong>URL Sistema:</strong> <a href="' +
+          esc(dep.publicErpUrl || '/sistema') +
+          '" target="_blank" style="color:#56D7A1;font-weight:800;">' +
+          esc(dep.publicErpUrl || '/sistema') +
+          '</a></div>' +
+          (t.is_base
+            ? ''
+            : '<div><strong>Abono Mensual:</strong> ' +
+              fmtArs.format(sub.activeMonthlyAmount || 0) +
+              '/mes' +
+              (sub.globalDiscountType === 'temporary' && sub.temporaryMonths > 0
+                ? ' <small>(Promo ' +
+                  sub.temporaryMonths +
+                  'm · luego ' +
+                  fmtArs.format(sub.monthlyRegularAmount || 0) +
+                  ')</small>'
+                : '') +
+              '</div>') +
+          (dep.githubRepoUrl
+            ? '<div><strong>GitHub:</strong> <a href="' +
+              esc(dep.githubRepoUrl) +
+              '" target="_blank">' +
+              esc(dep.githubRepoUrl) +
+              '</a></div>'
+            : '') +
+          '</div>' +
+          '</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:0.45rem;">' +
+          '<a class="ms-sa-btn" style="padding:0.42rem 0.75rem;font-size:0.78rem;" href="' +
+          esc(dep.publicErpUrl || '/sistema') +
+          '" target="_blank">Abrir ERP</a>' +
+          '<button type="button" class="ms-sa-btn ms-sa-btn--dark" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-manage-users="' +
+          esc(t.slug) +
+          '">👥 Admin / Usuarios</button>' +
+          (t.is_base
+            ? ''
+            : '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-gen-mp="' +
+              esc(t.slug) +
+              '">💳 Link Débito MP</button>' +
+              (sub.mpInitPoint
+                ? '<a class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" href="' +
+                  esc(sub.mpInitPoint) +
+                  '" target="_blank">Ver Adhesión</a>'
+                : '') +
+              (waMsg
+                ? '<a class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" href="' +
+                  esc(waMsg) +
+                  '" target="_blank">📲 Enviar WA</a>'
+                : '') +
+              (t.option_type === 1
+                ? '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-reprov-opt1="' +
+                  esc(t.slug) +
+                  '">🔗 Vercel+GitHub</button>'
+                : '') +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-toggle-status="' +
+              esc(t.slug) +
+              '" data-curr-status="' +
+              esc(t.status) +
+              '">' +
+              (t.status === 'active' ? '⏸ Suspender' : '▶ Reactivar') +
+              '</button>') +
+          '</div>' +
+          '</div>'
+        );
+      })
+      .join('');
 
-    return '<div>' +
+    return (
+      '<div>' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.6rem;">' +
-        '<div>' +
-          '<h3 style="margin:0;">Sistemas y Comercios Habilitados (' + tenants.length + ')</h3>' +
-          '<p style="margin:0.2rem 0 0;font-size:0.83rem;color:#4a6675;">Cada sistema opera con su propio esquema PostgreSQL aislado en Supabase (inicializado limpio con Artículo 00020 y Consumidor Final).</p>' +
-        '</div>' +
-        '<button type="button" class="ms-sa-btn" id="ms-sa-go-new">+ Habilitar Nuevo Comercio</button>' +
+      '<h3 style="margin:0;">Sistemas y Comercios Habilitados (' +
+      tenants.length +
+      ')</h3>' +
+      '<button type="button" class="ms-sa-btn" id="ms-sa-go-new">+ Habilitar Nuevo Comercio</button>' +
       '</div>' +
-      '<div class="ms-sa-grid">' + cards + '</div>' +
-    '</div>';
+      '<div class="ms-sa-grid">' +
+      cards +
+      '</div>' +
+      '</div>'
+    );
   }
 
   function renderNewTenantTab() {
@@ -327,85 +584,165 @@
       STATE_SA.quoteTempMonths
     );
 
-    var modsChecks = mods.map(function (m) {
-      var checked = Boolean(STATE_SA.quoteSelected[m.key]);
-      var cfgP = Number((d.pricingConfig.module_prices && d.pricingConfig.module_prices[m.key] && d.pricingConfig.module_prices[m.key].price) ?? m.defaultMonthlyArs);
-      return '<label style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.5rem 0.65rem;border:1px solid #d4e2e8;border-radius:9px;background:' + (checked ? '#eefbf5' : '#fff') + ';cursor:pointer;font-size:0.83rem;">' +
-        '<span><input type="checkbox" data-new-mod="' + esc(m.key) + '" ' + (checked ? 'checked' : '') + '> <strong>' + esc(m.name) + '</strong></span>' +
-        '<span style="font-weight:800;color:#112D3A;">' + fmtArs.format(cfgP) + '</span>' +
-      '</label>';
-    }).join('');
+    // Tarjetas de Módulos estilo ERP (con ícono .module-icon, título y valor mensual, sin textos de detalle)
+    var modsCardsHtml = mods
+      .map(function (m) {
+        var checked = Boolean(STATE_SA.quoteSelected[m.key]);
+        var cfgP = Number(
+          (d.pricingConfig.module_prices &&
+            d.pricingConfig.module_prices[m.key] &&
+            d.pricingConfig.module_prices[m.key].price) ??
+            m.defaultMonthlyArs
+        );
+        var svgIcon = MODULE_ICONS_SVG[m.key] || MODULE_ICONS_SVG.facturacion;
+        return (
+          '<article class="module-card ' +
+          (checked ? 'is-sa-mod-selected' : '') +
+          '" role="button" tabindex="0" data-toggle-mod-card="' +
+          esc(m.key) +
+          '" style="cursor:pointer;border:2px solid ' +
+          (checked ? '#56D7A1' : 'rgba(17,45,58,0.16)') +
+          ';background:' +
+          (checked ? 'linear-gradient(135deg, #112D3A 0%, #173b4c 100%)' : '') +
+          ';color:' +
+          (checked ? '#FFFFFF' : '') +
+          ';">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
+          '<div class="module-icon" aria-hidden="true" style="margin:0;' +
+          (checked ? 'background:#56D7A1;color:#112D3A;' : '') +
+          '">' +
+          svgIcon +
+          '</div>' +
+          '<span style="font-size:0.78rem;font-weight:900;padding:0.22rem 0.6rem;border-radius:999px;background:' +
+          (checked ? '#56D7A1' : 'rgba(86,215,161,0.18)') +
+          ';color:#112D3A;">' +
+          (cfgP > 0 ? fmtArs.format(cfgP) : 'Incluido') +
+          '</span>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;width:100%;">' +
+          '<h3 style="margin:0;font-size:0.95rem;' +
+          (checked ? 'color:#FFFFFF;' : '') +
+          '">' +
+          esc(m.name) +
+          '</h3>' +
+          '<input type="checkbox" data-new-mod="' +
+          esc(m.key) +
+          '" ' +
+          (checked ? 'checked' : '') +
+          ' style="width:18px;height:18px;accent-color:#56D7A1;pointer-events:none;">' +
+          '</div>' +
+          '</article>'
+        );
+      })
+      .join('');
 
-    return '<form id="ms-sa-create-tenant-form" style="display:grid;gap:1.1rem;">' +
-      '<div class="ms-sa-grid">' +
-        '<div class="ms-sa-card" style="border-width:2px;border-color:' + (STATE_SA.newOptionType === 1 ? '#56D7A1' : '#dbe7ec') + ';cursor:pointer;" data-pick-opt="1">' +
-          '<div style="font-weight:800;font-size:1rem;">🌐 Opción 1: <code>www.nuevoerp.com.ar/sistema</code></div>' +
-          '<p style="font-size:0.82rem;color:#415f6e;margin:0.35rem 0 0;">Incluye <strong>dominio propio en Vercel + repositorio GitHub</strong> e <strong>imagen corporativa propia</strong> (colores y logotipos del comercio).</p>' +
-        '</div>' +
-        '<div class="ms-sa-card" style="border-width:2px;border-color:' + (STATE_SA.newOptionType === 2 ? '#56D7A1' : '#dbe7ec') + ';cursor:pointer;" data-pick-opt="2">' +
-          '<div style="font-weight:800;font-size:1rem;">⚡ Opción 2: <code>www.minisistema.com.ar/nuevosistema</code></div>' +
-          '<p style="font-size:0.82rem;color:#415f6e;margin:0.35rem 0 0;">Alojado directo bajo <code>minisistema.com.ar</code>. <strong>Sin dominio propio ni imagen corporativa propia</strong> (conserva colores y logo de MiniSistema).</p>' +
-        '</div>' +
+    return (
+      '<form id="ms-sa-create-tenant-form" style="display:grid;gap:1.1rem;">' +
+      '<div class="modules-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));">' +
+      '<article class="module-card" role="button" tabindex="0" data-pick-opt="1" style="cursor:pointer;border:2px solid ' +
+      (STATE_SA.newOptionType === 1 ? '#56D7A1' : 'rgba(17,45,58,0.16)') +
+      ';background:' +
+      (STATE_SA.newOptionType === 1 ? 'linear-gradient(135deg, #112D3A 0%, #173b4c 100%)' : '') +
+      ';color:' +
+      (STATE_SA.newOptionType === 1 ? '#FFFFFF' : '') +
+      ';">' +
+      '<div class="module-icon" aria-hidden="true" style="' +
+      (STATE_SA.newOptionType === 1 ? 'background:#56D7A1;color:#112D3A;' : '') +
+      '">🌐</div>' +
+      '<h3 style="' +
+      (STATE_SA.newOptionType === 1 ? 'color:#FFFFFF;' : '') +
+      '">Opción 1 · Dominio y Marca Propia</h3>' +
+      '</article>' +
+      '<article class="module-card" role="button" tabindex="0" data-pick-opt="2" style="cursor:pointer;border:2px solid ' +
+      (STATE_SA.newOptionType === 2 ? '#56D7A1' : 'rgba(17,45,58,0.16)') +
+      ';background:' +
+      (STATE_SA.newOptionType === 2 ? 'linear-gradient(135deg, #112D3A 0%, #173b4c 100%)' : '') +
+      ';color:' +
+      (STATE_SA.newOptionType === 2 ? '#FFFFFF' : '') +
+      ';">' +
+      '<div class="module-icon" aria-hidden="true" style="' +
+      (STATE_SA.newOptionType === 2 ? 'background:#56D7A1;color:#112D3A;' : '') +
+      '">⚡</div>' +
+      '<h3 style="' +
+      (STATE_SA.newOptionType === 2 ? 'color:#FFFFFF;' : '') +
+      '">Opción 2 · Subruta MiniSistema</h3>' +
+      '</article>' +
       '</div>' +
-
       '<div class="ms-sa-grid">' +
-        '<div class="ms-sa-card">' +
-          '<h4 style="margin-top:0;">1. Datos del Comercio y Ruta</h4>' +
-          '<div style="display:grid;gap:0.7rem;">' +
-            '<div><label class="ms-sa-label">Identificador corto (slug sin espacios)</label><input class="ms-sa-input" name="slug" required placeholder="ej: superalberdi o ferreteriasur"></div>' +
-            '<div><label class="ms-sa-label">Nombre Comercial / Fantasía</label><input class="ms-sa-input" name="fantasyName" required placeholder="Ej: Despensa El Sol"></div>' +
-            '<div><label class="ms-sa-label">Razón Social / Titular</label><input class="ms-sa-input" name="businessName" required placeholder="Ej: Despensa El Sol S.A.S."></div>' +
-            (STATE_SA.newOptionType === 1 ?
-              '<div><label class="ms-sa-label">Dominio Propio (Opción 1 — Vercel + GitHub)</label><input class="ms-sa-input" name="customDomain" required placeholder="www.nuevoerp.com.ar"></div>' +
-              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">' +
-                '<div><label class="ms-sa-label">Color Principal Comercio</label><input type="color" class="ms-sa-input" name="primaryHex" value="#112D3A" style="height:40px;padding:3px;"></div>' +
-                '<div><label class="ms-sa-label">Color Acento Comercio</label><input type="color" class="ms-sa-input" name="accentHex" value="#56D7A1" style="height:40px;padding:3px;"></div>' +
-              '</div>' +
-              '<div><label class="ms-sa-label">Logo 1x1 (URL o subir PNG/JPG)</label><input class="ms-sa-input" name="logo1x1Url" placeholder="https://... o seleccioná archivo abajo"><input type="file" accept="image/*" id="ms-sa-file-logo1x1" style="margin-top:0.3rem;font-size:0.76rem;"></div>' +
-              '<div><label class="ms-sa-label">Logo Horizontal Cabecera (URL o subir PNG/JPG)</label><input class="ms-sa-input" name="logoHorizontalUrl" placeholder="https://... o seleccioná archivo abajo"><input type="file" accept="image/*" id="ms-sa-file-logohoriz" style="margin-top:0.3rem;font-size:0.76rem;"></div>'
-              :
-              '<div style="padding:0.65rem;border-radius:9px;background:#eefbf5;font-size:0.8rem;color:#0b5336;">✓ <strong>Identidad MiniSistema activa:</strong> usará automáticamente Azul Petróleo <code>#112D3A</code>, Verde Menta <code>#56D7A1</code> e isologotipo oficial de MiniSistema.</div>'
-            ) +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">' +
-              '<div><label class="ms-sa-label">Localidad</label><input class="ms-sa-input" name="localidad" value="RÍO CUARTO"></div>' +
-              '<div><label class="ms-sa-label">WhatsApp Comercio</label><input class="ms-sa-input" name="whatsappDigits" placeholder="549358..."></div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="ms-sa-card">' +
-          '<h4 style="margin-top:0;">2. Administrador del Comercio + Base Limpia</h4>' +
-          '<p style="font-size:0.8rem;color:#415f6e;margin-top:0;">Se creará automáticamente con <strong>@danielg</strong> como Administrador General + el siguiente <strong>Administrador</strong> habilitado para el cliente (solo Artículo <code>00020</code> y <code>CONSUMIDOR FINAL</code> en BD):</p>' +
-          '<div style="display:grid;gap:0.65rem;">' +
-            '<div><label class="ms-sa-label">Usuario Administrador del Comercio</label><input class="ms-sa-input" name="adminUsername" placeholder="ej: adminsol (opcional)"></div>' +
-            '<div><label class="ms-sa-label">Contraseña Inicial del Administrador</label><input class="ms-sa-input" name="adminPassword" placeholder="Mínimo 4 caracteres"></div>' +
-            '<div><label class="ms-sa-label">Nombre del Administrador</label><input class="ms-sa-input" name="adminName" placeholder="Ej: Carlos Gómez"></div>' +
-            '<div><label class="ms-sa-label">Email Pagador Mercado Pago (Débito Automático)</label><input type="email" class="ms-sa-input" name="payerEmail" required placeholder="cliente@comercio.com.ar"></div>' +
-          '</div>' +
-          '<div class="ms-sa-card ms-sa-card--highlight" style="margin-top:0.9rem;">' +
-            '<div style="font-size:0.78rem;color:#56D7A1;font-weight:800;">ABONO MENSUAL CALCULADO (MERCADO PAGO)</div>' +
-            '<div style="font-size:1.75rem;font-weight:900;margin:0.2rem 0;">' + fmtArs.format(quote.promoMonthly) + ' <span style="font-size:0.9rem;font-weight:500;">/ mes</span></div>' +
-            (quote.months > 0 ? '<div style="font-size:0.8rem;color:#d1fae5;">Promoción por <strong>' + quote.months + ' meses</strong> · Luego: ' + fmtArs.format(quote.regularMonthly) + '/mes</div>' : '') +
-            '<div style="font-size:0.76rem;color:rgba(255,255,255,0.75);margin-top:0.35rem;">Podés ajustar módulos y descuentos acá abajo o en la pestaña "Valor Mensual".</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
       '<div class="ms-sa-card">' +
-        '<h4 style="margin-top:0;">3. Módulos Contratados y Descuento del Abono</h4>' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0.5rem;margin-bottom:0.9rem;">' + modsChecks + '</div>' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.7rem;align-items:end;">' +
-          '<div><label class="ms-sa-label">Tipo de Descuento</label><select class="ms-sa-select" id="ms-new-disc-type">' +
-            '<option value="none" ' + (STATE_SA.quoteGlobalType === 'none' ? 'selected' : '') + '>Sin descuento</option>' +
-            '<option value="temporary" ' + (STATE_SA.quoteGlobalType === 'temporary' ? 'selected' : '') + '>Por tiempo determinado (ej. 3 meses)</option>' +
-            '<option value="permanent" ' + (STATE_SA.quoteGlobalType === 'permanent' ? 'selected' : '') + '>Descuento Permanente</option>' +
-          '</select></div>' +
-          '<div><label class="ms-sa-label">% Descuento</label><input type="number" min="0" max="100" class="ms-sa-input" id="ms-new-disc-pct" value="' + esc(STATE_SA.quoteGlobalPct) + '"></div>' +
-          (STATE_SA.quoteGlobalType === 'temporary' ? '<div><label class="ms-sa-label">Duración Promo (Meses)</label><input type="number" min="1" max="60" class="ms-sa-input" id="ms-new-disc-months" value="' + esc(STATE_SA.quoteTempMonths) + '"></div>' : '') +
-          '<div><button type="submit" class="ms-sa-btn" style="width:100%;padding:0.75rem;">🚀 Crear Sistema + BD Limpia + Suscripción MP</button></div>' +
-        '</div>' +
+      '<h4 style="margin-top:0;">1. Datos del Comercio y Ruta</h4>' +
+      '<div style="display:grid;gap:0.7rem;">' +
+      '<div><label class="ms-sa-label">Identificador corto (slug sin espacios)</label><input class="ms-sa-input" name="slug" required placeholder="ej: superalberdi o ferreteriasur"></div>' +
+      '<div><label class="ms-sa-label">Nombre Comercial / Fantasía</label><input class="ms-sa-input" name="fantasyName" required placeholder="Ej: Despensa El Sol"></div>' +
+      '<div><label class="ms-sa-label">Razón Social / Titular</label><input class="ms-sa-input" name="businessName" required placeholder="Ej: Despensa El Sol S.A.S."></div>' +
+      (STATE_SA.newOptionType === 1
+        ? '<div><label class="ms-sa-label">Dominio Propio (Opción 1 — Vercel + GitHub)</label><input class="ms-sa-input" name="customDomain" required placeholder="www.nuevoerp.com.ar"></div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">' +
+          '<div><label class="ms-sa-label">Color Principal Comercio</label><input type="color" class="ms-sa-input" name="primaryHex" value="#112D3A" style="height:40px;padding:3px;"></div>' +
+          '<div><label class="ms-sa-label">Color Acento Comercio</label><input type="color" class="ms-sa-input" name="accentHex" value="#56D7A1" style="height:40px;padding:3px;"></div>' +
+          '</div>' +
+          '<div><label class="ms-sa-label">Logo 1x1 (URL o subir PNG/JPG)</label><input class="ms-sa-input" name="logo1x1Url" placeholder="https://... o seleccioná archivo abajo"><input type="file" accept="image/*" id="ms-sa-file-logo1x1" style="margin-top:0.3rem;font-size:0.76rem;"></div>' +
+          '<div><label class="ms-sa-label">Logo Horizontal Cabecera (URL o subir PNG/JPG)</label><input class="ms-sa-input" name="logoHorizontalUrl" placeholder="https://... o seleccioná archivo abajo"><input type="file" accept="image/*" id="ms-sa-file-logohoriz" style="margin-top:0.3rem;font-size:0.76rem;"></div>'
+        : '<div style="padding:0.65rem;border-radius:9px;background:rgba(86,215,161,0.14);border:1px solid #56D7A1;font-size:0.8rem;">✓ <strong>Identidad MiniSistema activa:</strong> usará Azul Petróleo <code>#112D3A</code>, Verde Menta <code>#56D7A1</code> e isologotipo oficial de MiniSistema.</div>') +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">' +
+      '<div><label class="ms-sa-label">Localidad</label><input class="ms-sa-input" name="localidad" value="RÍO CUARTO"></div>' +
+      '<div><label class="ms-sa-label">WhatsApp Comercio</label><input class="ms-sa-input" name="whatsappDigits" placeholder="549358..."></div>' +
       '</div>' +
-    '</form>';
+      '</div>' +
+      '</div>' +
+      '<div class="ms-sa-card">' +
+      '<h4 style="margin-top:0;">2. Administrador del Comercio + Base Limpia</h4>' +
+      '<div style="display:grid;gap:0.65rem;">' +
+      '<div><label class="ms-sa-label">Usuario Administrador del Comercio</label><input class="ms-sa-input" name="adminUsername" placeholder="ej: adminsol (opcional)"></div>' +
+      '<div><label class="ms-sa-label">Contraseña Inicial del Administrador</label><input class="ms-sa-input" name="adminPassword" placeholder="Mínimo 4 caracteres"></div>' +
+      '<div><label class="ms-sa-label">Nombre del Administrador</label><input class="ms-sa-input" name="adminName" placeholder="Ej: Carlos Gómez"></div>' +
+      '<div><label class="ms-sa-label">Email Pagador Mercado Pago (Débito Automático)</label><input type="email" class="ms-sa-input" name="payerEmail" required placeholder="cliente@comercio.com.ar"></div>' +
+      '</div>' +
+      '<div class="ms-sa-card ms-sa-card--highlight" style="margin-top:0.9rem;">' +
+      '<div style="font-size:0.78rem;color:#56D7A1;font-weight:800;">ABONO MENSUAL CALCULADO (MERCADO PAGO)</div>' +
+      '<div style="font-size:1.75rem;font-weight:900;margin:0.2rem 0;">' +
+      fmtArs.format(quote.promoMonthly) +
+      ' <span style="font-size:0.9rem;font-weight:500;">/ mes</span></div>' +
+      (quote.months > 0
+        ? '<div style="font-size:0.8rem;color:#d1fae5;">Promoción por <strong>' +
+          quote.months +
+          ' meses</strong> · Luego: ' +
+          fmtArs.format(quote.regularMonthly) +
+          '/mes</div>'
+        : '') +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="ms-sa-card">' +
+      '<h4 style="margin-top:0;margin-bottom:0.85rem;">3. Módulos Contratados y Descuento del Abono</h4>' +
+      '<div class="modules-grid" style="margin-bottom:1.1rem;">' +
+      modsCardsHtml +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.7rem;align-items:end;">' +
+      '<div><label class="ms-sa-label">Tipo de Descuento</label><select class="ms-sa-select" id="ms-new-disc-type">' +
+      '<option value="none" ' +
+      (STATE_SA.quoteGlobalType === 'none' ? 'selected' : '') +
+      '>Sin descuento</option>' +
+      '<option value="temporary" ' +
+      (STATE_SA.quoteGlobalType === 'temporary' ? 'selected' : '') +
+      '>Por tiempo determinado (ej. 3 meses)</option>' +
+      '<option value="permanent" ' +
+      (STATE_SA.quoteGlobalType === 'permanent' ? 'selected' : '') +
+      '>Descuento Permanente</option>' +
+      '</select></div>' +
+      '<div><label class="ms-sa-label">% Descuento</label><input type="number" min="0" max="100" class="ms-sa-input" id="ms-new-disc-pct" value="' +
+      esc(STATE_SA.quoteGlobalPct) +
+      '"></div>' +
+      (STATE_SA.quoteGlobalType === 'temporary'
+        ? '<div><label class="ms-sa-label">Duración Promo (Meses)</label><input type="number" min="1" max="60" class="ms-sa-input" id="ms-new-disc-months" value="' +
+          esc(STATE_SA.quoteTempMonths) +
+          '"></div>'
+        : '') +
+      '<div><button type="submit" class="ms-sa-btn" style="width:100%;padding:0.75rem;">🚀 Crear Sistema + BD Limpia + Suscripción MP</button></div>' +
+      '</div>' +
+      '</div>' +
+      '</form>'
+    );
   }
 
   function renderPricingTab() {
@@ -422,108 +759,190 @@
       STATE_SA.quoteTempMonths
     );
 
-    var modRows = mods.map(function (m) {
-      var curPrice = Number((cfg.module_prices && cfg.module_prices[m.key] && cfg.module_prices[m.key].price) ?? m.defaultMonthlyArs);
-      var checked = Boolean(STATE_SA.quoteSelected[m.key]);
-      var modDisc = Number(STATE_SA.quoteDiscountsByMod[m.key] || 0);
-      var netMod = Math.round(curPrice * (1 - modDisc / 100));
-      return '<tr style="border-bottom:1px solid #e3eef2;">' +
-        '<td style="padding:0.5rem;"><input type="checkbox" data-q-mod="' + esc(m.key) + '" ' + (checked ? 'checked' : '') + '></td>' +
-        '<td style="padding:0.5rem;"><strong>' + esc(m.name) + '</strong><br><small style="color:#536f7e;">' + esc(m.description) + '</small></td>' +
-        '<td style="padding:0.5rem;width:140px;"><input type="number" min="0" step="500" class="ms-sa-input" data-cfg-mod-price="' + esc(m.key) + '" value="' + esc(curPrice) + '"></td>' +
-        '<td style="padding:0.5rem;width:110px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-mod-disc="' + esc(m.key) + '" value="' + esc(modDisc) + '"></td>' +
-        '<td style="padding:0.5rem;font-weight:800;text-align:right;">' + (checked ? fmtArs.format(netMod) : '—') + '</td>' +
-      '</tr>';
-    }).join('');
+    var modRows = mods
+      .map(function (m) {
+        var curPrice = Number(
+          (cfg.module_prices && cfg.module_prices[m.key] && cfg.module_prices[m.key].price) ??
+            m.defaultMonthlyArs
+        );
+        var checked = Boolean(STATE_SA.quoteSelected[m.key]);
+        var modDisc = Number(STATE_SA.quoteDiscountsByMod[m.key] || 0);
+        var netMod = Math.round(curPrice * (1 - modDisc / 100));
+        return (
+          '<tr style="border-bottom:1px solid rgba(86,215,161,0.2);">' +
+          '<td style="padding:0.5rem;"><input type="checkbox" data-q-mod="' +
+          esc(m.key) +
+          '" ' +
+          (checked ? 'checked' : '') +
+          '></td>' +
+          '<td style="padding:0.5rem;"><strong>' +
+          esc(m.name) +
+          '</strong></td>' +
+          '<td style="padding:0.5rem;width:140px;"><input type="number" min="0" step="500" class="ms-sa-input" data-cfg-mod-price="' +
+          esc(m.key) +
+          '" value="' +
+          esc(curPrice) +
+          '"></td>' +
+          '<td style="padding:0.5rem;width:110px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-mod-disc="' +
+          esc(m.key) +
+          '" value="' +
+          esc(modDisc) +
+          '"></td>' +
+          '<td style="padding:0.5rem;font-weight:800;text-align:right;">' +
+          (checked ? fmtArs.format(netMod) : '—') +
+          '</td>' +
+          '</tr>'
+        );
+      })
+      .join('');
 
-    return '<div style="display:grid;gap:1.1rem;">' +
+    return (
+      '<div style="display:grid;gap:1.1rem;">' +
       '<div class="ms-sa-grid">' +
-        '<div class="ms-sa-card">' +
-          '<h4 style="margin-top:0;">⚙️ Valores Base por Opción</h4>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">' +
-            '<div><label class="ms-sa-label">Base Mensual Opción 1 (Dominio + Marca Propia)</label><input type="number" step="500" class="ms-sa-input" id="ms-cfg-opt1" value="' + esc(cfg.option_1_base || 35000) + '"></div>' +
-            '<div><label class="ms-sa-label">Base Mensual Opción 2 (Subruta MiniSistema)</label><input type="number" step="500" class="ms-sa-input" id="ms-cfg-opt2" value="' + esc(cfg.option_2_base || 15000) + '"></div>' +
-          '</div>' +
-          '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-save-pricing-btn" style="margin-top:0.85rem;">💾 Guardar Lista Oficial de Valores Mensuales</button>' +
-        '</div>' +
-
-        '<div class="ms-sa-card ms-sa-card--highlight">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-            '<span style="color:#56D7A1;font-weight:800;font-size:0.8rem;">SIMULADOR DE ABONO MENSUAL (DÉBITO MP)</span>' +
-            '<select id="ms-q-opt" class="ms-sa-select" style="width:auto;padding:0.3rem 0.6rem;font-weight:700;">' +
-              '<option value="1" ' + (STATE_SA.quoteOptionType === 1 ? 'selected' : '') + '>Opción 1 (Dominio Propio)</option>' +
-              '<option value="2" ' + (STATE_SA.quoteOptionType === 2 ? 'selected' : '') + '>Opción 2 (Subruta MiniSistema)</option>' +
-            '</select>' +
-          '</div>' +
-          '<div style="font-size:2rem;font-weight:900;margin:0.4rem 0;">' + fmtArs.format(quote.promoMonthly) + ' <span style="font-size:0.95rem;font-weight:500;">/ mes</span></div>' +
-          '<div style="font-size:0.82rem;color:#d1fae5;">Base Opción ' + STATE_SA.quoteOptionType + ': ' + fmtArs.format(quote.optionBase) + ' + Módulos: ' + fmtArs.format(quote.modTotal) + ' = Subtotal: ' + fmtArs.format(quote.subtotal) + '</div>' +
-          (quote.months > 0 ? '<div style="margin-top:0.35rem;font-size:0.83rem;color:#56D7A1;font-weight:700;">⏱ Descuento temporal por ' + quote.months + ' meses · Desde el mes ' + (quote.months + 1) + ': ' + fmtArs.format(quote.regularMonthly) + '/mes</div>' : '') +
-          '<div style="display:grid;grid-template-columns:1.3fr 0.8fr 0.8fr;gap:0.5rem;margin-top:0.8rem;">' +
-            '<select id="ms-q-gtype" class="ms-sa-select">' +
-              '<option value="none" ' + (STATE_SA.quoteGlobalType === 'none' ? 'selected' : '') + '>Sin dto. global</option>' +
-              '<option value="temporary" ' + (STATE_SA.quoteGlobalType === 'temporary' ? 'selected' : '') + '>Dto. Temporal (Meses)</option>' +
-              '<option value="permanent" ' + (STATE_SA.quoteGlobalType === 'permanent' ? 'selected' : '') + '>Dto. Permanente</option>' +
-            '</select>' +
-            '<input type="number" min="0" max="100" id="ms-q-gpct" class="ms-sa-input" placeholder="% Dto" title="% Descuento Global" value="' + esc(STATE_SA.quoteGlobalPct) + '">' +
-            '<input type="number" min="1" max="60" id="ms-q-gmonths" class="ms-sa-input" placeholder="Meses" title="Meses de promoción" value="' + esc(STATE_SA.quoteTempMonths) + '" ' + (STATE_SA.quoteGlobalType === 'temporary' ? '' : 'disabled') + '>' +
-          '</div>' +
-          '<button type="button" class="ms-sa-btn" id="ms-q-apply-to-new" style="margin-top:0.8rem;width:100%;">Usar esta Cotización en Nuevo Comercio →</button>' +
-        '</div>' +
-      '</div>' +
-
       '<div class="ms-sa-card">' +
-        '<h4 style="margin-top:0;">📦 Valor Mensual y Descuento Individual por Módulo</h4>' +
-        '<div style="overflow-x:auto;">' +
-          '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
-            '<thead><tr style="text-align:left;border-bottom:2px solid #112D3A;"><th style="padding:0.5rem;">Incluir</th><th style="padding:0.5rem;">Módulo del Sistema ERP</th><th style="padding:0.5rem;">Valor Mensual ($)</th><th style="padding:0.5rem;">Dto. Módulo (%)</th><th style="padding:0.5rem;text-align:right;">Neto Módulo</th></tr></thead>' +
-            '<tbody>' + modRows + '</tbody>' +
-          '</table>' +
-        '</div>' +
+      '<h4 style="margin-top:0;">⚙️ Valores Base por Opción</h4>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">' +
+      '<div><label class="ms-sa-label">Base Mensual Opción 1 (Dominio + Marca Propia)</label><input type="number" step="500" class="ms-sa-input" id="ms-cfg-opt1" value="' +
+      esc(cfg.option_1_base || 35000) +
+      '"></div>' +
+      '<div><label class="ms-sa-label">Base Mensual Opción 2 (Subruta MiniSistema)</label><input type="number" step="500" class="ms-sa-input" id="ms-cfg-opt2" value="' +
+      esc(cfg.option_2_base || 15000) +
+      '"></div>' +
       '</div>' +
-    '</div>';
+      '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-save-pricing-btn" style="margin-top:0.85rem;">💾 Guardar Lista Oficial de Valores Mensuales</button>' +
+      '</div>' +
+      '<div class="ms-sa-card ms-sa-card--highlight">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+      '<span style="color:#56D7A1;font-weight:800;font-size:0.8rem;">SIMULADOR DE ABONO MENSUAL (DÉBITO MP)</span>' +
+      '<select id="ms-q-opt" class="ms-sa-select" style="width:auto;padding:0.3rem 0.6rem;font-weight:700;">' +
+      '<option value="1" ' +
+      (STATE_SA.quoteOptionType === 1 ? 'selected' : '') +
+      '>Opción 1 (Dominio Propio)</option>' +
+      '<option value="2" ' +
+      (STATE_SA.quoteOptionType === 2 ? 'selected' : '') +
+      '>Opción 2 (Subruta MiniSistema)</option>' +
+      '</select>' +
+      '</div>' +
+      '<div style="font-size:2rem;font-weight:900;margin:0.4rem 0;">' +
+      fmtArs.format(quote.promoMonthly) +
+      ' <span style="font-size:0.95rem;font-weight:500;">/ mes</span></div>' +
+      '<div style="font-size:0.82rem;color:#d1fae5;">Base Opción ' +
+      STATE_SA.quoteOptionType +
+      ': ' +
+      fmtArs.format(quote.optionBase) +
+      ' + Módulos: ' +
+      fmtArs.format(quote.modTotal) +
+      ' = Subtotal: ' +
+      fmtArs.format(quote.subtotal) +
+      '</div>' +
+      (quote.months > 0
+        ? '<div style="margin-top:0.35rem;font-size:0.83rem;color:#56D7A1;font-weight:700;">⏱ Descuento temporal por ' +
+          quote.months +
+          ' meses · Desde el mes ' +
+          (quote.months + 1) +
+          ': ' +
+          fmtArs.format(quote.regularMonthly) +
+          '/mes</div>'
+        : '') +
+      '<div style="display:grid;grid-template-columns:1.3fr 0.8fr 0.8fr;gap:0.5rem;margin-top:0.8rem;">' +
+      '<select id="ms-q-gtype" class="ms-sa-select">' +
+      '<option value="none" ' +
+      (STATE_SA.quoteGlobalType === 'none' ? 'selected' : '') +
+      '>Sin dto. global</option>' +
+      '<option value="temporary" ' +
+      (STATE_SA.quoteGlobalType === 'temporary' ? 'selected' : '') +
+      '>Dto. Temporal (Meses)</option>' +
+      '<option value="permanent" ' +
+      (STATE_SA.quoteGlobalType === 'permanent' ? 'selected' : '') +
+      '>Dto. Permanente</option>' +
+      '</select>' +
+      '<input type="number" min="0" max="100" id="ms-q-gpct" class="ms-sa-input" placeholder="% Dto" title="% Descuento Global" value="' +
+      esc(STATE_SA.quoteGlobalPct) +
+      '">' +
+      '<input type="number" min="1" max="60" id="ms-q-gmonths" class="ms-sa-input" placeholder="Meses" title="Meses de promoción" value="' +
+      esc(STATE_SA.quoteTempMonths) +
+      '" ' +
+      (STATE_SA.quoteGlobalType === 'temporary' ? '' : 'disabled') +
+      '>' +
+      '</div>' +
+      '<button type="button" class="ms-sa-btn" id="ms-q-apply-to-new" style="margin-top:0.8rem;width:100%;">Usar esta Cotización en Nuevo Comercio →</button>' +
+      '</div>' +
+      '</div>' +
+      '<div class="ms-sa-card">' +
+      '<h4 style="margin-top:0;">📦 Valor Mensual y Descuento Individual por Módulo</h4>' +
+      '<div style="overflow-x:auto;">' +
+      '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
+      '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;"><th style="padding:0.5rem;">Incluir</th><th style="padding:0.5rem;">Módulo del Sistema ERP</th><th style="padding:0.5rem;">Valor Mensual ($)</th><th style="padding:0.5rem;">Dto. Módulo (%)</th><th style="padding:0.5rem;text-align:right;">Neto Módulo</th></tr></thead>' +
+      '<tbody>' +
+      modRows +
+      '</tbody>' +
+      '</table>' +
+      '</div>' +
+      '</div>' +
+      '</div>'
+    );
   }
 
   function renderSecretsTab() {
     var st = (STATE_SA.data && STATE_SA.data.credentialsStatus) || {};
     var webhookUrl = window.location.origin + '/api/mercadopago/webhook';
 
-    return '<form id="ms-sa-secrets-form" style="display:grid;gap:1rem;">' +
+    return (
+      '<form id="ms-sa-secrets-form" style="display:grid;gap:1rem;">' +
       '<div class="ms-sa-grid">' +
-        '<div class="ms-sa-card">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-            '<h4 style="margin:0;">💳 Mercado Pago (Débito Automático / Suscripciones)</h4>' +
-            '<span class="ms-sa-pill">' + (st.mpConfigured ? '🟢 Producción Activa' : '🧪 Modo Prueba') + '</span>' +
-          '</div>' +
-          '<p style="font-size:0.8rem;color:#415f6e;">Vincula la API oficial <code>/preapproval</code> de Mercado Pago para cobrar los abonos mensuales por débito automático.</p>' +
-          '<div style="display:grid;gap:0.65rem;">' +
-            '<div><label class="ms-sa-label">Access Token de Producción (<code>APP_USR-...</code>)</label><input type="password" class="ms-sa-input" name="mp_access_token" placeholder="' + esc(st.mpAccessTokenMasked || 'Pegar APP_USR-... cuando quieras pasar a cobro real') + '"></div>' +
-            '<div><label class="ms-sa-label">Public Key (<code>APP_USR-...</code>)</label><input class="ms-sa-input" name="mp_public_key" value="' + esc(st.mpPublicKey || '') + '" placeholder="APP_USR-..."></div>' +
-            '<div><label class="ms-sa-label">Webhook URL para pegar en tu Panel de Mercado Pago</label><input class="ms-sa-input" readonly value="' + esc(webhookUrl) + '" onclick="this.select()"></div>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="ms-sa-card">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-            '<h4 style="margin:0;">🌐 GitHub + Vercel (Automatización Opción 1)</h4>' +
-            '<span class="ms-sa-pill">' + ((st.githubConfigured && st.vercelConfigured) ? '🟢 Conectado' : '⚙️ Opcional / Manual') + '</span>' +
-          '</div>' +
-          '<p style="font-size:0.8rem;color:#415f6e;">Permite crear el repositorio privado en GitHub y vincular automáticamente el dominio propio del cliente en Vercel al dar de alta una Opción 1.</p>' +
-          '<div style="display:grid;gap:0.65rem;">' +
-            '<div><label class="ms-sa-label">GitHub Personal Access Token (<code>ghp_...</code>)</label><input type="password" class="ms-sa-input" name="github_token" placeholder="' + esc(st.githubTokenMasked || 'Pegar token con permiso repo') + '"></div>' +
-            '<div><label class="ms-sa-label">Usuario / Organización GitHub</label><input class="ms-sa-input" name="github_owner" value="' + esc(st.githubOwner || 'danighiglionesl-art') + '"></div>' +
-            '<div><label class="ms-sa-label">Vercel API Token</label><input type="password" class="ms-sa-input" name="vercel_token" placeholder="' + esc(st.vercelTokenMasked || 'Pegar token desde vercel.com/account/tokens') + '"></div>' +
-            '<div><label class="ms-sa-label">Vercel Team ID</label><input class="ms-sa-input" name="vercel_team_id" value="' + esc(st.vercelTeamId || '') + '"></div>' +
-          '</div>' +
-        '</div>' +
+      '<div class="ms-sa-card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">' +
+      '<h4 style="margin:0;">💳 Mercado Pago (Débito Automático / Suscripciones)</h4>' +
+      '<span class="ms-sa-pill">' +
+      (st.mpConfigured ? '🟢 Producción Activa' : '🧪 Modo Prueba') +
+      '</span>' +
+      '</div>' +
+      '<div style="display:grid;gap:0.65rem;">' +
+      '<div><label class="ms-sa-label">Access Token de Producción (<code>APP_USR-...</code>)</label><input type="password" class="ms-sa-input" name="mp_access_token" placeholder="' +
+      esc(st.mpAccessTokenMasked || 'Pegar APP_USR-... cuando quieras pasar a cobro real') +
+      '"></div>' +
+      '<div><label class="ms-sa-label">Public Key (<code>APP_USR-...</code>)</label><input class="ms-sa-input" name="mp_public_key" value="' +
+      esc(st.mpPublicKey || '') +
+      '" placeholder="APP_USR-..."></div>' +
+      '<div><label class="ms-sa-label">Webhook URL para pegar en tu Panel de Mercado Pago</label><input class="ms-sa-input" readonly value="' +
+      esc(webhookUrl) +
+      '" onclick="this.select()"></div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="ms-sa-card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">' +
+      '<h4 style="margin:0;">🌐 GitHub + Vercel (Automatización Opción 1)</h4>' +
+      '<span class="ms-sa-pill">' +
+      (st.githubConfigured && st.vercelConfigured ? '🟢 Conectado' : '⚙️ Opcional / Manual') +
+      '</span>' +
+      '</div>' +
+      '<div style="display:grid;gap:0.65rem;">' +
+      '<div><label class="ms-sa-label">GitHub Personal Access Token (<code>ghp_...</code>)</label><input type="password" class="ms-sa-input" name="github_token" placeholder="' +
+      esc(st.githubTokenMasked || 'Pegar token con permiso repo') +
+      '"></div>' +
+      '<div><label class="ms-sa-label">Usuario / Organización GitHub</label><input class="ms-sa-input" name="github_owner" value="' +
+      esc(st.githubOwner || 'danighiglionesl-art') +
+      '"></div>' +
+      '<div><label class="ms-sa-label">Vercel API Token</label><input type="password" class="ms-sa-input" name="vercel_token" placeholder="' +
+      esc(st.vercelTokenMasked || 'Pegar token desde vercel.com/account/tokens') +
+      '"></div>' +
+      '<div><label class="ms-sa-label">Vercel Team ID</label><input class="ms-sa-input" name="vercel_team_id" value="' +
+      esc(st.vercelTeamId || '') +
+      '"></div>' +
+      '</div>' +
+      '</div>' +
       '</div>' +
       '<div><button type="submit" class="ms-sa-btn">🔐 Guardar Credenciales en Bóveda Segura Supabase</button></div>' +
-    '</form>';
+      '</form>'
+    );
   }
 
   function fileToDataUrl(file) {
     return new Promise(function (resolve, reject) {
       var r = new FileReader();
-      r.onload = function () { resolve(String(r.result || '')); };
+      r.onload = function () {
+        resolve(String(r.result || ''));
+      };
       r.onerror = reject;
       r.readAsDataURL(file);
     });
@@ -533,10 +952,13 @@
     var bodyEl = document.getElementById('ms-sa-body');
     if (!bodyEl || !STATE_SA.data) return;
 
-    if (STATE_SA.activeTab === 'tenants') bodyEl.innerHTML = renderTenantsTab();
-    else if (STATE_SA.activeTab === 'new') bodyEl.innerHTML = renderNewTenantTab();
-    else if (STATE_SA.activeTab === 'pricing') bodyEl.innerHTML = renderPricingTab();
-    else if (STATE_SA.activeTab === 'secrets') bodyEl.innerHTML = renderSecretsTab();
+    var bc = document.getElementById('ms-sa-detail-breadcrumb');
+    if (bc) bc.textContent = getViewTitle(STATE_SA.activeView);
+
+    if (STATE_SA.activeView === 'tenants') bodyEl.innerHTML = renderTenantsTab();
+    else if (STATE_SA.activeView === 'new') bodyEl.innerHTML = renderNewTenantTab();
+    else if (STATE_SA.activeView === 'pricing') bodyEl.innerHTML = renderPricingTab();
+    else if (STATE_SA.activeView === 'secrets') bodyEl.innerHTML = renderSecretsTab();
 
     bindBodyEvents(bodyEl);
   }
@@ -545,9 +967,7 @@
     var goNew = bodyEl.querySelector('#ms-sa-go-new');
     if (goNew) {
       goNew.addEventListener('click', function () {
-        STATE_SA.activeTab = 'new';
-        syncTabsUi();
-        renderBody();
+        openSuperAdminView('new');
       });
     }
 
@@ -587,7 +1007,10 @@
         });
         if (res && res.ok) {
           showFeedback(res.message || 'Usuario habilitado.', false);
-          var listRes = await apiSuperAdmin('GET', { action: 'tenant_users', slug: STATE_SA.managingUsersSlug });
+          var listRes = await apiSuperAdmin('GET', {
+            action: 'tenant_users',
+            slug: STATE_SA.managingUsersSlug
+          });
           STATE_SA.managingUsersList = (listRes && listRes.users) || [];
           renderBody();
         } else {
@@ -606,7 +1029,10 @@
         });
         if (res && res.ok) {
           showFeedback(res.message, false);
-          var listRes = await apiSuperAdmin('GET', { action: 'tenant_users', slug: STATE_SA.managingUsersSlug });
+          var listRes = await apiSuperAdmin('GET', {
+            action: 'tenant_users',
+            slug: STATE_SA.managingUsersSlug
+          });
           STATE_SA.managingUsersList = (listRes && listRes.users) || [];
           renderBody();
         }
@@ -621,7 +1047,7 @@
         btn.disabled = false;
         if (res && res.ok) {
           showFeedback(res.message, false);
-          await reloadSuperAdminData();
+          await reloadSuperAdminData(true);
         } else {
           showFeedback((res && res.message) || 'Error generando link MP.', true);
         }
@@ -633,7 +1059,7 @@
         var slug = btn.getAttribute('data-reprov-opt1');
         var res = await apiSuperAdmin('POST', { action: 'reprovision_option1_domain', slug: slug });
         showFeedback((res && res.message) || 'Proceso ejecutado.', !(res && res.ok));
-        await reloadSuperAdminData();
+        await reloadSuperAdminData(true);
       });
     });
 
@@ -642,10 +1068,14 @@
         var slug = btn.getAttribute('data-toggle-status');
         var curr = btn.getAttribute('data-curr-status');
         var next = curr === 'active' ? 'suspended' : 'active';
-        var res = await apiSuperAdmin('POST', { action: 'update_tenant', slug: slug, status: next });
+        var res = await apiSuperAdmin('POST', {
+          action: 'update_tenant',
+          slug: slug,
+          status: next
+        });
         if (res && res.ok) {
           showFeedback(res.message, false);
-          await reloadSuperAdminData();
+          await reloadSuperAdminData(true);
         }
       });
     });
@@ -658,9 +1088,10 @@
       });
     });
 
-    bodyEl.querySelectorAll('[data-new-mod]').forEach(function (chk) {
-      chk.addEventListener('change', function () {
-        STATE_SA.quoteSelected[chk.getAttribute('data-new-mod')] = chk.checked;
+    bodyEl.querySelectorAll('[data-toggle-mod-card]').forEach(function (card) {
+      card.addEventListener('click', function () {
+        var key = card.getAttribute('data-toggle-mod-card');
+        STATE_SA.quoteSelected[key] = !STATE_SA.quoteSelected[key];
         renderBody();
       });
     });
@@ -745,11 +1176,14 @@
             whatsappDigits: fd.get('whatsappDigits') || '5493585095475',
             emailInfo: fd.get('payerEmail') || ''
           },
-          initialAdmin: (adminUser && adminPass.length >= 4) ? {
-            username: adminUser,
-            password: adminPass,
-            name: String(fd.get('adminName') || adminUser)
-          } : null
+          initialAdmin:
+            adminUser && adminPass.length >= 4
+              ? {
+                  username: adminUser,
+                  password: adminPass,
+                  name: String(fd.get('adminName') || adminUser)
+                }
+              : null
         };
 
         var submitBtn = createForm.querySelector('button[type="submit"]');
@@ -763,10 +1197,9 @@
         if (res && res.ok) {
           STATE_SA.newLogo1x1Data = '';
           STATE_SA.newLogoHorizData = '';
-          STATE_SA.activeTab = 'tenants';
-          syncTabsUi();
+          STATE_SA.activeView = 'tenants';
           showFeedback(res.message, false);
-          await reloadSuperAdminData();
+          await reloadSuperAdminData(true);
         } else {
           showFeedback((res && res.message) || 'No se pudo crear el comercio.', true);
           renderBody();
@@ -822,9 +1255,7 @@
     if (applyToNewBtn) {
       applyToNewBtn.addEventListener('click', function () {
         STATE_SA.newOptionType = STATE_SA.quoteOptionType;
-        STATE_SA.activeTab = 'new';
-        syncTabsUi();
-        renderBody();
+        openSuperAdminView('new');
       });
     }
 
@@ -851,7 +1282,7 @@
         });
         if (res && res.ok) {
           showFeedback(res.message, false);
-          await reloadSuperAdminData();
+          await reloadSuperAdminData(true);
         } else {
           showFeedback((res && res.message) || 'Error guardando precios.', true);
         }
@@ -865,16 +1296,26 @@
         ev.preventDefault();
         var fd = new FormData(secretsForm);
         var secrets = {};
-        ['mp_access_token', 'mp_public_key', 'github_token', 'github_owner', 'vercel_token', 'vercel_team_id'].forEach(function (k) {
+        [
+          'mp_access_token',
+          'mp_public_key',
+          'github_token',
+          'github_owner',
+          'vercel_token',
+          'vercel_team_id'
+        ].forEach(function (k) {
           var v = String(fd.get(k) || '').trim();
           if (v !== '' || k === 'mp_public_key' || k === 'github_owner' || k === 'vercel_team_id') {
             secrets[k] = v;
           }
         });
-        var res = await apiSuperAdmin('POST', { action: 'save_platform_secrets', secrets: secrets });
+        var res = await apiSuperAdmin('POST', {
+          action: 'save_platform_secrets',
+          secrets: secrets
+        });
         if (res && res.ok) {
           showFeedback(res.message, false);
-          await reloadSuperAdminData();
+          await reloadSuperAdminData(true);
         } else {
           showFeedback((res && res.message) || 'No se pudieron guardar las credenciales.', true);
         }
@@ -882,7 +1323,40 @@
     }
   }
 
+  function bindGlobalNavIntegration() {
+    if (window.__MS_SA_NAV_BOUND__) return;
+    window.__MS_SA_NAV_BOUND__ = true;
+
+    document.addEventListener('click', function (ev) {
+      var target = ev.target;
+      if (!target || typeof target.closest !== 'function') return;
+
+      // Si el usuario hace clic en el logo de inicio o en cualquier botón nativo data-open-section, ocultar secciones de superadmin
+      var homeBtn = target.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section]');
+      if (homeBtn) {
+        var menuSec = document.getElementById('sec-menu-superadmin');
+        var detailSec = document.getElementById('sec-superadmin-detail');
+        var isSaActive = (menuSec && !menuSec.hidden) || (detailSec && !detailSec.hidden);
+
+        if (homeBtn.id === 'btn-topbar-back-facturacion' && isSaActive) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (detailSec && !detailSec.hidden) {
+            openSuperAdminView('menu');
+          } else {
+            closeSuperAdminSectionsToHome();
+          }
+          return;
+        }
+
+        if (menuSec) menuSec.hidden = true;
+        if (detailSec) detailSec.hidden = true;
+      }
+    }, true);
+  }
+
   function syncSuperAdminEntrypointVisibility() {
+    bindGlobalNavIntegration();
     var allowed = isDanielGeneralAdmin();
     var topActions = document.querySelector('.topbar-actions');
     var existingBtn = document.getElementById('ms-open-superadmin-btn');
@@ -893,9 +1367,9 @@
       btn.id = 'ms-open-superadmin-btn';
       btn.className = 'ms-superadmin-topbar-btn';
       btn.innerHTML = '🛡️ Admin General';
-      btn.title = 'Abrir Panel de Administrador General (Comercios, Valor Mensual y Mercado Pago)';
+      btn.title = 'Abrir Módulo de Administrador General';
       btn.addEventListener('click', function () {
-        openSuperAdminModal('tenants');
+        openSuperAdminView('menu');
       });
       topActions.insertBefore(btn, topActions.firstChild);
     } else if (existingBtn) {
@@ -903,27 +1377,37 @@
       existingBtn.style.display = allowed ? 'inline-flex' : 'none';
     }
 
-    // Inyectar tarjeta destacada en #sec-inicio para @danielg
+    // Inyectar tarjeta destacada en #sec-inicio para @danielg (sin texto descriptivo)
     var inicioGrid = document.querySelector('#sec-inicio .modules-grid');
     var existingCard = document.getElementById('ms-superadmin-home-card');
     if (allowed && inicioGrid && !existingCard) {
       var card = document.createElement('article');
       card.id = 'ms-superadmin-home-card';
       card.className = 'module-card';
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
       card.style.border = '2px solid #56D7A1';
       card.style.background = 'linear-gradient(135deg, #112D3A 0%, #183f52 100%)';
       card.style.color = '#FFFFFF';
       card.style.cursor = 'pointer';
       card.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">' +
-          '<div class="module-icon" aria-hidden="true" style="margin:0;">' +
-            '<span style="font-size:1.4rem;">🛡️</span>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
+          '<div class="module-icon" aria-hidden="true" style="margin:0;background:#56D7A1;color:#112D3A;">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+              '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>' +
+            '</svg>' +
           '</div>' +
           '<span style="background:#56D7A1;color:#112D3A;font-size:0.7rem;font-weight:800;padding:0.2rem 0.55rem;border-radius:999px;">EXCLUSIVO @danielg</span>' +
         '</div>' +
         '<h3 style="margin:0;color:#FFFFFF;">Administrador General</h3>';
       card.addEventListener('click', function () {
-        openSuperAdminModal('tenants');
+        openSuperAdminView('menu');
+      });
+      card.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          openSuperAdminView('menu');
+        }
       });
       inicioGrid.insertBefore(card, inicioGrid.firstChild);
     } else if (existingCard) {
