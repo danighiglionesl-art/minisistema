@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon-64.png?v=161">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png?v=161">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="assets/css/styles.css?v=279">
+  <link rel="stylesheet" href="assets/css/styles.css?v=281">
   <script src="assets/js/brand.js?v=7"></script>
   <style>
     html[data-has-session="1"] #login-view { display: none !important; }
@@ -2058,30 +2058,30 @@
         </div>
 
         <form id="ce-filters-form" class="erp-fieldset" style="margin-block-end: 1rem;" novalidate>
-          <div class="form-row" style="grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); align-items: end; gap: 0.85rem;">
-            <div class="form-group">
+          <div class="ce-filters-row">
+            <div class="form-group ce-date-group">
               <label for="ce-filter-desde" class="form-label">Fecha Desde</label>
               <input
                 type="date"
                 id="ce-filter-desde"
                 name="ce_desde"
-                class="form-input"
+                class="form-input form-input--compact"
               >
             </div>
 
-            <div class="form-group">
+            <div class="form-group ce-date-group">
               <label for="ce-filter-hasta" class="form-label">Fecha Hasta</label>
               <input
                 type="date"
                 id="ce-filter-hasta"
                 name="ce_hasta"
-                class="form-input"
+                class="form-input form-input--compact"
               >
             </div>
 
-            <div class="form-group">
+            <div class="form-group ce-select-group">
               <label for="ce-filter-pv" class="form-label">Punto de Venta</label>
-              <select id="ce-filter-pv" name="ce_pv" class="form-select">
+              <select id="ce-filter-pv" name="ce_pv" class="form-select form-input--compact">
                 <option value="TODOS">Todos los Puntos de Venta</option>
                 <option value="0002">0002 · Caja 1 (Factura Electrónica ARCA)</option>
                 <option value="0099">0099 · Caja 1 (Comprobante Interno)</option>
@@ -2095,11 +2095,25 @@
               </select>
             </div>
 
-            <div class="form-group" style="display:flex; gap:0.5rem; align-items:center; justify-content:flex-end; flex-wrap:wrap;">
-              <button type="button" id="btn-ce-hoy" class="btn-secondary" style="width:auto; min-height:42px;" title="Ver emitidos en el día">
+            <div class="form-group ce-select-group">
+              <label for="ce-filter-medio" class="form-label">Medio de Pago</label>
+              <select id="ce-filter-medio" name="ce_medio" class="form-select form-input--compact">
+                <option value="TODOS">Todos los Medios de Pago</option>
+                <option value="efectivo">💵 Efectivo</option>
+                <option value="ctacte">📒 Cuenta Corriente</option>
+                <option value="debito">💳 Tarjeta de Débito</option>
+                <option value="credito">💳 Tarjeta de Crédito</option>
+                <option value="qr">📱 Pago con QR</option>
+                <option value="transferencia">🏦 Transferencia Bancaria</option>
+                <option value="combinado">🔀 Pago Combinado</option>
+              </select>
+            </div>
+
+            <div class="form-group ce-actions-group">
+              <button type="button" id="btn-ce-hoy" class="btn-secondary btn-sm" style="width:auto; min-height:38px;" title="Ver emitidos en el día">
                 📅 Hoy
               </button>
-              <button type="button" id="btn-ce-refresh" class="btn-secondary" style="width:auto; min-height:42px;">
+              <button type="button" id="btn-ce-refresh" class="btn-secondary btn-sm" style="width:auto; min-height:38px;">
                 🔄 Actualizar
               </button>
             </div>
@@ -12672,7 +12686,7 @@
           <div style="max-width:780px;">
             <h2>📝 Reporte de Mejoras · Problemas, Soluciones e Implementaciones</h2>
             <p>
-              Registrá un <strong>problema detectado</strong>, una <strong>necesidad de solución operativa</strong> o una propuesta de <strong>implementación de mejora</strong> con fecha y hora automática y captura de pantalla opcional. Tu reporte se envía directamente al módulo <strong>CRM del Administrador General</strong>.
+              Registrá un <strong>problema detectado</strong>, una <strong>necesidad de solución operativa</strong> o una propuesta de <strong>implementación de mejora</strong>.
             </p>
           </div>
           <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap;">
@@ -18625,7 +18639,7 @@
     </form>
   </dialog>
 
-  <script src="assets/js/zxing.min.js?v=279" defer></script>
-  <script src="assets/js/app.js?v=279" defer></script>
+  <script src="assets/js/zxing.min.js?v=281" defer></script>
+  <script src="assets/js/app.js?v=281" defer></script>
 </body>
 </html>

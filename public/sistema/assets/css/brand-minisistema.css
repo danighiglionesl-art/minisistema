@@ -360,6 +360,7 @@ html[data-brand="minisistema"] .brand-confirm-header {
 }
 
 html[data-brand="minisistema"] .brand-confirm-logo-box {
+  background: var(--ms-primary) !important;
   border-color: var(--ms-accent) !important;
 }
 

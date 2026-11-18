@@ -13933,31 +13933,25 @@ function initApp() {
     return Array.from(mapByKey.values());
   }
 
-  function applySmartDefaultDatesForComprobantesEmitidos() {
-    if (ceUserChangedDates) return;
+  function applySmartDefaultDatesForComprobantesEmitidos(forceToday = false) {
+    if (!forceToday && ceUserChangedDates) return;
     const desdeInp = document.getElementById('ce-filter-desde');
     const hastaInp = document.getElementById('ce-filter-hasta');
     if (!desdeInp || !hastaInp) return;
 
     const todayIso = getLocalTodayIsoStr();
-    const allItems = getAllComprobantesEmitidos();
-    const hasToday = allItems.some((item) => item.fechaIso === todayIso);
-
-    if (hasToday || allItems.length === 0) {
-      desdeInp.value = todayIso;
-      hastaInp.value = todayIso;
-      return;
-    }
-
-    let latestIso = '';
-    allItems.forEach((item) => {
-      if (item.fechaIso && item.fechaIso > latestIso) {
-        latestIso = item.fechaIso;
-      }
-    });
-
-    desdeInp.value = latestIso || todayIso;
+    desdeInp.value = todayIso;
     hastaInp.value = todayIso;
+    hastaInp.min = todayIso;
+  }
+
+  function matchesComprobanteMedioPagoFilter(item, selectedMedio) {
+    if (!selectedMedio || selectedMedio === 'TODOS') return true;
+    const inferred =
+      typeof inferPaymentParamsFromRecord === 'function'
+        ? inferPaymentParamsFromRecord(item)
+        : { method: 'efectivo' };
+    return inferred.method === selectedMedio;
   }
 
   function renderComprobantesEmitidosView(page = null) {
@@ -13970,16 +13964,18 @@ function initApp() {
     const desdeInp = document.getElementById('ce-filter-desde');
     const hastaInp = document.getElementById('ce-filter-hasta');
     const pvSel = document.getElementById('ce-filter-pv');
+    const medioSel = document.getElementById('ce-filter-medio');
     const statusEl = document.getElementById('ce-status-msg');
     const totalBadgeEl = document.getElementById('ce-total-badge');
 
     if (desdeInp && !desdeInp.value && hastaInp && !hastaInp.value) {
-      applySmartDefaultDatesForComprobantesEmitidos();
+      applySmartDefaultDatesForComprobantesEmitidos(true);
     }
 
     const desdeIso = desdeInp?.value || '';
     const hastaIso = hastaInp?.value || '';
     const selectedPv = pvSel?.value || 'TODOS';
+    const selectedMedio = medioSel?.value || 'TODOS';
 
     const allItems = getAllComprobantesEmitidos();
     const filtered = allItems.filter((item) => {
@@ -13987,6 +13983,9 @@ function initApp() {
         return false;
       }
       if (hastaIso && item.fechaIso && item.fechaIso > hastaIso) {
+        return false;
+      }
+      if (!matchesComprobanteMedioPagoFilter(item, selectedMedio)) {
         return false;
       }
       if (selectedPv === 'TODOS') return true;
@@ -14025,9 +14024,13 @@ function initApp() {
     }
 
     const pvOptionText = pvSel?.options?.[pvSel.selectedIndex]?.text || 'Todos los Puntos de Venta';
+    const medioOptionText =
+      selectedMedio !== 'TODOS' && medioSel?.options?.[medioSel.selectedIndex]?.text
+        ? ` · ${medioSel.options[medioSel.selectedIndex].text.replace(/^[^\wÁÉÍÓÚÑáéíóúñ]+/, '').trim()}`
+        : '';
 
     if (statusEl) {
-      statusEl.textContent = `${filtered.length} comprobante(s) emitido(s) · Período: ${periodoLabel} · ${pvOptionText}`;
+      statusEl.textContent = `${filtered.length} comprobante(s) emitido(s) · Período: ${periodoLabel} · ${pvOptionText}${medioOptionText}`;
     }
     if (totalBadgeEl) {
       totalBadgeEl.textContent = `Total: $ ${formatArs(totalImporte)}`;
@@ -14040,7 +14043,7 @@ function initApp() {
       const td = document.createElement('td');
       td.colSpan = 6;
       td.className = 'table-loading-cell';
-      td.textContent = `No hay comprobantes emitidos en el período (${periodoLabel}) para ${pvOptionText}.`;
+      td.textContent = `No hay comprobantes emitidos en el período (${periodoLabel}) para ${pvOptionText}${medioOptionText}.`;
       tr.appendChild(td);
       tbody.appendChild(tr);
       renderTenByTenPaginationBar({ containerId: 'ce-pagination-top', totalItems: 0 });
@@ -14155,28 +14158,47 @@ function initApp() {
     const desdeInp = document.getElementById('ce-filter-desde');
     const hastaInp = document.getElementById('ce-filter-hasta');
     const pvSel = document.getElementById('ce-filter-pv');
+    const medioSel = document.getElementById('ce-filter-medio');
     const btnHoy = document.getElementById('btn-ce-hoy');
     const btnRefresh = document.getElementById('btn-ce-refresh');
     const form = document.getElementById('ce-filters-form');
 
-    applySmartDefaultDatesForComprobantesEmitidos();
+    // Por defecto cada vez que se ingrese al módulo poner la fecha de hoy
+    ceUserChangedDates = false;
+    applySmartDefaultDatesForComprobantesEmitidos(true);
 
     if (!ceListenersBound) {
       ceListenersBound = true;
       desdeInp?.addEventListener('change', () => {
         ceUserChangedDates = true;
+        const desdeVal = desdeInp.value || '';
+        if (desdeVal && hastaInp) {
+          hastaInp.min = desdeVal;
+          // Si Fecha Hasta no es superior a Fecha Desde, poner automáticamente el mismo día
+          if (!hastaInp.value || !(hastaInp.value > desdeVal)) {
+            hastaInp.value = desdeVal;
+          }
+        }
         renderComprobantesEmitidosView(1);
       });
       hastaInp?.addEventListener('change', () => {
         ceUserChangedDates = true;
+        const desdeVal = desdeInp?.value || '';
+        if (desdeVal && hastaInp && (!hastaInp.value || hastaInp.value < desdeVal)) {
+          hastaInp.value = desdeVal;
+        }
         renderComprobantesEmitidosView(1);
       });
       pvSel?.addEventListener('change', () => renderComprobantesEmitidosView(1));
+      medioSel?.addEventListener('change', () => renderComprobantesEmitidosView(1));
       btnHoy?.addEventListener('click', () => {
         ceUserChangedDates = true;
         const todayIso = getLocalTodayIsoStr();
         if (desdeInp) desdeInp.value = todayIso;
-        if (hastaInp) hastaInp.value = todayIso;
+        if (hastaInp) {
+          hastaInp.value = todayIso;
+          hastaInp.min = todayIso;
+        }
         renderComprobantesEmitidosView(1);
       });
       btnRefresh?.addEventListener('click', () => {
@@ -14191,7 +14213,7 @@ function initApp() {
       });
     }
 
-    renderComprobantesEmitidosView();
+    renderComprobantesEmitidosView(1);
     loadVentasDatabase(true).then(() => {
       applySmartDefaultDatesForComprobantesEmitidos();
       const ceSec = document.getElementById('sec-comprobantes-emitidos');
