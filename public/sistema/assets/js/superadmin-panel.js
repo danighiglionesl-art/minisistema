@@ -126,8 +126,8 @@
             '<button type="button" class="btn-back-home" id="ms-sa-back-home-btn">← Volver a Pantalla Principal</button>' +
             '<span class="module-breadcrumb">ERP en Línea · <strong>Administrador General (@danielg)</strong></span>' +
           '</div>' +
-          '<div style="display:inline-flex;align-items:center;gap:0.65rem;background:#112D3A;border:1.5px solid #56D7A1;border-radius:12px;padding:0.35rem 0.85rem;">' +
-            '<img src="/sistema/assets/img/minisistema/logo-horizontal.png" alt="MiniSistema" style="height:26px;width:auto;object-fit:contain;background:#112D3A;display:block;">' +
+          '<div style="display:inline-flex;align-items:center;gap:0.65rem;background:#112D3A;border-radius:12px;padding:0.35rem 0.85rem;">' +
+            '<img src="/sistema/assets/img/minisistema/logo-horizontal.png" alt="MiniSistema" style="height:26px;width:auto;object-fit:contain;background:transparent;border:none;display:block;">' +
             '<span style="background:#56D7A1;color:#112D3A;font-size:0.68rem;font-weight:900;padding:0.15rem 0.5rem;border-radius:999px;">EXCLUSIVO @danielg</span>' +
           '</div>' +
         '</div>' +
@@ -206,8 +206,8 @@
             '<button type="button" class="btn-back-home" id="ms-sa-back-menu-btn">← Volver a Administrador General</button>' +
             '<span class="module-breadcrumb">ERP en Línea · Administrador General · <strong id="ms-sa-detail-breadcrumb">Comercios Habilitados</strong></span>' +
           '</div>' +
-          '<div style="display:inline-flex;align-items:center;gap:0.65rem;background:#112D3A;border:1.5px solid #56D7A1;border-radius:12px;padding:0.35rem 0.85rem;">' +
-            '<img src="/sistema/assets/img/minisistema/logo-horizontal.png" alt="MiniSistema" style="height:26px;width:auto;object-fit:contain;background:#112D3A;display:block;">' +
+          '<div style="display:inline-flex;align-items:center;gap:0.65rem;background:#112D3A;border-radius:12px;padding:0.35rem 0.85rem;">' +
+            '<img src="/sistema/assets/img/minisistema/logo-horizontal.png" alt="MiniSistema" style="height:26px;width:auto;object-fit:contain;background:transparent;border:none;display:block;">' +
             '<span style="background:#56D7A1;color:#112D3A;font-size:0.68rem;font-weight:900;padding:0.15rem 0.5rem;border-radius:999px;">@danielg</span>' +
           '</div>' +
         '</div>' +
