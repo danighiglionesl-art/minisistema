@@ -25053,7 +25053,7 @@ function initApp() {
                     <td style="text-align:right; white-space:nowrap;">$ ${formatArs(c.tarjetasTotal ?? 0)}</td>
                   </tr>
                   <tr style="background:#f8fafc;">
-                    <td colspan="4"><strong>Ventas en Cuenta Corriente${ctaCteCountAudit > 0 ? ` (${ctaCteCountAudit} comp.)` : ''}:</strong> <span style="color:#475569;">(Imputado en Cta. Cte. Clientes)${ctaCteDetTextAudit}</span></td>
+                    <td colspan="4"><strong>Ventas en Cuenta Corriente del Turno:</strong> <span style="color:#475569;">(Imputado en Cta. Cte. Clientes)</span></td>
                     <td style="text-align:right; font-weight:800; white-space:nowrap;">$ ${formatArs(totalCtaCteTurno)}</td>
                   </tr>
                 </tfoot>
@@ -25509,7 +25509,7 @@ function initApp() {
               <td style="text-align:center;">[ &nbsp;&nbsp;&nbsp; ]</td>
             </tr>
             <tr>
-              <td colspan="4"><strong>Ventas en Cuenta Corriente del Turno${ctaCteCountTurno > 0 ? ` (${ctaCteCountTurno} comp.)` : ''}:</strong> $ ${formatArs(totalCtaCteTurno)}${ctaCteDetalleStr} <span style="color:#475569;">(Imputado en Cta. Cte. Clientes)</span></td>
+              <td colspan="4"><strong>Ventas en Cuenta Corriente del Turno:</strong> <span style="color:#475569;">(Imputado en Cta. Cte. Clientes)</span></td>
               <td style="text-align:right; font-weight:800;">$ ${formatArs(totalCtaCteTurno)}</td>
               <td style="text-align:center;">[ &nbsp;&nbsp;&nbsp; ]</td>
             </tr>
