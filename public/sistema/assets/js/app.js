@@ -6410,6 +6410,38 @@ function updateProvCuitStatusHint() {
   }
 }
 
+function scoreCtaCteEntityMatch(c, q, tokens) {
+  const codStr = normalizeStr(String(c.codigo || c.codigoProveedor || ''));
+  const nombreStr = normalizeStr(String(c.nombre || ''));
+  const razonStr = normalizeStr(String(c.razonSocial || ''));
+  const docStr = normalizeStr(String(c.nroDoc || ''));
+  const docDigits = docStr.replace(/\D/g, '');
+  const qDigits = q.replace(/\D/g, '');
+
+  if (codStr === q) return 1000;
+  if (nombreStr === q || razonStr === q) return 950;
+  if (nombreStr.startsWith(q) || razonStr.startsWith(q)) return 900;
+
+  const words = `${nombreStr} ${razonStr}`.split(/[\s,.\-()/]+/).filter(Boolean);
+  const allTokensStartWord = tokens.every(
+    (t) =>
+      words.some((w) => w.startsWith(t)) ||
+      codStr.startsWith(t) ||
+      (t.replace(/\D/g, '').length >= 2 && docDigits.includes(t.replace(/\D/g, '')))
+  );
+  if (allTokensStartWord) {
+    return words[0] && words[0].startsWith(tokens[0]) ? 850 : 780;
+  }
+  if (qDigits.length >= 2 && (codStr.startsWith(qDigits) || docDigits.startsWith(qDigits))) {
+    return 720;
+  }
+  if (q.length <= 2) {
+    return 0;
+  }
+  const hay = `${codStr} ${nombreStr} ${razonStr} ${docStr} ${docDigits}`;
+  return tokens.every((t) => hay.includes(t)) ? 250 : 0;
+}
+
 function getFilteredCuentasCorrientesUnificadasList() {
   const qRaw = String(document.getElementById('ctacte-filter-q')?.value || '').trim();
   const q = normalizeStr(qRaw);
@@ -6417,6 +6449,13 @@ function getFilteredCuentasCorrientesUnificadasList() {
   const estado = document.getElementById('ctacte-filter-estado')?.value || 'con_movimientos';
   const orden = document.getElementById('ctacte-filter-orden')?.value || 'mayor_saldo';
   const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+
+  if (STATE.ctacteSelectedEntityId) {
+    const pinned = STATE.clientes.find((c) => Number(c.id) === Number(STATE.ctacteSelectedEntityId) && !isSystemConfigClient(c));
+    if (pinned) {
+      return { list: [pinned], qRaw, rol, estado, orden };
+    }
+  }
 
   const list = STATE.clientes.filter((c) => {
     if (isSystemConfigClient(c)) return false;
@@ -6500,7 +6539,6 @@ function printCuentasCorrientesUnificadasReport() {
         <td style="text-align:center;">${idx + 1}</td>
         <td><strong>#${escapeHtml(String(code))}</strong></td>
         <td><strong>${escapeHtml(c.nombre || '')}</strong><br><small style="color:#64748b;">${escapeHtml(c.localidad || '')}${c.provincia ? ' (' + escapeHtml(c.provincia) + ')' : ''}</small></td>
-        <td>${escapeHtml(c.tipoDoc || 'CUIT')}: ${escapeHtml(c.nroDoc || '')}<br><small style="color:#64748b;">${escapeHtml(c.respIva || '')}</small></td>
         <td>${escapeHtml(rolTxt)}</td>
         <td style="text-align:right;">$ ${formatArs(debe)}</td>
         <td style="text-align:right;">$ ${formatArs(haber)}</td>
@@ -6587,7 +6625,6 @@ function printCuentasCorrientesUnificadasReport() {
         <th style="width:32px; text-align:center;">#</th>
         <th style="width:65px;">Cód.</th>
         <th>Cliente / Proveedor</th>
-        <th>CUIT / Condición IVA</th>
         <th style="width:85px;">Rol</th>
         <th style="text-align:right; width:105px;">Total Debe ($)</th>
         <th style="text-align:right; width:105px;">Total Haber ($)</th>
@@ -6596,11 +6633,11 @@ function printCuentasCorrientesUnificadasReport() {
       </tr>
     </thead>
     <tbody>
-      ${rowsHtml || '<tr><td colspan="9" style="text-align:center; padding:14px;">No se encontraron cuentas corrientes con saldo distinto de cero para el filtro seleccionado.</td></tr>'}
+      ${rowsHtml || '<tr><td colspan="8" style="text-align:center; padding:14px;">No se encontraron cuentas corrientes con saldo distinto de cero para el filtro seleccionado.</td></tr>'}
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="5" style="text-align:right;">TOTALES DEL REPORTE (${printList.length} cuentas):</td>
+        <td colspan="4" style="text-align:right;">TOTALES DEL REPORTE (${printList.length} cuentas):</td>
         <td style="text-align:right;">$ ${formatArs(sumDebe)}</td>
         <td style="text-align:right;">$ ${formatArs(sumHaber)}</td>
         <td style="text-align:right;">$ ${formatArs(sumSaldoNeto)}</td>
@@ -6648,7 +6685,7 @@ function renderCuentasCorrientesSection(page = null) {
   if (total === 0) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 8;
+    td.colSpan = 7;
     td.className = 'table-loading-cell';
     td.textContent = 'No se encontraron cuentas corrientes para el filtro seleccionado.';
     tr.appendChild(td);
@@ -6656,6 +6693,21 @@ function renderCuentasCorrientesSection(page = null) {
     renderTenByTenPaginationBar({ containerId: 'ctacte-pagination-bar', totalItems: 0 });
     return;
   }
+
+  const applyUniformCtaCteBtnStyle = (btn) => {
+    btn.style.width = '170px';
+    btn.style.minWidth = '170px';
+    btn.style.maxWidth = '170px';
+    btn.style.height = '34px';
+    btn.style.minHeight = '34px';
+    btn.style.padding = '0 0.65rem';
+    btn.style.display = 'inline-flex';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
+    btn.style.gap = '0.35rem';
+    btn.style.boxSizing = 'border-box';
+    btn.style.whiteSpace = 'nowrap';
+  };
 
   const frag = document.createDocumentFragment();
   pageList.forEach((c) => {
@@ -6680,10 +6732,6 @@ function renderCuentasCorrientesSection(page = null) {
     });
     tr.appendChild(th);
 
-    const tdCuit = document.createElement('td');
-    tdCuit.innerHTML = `<div class="price-cell-stack"><strong>${c.tipoDoc}: ${c.nroDoc}</strong><span class="art-sub-meta">${c.respIva}</span></div>`;
-    tr.appendChild(tdCuit);
-
     const tdCond = document.createElement('td');
     let rolBadge = '';
     if (c.esCliente && c.esProveedor) {
@@ -6698,18 +6746,21 @@ function renderCuentasCorrientesSection(page = null) {
     tr.appendChild(tdCond);
 
     const tdDebe = document.createElement('td');
+    tdDebe.className = 'num-col';
     tdDebe.innerHTML = `<strong>$ ${formatArs(c.totalDebe)}</strong>`;
     tr.appendChild(tdDebe);
 
     const tdHaber = document.createElement('td');
+    tdHaber.className = 'num-col';
     tdHaber.innerHTML = `<strong style="color:var(--success);">$ ${formatArs(c.totalHaber)}</strong>`;
     tr.appendChild(tdHaber);
 
     const tdSaldo = document.createElement('td');
+    tdSaldo.className = 'num-col';
     const saldo = Number(c.saldoActual) || 0;
     const saldoCls = saldo > 0.009 ? 'saldo-badge--deudor' : saldo < -0.009 ? 'saldo-badge--favor' : 'saldo-badge--cero';
     const subEstado = saldo > 0.009 ? 'A COBRAR' : saldo < -0.009 ? 'A PAGAR / FAVOR' : 'AL DÍA';
-    tdSaldo.innerHTML = `<div class="price-cell-stack"><span class="saldo-badge ${saldoCls}">$ ${formatArs(saldo)}</span><span class="art-sub-meta">${subEstado}</span></div>`;
+    tdSaldo.innerHTML = `<div class="price-cell-stack" style="align-items:flex-end;"><span class="saldo-badge ${saldoCls}">$ ${formatArs(saldo)}</span><span class="art-sub-meta">${subEstado}</span></div>`;
     tr.appendChild(tdSaldo);
 
     const tdUlt = document.createElement('td');
@@ -6719,19 +6770,23 @@ function renderCuentasCorrientesSection(page = null) {
 
     const tdAcc = document.createElement('td');
     const wrap = document.createElement('div');
+    wrap.className = 'ctacte-actions-stack';
     wrap.style.display = 'flex';
-    wrap.style.gap = '0.4rem';
-    wrap.style.flexWrap = 'wrap';
+    wrap.style.flexDirection = 'column';
+    wrap.style.gap = '0.38rem';
+    wrap.style.width = '170px';
 
     const btnVer = document.createElement('button');
     btnVer.type = 'button';
-    btnVer.className = 'btn-edit-row';
+    btnVer.className = 'btn-primary btn-sm';
+    applyUniformCtaCteBtnStyle(btnVer);
     btnVer.textContent = '📒 Ver Cuenta';
     btnVer.addEventListener('click', () => openCtaCteModal(c.id));
 
     const btnDet = document.createElement('button');
     btnDet.type = 'button';
     btnDet.className = 'btn-secondary btn-sm';
+    applyUniformCtaCteBtnStyle(btnDet);
     btnDet.textContent = '📊 Detalle';
     btnDet.title = 'Ver composición en Detalle de Cuenta Corriente';
     btnDet.addEventListener('click', () => {
@@ -6743,6 +6798,7 @@ function renderCuentasCorrientesSection(page = null) {
     const btnFicha = document.createElement('button');
     btnFicha.type = 'button';
     btnFicha.className = 'btn-secondary btn-sm';
+    applyUniformCtaCteBtnStyle(btnFicha);
     btnFicha.textContent = '✏️ Ver / Editar Ficha';
     btnFicha.title = 'Ver y editar la ficha completa del cliente / proveedor';
     btnFicha.addEventListener('click', () => {
@@ -27333,14 +27389,147 @@ function initApp() {
     applyClientesFilters(STATE.clientesPage + 1);
   });
 
-  // Cuentas Corrientes Filters & Pagination (de 10 en 10)
+  // Cuentas Corrientes Filters, Ventana Emergente de Búsqueda & Pagination (de 10 en 10)
   let ctaSearchDebounce = null;
-  document.getElementById('ctacte-filter-q')?.addEventListener('input', () => {
+  const ctaQInput = document.getElementById('ctacte-filter-q');
+  const ctaSugBox = document.getElementById('ctacte-cli-suggestions');
+  let ctaSugHighlightIdx = -1;
+
+  const updateCtaSugHighlight = (items) => {
+    items.forEach((el, idx) => {
+      const active = idx === ctaSugHighlightIdx;
+      el.classList.toggle('is-highlighted', active);
+      if (active) el.scrollIntoView({ block: 'nearest' });
+    });
+  };
+
+  const renderCtaCteClientSuggestions = (rawTerm) => {
+    if (!ctaSugBox) return;
+    const q = normalizeStr(rawTerm);
+    if (!q) {
+      ctaSugBox.hidden = true;
+      ctaSugBox.textContent = '';
+      ctaSugHighlightIdx = -1;
+      return;
+    }
+    const rol = document.getElementById('ctacte-filter-rol')?.value || 'todos';
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const scored = [];
+    for (const c of STATE.clientes) {
+      if (isSystemConfigClient(c)) continue;
+      if (rol === 'duales' && !(c.esCliente && c.esProveedor)) continue;
+      if (rol === 'clientes' && !c.esCliente) continue;
+      if (rol === 'proveedores' && !c.esProveedor) continue;
+      const sc = scoreCtaCteEntityMatch(c, q, tokens);
+      if (sc > 0) scored.push({ c, sc });
+    }
+    scored.sort((a, b) => {
+      if (b.sc !== a.sc) return b.sc - a.sc;
+      return String(a.c.nombre || '').localeCompare(String(b.c.nombre || ''), 'es');
+    });
+    const matches = scored.slice(0, 30).map((it) => it.c);
+
+    ctaSugBox.textContent = '';
+    if (matches.length === 0) {
+      const emptyEl = document.createElement('div');
+      emptyEl.className = 'fact-sug-item';
+      emptyEl.style.opacity = '0.75';
+      emptyEl.style.cursor = 'default';
+      emptyEl.textContent = 'Sin coincidencias en el padrón.';
+      ctaSugBox.appendChild(emptyEl);
+      ctaSugBox.hidden = false;
+      ctaSugHighlightIdx = -1;
+      return;
+    }
+
+    ctaSugHighlightIdx = 0;
+    matches.forEach((c, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `fact-sug-item${idx === 0 ? ' is-highlighted' : ''}`;
+      const codeNum = c.codigo || c.codigoProveedor || c.id;
+      const saldoVal = Number(c.saldoActual || 0);
+      const saldoColor =
+        saldoVal > 0.009
+          ? 'var(--danger, #dc2626)'
+          : saldoVal < -0.009
+            ? 'var(--success, #16a34a)'
+            : 'var(--silver-muted)';
+      const roleTag = c.esCliente && c.esProveedor ? 'CLI + PROV' : c.esProveedor ? 'PROVEEDOR' : 'CLIENTE';
+      btn.innerHTML = `
+        <div class="fact-sug-main">
+          <strong>#${escapeHtml(String(codeNum))} · ${escapeHtml(c.nombre)}</strong>
+          <span class="art-sub-meta">${escapeHtml(c.tipoDoc || 'DOC')}: ${escapeHtml(c.nroDoc || 'S/D')} · ${roleTag}</span>
+        </div>
+        <div class="fact-sug-meta">
+          <strong style="color:${saldoColor};">Saldo: $ ${formatArs(saldoVal)}</strong>
+        </div>
+      `;
+      btn.addEventListener('click', () => {
+        STATE.ctacteSelectedEntityId = c.id;
+        if (ctaQInput) ctaQInput.value = c.nombre || '';
+        ctaSugBox.hidden = true;
+        ctaSugHighlightIdx = -1;
+        renderCuentasCorrientesSection(1);
+      });
+      ctaSugBox.appendChild(btn);
+    });
+    ctaSugBox.hidden = false;
+  };
+
+  ctaQInput?.addEventListener('input', () => {
+    STATE.ctacteSelectedEntityId = null;
+    if (!STATE.clientesLoaded || STATE.clientes.length === 0) {
+      loadClientesDatabase().then(() => {
+        renderCtaCteClientSuggestions(ctaQInput.value);
+        renderCuentasCorrientesSection(1);
+      });
+      return;
+    }
+    renderCtaCteClientSuggestions(ctaQInput.value);
     clearTimeout(ctaSearchDebounce);
     ctaSearchDebounce = setTimeout(() => renderCuentasCorrientesSection(1), 110);
   });
+
+  ctaQInput?.addEventListener('focus', () => {
+    if (ctaQInput.value.trim() && !STATE.ctacteSelectedEntityId) {
+      renderCtaCteClientSuggestions(ctaQInput.value);
+    }
+  });
+
+  ctaQInput?.addEventListener('keydown', (e) => {
+    if (e.isComposing) return;
+    const items = ctaSugBox ? Array.from(ctaSugBox.querySelectorAll('button.fact-sug-item')) : [];
+    if (e.key === 'ArrowDown' && items.length > 0 && !ctaSugBox.hidden) {
+      e.preventDefault();
+      ctaSugHighlightIdx = Math.min(items.length - 1, ctaSugHighlightIdx + 1);
+      updateCtaSugHighlight(items);
+    } else if (e.key === 'ArrowUp' && items.length > 0 && !ctaSugBox.hidden) {
+      e.preventDefault();
+      ctaSugHighlightIdx = Math.max(0, ctaSugHighlightIdx - 1);
+      updateCtaSugHighlight(items);
+    } else if (e.key === 'Enter' && items.length > 0 && !ctaSugBox.hidden) {
+      e.preventDefault();
+      const targetBtn = items[ctaSugHighlightIdx >= 0 ? ctaSugHighlightIdx : 0];
+      if (targetBtn) targetBtn.click();
+    } else if (e.key === 'Escape') {
+      if (ctaSugBox) ctaSugBox.hidden = true;
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (ctaSugBox && !ctaSugBox.hidden) {
+      if (!e.target.closest('#ctacte-filter-q') && !e.target.closest('#ctacte-cli-suggestions')) {
+        ctaSugBox.hidden = true;
+      }
+    }
+  });
+
   ['ctacte-filter-rol', 'ctacte-filter-estado', 'ctacte-filter-orden'].forEach((id) => {
-    document.getElementById(id)?.addEventListener('change', () => renderCuentasCorrientesSection(1));
+    document.getElementById(id)?.addEventListener('change', () => {
+      STATE.ctacteSelectedEntityId = null;
+      renderCuentasCorrientesSection(1);
+    });
   });
   document.getElementById('btn-ctacte-prev-page')?.addEventListener('click', () => {
     if ((Number(STATE.ctactePage) || 1) > 1) {
@@ -34254,6 +34443,54 @@ function initApp() {
     return `$ ${formatArs(n)}`;
   }
 
+  function getOrCreateEstChartTooltip() {
+    let tip = document.getElementById('est-chart-hover-tooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'est-chart-hover-tooltip';
+      tip.style.cssText = [
+        'position:fixed',
+        'z-index:99999',
+        'pointer-events:none',
+        'background:rgba(15, 23, 42, 0.96)',
+        'color:#f8fafc',
+        'border:1px solid rgba(217, 119, 6, 0.65)',
+        'border-radius:10px',
+        'padding:8px 12px',
+        'font-size:12px',
+        'line-height:1.4',
+        'box-shadow:0 10px 25px rgba(0,0,0,0.28)',
+        'white-space:nowrap',
+        'transition:opacity 0.08s ease',
+        'opacity:0'
+      ].join(';');
+      tip.hidden = true;
+      document.body.appendChild(tip);
+    }
+    return tip;
+  }
+
+  function hideEstChartTooltip() {
+    const tip = document.getElementById('est-chart-hover-tooltip');
+    if (tip) {
+      tip.style.opacity = '0';
+      tip.hidden = true;
+    }
+  }
+
+  function formatEstAxisDateShort(rawLabel) {
+    const s = String(rawLabel ?? '').trim();
+    const mFullDate = s.match(/^(\d{2})\/(\d{2})\/\d{4}$/);
+    if (mFullDate) {
+      return `${mFullDate[1]}/${mFullDate[2]}`;
+    }
+    const mIsoDate = s.match(/^\d{4}-(\d{2})-(\d{2})$/);
+    if (mIsoDate) {
+      return `${mIsoDate[2]}/${mIsoDate[1]}`;
+    }
+    return s;
+  }
+
   function drawEstControlChart(canvasId, chartType, labels, values, options = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -34263,7 +34500,7 @@ function initApp() {
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     const cssWidth = Math.max(320, rect.width || canvas.width || 680);
-    const cssHeight = Math.max(220, rect.height || canvas.height || 300);
+    const cssHeight = Math.max(230, rect.height || canvas.height || 300);
 
     canvas.width = Math.round(cssWidth * dpr);
     canvas.height = Math.round(cssHeight * dpr);
@@ -34279,10 +34516,16 @@ function initApp() {
     const fontFamily = "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
     const safeLabels = Array.isArray(labels) ? labels : [];
+    const fullLabels = Array.isArray(options.fullLabels) && options.fullLabels.length === safeLabels.length
+      ? options.fullLabels
+      : safeLabels;
+    const extraTooltipLines = Array.isArray(options.extraTooltipLines) ? options.extraTooltipLines : [];
     const safeValues = Array.isArray(values) ? values.map((v) => Math.max(0, Number(v) || 0)) : [];
     const totalSum = safeValues.reduce((a, b) => a + b, 0);
+    const hoverIndex = typeof options._hoverIndex === 'number' ? options._hoverIndex : -1;
 
     if (safeLabels.length === 0 || totalSum <= 0) {
+      canvas.__estChartMeta = null;
       ctx.fillStyle = mutedColor;
       ctx.font = `600 13px ${fontFamily}`;
       ctx.textAlign = 'center';
@@ -34291,35 +34534,51 @@ function initApp() {
     }
 
     const isCurrency = options.isCurrency !== false;
-    const fmtVal = (v) => (isCurrency ? formatCompactArs(v) : v.toLocaleString('es-AR'));
+    const isPercentValue = Boolean(options.isPercent);
+    const fmtVal = (v) =>
+      isPercentValue
+        ? `${Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`
+        : isCurrency
+          ? formatCompactArs(v)
+          : v.toLocaleString('es-AR');
+    const fmtExactVal = (v) =>
+      isPercentValue
+        ? `${Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+        : isCurrency
+          ? `$ ${formatArs(v)}`
+          : `${Number(v || 0).toLocaleString('es-AR')} unid.`;
 
     if (chartType === 'pie') {
       const centerX = Math.min(cssWidth * 0.34, cssHeight * 0.52);
       const centerY = cssHeight / 2;
       const radius = Math.max(55, Math.min(centerX - 24, cssHeight / 2 - 24));
       const innerRadius = radius * 0.52;
+      const slicesMeta = [];
 
       let startAngle = -Math.PI / 2;
       safeValues.forEach((val, idx) => {
         const sliceAngle = (val / totalSum) * Math.PI * 2;
         const endAngle = startAngle + sliceAngle;
         const color = EST_CHART_PALETTE[idx % EST_CHART_PALETTE.length];
+        const isHovered = idx === hoverIndex;
+        const midAngle = startAngle + sliceAngle / 2;
+        const offset = isHovered ? 5 : 0;
+        const cx = centerX + Math.cos(midAngle) * offset;
+        const cy = centerY + Math.sin(midAngle) * offset;
 
         ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, isHovered ? radius + 3 : radius, startAngle, endAngle);
         ctx.closePath();
         ctx.fillStyle = color;
         ctx.fill();
-        ctx.lineWidth = 2;
+        ctx.lineWidth = isHovered ? 2.5 : 2;
         ctx.strokeStyle = isDark ? '#0f172a' : '#ffffff';
         ctx.stroke();
 
-        // Porcentaje sobre porción si es suficientemente grande
         const pct = (val / totalSum) * 100;
         if (pct >= 6) {
-          const midAngle = startAngle + sliceAngle / 2;
-          const labelR = (radius + innerRadius) / 2;
+          const labelR = (radius + innerRadius) / 2 + offset;
           const lx = centerX + Math.cos(midAngle) * labelR;
           const ly = centerY + Math.sin(midAngle) * labelR;
           ctx.fillStyle = '#ffffff';
@@ -34329,6 +34588,15 @@ function initApp() {
           ctx.fillText(`${pct.toFixed(1)}%`, lx, ly);
         }
 
+        slicesMeta.push({
+          idx,
+          startAngle,
+          endAngle,
+          val,
+          pct,
+          label: String(fullLabels[idx] || safeLabels[idx] || ''),
+          extra: extraTooltipLines[idx] || ''
+        });
         startAngle = endAngle;
       });
 
@@ -34363,20 +34631,67 @@ function initApp() {
 
         const rawLbl = String(safeLabels[i] || '');
         const cleanLbl = rawLbl.length > 24 ? `${rawLbl.slice(0, 23)}…` : rawLbl;
-        ctx.fillStyle = textColor;
-        ctx.font = `600 11px ${fontFamily}`;
+        ctx.fillStyle = i === hoverIndex ? '#d97706' : textColor;
+        ctx.font = `${i === hoverIndex ? '800' : '600'} 11px ${fontFamily}`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillText(`${cleanLbl} (${pct}%)`, legendX + 17, y);
       }
+
+      canvas.__estChartMeta = {
+        chartType: 'pie',
+        canvasId,
+        labels: safeLabels,
+        values: safeValues,
+        options: { ...options, _hoverIndex: undefined },
+        centerX,
+        centerY,
+        radius,
+        innerRadius,
+        slicesMeta,
+        fmtExactVal
+      };
+      bindEstCanvasHoverEvents(canvas);
       return;
     }
 
-    // Gráfico Cartesiano (Barras o Línea)
+    // Formatear etiquetas de eje X (fechas siempre en dd/mm)
+    const axisLabels = safeLabels.map((lbl) => formatEstAxisDateShort(lbl));
+    const n = safeValues.length;
     const padLeft = 68;
     const padRight = 22;
     const padTop = 26;
-    const padBottom = 48;
+    const prelimPlotW = Math.max(120, cssWidth - padLeft - padRight);
+    const prelimStepX = prelimPlotW / Math.max(1, n);
+    const maxAxisLabelLen = axisLabels.reduce((m, s) => Math.max(m, String(s || '').length), 0);
+    const allAreShortDates = axisLabels.every((s) => /^\d{1,2}\/\d{1,2}$/.test(String(s || '').trim()));
+
+    // Determinar orientación óptima en eje X: horizontal, cruzado (diagonal -42°) o vertical (-90°)
+    let labelOrientation = 'horizontal';
+    if (options.labelOrientation) {
+      labelOrientation = options.labelOrientation;
+    } else if (allAreShortDates) {
+      if (prelimStepX < 20) {
+        labelOrientation = 'vertical';
+      } else if (prelimStepX < 44 || n > 10) {
+        labelOrientation = 'diagonal';
+      }
+    } else {
+      const estPxNeeded = maxAxisLabelLen * 6.2 + 10;
+      if (prelimStepX < 22) {
+        labelOrientation = 'vertical';
+      } else if (estPxNeeded > prelimStepX || n > 7) {
+        labelOrientation = 'diagonal';
+      }
+    }
+
+    const padBottom =
+      labelOrientation === 'vertical'
+        ? (allAreShortDates ? 52 : 76)
+        : labelOrientation === 'diagonal'
+          ? (allAreShortDates ? 50 : 68)
+          : 44;
+
     const plotW = Math.max(120, cssWidth - padLeft - padRight);
     const plotH = Math.max(100, cssHeight - padTop - padBottom);
 
@@ -34402,38 +34717,72 @@ function initApp() {
       ctx.fillText(fmtVal(gridVal), padLeft - 8, y);
     }
 
-    const n = safeValues.length;
     const stepX = plotW / Math.max(1, n);
-
     const singleChartColor = '#d97706';
     const singleAvgLineColor = isDark ? '#fbbf24' : '#92400e';
+    const avgVal = n > 0 ? totalSum / n : 0;
+    const hitItems = [];
 
     if (chartType === 'bar') {
-      const barW = Math.max(8, Math.min(44, stepX * 0.62));
+      const barW = Math.max(6, Math.min(44, stepX * 0.62));
       safeValues.forEach((val, idx) => {
         const h = (val / maxVal) * plotH;
         const x = padLeft + idx * stepX + (stepX - barW) / 2;
         const y = padTop + plotH - h;
+        const isHovered = idx === hoverIndex;
 
-        ctx.fillStyle = singleChartColor;
+        ctx.fillStyle = isHovered ? '#b45309' : singleChartColor;
         ctx.beginPath();
         ctx.roundRect(x, y, barW, Math.max(2, h), [4, 4, 0, 0]);
         ctx.fill();
 
-        if (n <= 14 && val > 0) {
+        if (isHovered) {
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = isDark ? '#fde68a' : '#78350f';
+          ctx.stroke();
+        }
+
+        if ((n <= 12 && val > 0) || isHovered) {
           ctx.fillStyle = textColor;
           ctx.font = `700 10px ${fontFamily}`;
           ctx.textAlign = 'center';
           ctx.fillText(fmtVal(val), x + barW / 2, Math.max(12, y - 8));
         }
+
+        const pct = totalSum > 0 ? (val / totalSum) * 100 : 0;
+        hitItems.push({
+          idx,
+          cx: x + barW / 2,
+          cy: y,
+          xMin: padLeft + idx * stepX,
+          xMax: padLeft + (idx + 1) * stepX,
+          val,
+          pct,
+          label: String(fullLabels[idx] || axisLabels[idx] || ''),
+          shortLabel: String(axisLabels[idx] || ''),
+          extra: extraTooltipLines[idx] || ''
+        });
       });
     } else {
       // Línea + área suave (un solo color)
-      const pts = safeValues.map((val, idx) => ({
-        x: padLeft + idx * stepX + stepX / 2,
-        y: padTop + plotH - (val / maxVal) * plotH,
-        val
-      }));
+      const pts = safeValues.map((val, idx) => {
+        const pct = totalSum > 0 ? (val / totalSum) * 100 : 0;
+        const cx = padLeft + idx * stepX + stepX / 2;
+        const cy = padTop + plotH - (val / maxVal) * plotH;
+        hitItems.push({
+          idx,
+          cx,
+          cy,
+          xMin: padLeft + idx * stepX,
+          xMax: padLeft + (idx + 1) * stepX,
+          val,
+          pct,
+          label: String(fullLabels[idx] || axisLabels[idx] || ''),
+          shortLabel: String(axisLabels[idx] || ''),
+          extra: extraTooltipLines[idx] || ''
+        });
+        return { x: cx, y: cy, val, idx };
+      });
 
       if (pts.length > 1) {
         const grad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
@@ -34448,6 +34797,19 @@ function initApp() {
         ctx.fill();
       }
 
+      if (hoverIndex >= 0 && pts[hoverIndex]) {
+        const hp = pts[hoverIndex];
+        ctx.save();
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(hp.x, padTop);
+        ctx.lineTo(hp.x, padTop + plotH);
+        ctx.strokeStyle = isDark ? 'rgba(251, 191, 36, 0.55)' : 'rgba(180, 83, 9, 0.45)';
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+        ctx.restore();
+      }
+
       ctx.beginPath();
       pts.forEach((p, i) => {
         if (i === 0) ctx.moveTo(p.x, p.y);
@@ -34458,19 +34820,25 @@ function initApp() {
       ctx.stroke();
 
       pts.forEach((p) => {
+        const isHovered = p.idx === hoverIndex;
+        if (isHovered) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(217, 119, 6, 0.24)';
+          ctx.fill();
+        }
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
+        ctx.arc(p.x, p.y, isHovered ? 5.5 : 4, 0, Math.PI * 2);
+        ctx.fillStyle = isHovered ? singleChartColor : '#ffffff';
         ctx.fill();
-        ctx.lineWidth = 2.2;
-        ctx.strokeStyle = singleChartColor;
+        ctx.lineWidth = isHovered ? 2.5 : 2.2;
+        ctx.strokeStyle = isHovered ? '#ffffff' : singleChartColor;
         ctx.stroke();
       });
     }
 
     // Línea de control de Promedio si hay más de 1 punto (mismo tono monocromático)
     if (n > 1 && options.showAverage !== false) {
-      const avgVal = totalSum / n;
       const avgY = padTop + plotH - (avgVal / maxVal) * plotH;
       ctx.save();
       ctx.setLineDash([5, 4]);
@@ -34488,17 +34856,167 @@ function initApp() {
       ctx.fillText(`Prom: ${fmtVal(avgVal)}`, padLeft + plotW - 4, Math.max(12, avgY - 7));
     }
 
-    // Etiquetas eje X
-    const skip = Math.max(1, Math.ceil(n / 12));
-    safeLabels.forEach((lbl, idx) => {
-      if (idx % skip !== 0 && idx !== n - 1) return;
+    // Etiquetas eje X (con soporte horizontal, cruzado -42° o vertical -90° sin superposición)
+    const minPxBetweenLabels = labelOrientation === 'vertical' ? 12 : labelOrientation === 'diagonal' ? 18 : 48;
+    const maxLabelsPossible = Math.max(2, Math.floor(plotW / minPxBetweenLabels));
+    const skip = n <= maxLabelsPossible ? 1 : Math.max(1, Math.ceil(n / maxLabelsPossible));
+
+    axisLabels.forEach((lbl, idx) => {
+      const isLast = idx === n - 1;
+      if (idx % skip !== 0 && !isLast) return;
+      // Evitar que la última etiqueta se pise con la anterior cuando skip > 1
+      if (isLast && skip > 1 && idx % skip !== 0) {
+        const prevShownIdx = Math.floor(idx / skip) * skip;
+        if ((idx - prevShownIdx) * stepX < minPxBetweenLabels * 0.8) {
+          return;
+        }
+      }
+
       const x = padLeft + idx * stepX + stepX / 2;
       const raw = String(lbl || '');
-      const short = raw.length > 12 ? `${raw.slice(0, 11)}…` : raw;
-      ctx.fillStyle = mutedColor;
-      ctx.font = `600 10px ${fontFamily}`;
-      ctx.textAlign = 'center';
-      ctx.fillText(short, x, padTop + plotH + 18);
+      const maxChars = labelOrientation === 'horizontal' ? 12 : 16;
+      const short = raw.length > maxChars ? `${raw.slice(0, maxChars - 1)}…` : raw;
+      const isHovered = idx === hoverIndex;
+
+      ctx.save();
+      ctx.fillStyle = isHovered ? singleChartColor : mutedColor;
+      ctx.font = `${isHovered ? '800' : '600'} 10px ${fontFamily}`;
+
+      if (labelOrientation === 'vertical') {
+        ctx.translate(x, padTop + plotH + 8);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(short, 0, 0);
+      } else if (labelOrientation === 'diagonal') {
+        ctx.translate(x, padTop + plotH + 10);
+        ctx.rotate(-Math.PI / 4.2);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(short, 0, 0);
+      } else {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(short, x, padTop + plotH + 16);
+      }
+      ctx.restore();
+    });
+
+    canvas.__estChartMeta = {
+      chartType,
+      canvasId,
+      labels: safeLabels,
+      values: safeValues,
+      options: { ...options, _hoverIndex: undefined },
+      padLeft,
+      padRight,
+      padTop,
+      padBottom,
+      plotW,
+      plotH,
+      avgVal,
+      totalSum,
+      hitItems,
+      fmtExactVal
+    };
+    bindEstCanvasHoverEvents(canvas);
+  }
+
+  function bindEstCanvasHoverEvents(canvas) {
+    if (!canvas || canvas.__estHoverBound) return;
+    canvas.__estHoverBound = true;
+
+    canvas.addEventListener('mousemove', (ev) => {
+      const meta = canvas.__estChartMeta;
+      if (!meta) {
+        hideEstChartTooltip();
+        return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      const mx = ev.clientX - rect.left;
+      const my = ev.clientY - rect.top;
+
+      let foundItem = null;
+
+      if (meta.chartType === 'pie') {
+        const dx = mx - meta.centerX;
+        const dy = my - meta.centerY;
+        const dist = Math.hypot(dx, dy);
+        if (dist >= meta.innerRadius && dist <= meta.radius + 6) {
+          let ang = Math.atan2(dy, dx);
+          if (ang < -Math.PI / 2) ang += Math.PI * 2;
+          foundItem = (meta.slicesMeta || []).find((s) => ang >= s.startAngle && ang <= s.endAngle) || null;
+        }
+      } else {
+        if (
+          mx >= meta.padLeft - 8 &&
+          mx <= meta.padLeft + meta.plotW + 8 &&
+          my >= meta.padTop - 12 &&
+          my <= meta.padTop + meta.plotH + 24
+        ) {
+          foundItem =
+            (meta.hitItems || []).find((it) => mx >= it.xMin && mx <= it.xMax) || null;
+        }
+      }
+
+      if (!foundItem) {
+        canvas.style.cursor = 'default';
+        if (typeof canvas.__lastHoverIdx === 'number' && canvas.__lastHoverIdx !== -1) {
+          canvas.__lastHoverIdx = -1;
+          drawEstControlChart(meta.canvasId, meta.chartType, meta.labels, meta.values, meta.options);
+        }
+        hideEstChartTooltip();
+        return;
+      }
+
+      canvas.style.cursor = 'pointer';
+      if (canvas.__lastHoverIdx !== foundItem.idx) {
+        canvas.__lastHoverIdx = foundItem.idx;
+        drawEstControlChart(meta.canvasId, meta.chartType, meta.labels, meta.values, {
+          ...meta.options,
+          _hoverIndex: foundItem.idx
+        });
+      }
+
+      const tip = getOrCreateEstChartTooltip();
+      const valStr = meta.fmtExactVal(foundItem.val);
+      const pctStr = `${Number(foundItem.pct || 0).toLocaleString('es-AR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+      })}% del total`;
+      const extraHtml = foundItem.extra
+        ? `<div style="color:#cbd5e1; font-size:11px; margin-top:2px;">${escapeHtml(foundItem.extra)}</div>`
+        : '';
+
+      tip.innerHTML = `
+        <div style="font-weight:800; color:#fbbf24; margin-bottom:2px;">${escapeHtml(foundItem.label)}</div>
+        <div style="font-weight:700; color:#ffffff;">${escapeHtml(valStr)} <span style="color:#94a3b8; font-weight:600;">(${escapeHtml(pctStr)})</span></div>
+        ${extraHtml}
+      `;
+      tip.hidden = false;
+      tip.style.opacity = '1';
+
+      const tipRect = tip.getBoundingClientRect();
+      let left = ev.clientX + 14;
+      let top = ev.clientY - (tipRect.height || 54) - 12;
+      if (left + (tipRect.width || 180) > window.innerWidth - 12) {
+        left = ev.clientX - (tipRect.width || 180) - 14;
+      }
+      if (top < 10) {
+        top = ev.clientY + 16;
+      }
+      tip.style.left = `${Math.max(8, Math.round(left))}px`;
+      tip.style.top = `${Math.max(8, Math.round(top))}px`;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      canvas.style.cursor = 'default';
+      const meta = canvas.__estChartMeta;
+      if (meta && typeof canvas.__lastHoverIdx === 'number' && canvas.__lastHoverIdx !== -1) {
+        canvas.__lastHoverIdx = -1;
+        drawEstControlChart(meta.canvasId, meta.chartType, meta.labels, meta.values, meta.options);
+      }
+      hideEstChartTooltip();
     });
   }
 
@@ -34588,13 +35106,15 @@ function initApp() {
     });
 
     const groupedRows = Object.values(groupMap).sort((a, b) => a.key.localeCompare(b.key));
-    const chartLabels = groupedRows.map((g) => g.label);
+    const chartLabels = groupedRows.map((g) => formatEstAxisDateShort(g.label));
     const chartValues = groupedRows.map((g) => g.total);
 
     drawEstControlChart('canvas-est-fact-evolucion', EST_STATE.chartTypeFact, chartLabels, chartValues, {
       isCurrency: true,
       multiColor: EST_STATE.chartTypeFact !== 'line',
-      showAverage: true
+      showAverage: true,
+      fullLabels: groupedRows.map((g) => g.label),
+      extraTooltipLines: groupedRows.map((g) => `${g.comps.toLocaleString('es-AR')} comprobante(s)`)
     });
 
     // Gráfico secundario por Punto de Venta
@@ -34756,7 +35276,11 @@ function initApp() {
     drawEstControlChart('canvas-est-ranking', EST_STATE.chartTypeRanking, chartLabels, chartValues, {
       isCurrency: criterio !== 'unidades',
       multiColor: true,
-      showAverage: true
+      showAverage: true,
+      fullLabels: chartSlice.map((p) => p.n),
+      extraTooltipLines: chartSlice.map(
+        (p) => `Facturado: $ ${formatArs(p.facturado)} · Ganancia: $ ${formatArs(p.ganancia)}`
+      )
     });
 
     // Tabla Ranking
@@ -35004,12 +35528,21 @@ function initApp() {
     }
 
     const topChartRows = rows.slice(0, 10);
+    const margenExtraTooltip = topChartRows.map(
+      (r) => `Margen s/Venta: ${r.margenVentaPct.toFixed(1)}% · Markup: +${r.markupPct.toFixed(1)}%`
+    );
     drawEstControlChart(
       'canvas-est-margen-bar',
       EST_STATE.chartTypeMargenBar,
       topChartRows.map((r) => r.name.slice(0, 15)),
       topChartRows.map((r) => r.ganancia),
-      { isCurrency: true, multiColor: true, showAverage: true }
+      {
+        isCurrency: true,
+        multiColor: true,
+        showAverage: true,
+        fullLabels: topChartRows.map((r) => r.name),
+        extraTooltipLines: margenExtraTooltip
+      }
     );
 
     drawEstControlChart(
@@ -35017,7 +35550,13 @@ function initApp() {
       EST_STATE.chartTypeMargenPie,
       topChartRows.map((r) => r.name),
       topChartRows.map((r) => r.ganancia),
-      { isCurrency: true, multiColor: true, showAverage: false }
+      {
+        isCurrency: true,
+        multiColor: true,
+        showAverage: false,
+        fullLabels: topChartRows.map((r) => r.name),
+        extraTooltipLines: margenExtraTooltip
+      }
     );
 
     const tbody = document.getElementById('est-margenes-tbody');
@@ -35316,7 +35855,15 @@ function initApp() {
       EST_STATE.chartTypeGananciaBruta || 'bar',
       rows.map((r) => r.shortLabel),
       rows.map((r) => r.ganancia),
-      { isCurrency: true, multiColor: groupBy === 'mes' || groupBy === 'semana', showAverage: true }
+      {
+        isCurrency: true,
+        multiColor: groupBy === 'mes' || groupBy === 'semana',
+        showAverage: true,
+        fullLabels: rows.map((r) => r.label),
+        extraTooltipLines: rows.map(
+          (r) => `Venta: $ ${formatArs(r.ventaTotal)} · Margen: ${r.margenPct.toFixed(1)}% · Markup: +${r.markupPct.toFixed(1)}%`
+        )
+      }
     );
 
     const tbody = document.getElementById('est-ganancia-bruta-tbody');
@@ -35517,7 +36064,15 @@ function initApp() {
       EST_STATE.chartTypeGananciaNeta || 'bar',
       activeMonthsChart.map((r) => r.shortLabel),
       activeMonthsChart.map((r) => Math.max(0, r.neta)),
-      { isCurrency: true, multiColor: true, showAverage: true }
+      {
+        isCurrency: true,
+        multiColor: true,
+        showAverage: true,
+        fullLabels: activeMonthsChart.map((r) => r.label),
+        extraTooltipLines: activeMonthsChart.map(
+          (r) => `Margen Neto: ${r.pctNeta.toFixed(2)}% · Bruta: $ ${formatArs(r.bruta)} · Gastos: $ ${formatArs(r.gastos)}`
+        )
+      }
     );
 
     // Gráfico 2: Desglose de Gastos del mes seleccionado por Rubro
@@ -35533,7 +36088,12 @@ function initApp() {
       EST_STATE.chartTypeGananciaNetaGastos || 'bar',
       catEntries.map((e) => e[0].slice(0, 16)),
       catEntries.map((e) => e[1]),
-      { isCurrency: true, multiColor: true, showAverage: false }
+      {
+        isCurrency: true,
+        multiColor: true,
+        showAverage: false,
+        fullLabels: catEntries.map((e) => e[0])
+      }
     );
 
     // Tabla 1: Resumen Mensual del Año

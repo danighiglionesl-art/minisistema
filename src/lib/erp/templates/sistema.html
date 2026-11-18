@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon-64.png?v=161">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png?v=161">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="assets/css/styles.css?v=272">
+  <link rel="stylesheet" href="assets/css/styles.css?v=275">
   <script src="assets/js/brand.js?v=7"></script>
   <style>
     html[data-has-session="1"] #login-view { display: none !important; }
@@ -428,7 +428,44 @@
             <h3>Perfil de Usuario</h3>
           </article>
 
-          <article class="module-card" role="button" tabindex="0" data-module-key="atajos" data-open-section="sec-atajos">
+          <article class="module-card" role="button" tabindex="0" data-module-key="ayuda" data-open-section="sec-menu-ayuda">
+            <div class="module-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+            </div>
+            <h3>Ayuda</h3>
+          </article>
+
+          <article id="card-inicio-crm" class="module-card" role="button" tabindex="0" data-module-key="crm" data-open-section="sec-crm" hidden>
+            <div class="module-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+              </svg>
+            </div>
+            <h3>CRM</h3>
+            <span id="badge-inicio-crm-pendientes" class="badge badge--gold" style="font-size:0.72rem;" hidden></span>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           SUBMENÚ DEL MÓDULO: AYUDA (ATAJOS, MANUAL DEL USUARIO Y REPORTE DE MEJORAS)
+           ================================================================ -->
+      <section id="sec-menu-ayuda" class="erp-section" hidden>
+        <div class="module-back-bar">
+          <button type="button" class="btn-back-home" data-open-section="sec-inicio">
+            ← Volver a Pantalla Principal
+          </button>
+          <span class="module-breadcrumb">
+            ERP en Línea · <strong>Ayuda</strong>
+          </span>
+        </div>
+
+        <div class="modules-grid" aria-label="Submódulos de Ayuda">
+          <article class="module-card" role="button" tabindex="0" data-open-section="sec-atajos">
             <div class="module-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
@@ -445,7 +482,7 @@
             <h3>Atajos</h3>
           </article>
 
-          <article class="module-card" role="button" tabindex="0" data-module-key="manual_usuario" data-open-section="sec-manual-usuario">
+          <article class="module-card" role="button" tabindex="0" data-open-section="sec-manual-usuario">
             <div class="module-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
@@ -453,6 +490,16 @@
               </svg>
             </div>
             <h3>Manual del Usuario</h3>
+          </article>
+
+          <article class="module-card" role="button" tabindex="0" data-open-section="sec-reporte-mejoras">
+            <div class="module-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+            </div>
+            <h3>Reporte de Mejoras</h3>
           </article>
         </div>
       </section>
@@ -6433,7 +6480,7 @@
         </div>
 
         <div class="catalog-toolbar" style="grid-template-columns: 1.8fr 1.1fr 1.1fr 1fr auto;">
-          <div class="toolbar-search">
+          <div class="toolbar-search" style="position:relative;">
             <label for="ctacte-filter-q" class="toolbar-label">Buscar Cliente o Proveedor por Código, Nombre, Razón Social o CUIT/DNI</label>
             <div class="search-input-wrap">
               <input
@@ -6446,6 +6493,7 @@
                 spellcheck="false"
               >
             </div>
+            <div id="ctacte-cli-suggestions" class="fact-autocomplete-list fact-suggestions-box" role="listbox" hidden style="position:absolute; inset-inline:0; top:calc(100% + 4px); z-index:120; max-block-size:300px; overflow-y:auto;"></div>
           </div>
 
           <div class="toolbar-filter">
@@ -6509,7 +6557,6 @@
             <thead>
               <tr>
                 <th scope="col">Cód. / Cliente · Proveedor</th>
-                <th scope="col">CUIT / Condición IVA</th>
                 <th scope="col">Rol / Condición Cta. Cte.</th>
                 <th scope="col" class="num-col">Total Debe ($)</th>
                 <th scope="col" class="num-col">Total Haber ($)</th>
@@ -6520,7 +6567,7 @@
             </thead>
             <tbody id="ctacte-summary-tbody">
               <tr>
-                <td colspan="8" class="table-loading-cell">Cargando cuentas corrientes unificadas y saldos...</td>
+                <td colspan="7" class="table-loading-cell">Cargando cuentas corrientes unificadas y saldos...</td>
               </tr>
             </tbody>
           </table>
@@ -10840,9 +10887,6 @@
         <div class="section-header-card">
           <div>
             <h2>Facturación por Punto de Venta, Promedio Diario y Proyección Mensual</h2>
-            <p>
-              Filtrá uno o varios Puntos de Venta (<code>0002</code>, <code>0003</code>, <code>0004</code>, <code>0099</code>, <code>0100</code>, <code>0101</code>), elegí por rango de fechas o múltiples meses calendario y analizá los gráficos de línea, barras y torta junto con la proyección del mes en curso.
-            </p>
           </div>
         </div>
 
@@ -11078,9 +11122,6 @@
         <div class="section-header-card">
           <div>
             <h2>Importes por Tipo de Facturación y Medio de Pago · Gráfico de Torta</h2>
-            <p>
-              Desglose de recaudación entre <strong>Efectivo</strong>, <strong>Débito</strong>, <strong>Crédito</strong>, <strong>QR</strong> y <strong>Cuenta Corriente</strong> por Punto de Venta y rango de fechas o meses calendario.
-            </p>
           </div>
         </div>
 
@@ -18261,7 +18302,7 @@
     </form>
   </dialog>
 
-  <script src="assets/js/zxing.min.js?v=272" defer></script>
-  <script src="assets/js/app.js?v=272" defer></script>
+  <script src="assets/js/zxing.min.js?v=275" defer></script>
+  <script src="assets/js/app.js?v=275" defer></script>
 </body>
 </html>
