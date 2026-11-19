@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon-64.png?v=161">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png?v=161">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="assets/css/styles.css?v=285">
+  <link rel="stylesheet" href="assets/css/styles.css?v=295">
   <script src="assets/js/brand.js?v=7"></script>
   <style>
     html[data-has-session="1"] #login-view { display: none !important; }
@@ -5351,14 +5351,13 @@
                 <th scope="col" style="width:190px;">Cód. Proveedor / Detalle Factura</th>
                 <th scope="col" style="width:310px;">Producto en Sistema (IA / Cód. Sistema Manual)</th>
                 <th scope="col" style="width:150px;">Cant. Factura y Nuevo Stock</th>
-                <th scope="col" style="width:195px;">Precio Factura vs. Costo Sistema</th>
-                <th scope="col" style="width:195px;">Nuevos Precios Venta (Min / May)</th>
+                <th scope="col" style="width:215px;">Precio Factura vs. Costo Sistema</th>
                 <th scope="col" style="width:250px;">Alertas y Decisión del Operador</th>
               </tr>
             </thead>
             <tbody id="fp-items-tbody">
               <tr>
-                <td colspan="6" class="table-loading-cell">
+                <td colspan="5" class="table-loading-cell">
                   Seleccioná un proveedor y subí una Factura o Remito (PDF / JPG), o hacé clic en <strong>"🧪 Simular Lectura IA de Factura Completa"</strong> para comenzar.
                 </td>
               </tr>
@@ -7409,9 +7408,6 @@
         <div class="section-header-card">
           <div>
             <h2>⚡ Factura carga rápida de Proveedor</h2>
-            <p>
-              Cargue la factura por importe total con IVA incluido, sin detalle de ítems. El importe se acredita directamente en la Cuenta Corriente del proveedor.
-            </p>
           </div>
           <div class="fcr-header-actions">
             <button type="button" id="btn-fcr-new-prov" class="btn-secondary btn-sm">
@@ -7601,12 +7597,12 @@
                   <thead>
                     <tr>
                       <th scope="col" style="width:90px;">Código</th>
-                      <th scope="col">Producto / Rubro y Marca</th>
+                      <th scope="col">Producto</th>
                       <th scope="col" style="width:130px;">Cód. Proveedor</th>
                       <th scope="col" class="num-col" style="width:100px;">Stock Actual</th>
                       <th scope="col" class="num-col" style="width:130px;">Cant. Comprada (+ Stock)</th>
                       <th scope="col" class="num-col" style="width:110px;">Nuevo Stock</th>
-                      <th scope="col" style="width:275px;">Precio Costo Factura (<span id="fcr-th-modo-iva-lbl">Con IVA</span>) y Venta</th>
+                      <th scope="col" style="width:275px;">Precio Costo Factura (<span id="fcr-th-modo-iva-lbl">Con IVA</span>)</th>
                       <th scope="col" style="width:155px; text-align:center;">Acciones</th>
                     </tr>
                   </thead>
@@ -18639,7 +18635,7 @@
     </form>
   </dialog>
 
-  <script src="assets/js/zxing.min.js?v=285" defer></script>
-  <script src="assets/js/app.js?v=285" defer></script>
+  <script src="assets/js/zxing.min.js?v=295" defer></script>
+  <script src="assets/js/app.js?v=295" defer></script>
 </body>
 </html>

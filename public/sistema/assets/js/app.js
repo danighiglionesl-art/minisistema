@@ -37921,20 +37921,21 @@ function initApp() {
     if (ctaBadge) {
       ctaBadge.textContent = formatSupplierCtaCteSaldoBadgeText(provObj);
     }
-    const calcTotal = calculateFpInvoiceTotalAmount();
-    const hasOperatorValue = Boolean(FP_STATE.manualImporteOverride);
 
-    if (inp && (forceAuto || (!hasOperatorValue && calcTotal > 0))) {
+    if (inp && forceAuto) {
+      const calcTotal = calculateFpInvoiceTotalAmount();
       inp.value = calcTotal > 0 ? calcTotal.toFixed(2) : '';
+      FP_STATE.manualImporteOverride = calcTotal > 0;
     }
-    const afterVal = round2(parseNumber(inp?.value));
-    const effectiveImp = afterVal > 0 ? afterVal : (!FP_STATE.manualImporteOverride ? round2(calcTotal || 0) : 0);
+
+    const manualVal = round2(parseNumber(inp?.value));
+    const effectiveImp = manualVal > 0 ? manualVal : 0;
     const hintImp = document.getElementById('fp-importe-hint');
     if (hintImp) {
       hintImp.innerHTML =
         effectiveImp > 0
-          ? `⏳ <strong>Pendiente de confirmación:</strong> Recién al presionar <strong>Confirmar</strong> se cargará <strong>$ ${formatArs(effectiveImp)}</strong> en la <strong>Cuenta Corriente${provObj ? ` de ${escapeHtml(provObj.nombre)}` : ' del Proveedor'}</strong>.`
-          : '⏳ <strong>En espera de confirmación:</strong> No se carga nada en Cuenta Corriente hasta que confirmes los datos.';
+          ? `⏳ <strong>Importe manual cargado:</strong> Al presionar <strong>Confirmar</strong> se cargará <strong>$ ${formatArs(effectiveImp)}</strong> en la <strong>Cuenta Corriente${provObj ? ` de ${escapeHtml(provObj.nombre)}` : ' del Proveedor'}</strong>.`
+          : '💡 <strong>Importe manual:</strong> Colocá manualmente el Importe Total de la factura si deseás imputarlo en Cuenta Corriente.';
     }
     return effectiveImp;
   }
@@ -38614,10 +38615,105 @@ function initApp() {
    */
   function recalculateFpRow(row) {
     const modoIva = getSelectedFpModoIva();
-    const cant = round2(Math.max(0, Number(row.cantidad) || 0));
+    if (!(Number(row.rawParsedQty) > 0) && Number(row.cantidad) > 0) {
+      row.rawParsedQty = round2(Number(row.cantidad));
+    }
+    let cant = round2(Math.max(0, (!row.manualQtyEdited && Number(row.rawParsedQty) > 0 ? Number(row.rawParsedQty) : Number(row.cantidad)) || 0));
     let precioUnit = round2(Math.max(0, Number(row.precioUnitario) || 0));
     const bonifPct = round2(Math.max(0, Number(row.bonifPct) || 0));
     const effBonif = bonifPct > 0 && bonifPct < 100 ? 1 - bonifPct / 100 : 1;
+
+    const art = row.matchedArtId
+      ? STATE.articulos.find((a) => Number(a.id) === Number(row.matchedArtId))
+      : null;
+
+    // 0) Motor Auto-Control Cantidad × Precio Unitario = Precio Total Facturado (independiente del orden de columnas):
+    if (!row.manualQtyEdited && !row.manualPriceEdited && !row.pxqDismissed && cant > 0) {
+      const hasExplicitSub = Boolean(row.hasExplicitSubtotalCol && Number(row.subtotalFactura) > 0);
+      const subColVal = hasExplicitSub ? round2(Number(row.subtotalFactura)) : 0;
+      const sysRef0 = art ? (modoIva === 'neto' ? round2(art.cn ?? 0) : round2(art.cfn ?? 0)) : 0;
+      const isFracVal = (v) => Math.abs(v - Math.round(v)) > 0.005;
+
+      // Caso A: La columna "Cantidad" capturó en realidad el Precio Unitario (ej. 2314.05) y el Subtotal (18512.40) dividido por ese valor da la Cantidad exacta (18512.40 / 2314.05 = 8)
+      if (hasExplicitSub && cant >= 35 && subColVal > cant * 1.15) {
+        const currentPxQ = evaluateInvoicePxQConsistency(cant, precioUnit, subColVal, bonifPct);
+        if (!currentPxQ.ok || (cant >= 120 && precioUnit >= 1 && precioUnit <= 120 && !isFracVal(precioUnit))) {
+          const inferredQty = subColVal / (cant * effBonif);
+          const roundedInferredQ = Math.round(inferredQty);
+          // Sub-caso A1: cant y precioUnit quedaron invertidos (cant = 2314.05, precioUnit = 8, sub = 18512.40)
+          if (
+            precioUnit >= 1 &&
+            precioUnit <= 500 &&
+            !isFracVal(precioUnit) &&
+            (isFracVal(cant) || cant >= 120 || (sysRef0 >= 50 && Math.abs(cant - sysRef0) < Math.abs(precioUnit - sysRef0))) &&
+            evaluateInvoicePxQConsistency(precioUnit, cant, subColVal, bonifPct).ok
+          ) {
+            const realQty = round2(precioUnit);
+            const realUnit = round2(subColVal / (realQty * effBonif));
+            cant = realQty;
+            row.rawParsedQty = realQty;
+            precioUnit = Math.abs(realUnit - cant) <= 1.05 ? realUnit : round2(cant);
+            row.pxqVerified = true;
+            row.pxqAutoFixed = true;
+            row.pxqAutoFixReason = `Orden de columnas corregido: Cant. ${cant} × $ ${formatArs(precioUnit)} = $ ${formatArs(subColVal)}`;
+          }
+          // Sub-caso A2: cant capturó el Precio Unitario (2314.05) y subColVal (18512.40) / cant (2314.05) = 8 u.
+          else if (
+            roundedInferredQ >= 1 &&
+            roundedInferredQ <= 500 &&
+            Math.abs(inferredQty - roundedInferredQ) <= 0.025 &&
+            (isFracVal(cant) || cant >= 100 || (sysRef0 >= 50 && Math.abs(cant - sysRef0) <= sysRef0 * 0.45))
+          ) {
+            const realUnit = round2(subColVal / (roundedInferredQ * effBonif));
+            cant = roundedInferredQ;
+            row.rawParsedQty = roundedInferredQ;
+            precioUnit = realUnit;
+            row.pxqVerified = true;
+            row.pxqAutoFixed = true;
+            row.pxqAutoFixReason = `P×Q verificado: ${cant} u. × $ ${formatArs(precioUnit)} = $ ${formatArs(subColVal)}`;
+          }
+        }
+      }
+      // Caso B: No había columna Subtotal separada porque los 2 números leídos fueron [Precio Unitario (ej. 2314.05), Subtotal (ej. 18512.40)]
+      else if (!hasExplicitSub && cant >= 35 && precioUnit > cant * 1.45) {
+        const inferredQty = precioUnit / (cant * effBonif);
+        const roundedInferredQ = Math.round(inferredQty);
+        if (
+          roundedInferredQ >= 1 &&
+          roundedInferredQ <= 500 &&
+          Math.abs(inferredQty - roundedInferredQ) <= 0.025 &&
+          (isFracVal(cant) || cant >= 100 || (sysRef0 >= 50 && Math.abs(cant - sysRef0) <= sysRef0 * 0.45))
+        ) {
+          const totalSub = round2(precioUnit);
+          const realUnit = round2(totalSub / (roundedInferredQ * effBonif));
+          row.subtotalFactura = totalSub;
+          row.hasExplicitSubtotalCol = true;
+          cant = roundedInferredQ;
+          row.rawParsedQty = roundedInferredQ;
+          precioUnit = realUnit;
+          row.pxqVerified = true;
+          row.pxqAutoFixed = true;
+          row.pxqAutoFixReason = `P×Q verificado: ${cant} u. × $ ${formatArs(precioUnit)} = $ ${formatArs(totalSub)}`;
+        }
+      }
+      // Caso C: Cant y Precio Unitario quedaron invertidos sin columna Subtotal explícita (ej. cant = 2314.05, precioUnit = 8)
+      else if (
+        !hasExplicitSub &&
+        ((isFracVal(cant) && cant >= 35) || cant >= 150 || (sysRef0 >= 50 && Math.abs(cant - sysRef0) <= sysRef0 * 0.4)) &&
+        precioUnit >= 1 &&
+        precioUnit <= 120 &&
+        !isFracVal(precioUnit) &&
+        cant > precioUnit * 2
+      ) {
+        const realQty = round2(precioUnit);
+        const realUnit = round2(cant);
+        cant = realQty;
+        row.rawParsedQty = realQty;
+        precioUnit = realUnit;
+        row.subtotalFactura = round2(cant * precioUnit * effBonif);
+      }
+    }
+
     row.cantidad = cant;
     row.bonifPct = bonifPct;
 
@@ -38648,10 +38744,6 @@ function initApp() {
     }
 
     row.precioUnitario = precioUnit;
-
-    const art = row.matchedArtId
-      ? STATE.articulos.find((a) => Number(a.id) === Number(row.matchedArtId))
-      : null;
 
     const finalizeRowPxQState = () => {
       row.subtotalCalculadoPxQ = round2(cant * row.precioUnitario);
@@ -39127,17 +39219,16 @@ function initApp() {
     const readyRows = FP_STATE.rows.filter((r) => r.included && r.matchedArtId && r.matchedArt);
     if (applyBtn) {
       applyBtn.disabled = readyRows.length === 0 && !FP_STATE.editingHistoryId;
-      const impSuffix = effectiveImporteCtaCte > 0 ? ` · Cta. Cte. $ ${formatArs(effectiveImporteCtaCte)}` : '';
       if (FP_STATE.editingHistoryId) {
         applyBtn.textContent =
           readyRows.length > 0
-            ? `💾 Guardar Cambios (${readyRows.length} Art.${impSuffix})`
-            : `💾 Guardar Cambios del Comprobante${impSuffix}`;
+            ? `💾 Guardar Cambios (${readyRows.length} Art.)`
+            : '💾 Guardar Cambios del Comprobante';
       } else {
         applyBtn.textContent =
           readyRows.length > 0
-            ? `✅ Confirmar ${readyRows.length} Art. (Precio/Stock${impSuffix})`
-            : '✅ Confirmar y Actualizar Precios, Stock y Cta. Cte.';
+            ? `✅ Confirmar ${readyRows.length} Art. (Precio y Stock)`
+            : '✅ Confirmar y Actualizar Precios y Stock';
       }
     }
 
@@ -39168,7 +39259,7 @@ function initApp() {
     if (visibleRows.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 6;
+      td.colSpan = 5;
       td.className = 'table-loading-cell';
       td.innerHTML = totalItems === 0
         ? 'Seleccioná un proveedor y subí una Factura o Remito (PDF / JPG), o hacé clic en <strong>"🧪 Simular Lectura IA de Factura Completa"</strong> para comenzar.'
@@ -39296,9 +39387,7 @@ function initApp() {
 
         const subInfo = document.createElement('span');
         subInfo.className = 'price-neto-val';
-        const effIvaSub = resolveArticleEffectiveIva(art);
-        const cfgSub = Number(art.ucp) === 1 && Number(art.cp) > 0 ? STATE.configPreciosMap.get(Number(art.cp)) : null;
-        subInfo.textContent = `IVA: ${effIvaSub.descripcion}${cfgSub ? ` (Config. ${cfgSub.nombre})` : ''} · Cód. Prov. actual: ${art.cf || 'S/D'}`;
+        subInfo.textContent = `Cód. Prov. actual: ${art.cf || 'S/D'}`;
         sysStack.appendChild(subInfo);
 
         // Si se vinculó manualmente por Código de Sistema y la factura traía un Cód. Proveedor nuevo, permitir guardarlo
@@ -39437,6 +39526,8 @@ function initApp() {
         row.cantidad = fpAllowFrac
           ? Math.max(0.01, round2(qtyInput.value))
           : Math.max(1, Math.round(Number(qtyInput.value) || 1));
+        row.rawParsedQty = row.cantidad;
+        row.manualQtyEdited = true;
         recalculateFpRow(row);
         renderFpInvoiceTableAndAlerts();
       });
@@ -39494,41 +39585,8 @@ function initApp() {
       priceInputWrap.appendChild(priceInp);
       costoStack.appendChild(priceInputWrap);
 
-      // Bloque de verificación matemática Chequeo P × Q (Columna 1 Unitario vs. Columna 2 Subtotal)
-      if (row.pxqStatus === 'ok') {
-        const pxqOkBadge = document.createElement('span');
-        pxqOkBadge.style.cssText =
-          'display:inline-flex; align-items:center; width:fit-content; padding:0.14rem 0.45rem; border-radius:6px; font-size:0.71rem; font-weight:700; background:rgba(16,185,129,0.12); color:#047857; border:1px solid rgba(16,185,129,0.35);';
-        const bonifTxt = row.bonifPct > 0 ? ` (-${row.bonifPct}%)` : '';
-        pxqOkBadge.textContent = `🧮 P×Q OK: ${row.cantidad} × $ ${formatArs(row.precioUnitario)}${bonifTxt} = $ ${formatArs(row.subtotalFactura)}`;
-        costoStack.appendChild(pxqOkBadge);
-      } else if (row.pxqStatus === 'autofixed') {
-        const pxqFixWrap = document.createElement('div');
-        pxqFixWrap.style.cssText =
-          'display:flex; flex-direction:column; gap:0.2rem; padding:0.25rem 0.45rem; border-radius:6px; background:rgba(14,165,233,0.12); border:1px solid rgba(14,165,233,0.38);';
-        const pxqFixLbl = document.createElement('span');
-        pxqFixLbl.style.cssText = 'font-size:0.71rem; font-weight:800; color:#0369a1;';
-        pxqFixLbl.textContent = `⚡ P×Q Auto-corregido: ${row.pxqAutoFixReason || `${row.cantidad} × $ ${formatArs(row.precioUnitario)} = $ ${formatArs(row.subtotalFactura)}`}`;
-        pxqFixWrap.appendChild(pxqFixLbl);
-
-        if (Number(row.pxqOriginalReadPrice) > 0) {
-          const btnRevertPxq = document.createElement('button');
-          btnRevertPxq.type = 'button';
-          btnRevertPxq.className = 'btn-secondary btn-sm';
-          btnRevertPxq.style.cssText = 'width:fit-content; padding:0.1rem 0.4rem; font-size:0.68rem;';
-          btnRevertPxq.textContent = `↺ Revertir a $ ${formatArs(row.pxqOriginalReadPrice)}`;
-          btnRevertPxq.addEventListener('click', () => {
-            row.precioUnitario = round2(row.pxqOriginalReadPrice);
-            row.manualPriceEdited = true;
-            row.pxqDismissed = true;
-            row.pxqAutoFixed = false;
-            recalculateFpRow(row);
-            renderFpInvoiceTableAndAlerts();
-          });
-          pxqFixWrap.appendChild(btnRevertPxq);
-        }
-        costoStack.appendChild(pxqFixWrap);
-      } else if (row.pxqStatus === 'alert') {
+      // Bloque de verificación matemática Chequeo P × Q (solo mostrar cuando hay alerta P×Q a resolver)
+      if (row.pxqStatus === 'alert') {
         const pxqAlertBox = document.createElement('div');
         pxqAlertBox.style.cssText =
           'display:flex; flex-direction:column; gap:0.28rem; padding:0.32rem 0.5rem; border-radius:7px; background:rgba(220,38,38,0.1); border:1.5px solid rgba(220,38,38,0.45);';
@@ -39578,12 +39636,6 @@ function initApp() {
         pxqBtnRow.appendChild(btnDismissPxq);
         pxqAlertBox.appendChild(pxqBtnRow);
         costoStack.appendChild(pxqAlertBox);
-      } else if (row.pxqStatus === 'calc_only' && row.precioUnitario > 0) {
-        const pxqCalcSpan = document.createElement('span');
-        pxqCalcSpan.className = 'price-neto-val';
-        pxqCalcSpan.style.fontSize = '0.71rem';
-        pxqCalcSpan.textContent = `🧮 P×Q calc.: ${row.cantidad} × $ ${formatArs(row.precioUnitario)} = $ ${formatArs(row.subtotalCalculadoPxQ)}`;
-        costoStack.appendChild(pxqCalcSpan);
       }
 
       if (art) {
@@ -39674,130 +39726,7 @@ function initApp() {
       tdCosto.appendChild(costoStack);
       tr.appendChild(tdCosto);
 
-      // COLUMNA 5: Nuevos Precios de Venta (Minorista y Mayorista) + Tilde "Mantener precio Actual"
-      const tdVenta = document.createElement('td');
-      const ventaStack = document.createElement('div');
-      ventaStack.className = 'price-cell-stack';
-
-      if (art) {
-        const keepingSystemPrice = row.priceDecision === 'mantener';
-
-        // Tilde directo "Mantener precio Actual"
-        const keepLabel = document.createElement('label');
-        keepLabel.className = 'fp-keep-price-check-label' + (keepingSystemPrice ? ' is-checked' : '');
-        keepLabel.title = 'Tildá para conservar el precio actual del sistema sin modificarlo; destildá para aplicar el precio calculado con esta factura';
-
-        const keepChk = document.createElement('input');
-        keepChk.type = 'checkbox';
-        keepChk.checked = keepingSystemPrice;
-        keepChk.style.accentColor = '#16a34a';
-        keepChk.style.width = '15px';
-        keepChk.style.height = '15px';
-        keepChk.style.cursor = 'pointer';
-        keepChk.addEventListener('change', () => {
-          row.manualPriceDecision = true;
-          row.priceDecisionConfirmed = true;
-          if (keepChk.checked) {
-            row.priceDecision = 'mantener';
-          } else {
-            row.priceDecision = row.hasPriceAlert ? 'bajar' : 'actualizar';
-          }
-          renderFpInvoiceTableAndAlerts();
-        });
-
-        const keepText = document.createElement('span');
-        keepText.textContent = 'Mantener precio Actual';
-        keepLabel.appendChild(keepChk);
-        keepLabel.appendChild(keepText);
-        ventaStack.appendChild(keepLabel);
-
-        // Etiqueta de acción clara (SE MANTIENE / SUBE / BAJA)
-        const actionBadge = document.createElement('span');
-        actionBadge.style.display = 'inline-flex';
-        actionBadge.style.alignItems = 'center';
-        actionBadge.style.width = 'fit-content';
-        actionBadge.style.padding = '0.15rem 0.48rem';
-        actionBadge.style.borderRadius = '6px';
-        actionBadge.style.fontSize = '0.72rem';
-        actionBadge.style.fontWeight = '800';
-
-        if (keepingSystemPrice) {
-          actionBadge.style.background = 'rgba(22, 163, 74, 0.14)';
-          actionBadge.style.color = '#15803d';
-          actionBadge.style.border = '1px solid rgba(22, 163, 74, 0.4)';
-          actionBadge.textContent = '🔒 SE MANTIENE PRECIO ACTUAL';
-        } else if (row.priceDirection === 'sube') {
-          actionBadge.style.background = 'rgba(2, 132, 199, 0.14)';
-          actionBadge.style.color = '#0369a1';
-          actionBadge.style.border = '1px solid rgba(2, 132, 199, 0.4)';
-          actionBadge.textContent = '⬆️ SUBE PRECIO DE VENTA';
-        } else if (row.priceDirection === 'baja') {
-          actionBadge.style.background = 'rgba(245, 158, 11, 0.18)';
-          actionBadge.style.color = '#b45309';
-          actionBadge.style.border = '1px solid rgba(217, 119, 6, 0.45)';
-          actionBadge.textContent = '⬇️ BAJA PRECIO DE VENTA';
-        } else {
-          actionBadge.style.background = 'rgba(100, 116, 139, 0.12)';
-          actionBadge.style.color = 'var(--silver-main)';
-          actionBadge.style.border = '1px solid rgba(100, 116, 139, 0.3)';
-          actionBadge.textContent = '═ MISMO PRECIO DE VENTA';
-        }
-        ventaStack.appendChild(actionBadge);
-
-        if (keepingSystemPrice) {
-          const minSpan = document.createElement('span');
-          minSpan.className = 'price-final-val';
-          minSpan.style.color = '#15803d';
-          minSpan.textContent = `Min: $ ${formatArs(row.p1fSistema)} (Queda actual)`;
-          ventaStack.appendChild(minSpan);
-
-          const maySpan = document.createElement('span');
-          maySpan.style.fontSize = '0.8rem';
-          maySpan.style.fontWeight = '700';
-          maySpan.style.color = '#15803d';
-          maySpan.textContent = `May: $ ${formatArs(row.p2fSistema)} (Queda actual)`;
-          ventaStack.appendChild(maySpan);
-
-          if (row.priceDirection !== 'igual') {
-            const prevVentaSpan = document.createElement('span');
-            prevVentaSpan.className = 'price-neto-val';
-            prevVentaSpan.style.fontSize = '0.73rem';
-            const verb = row.priceDirection === 'baja' ? 'bajaría a' : 'subiría a';
-            prevVentaSpan.textContent = `Si destildás, ${verb}: Min $ ${formatArs(row.nuevoP1f)} | May $ ${formatArs(row.nuevoP2f)}`;
-            ventaStack.appendChild(prevVentaSpan);
-          }
-        } else {
-          const minSpan = document.createElement('span');
-          minSpan.className = 'price-final-val';
-          if (row.priceDirection !== 'igual' && row.p1fSistema > 0) {
-            minSpan.innerHTML = `Min: <span style="text-decoration:line-through; opacity:0.65; font-weight:600;">$ ${formatArs(row.p1fSistema)}</span> ➔ <strong>$ ${formatArs(row.nuevoP1f)}</strong> <span style="font-size:0.73rem; opacity:0.85;">(${row.m1}%)</span>`;
-          } else {
-            minSpan.textContent = `Min: $ ${formatArs(row.nuevoP1f)} (${row.m1}%)`;
-          }
-          ventaStack.appendChild(minSpan);
-
-          const maySpan = document.createElement('span');
-          maySpan.style.fontSize = '0.8rem';
-          maySpan.style.fontWeight = '700';
-          maySpan.style.color = 'var(--success)';
-          if (row.priceDirection !== 'igual' && row.p2fSistema > 0) {
-            maySpan.innerHTML = `May: <span style="text-decoration:line-through; opacity:0.65; font-weight:600;">$ ${formatArs(row.p2fSistema)}</span> ➔ <strong>$ ${formatArs(row.nuevoP2f)}</strong> <span style="font-size:0.73rem; opacity:0.85;">(${row.m2}%)</span>`;
-          } else {
-            maySpan.textContent = `May: $ ${formatArs(row.nuevoP2f)} (${row.m2}%)`;
-          }
-          ventaStack.appendChild(maySpan);
-        }
-      } else {
-        const pendingSpan = document.createElement('span');
-        pendingSpan.className = 'price-neto-val';
-        pendingSpan.textContent = 'Se calcularán según el margen al vincular el artículo.';
-        ventaStack.appendChild(pendingSpan);
-      }
-
-      tdVenta.appendChild(ventaStack);
-      tr.appendChild(tdVenta);
-
-      // COLUMNA 6: Alertas y Decisión del Operador
+      // COLUMNA 5: Alertas y Decisión del Operador
       const tdDecision = document.createElement('td');
       const decStack = document.createElement('div');
       decStack.className = 'price-cell-stack';
@@ -40297,6 +40226,79 @@ function initApp() {
       return mAlpha ? mAlpha.index + 1 : 0;
     };
 
+    const hasNonZeroFraction = (v) => Math.abs((Number(v) || 0) - Math.round(Number(v) || 0)) > 0.005;
+
+    /**
+     * Motor P × Q Universal independiente del orden de columnas:
+     * Dado un par de factores (tokA, tokB) que multiplicados dan el Subtotal de la línea (subVal),
+     * determina cuál de los dos es Cantidad y cuál es Precio Unitario, aunque en la factura
+     * la columna Precio Unitario esté ubicada antes de la columna Cantidad (ej. Violino Estefanía "Documento 3":
+     * 2314.05 × 8 = 18512.40 -> Cantidad = 8, Precio Unitario = 2314.05).
+     */
+    const resolveQtyAndPriceOrder = (tokA, tokB, subVal, ev = null, candidateCode = '', candidateDesc = '') => {
+      const valA = Number(tokA?.val) || 0;
+      const valB = Number(tokB?.val) || 0;
+      const fracA = hasNonZeroFraction(valA);
+      const fracB = hasNonZeroFraction(valB);
+      const isCleanQtyInt = (v) => v >= 1 && v <= 1000 && !hasNonZeroFraction(v);
+
+      // Si conocemos el artículo por Código de Proveedor o Descripción, cruzar contra su costo en sistema
+      let sysCost = 0;
+      try {
+        const provObj = typeof getSelectedFpProveedorObj === 'function' ? getSelectedFpProveedorObj() : null;
+        const provId = provObj ? Number(provObj.id) : 0;
+        let hit = null;
+        if (candidateCode && typeof findArticleBySupplierCodeAI === 'function') {
+          hit = findArticleBySupplierCodeAI(candidateCode, provId);
+        }
+        if (!hit && candidateDesc && typeof findArticleByDescriptionAI === 'function') {
+          hit = findArticleByDescriptionAI(candidateDesc, provId);
+        }
+        if (hit && hit.art) {
+          const modoIva = typeof getSelectedFpModoIva === 'function' ? getSelectedFpModoIva() : 'neto';
+          sysCost = modoIva === 'neto' ? (Number(hit.art.cn) || 0) : (Number(hit.art.cfn) || 0);
+        }
+      } catch {}
+
+      let swapToBA = false; // true => tokA es Precio Unitario y tokB es Cantidad
+
+      if (sysCost >= 50 && valA > 0 && valB > 0 && Math.abs(valA - valB) > 1) {
+        const errPriceB = Math.abs(Math.log(Math.max(0.01, valB) / sysCost));
+        const errPriceA = Math.abs(Math.log(Math.max(0.01, valA) / sysCost));
+        if (errPriceA + 0.45 < errPriceB && valB <= 1000) {
+          swapToBA = true;
+        }
+      }
+
+      if (!swapToBA) {
+        // Caso 1: Uno tiene centavos != .00 y >= $35 (ej. 2314.05, 991.73) y el otro es un entero limpio <= 1000 (ej. 8)
+        if (fracA && !fracB && valA >= 35 && isCleanQtyInt(valB)) {
+          swapToBA = true;
+        }
+        // Caso 2: El primer número es un importe alto (>= $150) y el segundo es una cantidad típica (<= 120)
+        else if (valA >= 150 && valB >= 1 && valB <= 120 && valA > valB * 2.2) {
+          swapToBA = true;
+        }
+      }
+
+      const qtyVal = swapToBA ? valB : valA;
+      let unitVal = swapToBA ? valA : valB;
+      if (!swapToBA && ev && ev.exactUnit !== null && ev.exactUnit > 0) {
+        unitVal = ev.exactUnit;
+      } else if (swapToBA && qtyVal > 0 && subVal > 0) {
+        const exactFromSub = round2(subVal / qtyVal);
+        if (Math.abs(exactFromSub - unitVal) <= 1.02) {
+          unitVal = exactFromSub;
+        }
+      }
+
+      return {
+        cantidad: round2(qtyVal),
+        precioUnitario: round2(unitVal),
+        swapped: swapToBA
+      };
+    };
+
     const extractNumericTokens = (str) => {
       const rx = /((?:\$\s*)?(?:\d{1,3}(?:\.\d{3})+,\d{1,4}|\d{1,3}(?:,\d{3})+\.\d{1,4}|\d+(?:[.,]\d+)?))(%?)/g;
       const out = [];
@@ -40410,13 +40412,22 @@ function initApp() {
                 ? round2(subTok.val / candidateQty)
                 : round2(pTok.val);
 
+              const orderedPairA = resolveQtyAndPriceOrder(
+                { val: candidateQty, hasDecimals: hasNonZeroFraction(candidateQty) },
+                { val: finalUnitPrice, hasDecimals: pTok.hasDecimals },
+                subTok.val,
+                ev,
+                resolvedCode,
+                descCandidate
+              );
+
               if (!best || score < best.score) {
                 best = {
                   score,
                   codProveedor: resolvedCode,
                   descripcionFactura: descCandidate,
-                  cantidad: round2(candidateQty),
-                  precioUnitario: finalUnitPrice,
+                  cantidad: orderedPairA.cantidad,
+                  precioUnitario: orderedPairA.precioUnitario,
                   bonifPct: ev.bonifUsed,
                   subtotalFactura: round2(subTok.val),
                   hasExplicitSubtotalCol: true,
@@ -40565,12 +40576,21 @@ function initApp() {
                     descripcion = firstTokenMatch[2].trim();
                   }
                 }
+                const cleanDescB = cleanDescText(descripcion);
+                const orderedPairB = resolveQtyAndPriceOrder(
+                  qTok,
+                  pTok,
+                  subTok.val,
+                  ev,
+                  codProveedor,
+                  cleanDescB
+                );
                 bestB = {
                   score,
                   codProveedor,
-                  descripcionFactura: cleanDescText(descripcion),
-                  cantidad: round2(qTok.val),
-                  precioUnitario: round2(pTok.val),
+                  descripcionFactura: cleanDescB,
+                  cantidad: orderedPairB.cantidad,
+                  precioUnitario: orderedPairB.precioUnitario,
                   bonifPct: ev.bonifUsed,
                   subtotalFactura: round2(subTok.val),
                   hasExplicitSubtotalCol: true,
@@ -40699,8 +40719,12 @@ function initApp() {
       const priceToken = nonPctNums[priceOrd] || nonPctNums[nonPctNums.length - 1];
       const subToken = subOrd >= 0 && nonPctNums[subOrd] && subOrd > priceOrd ? nonPctNums[subOrd] : null;
 
-      const cantidad = qtyToken.val;
-      const precioUnitario = priceToken.val;
+      let cantidad = qtyToken.val;
+      let precioUnitario = priceToken.val;
+      let resolvedSubVal = subToken && subToken.val > 0 ? subToken.val : 0;
+      let hasSub = Boolean(resolvedSubVal > 0);
+      let isFallbackPxqVerified = false;
+
       if (isFinite(cantidad) && cantidad > 0 && isFinite(precioUnitario) && precioUnitario >= 0) {
         let leftPart = cleaned.slice(0, qtyToken.index).trim();
         if (!leftPart && qtyToken.index === 0 && priceToken.index > qtyToken.raw.length) {
@@ -40720,16 +40744,50 @@ function initApp() {
               }
             }
           }
-          const hasSub = Boolean(subToken && subToken.val > 0);
+
+          // Caso Violino Estefanía / Columnas donde OCR leyó [Precio Unitario, Subtotal] (sin token intermedio de Cantidad):
+          // Ej: [2314.05, 18512.40] -> 18512.40 / 2314.05 = 8.000 -> Cantidad = 8, Precio Unitario = 2314.05, Subtotal = 18512.40
+          if (!hasSub && cantidad >= 40 && precioUnitario > cantidad * 1.45) {
+            const ratioQP = precioUnitario / cantidad;
+            const roundedQ = Math.round(ratioQP);
+            if (
+              roundedQ >= 1 &&
+              roundedQ <= 500 &&
+              Math.abs(ratioQP - roundedQ) <= 0.025 &&
+              (hasNonZeroFraction(cantidad) || cantidad >= 120)
+            ) {
+              resolvedSubVal = round2(precioUnitario);
+              precioUnitario = round2(cantidad);
+              cantidad = roundedQ;
+              hasSub = true;
+              isFallbackPxqVerified = true;
+            }
+          }
+          // Caso inverso: si había 3 números o 2 números donde el primero es Precio Unitario (>= 150 o con centavos) y el segundo es Cantidad (entero <= 120)
+          else if (
+            ((hasNonZeroFraction(cantidad) && cantidad >= 35) || cantidad >= 150) &&
+            precioUnitario >= 1 &&
+            precioUnitario <= 120 &&
+            !hasNonZeroFraction(precioUnitario) &&
+            cantidad > precioUnitario * 2
+          ) {
+            const tmpQ = precioUnitario;
+            precioUnitario = round2(cantidad);
+            cantidad = round2(tmpQ);
+            if (!hasSub) {
+              resolvedSubVal = round2(cantidad * precioUnitario);
+            }
+          }
+
           return {
             codProveedor,
             descripcionFactura: cleanDescText(descripcion),
             cantidad: round2(cantidad),
             precioUnitario: round2(precioUnitario),
             bonifPct: 0,
-            subtotalFactura: hasSub ? round2(subToken.val) : round2(cantidad * precioUnitario),
+            subtotalFactura: hasSub ? round2(resolvedSubVal) : round2(cantidad * precioUnitario),
             hasExplicitSubtotalCol: hasSub,
-            pxqVerified: false
+            pxqVerified: isFallbackPxqVerified
           };
         }
       }
@@ -41652,7 +41710,7 @@ function initApp() {
         ordenFactura: idx + 1
       })
     );
-    syncFpImporteFacturaInput(FP_STATE.extractedTotalFromText <= 0);
+    syncFpImporteFacturaInput(false);
     renderFpInvoiceTableAndAlerts();
 
     if (statusTitle) {
@@ -42158,32 +42216,20 @@ function initApp() {
     }
 
     const impInputEl = document.getElementById('fp-importe-factura');
-    let importeFactura = round2(parseNumber(impInputEl?.value) || calculateFpInvoiceTotalAmount());
-    if (importeFactura <= 0) {
-      const typedImp = window.prompt(
-        `Ingresá el Importe Total de la Factura ($) para enviar al Saldo de Cuenta Corriente del proveedor "${provObj.nombre}":`,
-        calculateFpInvoiceTotalAmount() > 0 ? String(calculateFpInvoiceTotalAmount()) : ''
-      );
-      if (typedImp === null) return;
-      importeFactura = round2(parseFloat(String(typedImp).replace(/\./g, '').replace(',', '.')) || parseFloat(typedImp) || 0);
-      if (importeFactura <= 0) {
-        window.alert('Por favor, verificá el Importe Total de la Factura ($) en el Paso 1 para imputarlo en la Cuenta Corriente del Proveedor.');
-        impInputEl?.focus();
-        return;
-      }
-      if (impInputEl) impInputEl.value = importeFactura.toFixed(2);
-      FP_STATE.manualImporteOverride = true;
-    }
+    const importeFactura = round2(parseNumber(impInputEl?.value) || 0);
 
     const tipoCompConfirm = document.getElementById('fp-tipo-comprobante')?.value || 'FACTURA A';
     const nroCompConfirm = document.getElementById('fp-nro-comprobante')?.value.trim() || 'S/N';
     const totalUnitsConfirm = round2(readyRows.reduce((acc, r) => acc + (Number(r.cantidad) || 0), 0));
+    const ctaCteConfirmLine =
+      importeFactura > 0
+        ? `\n• Importe a cargar en Cuenta Corriente: $ ${formatArs(importeFactura)}`
+        : '';
     const okConfirmFp = await showBrandConfirmDialog(
-      `¿Confirmás impactar los datos cargados al sistema (Stock, Precios y Cuenta Corriente)?\n\n` +
+      `¿Confirmás impactar los datos cargados al sistema (Stock y Precios)?\n\n` +
         `• Proveedor: ${provObj.nombre}\n` +
         `• Comprobante: ${tipoCompConfirm} ${nroCompConfirm}\n` +
-        `• Artículos a actualizar: ${readyRows.length} (+${totalUnitsConfirm} u.)\n` +
-        `• Importe a cargar en Cuenta Corriente: $ ${formatArs(importeFactura)}`
+        `• Artículos a actualizar: ${readyRows.length} (+${totalUnitsConfirm} u.)${ctaCteConfirmLine}`
     );
     if (!okConfirmFp) return;
 
@@ -42336,20 +42382,23 @@ function initApp() {
 
     const linkedMovInfo = editingEntry ? findHistoryLinkedCtaCteMovement(editingEntry) : null;
 
-    // Enviar o actualizar el importe de la factura en el Saldo de Cuenta Corriente del Proveedor elegido
-    const ctaCteRes = await registerSupplierInvoiceInCtaCte({
-      provObj,
-      tipoComp,
-      nroComp,
-      importeFactura,
-      archivo: effectiveArchivo,
-      articulosCount: readyRows.length,
-      unidadesTotales: totalUnitsAdded,
-      modoLabel: 'STOCK Y PRECIOS',
-      editingMovId: linkedMovInfo?.movId || 0,
-      oldClientId: linkedMovInfo?.clientId || 0,
-      customFechaStr: editedFechaHoraInput || editingEntry?.fechaHora || ''
-    });
+    // Enviar o actualizar el importe de la factura en el Saldo de Cuenta Corriente del Proveedor solo si el usuario colocó un importe manual
+    let ctaCteRes = null;
+    if (importeFactura > 0 || (linkedMovInfo && linkedMovInfo.movId > 0)) {
+      ctaCteRes = await registerSupplierInvoiceInCtaCte({
+        provObj,
+        tipoComp,
+        nroComp,
+        importeFactura,
+        archivo: effectiveArchivo,
+        articulosCount: readyRows.length,
+        unidadesTotales: totalUnitsAdded,
+        modoLabel: 'STOCK Y PRECIOS',
+        editingMovId: linkedMovInfo?.movId || 0,
+        oldClientId: linkedMovInfo?.clientId || 0,
+        customFechaStr: editedFechaHoraInput || editingEntry?.fechaHora || ''
+      });
+    }
 
     // Registrar o actualizar en el historial de facturas procesadas
     const modoIva = currentModoIva === 'neto' ? 'Neto de IVA' : 'Precio Final';
@@ -42677,13 +42726,7 @@ function initApp() {
   ['input', 'change'].forEach((evType) => {
     document.getElementById('fp-importe-factura')?.addEventListener(evType, () => {
       FP_STATE.manualImporteOverride = true;
-      const effImp = syncFpImporteFacturaInput(false);
-      const applyBtn = document.getElementById('btn-fp-apply-impact');
-      const readyRows = FP_STATE.rows.filter((r) => r.included && r.matchedArtId && r.matchedArt);
-      if (applyBtn && readyRows.length > 0) {
-        const impSuffix = effImp > 0 ? ` · Cta. Cte. $ ${formatArs(effImp)}` : '';
-        applyBtn.textContent = `✅ Confirmar ${readyRows.length} Art. (Precio/Stock${impSuffix})`;
-      }
+      syncFpImporteFacturaInput(false);
     });
   });
 
@@ -64245,9 +64288,7 @@ function initApp() {
         tdCod.innerHTML = `<span class="art-code-pill">#${escapeHtml(art.c || String(art.id).padStart(5, '0'))}</span>`;
         tr.appendChild(tdCod);
 
-        // COL 2: Producto / Rubro y Marca (con clic para editar)
-        const rubroTxt = resolveFcrRubroLabel(art);
-        const marcaTxt = resolveFcrMarcaLabel(art);
+        // COL 2: Producto (con clic para editar)
         const tdNom = document.createElement('td');
         const nomStack = document.createElement('div');
         nomStack.className = 'price-cell-stack';
@@ -64261,7 +64302,7 @@ function initApp() {
 
         const subMetaEl = document.createElement('span');
         subMetaEl.className = 'art-sub-meta';
-        subMetaEl.innerHTML = `${escapeHtml(rubroTxt)} · ${escapeHtml(marcaTxt)} · IVA ${Number(item.ivaEfectivo ?? 21)}%${
+        subMetaEl.innerHTML = `IVA ${Number(item.ivaEfectivo ?? 21)}%${
           !item.isAssigned ? ' · <strong style="color:var(--gold-dark);">Se vincula a este proveedor</strong>' : ''
         }`;
         nomStack.appendChild(subMetaEl);
@@ -64436,11 +64477,6 @@ function initApp() {
               ventaPreview.innerHTML = `➔ Nuevo Min: <strong>$ ${formatArs(item.nuevoP1f)}</strong> | May: <strong>$ ${formatArs(item.nuevoP2f)}</strong>`;
             }
             priceDetailsBox.appendChild(ventaPreview);
-          } else {
-            const curVentaInfo = document.createElement('span');
-            curVentaInfo.className = 'art-sub-meta';
-            curVentaInfo.textContent = `Venta hoy: Min $ ${formatArs(item.p1fSistema)} | May $ ${formatArs(item.p2fSistema)}`;
-            priceDetailsBox.appendChild(curVentaInfo);
           }
         };
 

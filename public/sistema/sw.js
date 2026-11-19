@@ -1,11 +1,11 @@
-const CACHE_NAME = 'minisistema-erp-v285';
+const CACHE_NAME = 'minisistema-erp-v295';
 const ASSETS_TO_CACHE = [
-  '/sistema/assets/js/brand.js?v=285',
-  '/sistema/assets/css/styles.css?v=285',
-  '/sistema/assets/css/brand-minisistema.css?v=285',
-  '/sistema/assets/js/zxing.min.js?v=285',
-  '/sistema/assets/js/app.js?v=285',
-  '/sistema/assets/js/superadmin-panel.js?v=285',
+  '/sistema/assets/js/brand.js?v=295',
+  '/sistema/assets/css/styles.css?v=295',
+  '/sistema/assets/css/brand-minisistema.css?v=295',
+  '/sistema/assets/js/zxing.min.js?v=295',
+  '/sistema/assets/js/app.js?v=295',
+  '/sistema/assets/js/superadmin-panel.js?v=295',
   '/sistema/assets/img/minisistema/logo-1x1.png',
   '/sistema/assets/img/minisistema/logo-horizontal.png',
   '/sistema/assets/img/minisistema/logo-symbol.png',
