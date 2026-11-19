@@ -514,6 +514,11 @@ export async function getPlatformSecretsMap(): Promise<Record<string, string>> {
     github_owner: process.env.GITHUB_OWNER || "danighiglionesl-art",
     vercel_token: process.env.VERCEL_API_TOKEN || "",
     vercel_team_id: process.env.VERCEL_TEAM_ID || "team_1f6KbeTsFojraSVnPEOlhkBg",
+    afip_cuit: process.env.AFIP_CUIT || "",
+    afip_entorno: process.env.AFIP_ENTORNO || "produccion",
+    afip_pto_vta: process.env.AFIP_PTO_VTA || "0002",
+    afip_cert_pem: process.env.AFIP_CERT_PEM || "",
+    afip_key_pem: process.env.AFIP_KEY_PEM || "",
   };
   if (Array.isArray(data)) {
     for (const row of data) {
@@ -537,6 +542,11 @@ export async function savePlatformSecretsMap(
     "github_owner",
     "vercel_token",
     "vercel_team_id",
+    "afip_cuit",
+    "afip_entorno",
+    "afip_pto_vta",
+    "afip_cert_pem",
+    "afip_key_pem",
   ];
   const rows = [];
   for (const key of allowedKeys) {

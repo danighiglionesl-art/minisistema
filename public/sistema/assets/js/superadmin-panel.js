@@ -104,7 +104,7 @@
     if (viewKey === 'tenants') return 'Comercios Habilitados';
     if (viewKey === 'new') return 'Habilitar Nuevo Sistema (Opción 1 / 2)';
     if (viewKey === 'pricing') return 'Valor Mensual, Descuentos y Mercado Pago';
-    if (viewKey === 'secrets') return 'Credenciales API (MP · GitHub · Vercel)';
+    if (viewKey === 'secrets') return 'Credenciales API (AFIP · MP · GitHub · Vercel)';
     return 'Administrador General';
   }
 
@@ -170,7 +170,7 @@
                 '<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>' +
               '</svg>' +
             '</div>' +
-            '<h3>Credenciales API (MP · GitHub · Vercel)</h3>' +
+            '<h3>Credenciales API (AFIP · MP · GitHub · Vercel)</h3>' +
           '</article>' +
         '</div>';
 
@@ -523,6 +523,9 @@
           '<button type="button" class="ms-sa-btn ms-sa-btn--dark" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-manage-users="' +
           esc(t.slug) +
           '">👥 Admin / Usuarios</button>' +
+          '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-open-afip-tenant="' +
+          esc(t.slug) +
+          '">🏛️ Credenciales AFIP</button>' +
           (t.is_base
             ? ''
             : '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.42rem 0.75rem;font-size:0.78rem;" data-gen-mp="' +
@@ -884,10 +887,130 @@
   }
 
   function renderSecretsTab() {
-    var st = (STATE_SA.data && STATE_SA.data.credentialsStatus) || {};
+    var d = STATE_SA.data || {};
+    var st = d.credentialsStatus || {};
+    var tenants = d.tenants || [];
+    var selectedAfipSlug = STATE_SA.afipSelectedSlug || 'minisistema';
+    var afipInfo = STATE_SA.afipTenantInfo || null;
+    var targetTenant =
+      tenants.find(function (t) {
+        return t.slug === selectedAfipSlug;
+      }) || tenants[0] || { slug: 'minisistema', fantasy_name: 'MiniSistema', business_name: 'MiniSistema', branding: {} };
+
+    var afipCuitVal =
+      (afipInfo && afipInfo.slug === selectedAfipSlug ? afipInfo.cuit : '') ||
+      (targetTenant.branding && targetTenant.branding.cuitFmt !== 'A CONFIGURAR' ? targetTenant.branding.cuitFmt : '') ||
+      st.afipCuit ||
+      '';
+    var afipTitularVal =
+      (afipInfo && afipInfo.slug === selectedAfipSlug ? afipInfo.titular : '') ||
+      targetTenant.business_name ||
+      targetTenant.fantasy_name ||
+      '';
+    var afipPtoVtaVal =
+      (afipInfo && afipInfo.slug === selectedAfipSlug ? afipInfo.ptoVta : '') ||
+      st.afipPtoVta ||
+      '0002';
+    var afipEntornoVal =
+      (afipInfo && afipInfo.slug === selectedAfipSlug ? afipInfo.entorno : '') ||
+      st.afipEntorno ||
+      'produccion';
+    var hasAfipCert =
+      (afipInfo && afipInfo.slug === selectedAfipSlug && afipInfo.hasCertPem) || st.afipConfigured;
+    var certMasked =
+      (afipInfo && afipInfo.slug === selectedAfipSlug ? afipInfo.certMasked : '') ||
+      st.afipCertMasked ||
+      '';
+    var keyMasked =
+      (afipInfo && afipInfo.slug === selectedAfipSlug ? afipInfo.keyMasked : '') ||
+      st.afipKeyMasked ||
+      '';
+
+    var tenantOptsHtml = tenants
+      .map(function (t) {
+        return (
+          '<option value="' +
+          esc(t.slug) +
+          '" ' +
+          (t.slug === selectedAfipSlug ? 'selected' : '') +
+          '>' +
+          esc(t.fantasy_name) +
+          ' (' +
+          esc(t.slug) +
+          ')</option>'
+        );
+      })
+      .join('');
+
     var webhookUrl = window.location.origin + '/api/mercadopago/webhook';
 
     return (
+      '<div style="display:grid;gap:1.1rem;">' +
+      /* TARJETA 1: CREDENCIALES AFIP / ARCA */
+      '<div class="ms-sa-card" style="border:2px solid #56D7A1;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.65rem;margin-bottom:0.85rem;">' +
+      '<div>' +
+      '<h4 style="margin:0;font-size:1.05rem;">🏛️ Credenciales AFIP / ARCA (Facturación Electrónica WSFEv1 y Padrón)</h4>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">' +
+      '<span class="ms-sa-pill">' +
+      (hasAfipCert ? '🟢 Certificado X.509 Vinculado' : '⚙️ Pendiente de Certificado') +
+      '</span>' +
+      '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-sa-open-arca-module" style="padding:0.4rem 0.8rem;font-size:0.78rem;">📄 Ir a Administración Comprobantes ARCA</button>' +
+      '<a href="https://auth.afip.gob.ar/contribuyente_/login.xhtml" target="_blank" rel="noopener noreferrer" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.4rem 0.8rem;font-size:0.78rem;">🔗 Portal Clave Fiscal AFIP / ARCA ↗</a>' +
+      '</div>' +
+      '</div>' +
+      '<form id="ms-sa-afip-form" style="display:grid;gap:0.8rem;">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0.7rem;">' +
+      '<div><label class="ms-sa-label">Comercio / Sistema a Vincular</label><select class="ms-sa-select" id="ms-sa-afip-slug" name="slug">' +
+      tenantOptsHtml +
+      '</select></div>' +
+      '<div><label class="ms-sa-label">CUIT del Emisor (sin o con guiones)</label><input class="ms-sa-input" name="cuit" required value="' +
+      esc(afipCuitVal) +
+      '" placeholder="Ej: 27-05457050-9"></div>' +
+      '<div><label class="ms-sa-label">Razón Social / Titular Fiscal</label><input class="ms-sa-input" name="titular" required value="' +
+      esc(afipTitularVal) +
+      '" placeholder="Ej: RAZÓN SOCIAL S.A."></div>' +
+      '<div><label class="ms-sa-label">Punto de Venta WebService</label><input class="ms-sa-input" name="ptoVta" value="' +
+      esc(afipPtoVtaVal) +
+      '" placeholder="0002"></div>' +
+      '<div><label class="ms-sa-label">Entorno WebService AFIP / ARCA</label><select class="ms-sa-select" name="entorno">' +
+      '<option value="produccion" ' +
+      (afipEntornoVal === 'produccion' ? 'selected' : '') +
+      '>🟢 Producción (CAE Real WSFEv1)</option>' +
+      '<option value="homologacion" ' +
+      (afipEntornoVal === 'homologacion' ? 'selected' : '') +
+      '>🧪 Homologación / Testing</option>' +
+      '</select></div>' +
+      '</div>' +
+      '<div class="ms-sa-grid">' +
+      '<div>' +
+      '<label class="ms-sa-label">Certificado Digital AFIP / ARCA (<code>.crt</code> / <code>.pem</code>)</label>' +
+      '<textarea class="ms-sa-input" name="certPem" id="ms-sa-afip-cert-txt" rows="3" style="font-family:monospace;font-size:0.76rem;" placeholder="' +
+      esc(
+        certMasked
+          ? 'Certificado cargado (' + certMasked + '). Pegá uno nuevo o subí archivo .crt para reemplazar.'
+          : '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'
+      ) +
+      '"></textarea>' +
+      '<input type="file" id="ms-sa-afip-cert-file" accept=".crt,.pem,.cer,.txt" style="margin-top:0.35rem;font-size:0.76rem;">' +
+      '</div>' +
+      '<div>' +
+      '<label class="ms-sa-label">Clave Privada RSA (<code>.key</code> / <code>.pem</code>)</label>' +
+      '<textarea class="ms-sa-input" name="keyPem" id="ms-sa-afip-key-txt" rows="3" style="font-family:monospace;font-size:0.76rem;" placeholder="' +
+      esc(
+        keyMasked
+          ? 'Clave privada cargada (' + keyMasked + '). Pegá una nueva o subí archivo .key para reemplazar.'
+          : '-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----'
+      ) +
+      '"></textarea>' +
+      '<input type="file" id="ms-sa-afip-key-file" accept=".key,.pem,.txt" style="margin-top:0.35rem;font-size:0.76rem;">' +
+      '</div>' +
+      '</div>' +
+      '<div><button type="submit" class="ms-sa-btn">🏛️ Guardar y Vincular Credenciales AFIP / ARCA</button></div>' +
+      '</form>' +
+      '</div>' +
+      /* TARJETA 2 y 3: MERCADO PAGO + GITHUB / VERCEL */
       '<form id="ms-sa-secrets-form" style="display:grid;gap:1rem;">' +
       '<div class="ms-sa-grid">' +
       '<div class="ms-sa-card">' +
@@ -932,8 +1055,9 @@
       '</div>' +
       '</div>' +
       '</div>' +
-      '<div><button type="submit" class="ms-sa-btn">🔐 Guardar Credenciales en Bóveda Segura Supabase</button></div>' +
-      '</form>'
+      '<div><button type="submit" class="ms-sa-btn">🔐 Guardar Credenciales MP · GitHub · Vercel</button></div>' +
+      '</form>' +
+      '</div>'
     );
   }
 
@@ -1289,7 +1413,108 @@
       });
     }
 
-    // Tab 4: Secrets
+    // Tab 4: Secrets & AFIP Credentials
+    bodyEl.querySelectorAll('[data-open-afip-tenant]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var slug = btn.getAttribute('data-open-afip-tenant') || 'minisistema';
+        STATE_SA.afipSelectedSlug = slug;
+        var res = await apiSuperAdmin('GET', { action: 'tenant_afip', slug: slug });
+        if (res && res.ok) {
+          STATE_SA.afipTenantInfo = res;
+        }
+        openSuperAdminView('secrets');
+      });
+    });
+
+    var afipSlugSelect = bodyEl.querySelector('#ms-sa-afip-slug');
+    if (afipSlugSelect) {
+      afipSlugSelect.addEventListener('change', async function () {
+        var slug = afipSlugSelect.value || 'minisistema';
+        STATE_SA.afipSelectedSlug = slug;
+        var res = await apiSuperAdmin('GET', { action: 'tenant_afip', slug: slug });
+        if (res && res.ok) {
+          STATE_SA.afipTenantInfo = res;
+        }
+        renderBody();
+      });
+    }
+
+    var openArcaModBtn = bodyEl.querySelector('#ms-sa-open-arca-module');
+    if (openArcaModBtn) {
+      openArcaModBtn.addEventListener('click', function () {
+        var arcaNavBtn = document.querySelector('[data-open-section="sec-admin-comprobantes"]');
+        if (arcaNavBtn) {
+          arcaNavBtn.click();
+        } else {
+          var menuSec = document.getElementById('sec-menu-superadmin');
+          var detailSec = document.getElementById('sec-superadmin-detail');
+          if (menuSec) menuSec.hidden = true;
+          if (detailSec) detailSec.hidden = true;
+          var arcaSec = document.getElementById('sec-admin-comprobantes');
+          if (arcaSec) arcaSec.hidden = false;
+        }
+      });
+    }
+
+    var afipCertFile = bodyEl.querySelector('#ms-sa-afip-cert-file');
+    if (afipCertFile) {
+      afipCertFile.addEventListener('change', function () {
+        if (afipCertFile.files && afipCertFile.files[0]) {
+          var r = new FileReader();
+          r.onload = function () {
+            var txtEl = bodyEl.querySelector('#ms-sa-afip-cert-txt');
+            if (txtEl) txtEl.value = String(r.result || '').trim();
+            showFeedback('Certificado Digital .CRT cargado en el campo.', false);
+          };
+          r.readAsText(afipCertFile.files[0]);
+        }
+      });
+    }
+
+    var afipKeyFile = bodyEl.querySelector('#ms-sa-afip-key-file');
+    if (afipKeyFile) {
+      afipKeyFile.addEventListener('change', function () {
+        if (afipKeyFile.files && afipKeyFile.files[0]) {
+          var r = new FileReader();
+          r.onload = function () {
+            var txtEl = bodyEl.querySelector('#ms-sa-afip-key-txt');
+            if (txtEl) txtEl.value = String(r.result || '').trim();
+            showFeedback('Clave Privada .KEY cargada en el campo.', false);
+          };
+          r.readAsText(afipKeyFile.files[0]);
+        }
+      });
+    }
+
+    var afipForm = bodyEl.querySelector('#ms-sa-afip-form');
+    if (afipForm) {
+      afipForm.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        var fd = new FormData(afipForm);
+        var slug = String(fd.get('slug') || 'minisistema').trim();
+        var res = await apiSuperAdmin('POST', {
+          action: 'save_tenant_afip_credentials',
+          slug: slug,
+          cuit: String(fd.get('cuit') || '').trim(),
+          titular: String(fd.get('titular') || '').trim(),
+          ptoVta: String(fd.get('ptoVta') || '0002').trim(),
+          entorno: String(fd.get('entorno') || 'produccion').trim(),
+          certPem: String(fd.get('certPem') || '').trim(),
+          keyPem: String(fd.get('keyPem') || '').trim()
+        });
+        if (res && res.ok) {
+          showFeedback(res.message, false);
+          var infoRes = await apiSuperAdmin('GET', { action: 'tenant_afip', slug: slug });
+          if (infoRes && infoRes.ok) {
+            STATE_SA.afipTenantInfo = infoRes;
+          }
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'Error al guardar credenciales AFIP / ARCA.', true);
+        }
+      });
+    }
+
     var secretsForm = bodyEl.querySelector('#ms-sa-secrets-form');
     if (secretsForm) {
       secretsForm.addEventListener('submit', async function (ev) {
@@ -1358,23 +1583,9 @@
   function syncSuperAdminEntrypointVisibility() {
     bindGlobalNavIntegration();
     var allowed = isDanielGeneralAdmin();
-    var topActions = document.querySelector('.topbar-actions');
     var existingBtn = document.getElementById('ms-open-superadmin-btn');
-
-    if (allowed && topActions && !existingBtn) {
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.id = 'ms-open-superadmin-btn';
-      btn.className = 'ms-superadmin-topbar-btn';
-      btn.innerHTML = '🛡️ Admin General';
-      btn.title = 'Abrir Módulo de Administrador General';
-      btn.addEventListener('click', function () {
-        openSuperAdminView('menu');
-      });
-      topActions.insertBefore(btn, topActions.firstChild);
-    } else if (existingBtn) {
-      existingBtn.hidden = !allowed;
-      existingBtn.style.display = allowed ? 'inline-flex' : 'none';
+    if (existingBtn) {
+      existingBtn.remove();
     }
 
     // Inyectar tarjeta destacada en #sec-inicio para @danielg (sin texto descriptivo)

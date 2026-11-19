@@ -3,7 +3,9 @@ import { hashPassword } from "@/lib/server/crypto-auth";
 import { extractErpSessionFromRequest } from "../erp-session";
 import {
   getPlatformSupabase,
+  getTenantDoc,
   listTenantUsersFromDb,
+  putTenantDoc,
   softDeleteTenantUserInDb,
   upsertTenantUserInDb,
 } from "../supabase-server";
@@ -94,6 +96,38 @@ export async function handleErpSuperAdmin(
       });
     }
 
+    if (action === "tenant_afip") {
+      const targetSlug = req.nextUrl.searchParams.get("slug") || "minisistema";
+      const targetTenant = await getTenantBySlug(targetSlug);
+      if (!targetTenant) {
+        return NextResponse.json(
+          { ok: false, message: "Comercio no encontrado." },
+          { status: 404 }
+        );
+      }
+      const { payload: arcaDb } = await getTenantDoc<AnyObj>(
+        targetTenant,
+        "arca_comprobantes_db",
+        {}
+      );
+      const cert = (arcaDb?.certificado || {}) as AnyObj;
+      return NextResponse.json({
+        ok: true,
+        slug: targetTenant.slug,
+        fantasyName: targetTenant.fantasy_name,
+        cuit: String(cert.cuit || targetTenant.branding?.cuitFmt || ""),
+        titular: String(cert.titular || targetTenant.business_name || ""),
+        ptoVta: String(cert.ptoVta || "0002"),
+        entorno: String(cert.entornoMode || "produccion"),
+        emision: String(cert.emision || "—"),
+        vencimiento: String(cert.vencimiento || "—"),
+        hasCertPem: Boolean(cert.certPem),
+        hasKeyPem: Boolean(cert.keyPem),
+        certMasked: maskSecret(String(cert.certPem || "")),
+        keyMasked: maskSecret(String(cert.keyPem || "")),
+      });
+    }
+
     const [{ data: tenants }, pricing, secrets, { data: events }] =
       await Promise.all([
         sb
@@ -127,6 +161,12 @@ export async function handleErpSuperAdmin(
         vercelConfigured: Boolean(secrets.vercel_token),
         vercelTokenMasked: maskSecret(secrets.vercel_token),
         vercelTeamId: secrets.vercel_team_id || "",
+        afipConfigured: Boolean(secrets.afip_cuit && secrets.afip_cert_pem && secrets.afip_key_pem),
+        afipCuit: secrets.afip_cuit || "",
+        afipEntorno: secrets.afip_entorno || "produccion",
+        afipPtoVta: secrets.afip_pto_vta || "0002",
+        afipCertMasked: maskSecret(secrets.afip_cert_pem),
+        afipKeyMasked: maskSecret(secrets.afip_key_pem),
       },
     });
   }
@@ -174,7 +214,125 @@ export async function handleErpSuperAdmin(
       return NextResponse.json({
         ok: true,
         message:
-          "Credenciales de Mercado Pago, GitHub y Vercel guardadas de forma segura.",
+          "Credenciales de AFIP / ARCA, Mercado Pago, GitHub y Vercel guardadas de forma segura.",
+      });
+    }
+
+    if (action === "save_tenant_afip_credentials") {
+      const slug = String(body.slug || "minisistema").trim().toLowerCase();
+      const targetTenant = await getTenantBySlug(slug);
+      if (!targetTenant) {
+        return NextResponse.json(
+          { ok: false, message: "Comercio no encontrado." },
+          { status: 404 }
+        );
+      }
+
+      const cuitRaw = String(body.cuit || "").trim();
+      const titular = String(
+        body.titular || targetTenant.business_name || targetTenant.fantasy_name
+      )
+        .trim()
+        .toUpperCase();
+      const ptoVta = String(body.ptoVta || "0002")
+        .replace(/\D/g, "")
+        .padStart(4, "0");
+      const entornoMode =
+        String(body.entorno || "produccion").toLowerCase() === "homologacion"
+          ? "homologacion"
+          : "produccion";
+      const vencimiento = String(body.vencimiento || "Vigencia 2 años (X.509)").trim();
+
+      const { payload: arcaDb } = await getTenantDoc<AnyObj>(
+        targetTenant,
+        "arca_comprobantes_db",
+        {
+          updatedAt: new Date().toISOString(),
+          servicioArcaEstado: "online",
+          certificado: {},
+          comprobantes: [],
+          auditoria: [],
+        }
+      );
+
+      const prevCert = (arcaDb.certificado || {}) as AnyObj;
+      const certPem =
+        body.certPem && String(body.certPem).trim() !== ""
+          ? String(body.certPem).trim()
+          : String(prevCert.certPem || "");
+      const keyPem =
+        body.keyPem && String(body.keyPem).trim() !== ""
+          ? String(body.keyPem).trim()
+          : String(prevCert.keyPem || "");
+
+      const hasBoth = Boolean(certPem && keyPem && cuitRaw);
+      arcaDb.servicioArcaEstado = hasBoth ? "online" : "contingencia";
+      arcaDb.certificado = {
+        ...prevCert,
+        cuit: cuitRaw || prevCert.cuit || "00-00000000-0",
+        titular,
+        ptoVta,
+        entornoMode,
+        entorno:
+          entornoMode === "produccion"
+            ? "Producción WSFEv1 ARCA (Activo)"
+            : "Homologación / Testing WSFEv1",
+        emision: prevCert.emision && prevCert.emision !== "—"
+          ? prevCert.emision
+          : new Date().toLocaleDateString("es-AR"),
+        vencimiento,
+        certPem,
+        keyPem,
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (!Array.isArray(arcaDb.auditoria)) arcaDb.auditoria = [];
+      arcaDb.auditoria.unshift({
+        fechaHora: new Date().toLocaleString("es-AR"),
+        operacion: "WSAA / Certificado Digital X.509",
+        comprobante: `PV ${ptoVta} · CUIT ${cuitRaw}`,
+        resultado: hasBoth ? "VINCULADO OK" : "ACTUALIZADO",
+        detalle: `Credenciales AFIP/ARCA configuradas para ${targetTenant.fantasy_name}`,
+        usuario: GENERAL_ADMIN_USERNAME,
+      });
+
+      await putTenantDoc(
+        targetTenant,
+        "arca_comprobantes_db",
+        arcaDb,
+        GENERAL_ADMIN_USERNAME,
+        "save_tenant_afip_credentials"
+      );
+
+      // Actualizar CUIT en el branding del comercio
+      if (cuitRaw) {
+        const nextBranding = {
+          ...targetTenant.branding,
+          cuitFmt: cuitRaw,
+        };
+        await sb
+          .from("erp_tenants")
+          .update({
+            branding: nextBranding,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("slug", targetTenant.slug);
+      }
+
+      // Si es el sistema base MiniSistema, sincronizar también en secretos globales
+      if (targetTenant.is_base) {
+        await savePlatformSecretsMap({
+          afip_cuit: cuitRaw,
+          afip_entorno: entornoMode,
+          afip_pto_vta: ptoVta,
+          ...(certPem ? { afip_cert_pem: certPem } : {}),
+          ...(keyPem ? { afip_key_pem: keyPem } : {}),
+        });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        message: `Credenciales AFIP / ARCA vinculadas correctamente para "${targetTenant.fantasy_name}" (CUIT ${cuitRaw || "actualizado"}).`,
       });
     }
 
