@@ -385,7 +385,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
   };
 
   const inputCls =
-    "w-full rounded-xl border border-[#112D3A]/20 bg-white px-3.5 py-2.5 text-sm text-[#112D3A] shadow-sm focus:border-[#56D7A1] focus:outline-none focus:ring-2 focus:ring-[#56D7A1]/40";
+    "w-full rounded-xl border border-[#112D3A]/20 bg-[#FFFFFF] px-3.5 py-2.5 text-sm text-[#112D3A] shadow-sm focus:border-[#56D7A1] focus:outline-none focus:ring-2 focus:ring-[#56D7A1]/40";
   const labelCls = "mb-1.5 block text-xs font-bold uppercase tracking-wide text-[#112D3A]/80";
 
   if (submittedReceipt) {
@@ -393,7 +393,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       <div
         role="status"
         aria-live="polite"
-        className="mx-auto max-w-2xl rounded-3xl border-2 border-[#56D7A1] bg-white p-8 text-[#112D3A] shadow-2xl"
+        className="mx-auto max-w-2xl rounded-3xl border-2 border-[#56D7A1] bg-[#FFFFFF] p-8 text-[#112D3A] shadow-2xl"
       >
         <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#56D7A1]/25 text-3xl">
           ✅
@@ -410,14 +410,14 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           <strong>{props.fantasyName}</strong>.
         </p>
 
-        <div className="my-6 rounded-2xl border border-[#56D7A1] bg-[#112D3A] p-5 text-white">
+        <div className="my-6 rounded-2xl border border-[#56D7A1] bg-[#112D3A] p-5 text-[#FFFFFF]">
           <div className="text-xs font-bold uppercase tracking-wider text-[#56D7A1]">
             Comprobante de Postulación
           </div>
-          <div className="mt-1 text-2xl font-black tracking-wide">
+          <div className="mt-1 text-2xl font-black tracking-wide text-[#FFFFFF]">
             {submittedReceipt.codigo}
           </div>
-          <div className="mt-2 grid gap-1 text-xs text-white/80 sm:grid-cols-2">
+          <div className="mt-2 grid gap-1 text-xs text-[#FFFFFF]/85 sm:grid-cols-2">
             <div>
               <strong>Puesto postulado:</strong> {submittedReceipt.puesto}
             </div>
@@ -438,7 +438,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </button>
           <a
             href="/"
-            className="rounded-xl border-2 border-[#112D3A] px-5 py-3 text-sm font-extrabold text-[#112D3A] hover:bg-[#112D3A] hover:text-white"
+            className="rounded-xl border-2 border-[#112D3A] px-5 py-3 text-sm font-extrabold text-[#112D3A] hover:bg-[#112D3A] hover:text-[#FFFFFF]"
           >
             Volver al Inicio
           </a>
@@ -452,14 +452,14 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       {errorMsg && (
         <div
           role="alert"
-          className="rounded-2xl border-2 border-red-400 bg-red-50 p-4 text-sm font-bold text-red-800"
+          className="rounded-2xl border-2 border-[#dc2626] bg-[#fef2f2] p-4 text-sm font-bold text-[#991b1b]"
         >
           ⚠️ {errorMsg}
         </div>
       )}
 
       {/* SECCIÓN 1: FOTOGRAFÍA Y DATOS PERSONALES */}
-      <section className="rounded-3xl border border-[#112D3A]/15 bg-white p-6 shadow-md sm:p-8">
+      <section className="rounded-3xl border border-[#112D3A]/15 bg-[#FFFFFF] p-6 shadow-md sm:p-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-[#112D3A]/10 pb-4">
           <div>
             <span className="inline-block rounded-full bg-[#56D7A1]/25 px-3 py-1 text-xs font-extrabold text-[#112D3A]">
@@ -485,7 +485,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               )}
             </div>
             <div>
-              <label className="inline-block cursor-pointer rounded-xl bg-[#112D3A] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#112D3A]/90">
+              <label className="inline-block cursor-pointer rounded-xl bg-[#112D3A] px-4 py-2 text-xs font-extrabold text-[#56D7A1] shadow hover:brightness-110">
                 📷 Subir Fotografía
                 <input
                   type="file"
@@ -498,7 +498,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                 <button
                   type="button"
                   onClick={() => setFotoBase64("")}
-                  className="ml-2 text-xs font-bold text-red-600 underline"
+                  className="ml-2 text-xs font-bold text-[#dc2626] underline"
                 >
                   Quitar
                 </button>
@@ -627,7 +627,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       </section>
 
       {/* SECCIÓN 2: UBICACIÓN Y CONTACTO CON DESPLEGABLES EN CASCADA */}
-      <section className="rounded-3xl border border-[#112D3A]/15 bg-white p-6 shadow-md sm:p-8">
+      <section className="rounded-3xl border border-[#112D3A]/15 bg-[#FFFFFF] p-6 shadow-md sm:p-8">
         <div className="mb-5 border-b border-[#112D3A]/10 pb-4">
           <span className="inline-block rounded-full bg-[#56D7A1]/25 px-3 py-1 text-xs font-extrabold text-[#112D3A]">
             PASO 2 DE 5
@@ -785,7 +785,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       </section>
 
       {/* SECCIÓN 3: PUESTO, DISPONIBILIDAD Y MOVILIDAD */}
-      <section className="rounded-3xl border border-[#112D3A]/15 bg-white p-6 shadow-md sm:p-8">
+      <section className="rounded-3xl border border-[#112D3A]/15 bg-[#FFFFFF] p-6 shadow-md sm:p-8">
         <div className="mb-5 border-b border-[#112D3A]/10 pb-4">
           <span className="inline-block rounded-full bg-[#56D7A1]/25 px-3 py-1 text-xs font-extrabold text-[#112D3A]">
             PASO 3 DE 5
@@ -987,7 +987,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       </section>
 
       {/* SECCIÓN 4: ESTUDIOS, SISTEMAS E IDIOMAS */}
-      <section className="rounded-3xl border border-[#112D3A]/15 bg-white p-6 shadow-md sm:p-8">
+      <section className="rounded-3xl border border-[#112D3A]/15 bg-[#FFFFFF] p-6 shadow-md sm:p-8">
         <div className="mb-5 border-b border-[#112D3A]/10 pb-4">
           <span className="inline-block rounded-full bg-[#56D7A1]/25 px-3 py-1 text-xs font-extrabold text-[#112D3A]">
             PASO 4 DE 5
@@ -1133,7 +1133,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       </section>
 
       {/* SECCIÓN 5: EXPERIENCIA LABORAL + ADJUNTAR CV EN PDF */}
-      <section className="rounded-3xl border border-[#112D3A]/15 bg-white p-6 shadow-md sm:p-8">
+      <section className="rounded-3xl border border-[#112D3A]/15 bg-[#FFFFFF] p-6 shadow-md sm:p-8">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-[#112D3A]/10 pb-4">
           <div>
             <span className="inline-block rounded-full bg-[#56D7A1]/25 px-3 py-1 text-xs font-extrabold text-[#112D3A]">
@@ -1172,7 +1172,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                       onClick={() =>
                         setExperiencias((prev) => prev.filter((_, i) => i !== idx))
                       }
-                      className="text-xs font-bold text-red-600 hover:underline"
+                      className="text-xs font-bold text-[#dc2626] hover:underline"
                     >
                       Eliminar experiencia
                     </button>
@@ -1361,7 +1361,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           {pdfFileName && (
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-[#112D3A] shadow-sm">
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-[#FFFFFF] px-4 py-2.5 text-xs font-bold text-[#112D3A] shadow-sm">
               <span>
                 ✅ {pdfFileName} ({pdfSizeKb} KB)
               </span>
@@ -1372,7 +1372,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                   setPdfFileName("");
                   setPdfSizeKb(0);
                 }}
-                className="text-red-600 underline"
+                className="text-[#dc2626] underline"
               >
                 Quitar PDF
               </button>

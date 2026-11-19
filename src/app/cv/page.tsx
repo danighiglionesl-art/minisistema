@@ -51,34 +51,58 @@ export default async function PublicCvPage() {
             <img
               src={brand.logoHorizontalUrl}
               alt={tenant.fantasy_name}
-              className="h-11 w-auto rounded-lg bg-white px-2.5 py-1 object-contain"
+              className="h-12 w-auto rounded-lg bg-[#FFFFFF] px-3 py-1.5 object-contain"
             />
           </a>
-          <div className="text-right text-white">
+          <div className="text-right text-[#FFFFFF]" style={{ color: "#FFFFFF" }}>
             <div
-              className="text-xs font-extrabold uppercase tracking-wider"
+              className="text-xs font-extrabold uppercase tracking-wider sm:text-sm"
               style={{ color: brand.accentHex }}
             >
               Selección de Personal · RR.HH.
             </div>
-            <div className="text-sm font-bold">{tenant.fantasy_name}</div>
+            <div className="text-base font-extrabold text-[#FFFFFF]">{tenant.fantasy_name}</div>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mb-8 rounded-3xl bg-[#112D3A] p-6 text-white shadow-xl sm:p-8">
-          <span className="inline-block rounded-full bg-[#56D7A1] px-3 py-1 text-xs font-black uppercase text-[#112D3A]">
+        <div
+          className="mb-8 rounded-3xl bg-[#112D3A] p-7 text-[#FFFFFF] shadow-xl sm:p-10"
+          style={{ backgroundColor: brand.primaryHex, color: "#FFFFFF" }}
+        >
+          <span
+            className="inline-block rounded-full bg-[#56D7A1] px-4 py-1.5 text-xs font-black uppercase tracking-wider text-[#112D3A] sm:text-sm"
+            style={{ backgroundColor: brand.accentHex, color: "#112D3A" }}
+          >
             Portal Oficial de Postulaciones
           </span>
-          <h1 className="mt-3 text-2xl font-black sm:text-3xl">
-            Cargá tu Curriculum Vitae en {tenant.fantasy_name}
+          <h1
+            className="mt-4 text-3xl font-black leading-tight text-[#FFFFFF] sm:text-4xl lg:text-[2.65rem]"
+            style={{ color: "#FFFFFF" }}
+          >
+            Cargá tu Curriculum Vitae en{" "}
+            <span style={{ color: brand.accentHex }}>{tenant.fantasy_name}</span>
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-white/80">
-            Completá tus datos personales, ubicación, disponibilidad, formación,
-            fotografía y adjuntá tu CV en PDF. Recibirás confirmación inmediata en
-            pantalla al finalizar el envío.
+          <p
+            className="mt-3 max-w-4xl text-base font-medium leading-relaxed text-[#FFFFFF]/90 sm:text-lg"
+            style={{ color: "rgba(255, 255, 255, 0.9)" }}
+          >
+            Completá tus datos personales, ubicación, disponibilidad horaria, formación,
+            fotografía y adjuntá tu CV en PDF. Al finalizar el envío recibirás tu
+            notificación y comprobante inmediato en pantalla.
           </p>
+          <div className="mt-6 flex flex-wrap gap-3 text-xs font-extrabold sm:text-sm">
+            <span className="rounded-xl border border-[#56D7A1]/40 bg-[#FFFFFF]/10 px-3.5 py-2 text-[#FFFFFF]">
+              📷 Fotografía de Perfil
+            </span>
+            <span className="rounded-xl border border-[#56D7A1]/40 bg-[#FFFFFF]/10 px-3.5 py-2 text-[#FFFFFF]">
+              📄 Adjunto de CV en PDF
+            </span>
+            <span className="rounded-xl border border-[#56D7A1]/40 bg-[#FFFFFF]/10 px-3.5 py-2 text-[#FFFFFF]">
+              ✅ Confirmación Inmediata de Recepción
+            </span>
+          </div>
         </div>
 
         <PublicCvForm
