@@ -317,7 +317,9 @@
     var data = STATE_SA.data;
     if (!data) return { optionBase: 0, modTotal: 0, subtotal: 0, promoMonthly: 0, regularMonthly: 0 };
     var cfg = data.pricingConfig || {};
-    var optionBase = Number(optionType === 1 ? cfg.option_1_base : cfg.option_2_base) || 0;
+    var rawOptBase = Number(optionType === 1 ? cfg.option_1_base : cfg.option_2_base) || 0;
+    var optDiscPct = Math.min(100, Math.max(0, Number((modDiscountMap && modDiscountMap['__opt' + optionType]) || 0)));
+    var optionBase = Math.round(rawOptBase * (1 - optDiscPct / 100));
     var modTotal = 0;
     (data.commercialModules || []).forEach(function (m) {
       if (!selectedMap[m.key]) return;

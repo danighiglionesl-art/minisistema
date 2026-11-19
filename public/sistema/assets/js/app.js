@@ -63687,8 +63687,10 @@ function initApp() {
       editingMov: null, // { clientId, movId, originalMov, provNombre }
       invoiceArticles: [], // [{ artId, art, ingreso, isAssigned }]
       artDropdownResults: [],
-      activeArtDropdownIndex: -1
+      activeArtDropdownIndex: -1,
+      histPage: 1
     };
+    const FCR_HIST_PAGE_SIZE = 10;
 
     function ddMmYyyyToIso(fechaStr) {
       const m = String(fechaStr || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -65365,10 +65367,19 @@ function initApp() {
       }
     }
 
-    function renderFcrHistorialTable() {
+    function renderFcrHistorialTable(targetPage) {
       const tbody = document.getElementById('fcr-hist-tbody');
       const countEl = document.getElementById('fcr-hist-count');
+      const pagBar = document.getElementById('fcr-hist-pagination');
+      const pageRangeEl = document.getElementById('fcr-hist-page-range');
+      const pageIndEl = document.getElementById('fcr-hist-page-indicator');
+      const btnPrev = document.getElementById('btn-fcr-hist-prev');
+      const btnNext = document.getElementById('btn-fcr-hist-next');
       if (!tbody) return;
+
+      if (typeof targetPage === 'number' && Number.isFinite(targetPage)) {
+        FCR_STATE.histPage = Math.max(1, Math.floor(targetPage));
+      }
 
       const filterQ = stripAccentsUpper(document.getElementById('fcr-hist-search')?.value || '');
       const modeFilter = document.getElementById('fcr-hist-origen-filter')?.value || 'rapida';
@@ -65409,18 +65420,46 @@ function initApp() {
       });
 
       rows.sort((a, b) => b.sortKey - a.sortKey);
-      const displayRows = rows.slice(0, 60);
+
+      const totalRows = rows.length;
+      const totalPages = Math.max(1, Math.ceil(totalRows / FCR_HIST_PAGE_SIZE));
+      if (!FCR_STATE.histPage || FCR_STATE.histPage < 1) FCR_STATE.histPage = 1;
+      if (FCR_STATE.histPage > totalPages) FCR_STATE.histPage = totalPages;
+
+      const startIdx = (FCR_STATE.histPage - 1) * FCR_HIST_PAGE_SIZE;
+      const displayRows = rows.slice(startIdx, startIdx + FCR_HIST_PAGE_SIZE);
+      const fromNum = totalRows > 0 ? startIdx + 1 : 0;
+      const toNum = totalRows > 0 ? startIdx + displayRows.length : 0;
 
       if (countEl) {
         if (modeFilter === 'rapida') {
           countEl.textContent =
-            rows.length > 0
-              ? `Mostrando ${displayRows.length} de ${rows.length} factura(s) de carga rápida`
+            totalRows > 0
+              ? `Mostrando ${fromNum} a ${toNum} de ${totalRows} factura(s) de carga rápida`
               : totalComprasCount > 0
               ? `0 facturas de carga rápida (${totalComprasCount} factura(s) de compra totales disponibles cambiando el filtro)`
               : 'Sin facturas de compra registradas aún';
         } else {
-          countEl.textContent = `Mostrando ${displayRows.length} de ${rows.length} factura(s) de compra en Cuenta Corriente`;
+          countEl.textContent =
+            totalRows > 0
+              ? `Mostrando ${fromNum} a ${toNum} de ${totalRows} factura(s) de compra en Cuenta Corriente`
+              : '0 factura(s) de compra en Cuenta Corriente';
+        }
+      }
+
+      if (pagBar) {
+        pagBar.hidden = totalRows === 0;
+        if (pageRangeEl) {
+          pageRangeEl.textContent = `Mostrando ${fromNum}–${toNum} de ${totalRows} comprobante(s) · 10 por página`;
+        }
+        if (pageIndEl) {
+          pageIndEl.textContent = `Página ${FCR_STATE.histPage} de ${totalPages}`;
+        }
+        if (btnPrev) {
+          btnPrev.disabled = FCR_STATE.histPage <= 1;
+        }
+        if (btnNext) {
+          btnNext.disabled = FCR_STATE.histPage >= totalPages;
         }
       }
 
@@ -66241,8 +66280,16 @@ function initApp() {
       document.getElementById('fcr-prov-search')?.focus();
     });
 
-    document.getElementById('fcr-hist-search')?.addEventListener('input', renderFcrHistorialTable);
-    document.getElementById('fcr-hist-origen-filter')?.addEventListener('change', renderFcrHistorialTable);
+    document.getElementById('fcr-hist-search')?.addEventListener('input', () => renderFcrHistorialTable(1));
+    document.getElementById('fcr-hist-origen-filter')?.addEventListener('change', () => renderFcrHistorialTable(1));
+    document.getElementById('btn-fcr-hist-prev')?.addEventListener('click', () => {
+      if (FCR_STATE.histPage > 1) {
+        renderFcrHistorialTable(FCR_STATE.histPage - 1);
+      }
+    });
+    document.getElementById('btn-fcr-hist-next')?.addEventListener('click', () => {
+      renderFcrHistorialTable(FCR_STATE.histPage + 1);
+    });
 
     // Evitar que presionar Enter dentro de casilleros de cabecera o de artículos envíe la factura sin confirmación explícita
     document.getElementById('fcr-form')?.addEventListener('keydown', (ev) => {
