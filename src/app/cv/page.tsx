@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import PublicCvForm from "@/components/cv/PublicCvForm";
 import referenceCatalogs from "@/lib/erp/reference-catalogs.json";
 import {
@@ -37,6 +38,11 @@ export default async function PublicCvPage() {
     >;
   };
 
+  const isMiniSistemaBrand =
+    tenant.is_base ||
+    tenant.option_type !== 1 ||
+    /^minisistema\.?$/i.test((tenant.fantasy_name || "").trim());
+
   return (
     <div className="min-h-screen bg-[#f3f8fa] text-[#112D3A]">
       <header
@@ -51,7 +57,11 @@ export default async function PublicCvPage() {
             <img
               src={brand.logoHorizontalUrl}
               alt={tenant.fantasy_name}
-              className="h-12 w-auto rounded-lg bg-[#FFFFFF] px-3 py-1.5 object-contain"
+              className={
+                isMiniSistemaBrand
+                  ? "h-11 w-auto object-contain"
+                  : "h-12 w-auto rounded-lg bg-[#FFFFFF] px-3 py-1.5 object-contain"
+              }
             />
           </a>
           <div className="text-right text-[#FFFFFF]" style={{ color: "#FFFFFF" }}>
@@ -61,7 +71,13 @@ export default async function PublicCvPage() {
             >
               Selección de Personal · RR.HH.
             </div>
-            <div className="text-base font-extrabold text-[#FFFFFF]">{tenant.fantasy_name}</div>
+            <div className="mt-0.5 flex items-center justify-end text-base font-extrabold text-[#FFFFFF]">
+              {isMiniSistemaBrand ? (
+                <BrandWordmark className="h-5" />
+              ) : (
+                tenant.fantasy_name
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -78,11 +94,19 @@ export default async function PublicCvPage() {
             Portal Oficial de Postulaciones
           </span>
           <h1
-            className="mt-4 text-3xl font-black leading-tight text-[#FFFFFF] sm:text-4xl lg:text-[2.65rem]"
+            className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-3xl font-black leading-tight text-[#FFFFFF] sm:text-4xl lg:text-[2.65rem]"
             style={{ color: "#FFFFFF" }}
           >
-            Cargá tu Curriculum Vitae en{" "}
-            <span style={{ color: brand.accentHex }}>{tenant.fantasy_name}</span>
+            <span>Cargá tu Curriculum Vitae en</span>
+            {isMiniSistemaBrand ? (
+              <BrandWordmark className="h-[0.95em]" />
+            ) : (
+              <img
+                src={brand.logoHorizontalUrl}
+                alt={tenant.fantasy_name}
+                className="inline-block h-[1.05em] w-auto rounded-lg bg-[#FFFFFF] px-2.5 py-1 object-contain align-middle"
+              />
+            )}
           </h1>
           <p
             className="mt-3 max-w-4xl text-base font-medium leading-relaxed text-[#FFFFFF]/90 sm:text-lg"

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 
 interface PaisItem {
   id: number;
@@ -614,7 +615,12 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           {submittedReceipt.isUpdate
             ? `Tus nuevos datos actualizaron tu ficha existente sin duplicar tu postulación y se envió un alerta de nuevos datos al administrador de `
             : `Tus datos, perfil laboral y archivos adjuntos ya ingresaron al módulo de selección de `}
-          <strong>{props.fantasyName}</strong>.
+          {/^minisistema\.?$/i.test((props.fantasyName || "").trim()) ? (
+            <BrandWordmark onMintSurface className="h-[0.95em]" />
+          ) : (
+            <strong>{props.fantasyName}</strong>
+          )}
+          .
         </p>
 
         <div className="my-6 rounded-2xl border border-[#56D7A1] bg-[#112D3A] p-5 text-[#FFFFFF]">
