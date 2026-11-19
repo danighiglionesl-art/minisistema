@@ -174,11 +174,13 @@ export function renderErpHtmlResponse(params: {
   };
 
   const verMatch = html.match(/assets\/(?:js\/app|css\/styles)\.(?:js|css)\?v=(\d+)/i);
-  const assetVer = `${verMatch ? verMatch[1] : "271"}.6`;
+  const assetVer = `${verMatch ? verMatch[1] : "271"}.8`;
 
-  const headInjection = `
+  const headBootInjection = `
   <base href="${baseHref}">
-  <script>window.__ERP_TENANT_BOOT__ = ${JSON.stringify(bootPayload)};</script>
+  <script>window.__ERP_TENANT_BOOT__ = ${JSON.stringify(bootPayload)};</script>`;
+
+  const headStyleInjection = `
   <style id="ms-tenant-tokens">
     :root, html[data-brand="minisistema"] {
       --ms-primary: ${primaryHex};
@@ -210,8 +212,9 @@ export function renderErpHtmlResponse(params: {
     );
   }
 
-  // 2. Inyectar <base>, tokens de color y hoja brand-minisistema.css justo después de <meta charset...>
-  html = html.replace(/(<meta\s+charset="[^"]*"\s*\/?>)/i, `$1${headInjection}`);
+  // 2. Inyectar <base> y boot justo después de <meta charset...>, y hoja brand-minisistema.css antes de </head>
+  html = html.replace(/(<meta\s+charset="[^"]*"\s*\/?>)/i, `$1${headBootInjection}`);
+  html = html.replace(/<\/head>/i, `${headStyleInjection}\n</head>`);
 
   // 3. Meta theme-color, favicons y manifest dinámico
   html = html.replace(
