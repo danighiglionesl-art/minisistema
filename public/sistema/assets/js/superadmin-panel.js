@@ -102,9 +102,9 @@
 
   function getViewTitle(viewKey) {
     if (viewKey === 'tenants') return 'Comercios Habilitados';
-    if (viewKey === 'new') return 'Habilitar Nuevo Sistema (Opción 1 / 2)';
+    if (viewKey === 'new') return 'Habilitar Nuevo Sistema';
     if (viewKey === 'pricing') return 'Valor Mensual, Descuentos y Mercado Pago';
-    if (viewKey === 'secrets') return 'Credenciales API (AFIP · MP · GitHub · Vercel)';
+    if (viewKey === 'secrets') return 'Credenciales API';
     return 'Administrador General';
   }
 
@@ -152,7 +152,7 @@
                 '<line x1="8" y1="12" x2="16" y2="12"></line>' +
               '</svg>' +
             '</div>' +
-            '<h3>Habilitar Nuevo Sistema (Opción 1 / 2)</h3>' +
+            '<h3>Habilitar Nuevo Sistema</h3>' +
           '</article>' +
           '<article class="module-card" role="button" tabindex="0" data-sa-open-view="pricing">' +
             '<div class="module-icon" aria-hidden="true">' +
@@ -170,7 +170,7 @@
                 '<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>' +
               '</svg>' +
             '</div>' +
-            '<h3>Credenciales API (AFIP · MP · GitHub · Vercel)</h3>' +
+            '<h3>Credenciales API</h3>' +
           '</article>' +
         '</div>';
 
