@@ -58,12 +58,21 @@ export interface CvRecord {
     localidad: string;
     cp: string;
     domicilio: string;
+    domicilioCalle?: string;
+    domicilioNumero?: string;
+    domicilioPiso?: string;
+    domicilioDpto?: string;
+    domicilioEdificio?: string;
+    domicilioTorre?: string;
+    domicilioBarrio?: string;
     whatsappPais: string;
     whatsappPrefijo: string;
     whatsappNumero: string;
     whatsappCompleto: string;
     telefonoAlternativo: string;
     email: string;
+    facebookUrl?: string;
+    instagramUrl?: string;
     linkedinUrl: string;
   };
   postulacion: {
@@ -210,10 +219,36 @@ export async function handlePublicCvSubmission(
   const nombres = String(body.nombres || "").trim();
   const apellidos = String(body.apellidos || "").trim();
   const nroDoc = String(body.nroDoc || "").trim();
+  const fechaNacimiento = String(body.fechaNacimiento || "").trim();
+  const genero = String(body.genero || "").trim();
+  const estadoCivil = String(body.estadoCivil || "").trim();
+  const hijosACargo = String(body.hijosACargo || "").trim();
+  const nacionalidad = String(body.nacionalidad || "").trim();
+  const cp = String(body.cp || "").trim();
+  const domicilioCalle = String(body.domicilioCalle || "").trim();
+  const domicilioNumero = String(body.domicilioNumero || "").trim();
+  const domicilioPiso = String(body.domicilioPiso || "").trim();
+  const domicilioDpto = String(body.domicilioDpto || "").trim();
+  const domicilioEdificio = String(body.domicilioEdificio || "").trim();
+  const domicilioTorre = String(body.domicilioTorre || "").trim();
+  const domicilioBarrio = String(body.domicilioBarrio || "").trim();
   const whatsappNumero = String(body.whatsappNumero || "").replace(/[^\d]/g, "");
   const whatsappPrefijo = String(body.whatsappPrefijo || "+549").trim();
   const email = String(body.email || "").trim().toLowerCase();
+  const facebookUrl = String(body.facebookUrl || "").trim();
+  const instagramUrl = String(body.instagramUrl || "").trim();
   const puestoPrincipal = String(body.puestoPrincipal || "").trim();
+  const experienciaTotal = String(body.experienciaTotal || "").trim();
+  const disponibilidadHoraria = String(body.disponibilidadHoraria || "").trim();
+  const modalidad = String(body.modalidad || "").trim();
+  const licenciaConducir = String(body.licenciaConducir || "").trim();
+  const pretensionSalarial = String(body.pretensionSalarial || "").trim();
+  const nivelEstudios = String(body.nivelEstudios || "").trim();
+  const estadoEstudios = String(body.estadoEstudios || "").trim();
+  const nivelPosFacturacion = String(body.nivelPosFacturacion || "").trim();
+  const nivelExcel = String(body.nivelExcel || "").trim();
+  const nivelAtencionDigital = String(body.nivelAtencionDigital || "").trim();
+  const idiomaPrincipal = String(body.idiomaPrincipal || "").trim();
 
   if (!nombres || !apellidos) {
     return NextResponse.json(
@@ -224,6 +259,51 @@ export async function handlePublicCvSubmission(
   if (!nroDoc || nroDoc.length < 6) {
     return NextResponse.json(
       { ok: false, message: "Por favor ingresá un número de documento válido." },
+      { status: 400 }
+    );
+  }
+  if (!fechaNacimiento) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor indicá tu Fecha de Nacimiento." },
+      { status: 400 }
+    );
+  }
+  if (!genero) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor seleccioná tu Género." },
+      { status: 400 }
+    );
+  }
+  if (!estadoCivil) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor seleccioná tu Estado Civil." },
+      { status: 400 }
+    );
+  }
+  if (!hijosACargo) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor indicá tus Cargas de Familia." },
+      { status: 400 }
+    );
+  }
+  if (!nacionalidad) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor seleccioná tu Nacionalidad." },
+      { status: 400 }
+    );
+  }
+  if (!cp) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor ingresá tu Código Postal." },
+      { status: 400 }
+    );
+  }
+  if (!domicilioCalle || !domicilioNumero || !domicilioBarrio) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Por favor completá Calle, Número y Barrio de tu domicilio.",
+      },
       { status: 400 }
     );
   }
@@ -239,9 +319,73 @@ export async function handlePublicCvSubmission(
       { status: 400 }
     );
   }
+  if (!facebookUrl || !instagramUrl) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Por favor completá Facebook e Instagram (o indicá 'No tengo').",
+      },
+      { status: 400 }
+    );
+  }
   if (!puestoPrincipal) {
     return NextResponse.json(
       { ok: false, message: "Seleccioná el puesto o área principal al que te postulás." },
+      { status: 400 }
+    );
+  }
+  if (!experienciaTotal) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor seleccioná tu Experiencia Laboral." },
+      { status: 400 }
+    );
+  }
+  if (!disponibilidadHoraria) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor seleccioná tu Disponibilidad Horaria." },
+      { status: 400 }
+    );
+  }
+  if (!modalidad) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor seleccioná tu Modalidad Preferida." },
+      { status: 400 }
+    );
+  }
+  if (!licenciaConducir) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor indicá tu Licencia de Conducir." },
+      { status: 400 }
+    );
+  }
+  if (!pretensionSalarial) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor seleccioná tu Pretensión Salarial." },
+      { status: 400 }
+    );
+  }
+  if (!nivelEstudios || !estadoEstudios) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Por favor seleccioná tu Nivel Máximo de Estudios y Estado de Estudios.",
+      },
+      { status: 400 }
+    );
+  }
+  if (!nivelPosFacturacion || !nivelExcel || !nivelAtencionDigital) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message:
+          "Por favor completá tu nivel de Sistemas de Caja POS, Excel y WhatsApp Comercial.",
+      },
+      { status: 400 }
+    );
+  }
+  if (!idiomaPrincipal) {
+    return NextResponse.json(
+      { ok: false, message: "Por favor seleccioná una opción en Idioma Extra." },
       { status: 400 }
     );
   }
@@ -300,7 +444,16 @@ export async function handlePublicCvSubmission(
     pdfUrl = `/sistema/assets/banners/${pdfKey}?tenant=${encodeURIComponent(tenant.slug)}`;
   }
 
-  const fechaNacimiento = String(body.fechaNacimiento || "").trim();
+  const domicilioParts = [
+    `${domicilioCalle} ${domicilioNumero}`.trim(),
+    domicilioPiso ? `Piso ${domicilioPiso}` : "",
+    domicilioDpto ? `Dpto. ${domicilioDpto}` : "",
+    domicilioEdificio ? `Edificio ${domicilioEdificio}` : "",
+    domicilioTorre ? `Torre ${domicilioTorre}` : "",
+    domicilioBarrio ? `B° ${domicilioBarrio}` : "",
+  ].filter(Boolean);
+  const domicilioComposed = domicilioParts.join(", ") || String(body.domicilio || "").trim();
+
   const cleanPrefDigits = whatsappPrefijo.replace(/[^\d+]/g, "");
   const whatsappCompleto = `${cleanPrefDigits}${whatsappNumero}`;
   const nowIso = new Date().toISOString();
@@ -344,48 +497,57 @@ export async function handlePublicCvSubmission(
       nroDoc,
       fechaNacimiento,
       edad: computeAgeFromIso(fechaNacimiento),
-      genero: String(body.genero || "").trim(),
-      estadoCivil: String(body.estadoCivil || "").trim(),
-      hijosACargo: String(body.hijosACargo || "Sin cargas de familia").trim(),
-      nacionalidad: String(body.nacionalidad || "ARGENTINA").trim(),
+      genero,
+      estadoCivil,
+      hijosACargo,
+      nacionalidad,
     },
     ubicacionContacto: {
       pais: String(body.pais || "ARGENTINA").trim(),
       provincia: String(body.provincia || "").trim(),
       localidad: String(body.localidad || "").trim(),
-      cp: String(body.cp || "").trim(),
-      domicilio: String(body.domicilio || "").trim(),
+      cp,
+      domicilio: domicilioComposed,
+      domicilioCalle,
+      domicilioNumero,
+      domicilioPiso,
+      domicilioDpto,
+      domicilioEdificio,
+      domicilioTorre,
+      domicilioBarrio,
       whatsappPais: String(body.whatsappPais || "Argentina").trim(),
       whatsappPrefijo: cleanPrefDigits,
       whatsappNumero,
       whatsappCompleto,
       telefonoAlternativo: String(body.telefonoAlternativo || "").trim(),
       email,
+      facebookUrl,
+      instagramUrl,
       linkedinUrl: String(body.linkedinUrl || "").trim(),
     },
     postulacion: {
       puestoPrincipal,
       puestoSecundario: String(body.puestoSecundario || "").trim(),
-      disponibilidadHoraria: String(body.disponibilidadHoraria || "Full Time").trim(),
+      disponibilidadHoraria,
       incorporacion: String(body.incorporacion || "Inmediata").trim(),
-      modalidad: String(body.modalidad || "Presencial").trim(),
-      experienciaTotal: String(body.experienciaTotal || "").trim(),
-      licenciaConducir: String(body.licenciaConducir || "No posee").trim(),
+      modalidad,
+      experienciaTotal,
+      licenciaConducir,
       movilidadPropia: String(body.movilidadPropia || "No posee").trim(),
       disponibilidadViajarRotar: String(body.disponibilidadViajarRotar || "Sí").trim(),
-      pretensionSalarial: String(body.pretensionSalarial || "").trim(),
+      pretensionSalarial,
       presentacion: String(body.presentacion || "").trim(),
     },
     formacionHabilidades: {
-      nivelEstudios: String(body.nivelEstudios || "").trim(),
-      estadoEstudios: String(body.estadoEstudios || "").trim(),
+      nivelEstudios,
+      estadoEstudios,
       tituloCarrera: String(body.tituloCarrera || "").trim(),
       institucion: String(body.institucion || "").trim(),
-      nivelPosFacturacion: String(body.nivelPosFacturacion || "Básico").trim(),
-      nivelExcel: String(body.nivelExcel || "Básico").trim(),
-      nivelAtencionDigital: String(body.nivelAtencionDigital || "Intermedio").trim(),
-      idiomaPrincipal: String(body.idiomaPrincipal || "Ninguno").trim(),
-      nivelIdioma: String(body.nivelIdioma || "").trim(),
+      nivelPosFacturacion,
+      nivelExcel,
+      nivelAtencionDigital,
+      idiomaPrincipal,
+      nivelIdioma: idiomaPrincipal === "Ninguno" ? "" : String(body.nivelIdioma || "").trim(),
       cursosAdicionales: String(body.cursosAdicionales || "").trim(),
     },
     experiencias,

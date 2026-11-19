@@ -167,43 +167,51 @@ export default function PublicCvForm(props: PublicCvFormProps) {
   const [tipoDoc, setTipoDoc] = useState("DNI");
   const [nroDoc, setNroDoc] = useState("");
   const [fechaNacimiento, setFechaNacimiento] = useState("");
-  const [genero, setGenero] = useState("Prefiero no especificar");
-  const [estadoCivil, setEstadoCivil] = useState("Soltero/a");
-  const [hijosACargo, setHijosACargo] = useState("Sin cargas de familia");
+  const [genero, setGenero] = useState("");
+  const [estadoCivil, setEstadoCivil] = useState("");
+  const [hijosACargo, setHijosACargo] = useState("");
   const [nacionalidad, setNacionalidad] = useState("ARGENTINA");
 
   const [pais, setPais] = useState("ARGENTINA");
   const [provincia, setProvincia] = useState(props.defaultProvincia || "CÓRDOBA");
   const [localidad, setLocalidad] = useState(props.defaultLocalidad || "RÍO CUARTO");
   const [cp, setCp] = useState(props.defaultCp || "5800");
-  const [domicilio, setDomicilio] = useState("");
+  const [domicilioCalle, setDomicilioCalle] = useState("");
+  const [domicilioNumero, setDomicilioNumero] = useState("");
+  const [domicilioPiso, setDomicilioPiso] = useState("");
+  const [domicilioDpto, setDomicilioDpto] = useState("");
+  const [domicilioEdificio, setDomicilioEdificio] = useState("");
+  const [domicilioTorre, setDomicilioTorre] = useState("");
+  const [domicilioBarrio, setDomicilioBarrio] = useState("");
 
   const [waCountryIdx, setWaCountryIdx] = useState(0);
   const [whatsappNumero, setWhatsappNumero] = useState("");
   const [telefonoAlternativo, setTelefonoAlternativo] = useState("");
   const [email, setEmail] = useState("");
+  const [facebookUrl, setFacebookUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
 
   const [puestoPrincipal, setPuestoPrincipal] = useState(PUESTOS_OPTIONS[0]);
   const [puestoSecundario, setPuestoSecundario] = useState("Sin segundo puesto");
-  const [disponibilidadHoraria, setDisponibilidadHoraria] = useState("Full Time — Jornada Completa");
+  const [disponibilidadHoraria, setDisponibilidadHoraria] = useState("");
   const [incorporacion, setIncorporacion] = useState("Inmediata");
-  const [modalidad, setModalidad] = useState("100% Presencial");
-  const [experienciaTotal, setExperienciaTotal] = useState("1 a 2 años");
-  const [licenciaConducir, setLicenciaConducir] = useState("No posee");
+  const [modalidad, setModalidad] = useState("");
+  const [experienciaTotal, setExperienciaTotal] = useState("");
+  const [licenciaConducir, setLicenciaConducir] = useState("");
   const [movilidadPropia, setMovilidadPropia] = useState("No posee / Transporte público");
   const [disponibilidadViajarRotar, setDisponibilidadViajarRotar] = useState("Sí");
-  const [pretensionSalarial, setPretensionSalarial] = useState("Según convenio / A convenir");
+  const [pretensionSalarial, setPretensionSalarial] = useState("");
   const [presentacion, setPresentacion] = useState("");
 
-  const [nivelEstudios, setNivelEstudios] = useState("Secundario");
-  const [estadoEstudios, setEstadoEstudios] = useState("Completo / Graduado");
+  const [nivelEstudios, setNivelEstudios] = useState("");
+  const [estadoEstudios, setEstadoEstudios] = useState("");
   const [tituloCarrera, setTituloCarrera] = useState("");
   const [institucion, setInstitucion] = useState("");
-  const [nivelPosFacturacion, setNivelPosFacturacion] = useState("Intermedio");
-  const [nivelExcel, setNivelExcel] = useState("Intermedio");
-  const [nivelAtencionDigital, setNivelAtencionDigital] = useState("Avanzado");
-  const [idiomaPrincipal, setIdiomaPrincipal] = useState("Ninguno");
+  const [nivelPosFacturacion, setNivelPosFacturacion] = useState("");
+  const [nivelExcel, setNivelExcel] = useState("");
+  const [nivelAtencionDigital, setNivelAtencionDigital] = useState("");
+  const [idiomaPrincipal, setIdiomaPrincipal] = useState("");
   const [nivelIdioma, setNivelIdioma] = useState("Básico");
   const [cursosAdicionales, setCursosAdicionales] = useState("");
 
@@ -303,6 +311,15 @@ export default function PublicCvForm(props: PublicCvFormProps) {
     setSubmitting(true);
 
     const waCountry = WHATSAPP_COUNTRIES[waCountryIdx] || WHATSAPP_COUNTRIES[0];
+    const domicilioParts = [
+      `${domicilioCalle.trim()} ${domicilioNumero.trim()}`.trim(),
+      domicilioPiso.trim() ? `Piso ${domicilioPiso.trim()}` : "",
+      domicilioDpto.trim() ? `Dpto. ${domicilioDpto.trim()}` : "",
+      domicilioEdificio.trim() ? `Edificio ${domicilioEdificio.trim()}` : "",
+      domicilioTorre.trim() ? `Torre ${domicilioTorre.trim()}` : "",
+      domicilioBarrio.trim() ? `B° ${domicilioBarrio.trim()}` : "",
+    ].filter(Boolean);
+    const domicilioCompuesto = domicilioParts.join(", ");
 
     try {
       const res = await fetch(
@@ -324,12 +341,21 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             provincia,
             localidad,
             cp,
-            domicilio,
+            domicilio: domicilioCompuesto,
+            domicilioCalle,
+            domicilioNumero,
+            domicilioPiso,
+            domicilioDpto,
+            domicilioEdificio,
+            domicilioTorre,
+            domicilioBarrio,
             whatsappPais: waCountry.country,
             whatsappPrefijo: waCountry.prefix,
             whatsappNumero,
             telefonoAlternativo,
             email,
+            facebookUrl,
+            instagramUrl,
             linkedinUrl,
             puestoPrincipal,
             puestoSecundario:
@@ -536,6 +562,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               <label className={labelCls}>Tipo Doc. *</label>
               <select
                 className={inputCls}
+                required
                 value={tipoDoc}
                 onChange={(e) => setTipoDoc(e.target.value)}
               >
@@ -569,12 +596,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             />
           </div>
           <div>
-            <label className={labelCls}>Género</label>
+            <label className={labelCls}>Género *</label>
             <select
               className={inputCls}
+              required
               value={genero}
               onChange={(e) => setGenero(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Femenino">Femenino</option>
               <option value="Masculino">Masculino</option>
               <option value="No binario">No binario</option>
@@ -582,12 +613,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             </select>
           </div>
           <div>
-            <label className={labelCls}>Estado Civil</label>
+            <label className={labelCls}>Estado Civil *</label>
             <select
               className={inputCls}
+              required
               value={estadoCivil}
               onChange={(e) => setEstadoCivil(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Soltero/a">Soltero/a</option>
               <option value="Casado/a">Casado/a</option>
               <option value="Unión convivencial">Unión convivencial</option>
@@ -597,12 +632,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Cargas de Familia / Hijos</label>
+            <label className={labelCls}>Cargas de Familia / Hijos *</label>
             <select
               className={inputCls}
+              required
               value={hijosACargo}
               onChange={(e) => setHijosACargo(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Sin cargas de familia">Sin cargas de familia</option>
               <option value="1 persona a cargo">1 persona a cargo</option>
               <option value="2 personas a cargo">2 personas a cargo</option>
@@ -610,12 +649,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className={labelCls}>Nacionalidad</label>
+            <label className={labelCls}>Nacionalidad *</label>
             <select
               className={inputCls}
+              required
               value={nacionalidad}
               onChange={(e) => setNacionalidad(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               {props.paises.map((p) => (
                 <option key={`nac-${p.id}-${p.nombre}`} value={p.nombre}>
                   {p.nombre}
@@ -642,6 +685,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <label className={labelCls}>País de Residencia *</label>
             <select
               className={inputCls}
+              required
               value={pais}
               onChange={(e) => setPais(e.target.value)}
             >
@@ -658,6 +702,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             {pais === "ARGENTINA" ? (
               <select
                 className={inputCls}
+                required
                 value={provincia}
                 onChange={(e) => setProvincia(e.target.value)}
               >
@@ -683,6 +728,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             {pais === "ARGENTINA" && localidadesDisponibles.length > 0 ? (
               <select
                 className={inputCls}
+                required
                 value={localidad}
                 onChange={(e) => handleLocalidadChange(e.target.value)}
               >
@@ -704,22 +750,87 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Código Postal</label>
+            <label className={labelCls}>Código Postal *</label>
             <input
               className={inputCls}
+              required
               value={cp}
               onChange={(e) => setCp(e.target.value)}
               placeholder="Ej: 5800"
             />
           </div>
 
+          {/* Domicilio dividido */}
           <div className="sm:col-span-2">
-            <label className={labelCls}>Domicilio y Barrio</label>
+            <label className={labelCls}>Calle *</label>
             <input
               className={inputCls}
-              value={domicilio}
-              onChange={(e) => setDomicilio(e.target.value)}
-              placeholder="Ej: Av. San Martín 450, Centro"
+              required
+              value={domicilioCalle}
+              onChange={(e) => setDomicilioCalle(e.target.value)}
+              placeholder="Ej: Av. San Martín"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Número *</label>
+            <input
+              className={inputCls}
+              required
+              value={domicilioNumero}
+              onChange={(e) => setDomicilioNumero(e.target.value)}
+              placeholder="Ej: 450 (o S/N)"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Barrio *</label>
+            <input
+              className={inputCls}
+              required
+              value={domicilioBarrio}
+              onChange={(e) => setDomicilioBarrio(e.target.value)}
+              placeholder="Ej: Centro"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Piso</label>
+            <input
+              className={inputCls}
+              value={domicilioPiso}
+              onChange={(e) => setDomicilioPiso(e.target.value)}
+              placeholder="Opcional"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Dpto.</label>
+            <input
+              className={inputCls}
+              value={domicilioDpto}
+              onChange={(e) => setDomicilioDpto(e.target.value)}
+              placeholder="Opcional"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Edificio</label>
+            <input
+              className={inputCls}
+              value={domicilioEdificio}
+              onChange={(e) => setDomicilioEdificio(e.target.value)}
+              placeholder="Opcional"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Torre</label>
+            <input
+              className={inputCls}
+              value={domicilioTorre}
+              onChange={(e) => setDomicilioTorre(e.target.value)}
+              placeholder="Opcional"
             />
           </div>
 
@@ -727,6 +838,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <label className={labelCls}>País de WhatsApp *</label>
             <select
               className={inputCls}
+              required
               value={waCountryIdx}
               onChange={(e) => setWaCountryIdx(Number(e.target.value))}
             >
@@ -759,6 +871,28 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="nombre@correo.com"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Facebook *</label>
+            <input
+              className={inputCls}
+              required
+              value={facebookUrl}
+              onChange={(e) => setFacebookUrl(e.target.value)}
+              placeholder="Usuario o enlace (o 'No tengo')"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Instagram *</label>
+            <input
+              className={inputCls}
+              required
+              value={instagramUrl}
+              onChange={(e) => setInstagramUrl(e.target.value)}
+              placeholder="@usuario (o 'No tengo')"
             />
           </div>
 
@@ -800,6 +934,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <label className={labelCls}>Puesto / Área Principal *</label>
             <select
               className={inputCls}
+              required
               value={puestoPrincipal}
               onChange={(e) => setPuestoPrincipal(e.target.value)}
             >
@@ -828,12 +963,24 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Experiencia Total Laboral</label>
+            <label className={labelCls}>Experiencia Total Laboral *</label>
             <select
               className={inputCls}
+              required
               value={experienciaTotal}
-              onChange={(e) => setExperienciaTotal(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setExperienciaTotal(val);
+                if (val === "Sin experiencia / Primer empleo") {
+                  setSinExperienciaPrevia(true);
+                } else if (val) {
+                  setSinExperienciaPrevia(false);
+                }
+              }}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Sin experiencia / Primer empleo">
                 Sin experiencia / Primer empleo
               </option>
@@ -846,12 +993,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Disponibilidad Horaria</label>
+            <label className={labelCls}>Disponibilidad Horaria *</label>
             <select
               className={inputCls}
+              required
               value={disponibilidadHoraria}
               onChange={(e) => setDisponibilidadHoraria(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Full Time — Jornada Completa">
                 Full Time — Jornada Completa
               </option>
@@ -882,12 +1033,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Modalidad Preferida</label>
+            <label className={labelCls}>Modalidad Preferida *</label>
             <select
               className={inputCls}
+              required
               value={modalidad}
               onChange={(e) => setModalidad(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="100% Presencial">100% Presencial</option>
               <option value="Híbrida (Presencial + Remoto)">
                 Híbrida (Presencial + Remoto)
@@ -897,12 +1052,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Licencia de Conducir</label>
+            <label className={labelCls}>Licencia de Conducir *</label>
             <select
               className={inputCls}
+              required
               value={licenciaConducir}
               onChange={(e) => setLicenciaConducir(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="No posee">No posee</option>
               <option value="Moto (Clase A)">Moto (Clase A)</option>
               <option value="Auto / Utilitario (Clase B1/B2)">
@@ -950,12 +1109,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Pretensión Salarial Mensual</label>
+            <label className={labelCls}>Pretensión Salarial Mensual *</label>
             <select
               className={inputCls}
+              required
               value={pretensionSalarial}
               onChange={(e) => setPretensionSalarial(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Según convenio / A convenir">
                 Según convenio / A convenir
               </option>
@@ -999,12 +1162,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className={labelCls}>Nivel Máximo de Estudios</label>
+            <label className={labelCls}>Nivel Máximo de Estudios *</label>
             <select
               className={inputCls}
+              required
               value={nivelEstudios}
               onChange={(e) => setNivelEstudios(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Primario">Primario</option>
               <option value="Secundario">Secundario</option>
               <option value="Terciario / Tecnicatura">Terciario / Tecnicatura</option>
@@ -1016,12 +1183,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Estado de Estudios</label>
+            <label className={labelCls}>Estado de Estudios *</label>
             <select
               className={inputCls}
+              required
               value={estadoEstudios}
               onChange={(e) => setEstadoEstudios(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Completo / Graduado">Completo / Graduado</option>
               <option value="En curso">En curso</option>
               <option value="Incompleto">Incompleto</option>
@@ -1049,12 +1220,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Sistemas de Caja POS / Facturación</label>
+            <label className={labelCls}>Sistemas de Caja POS / Facturación *</label>
             <select
               className={inputCls}
+              required
               value={nivelPosFacturacion}
               onChange={(e) => setNivelPosFacturacion(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Sin experiencia previa">Sin experiencia previa</option>
               <option value="Básico">Básico</option>
               <option value="Intermedio">Intermedio</option>
@@ -1063,12 +1238,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Excel / Planillas de Cálculo</label>
+            <label className={labelCls}>Excel / Planillas de Cálculo *</label>
             <select
               className={inputCls}
+              required
               value={nivelExcel}
               onChange={(e) => setNivelExcel(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Sin manejo">Sin manejo</option>
               <option value="Básico">Básico</option>
               <option value="Intermedio">Intermedio</option>
@@ -1077,12 +1256,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>WhatsApp Comercial / Redes / Web</label>
+            <label className={labelCls}>WhatsApp Comercial / Redes / Web *</label>
             <select
               className={inputCls}
+              required
               value={nivelAtencionDigital}
               onChange={(e) => setNivelAtencionDigital(e.target.value)}
             >
+              <option value="" disabled>
+                Seleccionar...
+              </option>
               <option value="Básico">Básico</option>
               <option value="Intermedio">Intermedio</option>
               <option value="Avanzado">Avanzado</option>
@@ -1091,12 +1274,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className={labelCls}>Idioma Extra</label>
+              <label className={labelCls}>Idioma Extra *</label>
               <select
                 className={inputCls}
+                required
                 value={idiomaPrincipal}
                 onChange={(e) => setIdiomaPrincipal(e.target.value)}
               >
+                <option value="" disabled>
+                  Seleccionar...
+                </option>
                 <option value="Ninguno">Ninguno</option>
                 <option value="Inglés">Inglés</option>
                 <option value="Portugués">Portugués</option>
@@ -1108,7 +1295,8 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               <label className={labelCls}>Nivel</label>
               <select
                 className={inputCls}
-                disabled={idiomaPrincipal === "Ninguno"}
+                disabled={!idiomaPrincipal || idiomaPrincipal === "Ninguno"}
+                required={Boolean(idiomaPrincipal && idiomaPrincipal !== "Ninguno")}
                 value={nivelIdioma}
                 onChange={(e) => setNivelIdioma(e.target.value)}
               >
@@ -1148,7 +1336,13 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <input
               type="checkbox"
               checked={sinExperienciaPrevia}
-              onChange={(e) => setSinExperienciaPrevia(e.target.checked)}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setSinExperienciaPrevia(checked);
+                if (checked && !experienciaTotal) {
+                  setExperienciaTotal("Sin experiencia / Primer empleo");
+                }
+              }}
               className="h-4 w-4 accent-[#56D7A1]"
             />
             Postulación a Primer Empleo (sin experiencia laboral previa)
@@ -1181,9 +1375,10 @@ export default function PublicCvForm(props: PublicCvFormProps) {
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <label className={labelCls}>Empresa / Comercio</label>
+                    <label className={labelCls}>Empresa / Comercio *</label>
                     <input
                       className={inputCls}
+                      required
                       value={exp.empresa}
                       onChange={(e) => updateExpField(idx, "empresa", e.target.value)}
                       placeholder="Nombre del comercio"
@@ -1206,9 +1401,10 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                     </select>
                   </div>
                   <div>
-                    <label className={labelCls}>Puesto Ocupado</label>
+                    <label className={labelCls}>Puesto Ocupado *</label>
                     <input
                       className={inputCls}
+                      required
                       value={exp.puesto}
                       onChange={(e) => updateExpField(idx, "puesto", e.target.value)}
                       placeholder="Ej: Cajera / Vendedor"

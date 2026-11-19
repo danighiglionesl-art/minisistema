@@ -675,6 +675,11 @@
       esc(p.fechaNacimiento || '—') +
       (p.edad ? ' (' + esc(p.edad) + ' años)' : '') +
       '</div>' +
+      '<div><strong>Género / Nacionalidad:</strong> ' +
+      esc(p.genero || '—') +
+      ' · ' +
+      esc(p.nacionalidad || '—') +
+      '</div>' +
       '<div><strong>Estado Civil / Cargas:</strong> ' +
       esc(p.estadoCivil || '—') +
       ' · ' +
@@ -699,10 +704,24 @@
       '<div><strong>Email:</strong> ' +
       esc(u.email || '') +
       '</div>' +
+      (u.facebookUrl
+        ? '<div><strong>Facebook:</strong> ' +
+          (/^https?:\/\//i.test(u.facebookUrl)
+            ? '<a href="' + esc(u.facebookUrl) + '" target="_blank" rel="noopener noreferrer">' + esc(u.facebookUrl) + '</a>'
+            : esc(u.facebookUrl)) +
+          '</div>'
+        : '') +
+      (u.instagramUrl
+        ? '<div><strong>Instagram:</strong> ' +
+          (/^https?:\/\//i.test(u.instagramUrl)
+            ? '<a href="' + esc(u.instagramUrl) + '" target="_blank" rel="noopener noreferrer">' + esc(u.instagramUrl) + '</a>'
+            : esc(u.instagramUrl)) +
+          '</div>'
+        : '') +
       (u.linkedinUrl
         ? '<div><strong>LinkedIn / Web:</strong> <a href="' +
           esc(u.linkedinUrl) +
-          '" target="_blank">' +
+          '" target="_blank" rel="noopener noreferrer">' +
           esc(u.linkedinUrl) +
           '</a></div>'
         : '') +
@@ -718,8 +737,10 @@
       (post.puestoSecundario
         ? '<div><strong>2° Puesto:</strong> ' + esc(post.puestoSecundario) + '</div>'
         : '') +
-      '<div><strong>Disponibilidad:</strong> ' +
+      '<div><strong>Disponibilidad / Modalidad:</strong> ' +
       esc(post.disponibilidadHoraria || '') +
+      ' · ' +
+      esc(post.modalidad || '') +
       ' · Inicio: ' +
       esc(post.incorporacion || '') +
       '</div>' +
@@ -746,6 +767,12 @@
       esc(fh.nivelExcel || '') +
       ' · Digital/WA: ' +
       esc(fh.nivelAtencionDigital || '') +
+      '</div>' +
+      '<div><strong>Idioma Extra:</strong> ' +
+      esc(fh.idiomaPrincipal || 'Ninguno') +
+      (fh.idiomaPrincipal && fh.idiomaPrincipal !== 'Ninguno' && fh.nivelIdioma
+        ? ' (' + esc(fh.nivelIdioma) + ')'
+        : '') +
       '</div>' +
       (fh.cursosAdicionales
         ? '<div><strong>Cursos / Carnets:</strong> ' + esc(fh.cursosAdicionales) + '</div>'
