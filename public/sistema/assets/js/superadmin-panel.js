@@ -856,7 +856,16 @@
       '</div>' +
       '<div style="overflow-x:auto;">' +
       '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
-      '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;"><th style="padding:0.5rem;">Incluir</th><th style="padding:0.5rem;">Opción Base / Módulo del Sistema ERP</th><th style="padding:0.5rem;">Valor Mensual ($)</th><th style="padding:0.5rem;">Dto. Módulo (%)</th><th style="padding:0.5rem;text-align:right;">Neto Módulo</th></tr></thead>' +
+      '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;">' +
+      '<th style="padding:0.5rem;white-space:nowrap;">' +
+      '<label style="display:inline-flex;align-items:center;gap:0.45rem;cursor:pointer;user-select:none;font-weight:800;color:#112D3A;" title="Tildar o destildar todos los módulos">' +
+      '<input type="checkbox" id="ms-q-select-all-mods" ' +
+      (mods.length > 0 && selectedCount === mods.length ? 'checked' : '') +
+      '>' +
+      '<span>Tildar todos</span>' +
+      '</label>' +
+      '</th>' +
+      '<th style="padding:0.5rem;">Opción Base / Módulo del Sistema ERP</th><th style="padding:0.5rem;">Valor Mensual ($)</th><th style="padding:0.5rem;">Dto. Módulo (%)</th><th style="padding:0.5rem;text-align:right;">Neto Módulo</th></tr></thead>' +
       '<tbody>' +
       optionRowsHtml +
       modRows +
@@ -1427,11 +1436,18 @@
       }
 
       var selectedCount = 0;
-      bodyEl.querySelectorAll('[data-q-mod]').forEach(function (chk) {
+      var modChks = bodyEl.querySelectorAll('[data-q-mod]');
+      modChks.forEach(function (chk) {
         var k = chk.getAttribute('data-q-mod');
         STATE_SA.quoteSelected[k] = chk.checked;
         if (chk.checked) selectedCount += 1;
       });
+
+      var selectAllChk = bodyEl.querySelector('#ms-q-select-all-mods');
+      if (selectAllChk) {
+        selectAllChk.checked = modChks.length > 0 && selectedCount === modChks.length;
+        selectAllChk.indeterminate = selectedCount > 0 && selectedCount < modChks.length;
+      }
 
       bodyEl.querySelectorAll('[data-q-mod-disc]').forEach(function (inp) {
         var k = inp.getAttribute('data-q-mod-disc');
@@ -1535,6 +1551,26 @@
         el.addEventListener('change', refreshPricingDomLive);
       }
     });
+
+    var selectAllModsChk = bodyEl.querySelector('#ms-q-select-all-mods');
+    if (selectAllModsChk) {
+      var initModChks = bodyEl.querySelectorAll('[data-q-mod]');
+      var initSelectedCount = 0;
+      initModChks.forEach(function (chk) {
+        if (chk.checked) initSelectedCount += 1;
+      });
+      selectAllModsChk.indeterminate = initSelectedCount > 0 && initSelectedCount < initModChks.length;
+
+      selectAllModsChk.addEventListener('change', function () {
+        var checkAll = Boolean(selectAllModsChk.checked);
+        bodyEl.querySelectorAll('[data-q-mod]').forEach(function (chk) {
+          chk.checked = checkAll;
+          var k = chk.getAttribute('data-q-mod');
+          STATE_SA.quoteSelected[k] = checkAll;
+        });
+        refreshPricingDomLive();
+      });
+    }
 
     bodyEl.querySelectorAll('[data-q-mod], [data-q-mod-disc], [data-cfg-mod-price], [data-q-opt-disc]').forEach(function (el) {
       el.addEventListener('input', refreshPricingDomLive);
