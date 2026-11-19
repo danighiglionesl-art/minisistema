@@ -160,6 +160,15 @@ const ALL_SYSTEM_MODULES = [
   },
   { key: 'tema', label: 'Fondo Claro / Fondo Oscuro', sections: [], submodules: [] },
   { key: 'verificador', label: 'Consulta de Precios', sections: ['sec-verificador-precios'], submodules: [] },
+  {
+    key: 'cv',
+    label: 'Curriculum Vitae',
+    sections: ['sec-menu-cv', 'sec-cv-workspace'],
+    submodules: [
+      { key: 'cv:recibidos', label: 'CV recibidos', selector: '#sec-menu-cv [data-cv-sub="recibidos"]', sections: [] },
+      { key: 'cv:previsualizados', label: 'CV previsualizados', selector: '#sec-menu-cv [data-cv-sub="previsualizados"]', sections: [] }
+    ]
+  },
   { key: 'perfil', label: 'Perfil de Usuario', sections: ['sec-perfil-usuario'], submodules: [] },
   {
     key: 'ayuda',
@@ -39259,7 +39268,7 @@ function initApp() {
     if (visibleRows.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 6;
+      td.colSpan = 5;
       td.className = 'table-loading-cell';
       td.innerHTML = totalItems === 0
         ? 'Seleccioná un proveedor y subí una Factura o Remito (PDF / JPG), o hacé clic en <strong>"🧪 Simular Lectura IA de Factura Completa"</strong> para comenzar.'
@@ -39387,9 +39396,7 @@ function initApp() {
 
         const subInfo = document.createElement('span');
         subInfo.className = 'price-neto-val';
-        const effIvaSub = resolveArticleEffectiveIva(art);
-        const cfgSub = Number(art.ucp) === 1 && Number(art.cp) > 0 ? STATE.configPreciosMap.get(Number(art.cp)) : null;
-        subInfo.textContent = `IVA: ${effIvaSub.descripcion}${cfgSub ? ` (Config. ${cfgSub.nombre})` : ''} · Cód. Prov. actual: ${art.cf || 'S/D'}`;
+        subInfo.textContent = `Cód. Prov. actual: ${art.cf || 'S/D'}`;
         sysStack.appendChild(subInfo);
 
         // Si se vinculó manualmente por Código de Sistema y la factura traía un Cód. Proveedor nuevo, permitir guardarlo
@@ -39595,32 +39602,6 @@ function initApp() {
         const bonifTxt = row.bonifPct > 0 ? ` (-${row.bonifPct}%)` : '';
         pxqOkBadge.textContent = `🧮 P×Q OK: ${row.cantidad} × $ ${formatArs(row.precioUnitario)}${bonifTxt} = $ ${formatArs(row.subtotalFactura)}`;
         costoStack.appendChild(pxqOkBadge);
-      } else if (row.pxqStatus === 'autofixed') {
-        const pxqFixWrap = document.createElement('div');
-        pxqFixWrap.style.cssText =
-          'display:flex; flex-direction:column; gap:0.2rem; padding:0.25rem 0.45rem; border-radius:6px; background:rgba(14,165,233,0.12); border:1px solid rgba(14,165,233,0.38);';
-        const pxqFixLbl = document.createElement('span');
-        pxqFixLbl.style.cssText = 'font-size:0.71rem; font-weight:800; color:#0369a1;';
-        pxqFixLbl.textContent = `⚡ P×Q Auto-corregido: ${row.pxqAutoFixReason || `${row.cantidad} × $ ${formatArs(row.precioUnitario)} = $ ${formatArs(row.subtotalFactura)}`}`;
-        pxqFixWrap.appendChild(pxqFixLbl);
-
-        if (Number(row.pxqOriginalReadPrice) > 0) {
-          const btnRevertPxq = document.createElement('button');
-          btnRevertPxq.type = 'button';
-          btnRevertPxq.className = 'btn-secondary btn-sm';
-          btnRevertPxq.style.cssText = 'width:fit-content; padding:0.1rem 0.4rem; font-size:0.68rem;';
-          btnRevertPxq.textContent = `↺ Revertir a $ ${formatArs(row.pxqOriginalReadPrice)}`;
-          btnRevertPxq.addEventListener('click', () => {
-            row.precioUnitario = round2(row.pxqOriginalReadPrice);
-            row.manualPriceEdited = true;
-            row.pxqDismissed = true;
-            row.pxqAutoFixed = false;
-            recalculateFpRow(row);
-            renderFpInvoiceTableAndAlerts();
-          });
-          pxqFixWrap.appendChild(btnRevertPxq);
-        }
-        costoStack.appendChild(pxqFixWrap);
       } else if (row.pxqStatus === 'alert') {
         const pxqAlertBox = document.createElement('div');
         pxqAlertBox.style.cssText =
@@ -39760,137 +39741,6 @@ function initApp() {
 
       tdCosto.appendChild(costoStack);
       tr.appendChild(tdCosto);
-
-      // COLUMNA 5: Nuevos Precios de Venta (Minorista y Mayorista) + Tilde "Mantener precio Actual"
-      const tdVenta = document.createElement('td');
-      const ventaStack = document.createElement('div');
-      ventaStack.className = 'price-cell-stack';
-
-      if (row.hasPxqAlert) {
-        const pxqDecTag = document.createElement('span');
-        pxqDecTag.className = 'mini-tag mini-tag--baja';
-        pxqDecTag.style.cssText = 'width:fit-content; background:rgba(220,38,38,0.14); color:#b91c1c; border-color:rgba(220,38,38,0.45);';
-        pxqDecTag.textContent = '🧮 Alerta Chequeo P×Q (Posible Col. 2)';
-        ventaStack.appendChild(pxqDecTag);
-      }
-
-      if (art) {
-        const keepingSystemPrice = row.priceDecision === 'mantener';
-
-        // Tilde directo "Mantener precio Actual"
-        const keepLabel = document.createElement('label');
-        keepLabel.className = 'fp-keep-price-check-label' + (keepingSystemPrice ? ' is-checked' : '');
-        keepLabel.title = 'Tildá para conservar el precio actual del sistema sin modificarlo; destildá para aplicar el precio calculado con esta factura';
-
-        const keepChk = document.createElement('input');
-        keepChk.type = 'checkbox';
-        keepChk.checked = keepingSystemPrice;
-        keepChk.style.accentColor = '#16a34a';
-        keepChk.style.width = '15px';
-        keepChk.style.height = '15px';
-        keepChk.style.cursor = 'pointer';
-        keepChk.addEventListener('change', () => {
-          row.manualPriceDecision = true;
-          row.priceDecisionConfirmed = true;
-          if (keepChk.checked) {
-            row.priceDecision = 'mantener';
-          } else {
-            row.priceDecision = row.hasPriceAlert ? 'bajar' : 'actualizar';
-          }
-          renderFpInvoiceTableAndAlerts();
-        });
-
-        const keepText = document.createElement('span');
-        keepText.textContent = 'Mantener precio Actual';
-        keepLabel.appendChild(keepChk);
-        keepLabel.appendChild(keepText);
-        ventaStack.appendChild(keepLabel);
-
-        // Etiqueta de acción clara (SE MANTIENE / SUBE / BAJA / MISMO)
-        const actionBadge = document.createElement('span');
-        actionBadge.style.display = 'inline-flex';
-        actionBadge.style.alignItems = 'center';
-        actionBadge.style.width = 'fit-content';
-        actionBadge.style.padding = '0.15rem 0.48rem';
-        actionBadge.style.borderRadius = '6px';
-        actionBadge.style.fontSize = '0.72rem';
-        actionBadge.style.fontWeight = '800';
-
-        if (keepingSystemPrice) {
-          actionBadge.style.background = 'rgba(22, 163, 74, 0.14)';
-          actionBadge.style.color = '#15803d';
-          actionBadge.style.border = '1px solid rgba(22, 163, 74, 0.4)';
-          actionBadge.textContent = '🔒 SE MANTIENE PRECIO ACTUAL';
-        } else if (row.priceDirection === 'sube') {
-          actionBadge.style.background = 'rgba(2, 132, 199, 0.14)';
-          actionBadge.style.color = '#0369a1';
-          actionBadge.style.border = '1px solid rgba(2, 132, 199, 0.4)';
-          actionBadge.textContent = '⬆️ SUBE PRECIO DE VENTA';
-        } else if (row.priceDirection === 'baja') {
-          actionBadge.style.background = 'rgba(245, 158, 11, 0.18)';
-          actionBadge.style.color = '#b45309';
-          actionBadge.style.border = '1px solid rgba(217, 119, 6, 0.45)';
-          actionBadge.textContent = '⬇️ BAJA PRECIO DE VENTA';
-        } else {
-          actionBadge.style.background = 'rgba(100, 116, 139, 0.12)';
-          actionBadge.style.color = 'var(--silver-main)';
-          actionBadge.style.border = '1px solid rgba(100, 116, 139, 0.3)';
-          actionBadge.textContent = '═ MISMO PRECIO DE VENTA';
-        }
-        ventaStack.appendChild(actionBadge);
-
-        if (keepingSystemPrice) {
-          const minSpan = document.createElement('span');
-          minSpan.className = 'price-final-val';
-          minSpan.style.color = '#15803d';
-          minSpan.textContent = `Min: $ ${formatArs(row.p1fSistema)} (Queda actual)`;
-          ventaStack.appendChild(minSpan);
-
-          const maySpan = document.createElement('span');
-          maySpan.style.fontSize = '0.8rem';
-          maySpan.style.fontWeight = '700';
-          maySpan.style.color = '#15803d';
-          maySpan.textContent = `May: $ ${formatArs(row.p2fSistema)} (Queda actual)`;
-          ventaStack.appendChild(maySpan);
-
-          if (row.priceDirection !== 'igual') {
-            const prevVentaSpan = document.createElement('span');
-            prevVentaSpan.className = 'price-neto-val';
-            prevVentaSpan.style.fontSize = '0.73rem';
-            const verb = row.priceDirection === 'baja' ? 'bajaría a' : 'subiría a';
-            prevVentaSpan.textContent = `Si destildás, ${verb}: Min $ ${formatArs(row.nuevoP1f)} | May $ ${formatArs(row.nuevoP2f)}`;
-            ventaStack.appendChild(prevVentaSpan);
-          }
-        } else {
-          const minSpan = document.createElement('span');
-          minSpan.className = 'price-final-val';
-          if (row.priceDirection !== 'igual' && row.p1fSistema > 0) {
-            minSpan.innerHTML = `Min: <span style="text-decoration:line-through; opacity:0.65; font-weight:600;">$ ${formatArs(row.p1fSistema)}</span> ➔ <strong>$ ${formatArs(row.nuevoP1f)}</strong> <span style="font-size:0.73rem; opacity:0.85;">(${row.m1}%)</span>`;
-          } else {
-            minSpan.textContent = `Min: $ ${formatArs(row.nuevoP1f)} (${row.m1}%)`;
-          }
-          ventaStack.appendChild(minSpan);
-
-          const maySpan = document.createElement('span');
-          maySpan.style.fontSize = '0.8rem';
-          maySpan.style.fontWeight = '700';
-          maySpan.style.color = 'var(--success)';
-          if (row.priceDirection !== 'igual' && row.p2fSistema > 0) {
-            maySpan.innerHTML = `May: <span style="text-decoration:line-through; opacity:0.65; font-weight:600;">$ ${formatArs(row.p2fSistema)}</span> ➔ <strong>$ ${formatArs(row.nuevoP2f)}</strong> <span style="font-size:0.73rem; opacity:0.85;">(${row.m2}%)</span>`;
-          } else {
-            maySpan.textContent = `May: $ ${formatArs(row.nuevoP2f)} (${row.m2}%)`;
-          }
-          ventaStack.appendChild(maySpan);
-        }
-      } else {
-        const pendingSpan = document.createElement('span');
-        pendingSpan.className = 'price-neto-val';
-        pendingSpan.textContent = 'Se calcularán según el margen al vincular el artículo.';
-        ventaStack.appendChild(pendingSpan);
-      }
-
-      tdVenta.appendChild(ventaStack);
-      tr.appendChild(tdVenta);
 
       // COLUMNA 6: Eliminar ítem (Basurero)
       const tdTrash = document.createElement('td');
