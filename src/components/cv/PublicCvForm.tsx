@@ -107,12 +107,12 @@ const YEARS_LIST = Array.from({ length: 42 }, (_, idx) =>
 function emptyExperience(): ExperienceRow {
   return {
     empresa: "",
-    rubroEmpresa: "Comercio Minorista / Tienda",
+    rubroEmpresa: "",
     puesto: "",
-    antiguedad: "1 a 2 años",
-    desdeAnio: String(new Date().getFullYear() - 2),
-    hastaAnio: "Actualidad",
-    motivoEgreso: "Búsqueda de crecimiento profesional",
+    antiguedad: "",
+    desdeAnio: "",
+    hastaAnio: "",
+    motivoEgreso: "",
     referenciaNombre: "",
     referenciaTelefono: "",
     tareas: "",
@@ -550,6 +550,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             idiomaPrincipal,
             nivelIdioma: idiomaPrincipal === "Ninguno" ? "" : nivelIdioma,
             cursosAdicionales,
+            sinExperienciaPrevia,
             experiencias: sinExperienciaPrevia ? [] : experiencias,
             fotoBase64,
             clearPhoto,
@@ -1613,14 +1614,18 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Rubro de la Empresa</label>
+                    <label className={labelCls}>Rubro de la Empresa *</label>
                     <select
                       className={inputCls}
+                      required
                       value={exp.rubroEmpresa}
                       onChange={(e) =>
                         updateExpField(idx, "rubroEmpresa", e.target.value)
                       }
                     >
+                      <option value="" disabled>
+                        Seleccionar...
+                      </option>
                       {RUBROS_EMPRESA_OPTIONS.map((r) => (
                         <option key={r} value={r}>
                           {r}
@@ -1640,14 +1645,18 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className={labelCls}>Desde</label>
+                      <label className={labelCls}>Desde *</label>
                       <select
                         className={inputCls}
+                        required
                         value={exp.desdeAnio}
                         onChange={(e) =>
                           updateExpField(idx, "desdeAnio", e.target.value)
                         }
                       >
+                        <option value="" disabled>
+                          Seleccionar...
+                        </option>
                         {YEARS_LIST.map((y) => (
                           <option key={`d-${y}`} value={y}>
                             {y}
@@ -1656,14 +1665,18 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                       </select>
                     </div>
                     <div>
-                      <label className={labelCls}>Hasta</label>
+                      <label className={labelCls}>Hasta *</label>
                       <select
                         className={inputCls}
+                        required
                         value={exp.hastaAnio}
                         onChange={(e) =>
                           updateExpField(idx, "hastaAnio", e.target.value)
                         }
                       >
+                        <option value="" disabled>
+                          Seleccionar...
+                        </option>
                         <option value="Actualidad">Actualidad</option>
                         {YEARS_LIST.map((y) => (
                           <option key={`h-${y}`} value={y}>
@@ -1675,14 +1688,18 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                   </div>
 
                   <div>
-                    <label className={labelCls}>Duración / Antigüedad</label>
+                    <label className={labelCls}>Duración / Antigüedad *</label>
                     <select
                       className={inputCls}
+                      required
                       value={exp.antiguedad}
                       onChange={(e) =>
                         updateExpField(idx, "antiguedad", e.target.value)
                       }
                     >
+                      <option value="" disabled>
+                        Seleccionar...
+                      </option>
                       <option value="Temporada / Menos de 6 meses">
                         Temporada / Menos de 6 meses
                       </option>
@@ -1694,14 +1711,18 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                   </div>
 
                   <div>
-                    <label className={labelCls}>Motivo de Desvinculación</label>
+                    <label className={labelCls}>Motivo de Desvinculación *</label>
                     <select
                       className={inputCls}
+                      required
                       value={exp.motivoEgreso}
                       onChange={(e) =>
                         updateExpField(idx, "motivoEgreso", e.target.value)
                       }
                     >
+                      <option value="" disabled>
+                        Seleccionar...
+                      </option>
                       {MOTIVOS_EGRESO_OPTIONS.map((m) => (
                         <option key={m} value={m}>
                           {m}
@@ -1711,9 +1732,10 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                   </div>
 
                   <div>
-                    <label className={labelCls}>Contacto de Referencia</label>
+                    <label className={labelCls}>Contacto de Referencia *</label>
                     <input
                       className={inputCls}
+                      required
                       value={exp.referenciaNombre}
                       onChange={(e) =>
                         updateExpField(idx, "referenciaNombre", e.target.value)
@@ -1723,9 +1745,10 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                   </div>
 
                   <div>
-                    <label className={labelCls}>Teléfono de Referencia</label>
+                    <label className={labelCls}>Teléfono de Referencia *</label>
                     <input
                       className={inputCls}
+                      required
                       value={exp.referenciaTelefono}
                       onChange={(e) =>
                         updateExpField(idx, "referenciaTelefono", e.target.value)
@@ -1735,9 +1758,10 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                   </div>
 
                   <div className="sm:col-span-2 lg:col-span-4">
-                    <label className={labelCls}>Principales Tareas Realizadas</label>
+                    <label className={labelCls}>Principales Tareas Realizadas *</label>
                     <input
                       className={inputCls}
+                      required
                       value={exp.tareas}
                       onChange={(e) => updateExpField(idx, "tareas", e.target.value)}
                       placeholder="Ej: Apertura y cierre de caja, atención al público, control de stock..."

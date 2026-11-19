@@ -521,22 +521,64 @@ export async function handlePublicCvSubmission(
   const whatsappCompleto = `${cleanPrefDigits}${whatsappNumero}`;
   const nowIso = new Date().toISOString();
 
+  const sinExpPrevia =
+    Boolean(body.sinExperienciaPrevia) ||
+    experienciaTotal === "Sin experiencia / Primer empleo";
   const rawExps = Array.isArray(body.experiencias) ? body.experiencias : [];
-  const experiencias: CvExperienceItem[] = rawExps
-    .filter((e: AnyObj) => e && (String(e.empresa || "").trim() || String(e.puesto || "").trim()))
-    .slice(0, 10)
-    .map((e: AnyObj) => ({
-      empresa: String(e.empresa || "").trim(),
-      rubroEmpresa: String(e.rubroEmpresa || "").trim(),
-      puesto: String(e.puesto || "").trim(),
-      antiguedad: String(e.antiguedad || "").trim(),
-      desdeAnio: String(e.desdeAnio || "").trim(),
-      hastaAnio: String(e.hastaAnio || "").trim(),
-      motivoEgreso: String(e.motivoEgreso || "").trim(),
-      referenciaNombre: String(e.referenciaNombre || "").trim(),
-      referenciaTelefono: String(e.referenciaTelefono || "").trim(),
-      tareas: String(e.tareas || "").trim(),
-    }));
+
+  if (!sinExpPrevia) {
+    if (rawExps.length === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Por favor completá al menos una Experiencia Laboral o marcá 'Postulación a Primer Empleo'.",
+        },
+        { status: 400 }
+      );
+    }
+    for (let i = 0; i < Math.min(rawExps.length, 10); i++) {
+      const e = (rawExps[i] || {}) as AnyObj;
+      if (
+        !String(e.empresa || "").trim() ||
+        !String(e.rubroEmpresa || "").trim() ||
+        !String(e.puesto || "").trim() ||
+        !String(e.desdeAnio || "").trim() ||
+        !String(e.hastaAnio || "").trim() ||
+        !String(e.antiguedad || "").trim() ||
+        !String(e.motivoEgreso || "").trim() ||
+        !String(e.referenciaNombre || "").trim() ||
+        !String(e.referenciaTelefono || "").trim() ||
+        !String(e.tareas || "").trim()
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `Por favor completá todos los campos obligatorios de la Experiencia Laboral #${i + 1} (Empresa, Rubro, Puesto, Desde/Hasta, Antigüedad, Motivo, Contacto y Teléfono de referencia, y Tareas).`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
+  const experiencias: CvExperienceItem[] = sinExpPrevia
+    ? []
+    : rawExps
+        .filter((e: AnyObj) => e && (String(e.empresa || "").trim() || String(e.puesto || "").trim()))
+        .slice(0, 10)
+        .map((e: AnyObj) => ({
+          empresa: String(e.empresa || "").trim(),
+          rubroEmpresa: String(e.rubroEmpresa || "").trim(),
+          puesto: String(e.puesto || "").trim(),
+          antiguedad: String(e.antiguedad || "").trim(),
+          desdeAnio: String(e.desdeAnio || "").trim(),
+          hastaAnio: String(e.hastaAnio || "").trim(),
+          motivoEgreso: String(e.motivoEgreso || "").trim(),
+          referenciaNombre: String(e.referenciaNombre || "").trim(),
+          referenciaTelefono: String(e.referenciaTelefono || "").trim(),
+          tareas: String(e.tareas || "").trim(),
+        }));
 
   const record: CvRecord = {
     id: cvId,
