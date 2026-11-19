@@ -199,6 +199,9 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "estadisticas:ganancia_bruta",
   "estadisticas:ganancia_neta",
   "estadisticas:art_generico",
+  "cv",
+  "cv:recibidos",
+  "cv:previsualizados",
   "tema",
   "verificador",
   "perfil",
@@ -357,6 +360,13 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     description: "Pantalla interactiva para lectores de código de barras en góndola / salón comercial.",
     defaultMonthlyArs: 8000,
     erpModuleKeys: ["verificador"],
+  },
+  {
+    key: "cv",
+    name: "Curriculum Vitae (Selección de Personal)",
+    description: "Portal público /cv con foto y PDF, bandeja de CV recibidos, CV previsualizados y valoración de 1 a 10.",
+    defaultMonthlyArs: 10000,
+    erpModuleKeys: ["cv", "cv:recibidos", "cv:previsualizados"],
   },
   {
     key: "manual_usuario",

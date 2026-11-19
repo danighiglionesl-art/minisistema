@@ -23,6 +23,7 @@ const RESERVED_SLUGS = new Set([
   "sistema",
   "carrito",
   "verificador",
+  "cv",
   "admin",
   "api",
   "privacidad",

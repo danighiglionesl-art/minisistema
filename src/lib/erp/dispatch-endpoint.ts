@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleErpAuth } from "@/lib/erp/handlers/auth-handler";
 import { handleErpCatalog } from "@/lib/erp/handlers/catalog-handler";
 import { handleErpClientes } from "@/lib/erp/handlers/clientes-handler";
+import { handleErpCurriculum } from "@/lib/erp/handlers/cv-handler";
 import {
   handleErpArcaComprobantes,
   handleErpBanners,
@@ -76,6 +77,10 @@ export async function dispatchErpEndpoint(
         break;
       case "superadmin":
         res = await handleErpSuperAdmin(req, tenant);
+        break;
+      case "curriculum":
+      case "cv":
+        res = await handleErpCurriculum(req, tenant);
         break;
       default:
         res = NextResponse.json(

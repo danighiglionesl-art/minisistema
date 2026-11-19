@@ -45,6 +45,7 @@ const ASSETS_TO_CACHE = [
   '/sistema/assets/js/zxing.min.js?v=${currentVer}',
   '/sistema/assets/js/app.js?v=${currentVer}',
   '/sistema/assets/js/superadmin-panel.js?v=${currentVer}',
+  '/sistema/assets/js/cv-module.js?v=${currentVer}',
   '/sistema/assets/img/minisistema/logo-1x1.png',
   '/sistema/assets/img/minisistema/logo-horizontal.png',
   '/sistema/assets/img/minisistema/logo-symbol.png',
@@ -106,11 +107,27 @@ self.addEventListener('fetch', (event) => {
 fs.writeFileSync(path.join(msRoot, "public/sistema/sw.js"), swContent, "utf8");
 console.log(`[SYNC] Updated public/sistema/sw.js to v${currentVer}`);
 
-// 4. Extract all module & submodule keys from ALL_SYSTEM_MODULES in app.js and sync into src/lib/erp/types.ts
-const appJs = fs.readFileSync(
-  path.join(msRoot, "public/sistema/assets/js/app.js"),
-  "utf8"
-);
+// 4. Preserve MiniSistema-exclusive modules (e.g. Curriculum Vitae) in app.js, then sync ALL_ERP_MODULE_KEYS into src/lib/erp/types.ts
+const appJsPath = path.join(msRoot, "public/sistema/assets/js/app.js");
+let appJs = fs.readFileSync(appJsPath, "utf8");
+if (!appJs.includes("key: 'cv'")) {
+  const cvBlock = `  { key: 'verificador', label: 'Consulta de Precios', sections: ['sec-verificador-precios'], submodules: [] },
+  {
+    key: 'cv',
+    label: 'Curriculum Vitae',
+    sections: ['sec-menu-cv', 'sec-cv-workspace'],
+    submodules: [
+      { key: 'cv:recibidos', label: 'CV recibidos', selector: '#sec-menu-cv [data-cv-sub="recibidos"]', sections: [] },
+      { key: 'cv:previsualizados', label: 'CV previsualizados', selector: '#sec-menu-cv [data-cv-sub="previsualizados"]', sections: [] }
+    ]
+  },`;
+  appJs = appJs.replace(
+    /\{\s*key:\s*'verificador'[^\n]*\},/,
+    cvBlock
+  );
+  fs.writeFileSync(appJsPath, appJs, "utf8");
+  console.log("[SYNC] Preserved MiniSistema-exclusive 'cv' module in public/sistema/assets/js/app.js");
+}
 const modStart = appJs.indexOf("const ALL_SYSTEM_MODULES = [");
 const modEnd = appJs.indexOf("const DEFAULT_MODULE_KEYS =", modStart);
 if (modStart !== -1 && modEnd !== -1) {
