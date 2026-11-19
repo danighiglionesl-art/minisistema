@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon-64.png?v=161">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png?v=161">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="assets/css/styles.css?v=297">
+  <link rel="stylesheet" href="assets/css/styles.css?v=298">
   <script src="assets/js/brand.js?v=7"></script>
   <style>
     html[data-has-session="1"] #login-view { display: none !important; }
@@ -5057,9 +5057,6 @@
         <div class="fps-mode-topbar">
           <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             <span class="badge badge--gold" style="font-size:0.8rem;">💲 MODO ACTIVO: ACTUALIZA STOCK Y PRECIOS</span>
-            <span style="font-size:0.86rem; color:var(--silver-muted);">
-              Lectura IA completa con cálculo de costos, IVA, márgenes de venta, alertas de precios y actualización de Stock
-            </span>
           </div>
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             <button type="button" class="btn-secondary btn-sm" data-open-section="sec-factura-proveedor-stock" style="width:auto;">
@@ -5348,16 +5345,17 @@
             </caption>
             <thead>
               <tr>
-                <th scope="col" style="width:190px;">Cód. Proveedor / Detalle Factura</th>
-                <th scope="col" style="width:310px;">Producto en Sistema (IA / Cód. Sistema Manual)</th>
-                <th scope="col" style="width:150px;">Cant. Factura y Nuevo Stock</th>
-                <th scope="col" style="width:215px;">Precio Factura vs. Costo Sistema</th>
-                <th scope="col" style="width:250px;">Alertas y Decisión del Operador</th>
+                <th scope="col" style="width:180px;">Cód. Proveedor / Detalle Factura</th>
+                <th scope="col" style="width:295px;">Producto en Sistema (IA / Cód. Sistema Manual)</th>
+                <th scope="col" style="width:140px;">Cant. Factura y Nuevo Stock</th>
+                <th scope="col" style="width:205px;">Precio Factura vs. Costo Sistema</th>
+                <th scope="col" style="width:225px;">Nuevos Precios Venta (Min / May)</th>
+                <th scope="col" style="width:64px; text-align:center;" title="Eliminar ítem">🗑️</th>
               </tr>
             </thead>
             <tbody id="fp-items-tbody">
               <tr>
-                <td colspan="5" class="table-loading-cell">
+                <td colspan="6" class="table-loading-cell">
                   Seleccioná un proveedor y subí una Factura o Remito (PDF / JPG), o hacé clic en <strong>"🧪 Simular Lectura IA de Factura Completa"</strong> para comenzar.
                 </td>
               </tr>
@@ -18646,7 +18644,7 @@
     </form>
   </dialog>
 
-  <script src="assets/js/zxing.min.js?v=297" defer></script>
-  <script src="assets/js/app.js?v=297" defer></script>
+  <script src="assets/js/zxing.min.js?v=298" defer></script>
+  <script src="assets/js/app.js?v=298" defer></script>
 </body>
 </html>

@@ -764,6 +764,46 @@
       STATE_SA.quoteTempMonths
     );
 
+    var opt1Price = Number(cfg.option_1_base ?? 35000);
+    var opt2Price = Number(cfg.option_2_base ?? 15000);
+    var opt1Disc = Number(STATE_SA.quoteDiscountsByMod['__opt1'] || 0);
+    var opt2Disc = Number(STATE_SA.quoteDiscountsByMod['__opt2'] || 0);
+    var opt1Net = Math.round(opt1Price * (1 - opt1Disc / 100));
+    var opt2Net = Math.round(opt2Price * (1 - opt2Disc / 100));
+    var isOpt1 = STATE_SA.quoteOptionType === 1;
+
+    var optionRowsHtml =
+      '<tr style="border-bottom:1px solid rgba(86,215,161,0.28);background:rgba(86,215,161,0.06);">' +
+      '<td style="padding:0.5rem;"><input type="checkbox" data-q-opt-chk="1" ' +
+      (isOpt1 ? 'checked' : '') +
+      '></td>' +
+      '<td style="padding:0.5rem;"><strong>Base Mensual Opción 1 (Dominio + Marca Propia)</strong></td>' +
+      '<td style="padding:0.5rem;width:140px;"><input type="number" min="0" step="500" class="ms-sa-input" id="ms-cfg-opt1" value="' +
+      esc(opt1Price) +
+      '"></td>' +
+      '<td style="padding:0.5rem;width:110px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-opt-disc="1" value="' +
+      esc(opt1Disc) +
+      '"></td>' +
+      '<td data-net-opt-cell="1" style="padding:0.5rem;font-weight:800;text-align:right;">' +
+      (isOpt1 ? fmtArs.format(opt1Net) : '—') +
+      '</td>' +
+      '</tr>' +
+      '<tr style="border-bottom:2px solid rgba(86,215,161,0.38);background:rgba(86,215,161,0.06);">' +
+      '<td style="padding:0.5rem;"><input type="checkbox" data-q-opt-chk="2" ' +
+      (!isOpt1 ? 'checked' : '') +
+      '></td>' +
+      '<td style="padding:0.5rem;"><strong>Base Mensual Opción 2 (Subruta MiniSistema)</strong></td>' +
+      '<td style="padding:0.5rem;width:140px;"><input type="number" min="0" step="500" class="ms-sa-input" id="ms-cfg-opt2" value="' +
+      esc(opt2Price) +
+      '"></td>' +
+      '<td style="padding:0.5rem;width:110px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-opt-disc="2" value="' +
+      esc(opt2Disc) +
+      '"></td>' +
+      '<td data-net-opt-cell="2" style="padding:0.5rem;font-weight:800;text-align:right;">' +
+      (!isOpt1 ? fmtArs.format(opt2Net) : '—') +
+      '</td>' +
+      '</tr>';
+
     var selectedCount = 0;
     var modRows = mods
       .map(function (m) {
@@ -808,50 +848,35 @@
     return (
       '<div style="display:grid;gap:1.1rem;">' +
       '<div class="ms-sa-card">' +
-      '<h4 style="margin-top:0;">📦 Valor Mensual y Descuento Individual por Módulo</h4>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.65rem;">' +
+      '<h4 style="margin:0;">📦 Valor Mensual y Descuento Individual por Módulo</h4>' +
+      '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-save-pricing-btn">💾 Guardar Lista Oficial de Valores Mensuales</button>' +
+      '</div>' +
       '<div style="overflow-x:auto;">' +
       '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
-      '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;"><th style="padding:0.5rem;">Incluir</th><th style="padding:0.5rem;">Módulo del Sistema ERP</th><th style="padding:0.5rem;">Valor Mensual ($)</th><th style="padding:0.5rem;">Dto. Módulo (%)</th><th style="padding:0.5rem;text-align:right;">Neto Módulo</th></tr></thead>' +
+      '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;"><th style="padding:0.5rem;">Incluir</th><th style="padding:0.5rem;">Opción Base / Módulo del Sistema ERP</th><th style="padding:0.5rem;">Valor Mensual ($)</th><th style="padding:0.5rem;">Dto. Módulo (%)</th><th style="padding:0.5rem;text-align:right;">Neto Módulo</th></tr></thead>' +
       '<tbody>' +
+      optionRowsHtml +
       modRows +
       '</tbody>' +
       '<tfoot>' +
       '<tr style="border-top:2px solid #56D7A1;background:rgba(86,215,161,0.12);">' +
-      '<td colspan="4" style="padding:0.75rem 0.6rem;font-weight:800;font-size:0.95rem;color:#112D3A;">Subtotal módulos elegidos <span style="font-weight:600;font-size:0.82rem;opacity:0.8;">(<span id="ms-sa-selected-mods-count">' +
+      '<td colspan="4" style="padding:0.75rem 0.6rem;font-weight:800;font-size:0.95rem;color:#112D3A;">Subtotal (<span id="ms-sa-selected-opt-label">Opción ' +
+      esc(STATE_SA.quoteOptionType) +
+      '</span> + <span id="ms-sa-selected-mods-count">' +
       esc(selectedCount) +
-      '</span> seleccionados)</span></td>' +
+      '</span> módulos seleccionados)</td>' +
       '<td id="ms-sa-selected-mods-subtotal" style="padding:0.75rem 0.5rem;font-weight:900;font-size:1.08rem;text-align:right;color:#112D3A;">' +
-      fmtArs.format(quote.modTotal) +
+      fmtArs.format(quote.subtotal) +
       '</td>' +
       '</tr>' +
       '</tfoot>' +
       '</table>' +
       '</div>' +
       '</div>' +
-      '<div class="ms-sa-grid">' +
-      '<div class="ms-sa-card">' +
-      '<h4 style="margin-top:0;">⚙️ Valores Base por Opción</h4>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">' +
-      '<div><label class="ms-sa-label">Base Mensual Opción 1 (Dominio + Marca Propia)</label><input type="number" step="500" class="ms-sa-input" id="ms-cfg-opt1" value="' +
-      esc(cfg.option_1_base || 35000) +
-      '"></div>' +
-      '<div><label class="ms-sa-label">Base Mensual Opción 2 (Subruta MiniSistema)</label><input type="number" step="500" class="ms-sa-input" id="ms-cfg-opt2" value="' +
-      esc(cfg.option_2_base || 15000) +
-      '"></div>' +
-      '</div>' +
-      '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-save-pricing-btn" style="margin-top:0.85rem;">💾 Guardar Lista Oficial de Valores Mensuales</button>' +
-      '</div>' +
       '<div class="ms-sa-card ms-sa-card--highlight">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;">' +
       '<span style="color:#56D7A1;font-weight:800;font-size:0.8rem;">SIMULADOR DE ABONO MENSUAL (DÉBITO MP)</span>' +
-      '<select id="ms-q-opt" class="ms-sa-select" style="width:auto;padding:0.3rem 0.6rem;font-weight:700;">' +
-      '<option value="1" ' +
-      (STATE_SA.quoteOptionType === 1 ? 'selected' : '') +
-      '>Opción 1 (Dominio Propio)</option>' +
-      '<option value="2" ' +
-      (STATE_SA.quoteOptionType === 2 ? 'selected' : '') +
-      '>Opción 2 (Subruta MiniSistema)</option>' +
-      '</select>' +
       '</div>' +
       '<div style="font-size:2rem;font-weight:900;margin:0.4rem 0;"><span id="ms-q-sim-promo">' +
       fmtArs.format(quote.promoMonthly) +
@@ -900,7 +925,6 @@
       '>' +
       '</div>' +
       '<button type="button" class="ms-sa-btn" id="ms-q-apply-to-new" style="margin-top:0.8rem;width:100%;">Usar esta Cotización en Nuevo Comercio →</button>' +
-      '</div>' +
       '</div>' +
       '</div>'
     );
@@ -1363,8 +1387,30 @@
       if (opt1Inp) d.pricingConfig.option_1_base = Math.max(0, Number(opt1Inp.value || 0));
       if (opt2Inp) d.pricingConfig.option_2_base = Math.max(0, Number(opt2Inp.value || 0));
 
+      bodyEl.querySelectorAll('[data-q-opt-disc]').forEach(function (inp) {
+        var optNum = inp.getAttribute('data-q-opt-disc');
+        STATE_SA.quoteDiscountsByMod['__opt' + optNum] = Math.min(100, Math.max(0, Number(inp.value || 0)));
+      });
+
+      var chkOpt1 = bodyEl.querySelector('[data-q-opt-chk="1"]');
+      var chkOpt2 = bodyEl.querySelector('[data-q-opt-chk="2"]');
       var qOptEl = bodyEl.querySelector('#ms-q-opt');
-      if (qOptEl) STATE_SA.quoteOptionType = Number(qOptEl.value) === 1 ? 1 : 2;
+      if (chkOpt1) chkOpt1.checked = STATE_SA.quoteOptionType === 1;
+      if (chkOpt2) chkOpt2.checked = STATE_SA.quoteOptionType === 2;
+      if (qOptEl) qOptEl.value = String(STATE_SA.quoteOptionType);
+
+      var opt1Net = Math.round(
+        Number(d.pricingConfig.option_1_base || 0) *
+          (1 - Number(STATE_SA.quoteDiscountsByMod['__opt1'] || 0) / 100)
+      );
+      var opt2Net = Math.round(
+        Number(d.pricingConfig.option_2_base || 0) *
+          (1 - Number(STATE_SA.quoteDiscountsByMod['__opt2'] || 0) / 100)
+      );
+      var netOptCell1 = bodyEl.querySelector('[data-net-opt-cell="1"]');
+      var netOptCell2 = bodyEl.querySelector('[data-net-opt-cell="2"]');
+      if (netOptCell1) netOptCell1.textContent = STATE_SA.quoteOptionType === 1 ? fmtArs.format(opt1Net) : '—';
+      if (netOptCell2) netOptCell2.textContent = STATE_SA.quoteOptionType === 2 ? fmtArs.format(opt2Net) : '—';
 
       var qGTypeEl = bodyEl.querySelector('#ms-q-gtype');
       if (qGTypeEl) STATE_SA.quoteGlobalType = qGTypeEl.value;
@@ -1416,11 +1462,14 @@
         STATE_SA.quoteTempMonths
       );
 
+      var optLabelEl = bodyEl.querySelector('#ms-sa-selected-opt-label');
+      if (optLabelEl) optLabelEl.textContent = 'Opción ' + String(STATE_SA.quoteOptionType);
+
       var countEl = bodyEl.querySelector('#ms-sa-selected-mods-count');
       if (countEl) countEl.textContent = String(selectedCount);
 
       var subModsEl = bodyEl.querySelector('#ms-sa-selected-mods-subtotal');
-      if (subModsEl) subModsEl.textContent = fmtArs.format(quote.modTotal);
+      if (subModsEl) subModsEl.textContent = fmtArs.format(quote.subtotal);
 
       var promoEl = bodyEl.querySelector('#ms-q-sim-promo');
       if (promoEl) promoEl.textContent = fmtArs.format(quote.promoMonthly);
@@ -1457,7 +1506,27 @@
       }
     }
 
-    ['#ms-q-opt', '#ms-q-gtype', '#ms-q-gpct', '#ms-q-gmonths', '#ms-cfg-opt1', '#ms-cfg-opt2'].forEach(function (sel) {
+    bodyEl.querySelectorAll('[data-q-opt-chk]').forEach(function (chk) {
+      chk.addEventListener('change', function () {
+        var which = Number(chk.getAttribute('data-q-opt-chk')) === 1 ? 1 : 2;
+        if (chk.checked) {
+          STATE_SA.quoteOptionType = which;
+        } else {
+          STATE_SA.quoteOptionType = which === 1 ? 2 : 1;
+        }
+        refreshPricingDomLive();
+      });
+    });
+
+    var qOptSelect = bodyEl.querySelector('#ms-q-opt');
+    if (qOptSelect) {
+      qOptSelect.addEventListener('change', function () {
+        STATE_SA.quoteOptionType = Number(qOptSelect.value) === 1 ? 1 : 2;
+        refreshPricingDomLive();
+      });
+    }
+
+    ['#ms-q-gtype', '#ms-q-gpct', '#ms-q-gmonths', '#ms-cfg-opt1', '#ms-cfg-opt2'].forEach(function (sel) {
       var el = bodyEl.querySelector(sel);
       if (el) {
         el.addEventListener('input', refreshPricingDomLive);
@@ -1465,7 +1534,7 @@
       }
     });
 
-    bodyEl.querySelectorAll('[data-q-mod], [data-q-mod-disc], [data-cfg-mod-price]').forEach(function (el) {
+    bodyEl.querySelectorAll('[data-q-mod], [data-q-mod-disc], [data-cfg-mod-price], [data-q-opt-disc]').forEach(function (el) {
       el.addEventListener('input', refreshPricingDomLive);
       el.addEventListener('change', refreshPricingDomLive);
     });
