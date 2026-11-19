@@ -762,6 +762,7 @@
       STATE_SA.quoteTempMonths
     );
 
+    var selectedCount = 0;
     var modRows = mods
       .map(function (m) {
         var curPrice = Number(
@@ -769,6 +770,7 @@
             m.defaultMonthlyArs
         );
         var checked = Boolean(STATE_SA.quoteSelected[m.key]);
+        if (checked) selectedCount += 1;
         var modDisc = Number(STATE_SA.quoteDiscountsByMod[m.key] || 0);
         var netMod = Math.round(curPrice * (1 - modDisc / 100));
         return (
@@ -791,7 +793,9 @@
           '" value="' +
           esc(modDisc) +
           '"></td>' +
-          '<td style="padding:0.5rem;font-weight:800;text-align:right;">' +
+          '<td data-net-mod-cell="' +
+          esc(m.key) +
+          '" style="padding:0.5rem;font-weight:800;text-align:right;">' +
           (checked ? fmtArs.format(netMod) : '—') +
           '</td>' +
           '</tr>'
@@ -801,6 +805,27 @@
 
     return (
       '<div style="display:grid;gap:1.1rem;">' +
+      '<div class="ms-sa-card">' +
+      '<h4 style="margin-top:0;">📦 Valor Mensual y Descuento Individual por Módulo</h4>' +
+      '<div style="overflow-x:auto;">' +
+      '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
+      '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;"><th style="padding:0.5rem;">Incluir</th><th style="padding:0.5rem;">Módulo del Sistema ERP</th><th style="padding:0.5rem;">Valor Mensual ($)</th><th style="padding:0.5rem;">Dto. Módulo (%)</th><th style="padding:0.5rem;text-align:right;">Neto Módulo</th></tr></thead>' +
+      '<tbody>' +
+      modRows +
+      '</tbody>' +
+      '<tfoot>' +
+      '<tr style="border-top:2px solid #56D7A1;background:rgba(86,215,161,0.12);">' +
+      '<td colspan="4" style="padding:0.75rem 0.6rem;font-weight:800;font-size:0.95rem;color:#112D3A;">Subtotal módulos elegidos <span style="font-weight:600;font-size:0.82rem;opacity:0.8;">(<span id="ms-sa-selected-mods-count">' +
+      esc(selectedCount) +
+      '</span> seleccionados)</span></td>' +
+      '<td id="ms-sa-selected-mods-subtotal" style="padding:0.75rem 0.5rem;font-weight:900;font-size:1.08rem;text-align:right;color:#112D3A;">' +
+      fmtArs.format(quote.modTotal) +
+      '</td>' +
+      '</tr>' +
+      '</tfoot>' +
+      '</table>' +
+      '</div>' +
+      '</div>' +
       '<div class="ms-sa-grid">' +
       '<div class="ms-sa-card">' +
       '<h4 style="margin-top:0;">⚙️ Valores Base por Opción</h4>' +
@@ -826,10 +851,10 @@
       '>Opción 2 (Subruta MiniSistema)</option>' +
       '</select>' +
       '</div>' +
-      '<div style="font-size:2rem;font-weight:900;margin:0.4rem 0;">' +
+      '<div style="font-size:2rem;font-weight:900;margin:0.4rem 0;"><span id="ms-q-sim-promo">' +
       fmtArs.format(quote.promoMonthly) +
-      ' <span style="font-size:0.95rem;font-weight:500;">/ mes</span></div>' +
-      '<div style="font-size:0.82rem;color:#d1fae5;">Base Opción ' +
+      '</span> <span style="font-size:0.95rem;font-weight:500;">/ mes</span></div>' +
+      '<div id="ms-q-sim-breakdown" style="font-size:0.82rem;color:#d1fae5;">Base Opción ' +
       STATE_SA.quoteOptionType +
       ': ' +
       fmtArs.format(quote.optionBase) +
@@ -838,15 +863,19 @@
       ' = Subtotal: ' +
       fmtArs.format(quote.subtotal) +
       '</div>' +
+      '<div id="ms-q-sim-temp-note" style="margin-top:0.35rem;font-size:0.83rem;color:#56D7A1;font-weight:700;' +
+      (quote.months > 0 ? '' : 'display:none;') +
+      '">' +
       (quote.months > 0
-        ? '<div style="margin-top:0.35rem;font-size:0.83rem;color:#56D7A1;font-weight:700;">⏱ Descuento temporal por ' +
+        ? '⏱ Descuento temporal por ' +
           quote.months +
           ' meses · Desde el mes ' +
           (quote.months + 1) +
           ': ' +
           fmtArs.format(quote.regularMonthly) +
-          '/mes</div>'
+          '/mes'
         : '') +
+      '</div>' +
       '<div style="display:grid;grid-template-columns:1.3fr 0.8fr 0.8fr;gap:0.5rem;margin-top:0.8rem;">' +
       '<select id="ms-q-gtype" class="ms-sa-select">' +
       '<option value="none" ' +
@@ -869,17 +898,6 @@
       '>' +
       '</div>' +
       '<button type="button" class="ms-sa-btn" id="ms-q-apply-to-new" style="margin-top:0.8rem;width:100%;">Usar esta Cotización en Nuevo Comercio →</button>' +
-      '</div>' +
-      '</div>' +
-      '<div class="ms-sa-card">' +
-      '<h4 style="margin-top:0;">📦 Valor Mensual y Descuento Individual por Módulo</h4>' +
-      '<div style="overflow-x:auto;">' +
-      '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
-      '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;"><th style="padding:0.5rem;">Incluir</th><th style="padding:0.5rem;">Módulo del Sistema ERP</th><th style="padding:0.5rem;">Valor Mensual ($)</th><th style="padding:0.5rem;">Dto. Módulo (%)</th><th style="padding:0.5rem;text-align:right;">Neto Módulo</th></tr></thead>' +
-      '<tbody>' +
-      modRows +
-      '</tbody>' +
-      '</table>' +
       '</div>' +
       '</div>' +
       '</div>'
@@ -1332,47 +1350,122 @@
     }
 
     // Tab 3: Pricing & Quote Simulator
-    var qOpt = bodyEl.querySelector('#ms-q-opt');
-    if (qOpt) {
-      qOpt.addEventListener('change', function () {
-        STATE_SA.quoteOptionType = Number(qOpt.value) === 1 ? 1 : 2;
-        renderBody();
+    function refreshPricingDomLive() {
+      var d = STATE_SA.data;
+      if (!d) return;
+      if (!d.pricingConfig) d.pricingConfig = {};
+      if (!d.pricingConfig.module_prices) d.pricingConfig.module_prices = {};
+
+      var opt1Inp = bodyEl.querySelector('#ms-cfg-opt1');
+      var opt2Inp = bodyEl.querySelector('#ms-cfg-opt2');
+      if (opt1Inp) d.pricingConfig.option_1_base = Math.max(0, Number(opt1Inp.value || 0));
+      if (opt2Inp) d.pricingConfig.option_2_base = Math.max(0, Number(opt2Inp.value || 0));
+
+      var qOptEl = bodyEl.querySelector('#ms-q-opt');
+      if (qOptEl) STATE_SA.quoteOptionType = Number(qOptEl.value) === 1 ? 1 : 2;
+
+      var qGTypeEl = bodyEl.querySelector('#ms-q-gtype');
+      if (qGTypeEl) STATE_SA.quoteGlobalType = qGTypeEl.value;
+
+      var qGPctEl = bodyEl.querySelector('#ms-q-gpct');
+      if (qGPctEl) STATE_SA.quoteGlobalPct = Math.min(100, Math.max(0, Number(qGPctEl.value || 0)));
+
+      var qGMonthsEl = bodyEl.querySelector('#ms-q-gmonths');
+      if (qGMonthsEl) {
+        qGMonthsEl.disabled = STATE_SA.quoteGlobalType !== 'temporary';
+        STATE_SA.quoteTempMonths = Math.max(1, Number(qGMonthsEl.value || 3));
+      }
+
+      var selectedCount = 0;
+      bodyEl.querySelectorAll('[data-q-mod]').forEach(function (chk) {
+        var k = chk.getAttribute('data-q-mod');
+        STATE_SA.quoteSelected[k] = chk.checked;
+        if (chk.checked) selectedCount += 1;
       });
-    }
-    var qGType = bodyEl.querySelector('#ms-q-gtype');
-    if (qGType) {
-      qGType.addEventListener('change', function () {
-        STATE_SA.quoteGlobalType = qGType.value;
-        renderBody();
+
+      bodyEl.querySelectorAll('[data-q-mod-disc]').forEach(function (inp) {
+        var k = inp.getAttribute('data-q-mod-disc');
+        STATE_SA.quoteDiscountsByMod[k] = Math.min(100, Math.max(0, Number(inp.value || 0)));
       });
-    }
-    var qGPct = bodyEl.querySelector('#ms-q-gpct');
-    if (qGPct) {
-      qGPct.addEventListener('change', function () {
-        STATE_SA.quoteGlobalPct = Number(qGPct.value || 0);
-        renderBody();
+
+      bodyEl.querySelectorAll('[data-cfg-mod-price]').forEach(function (inp) {
+        var k = inp.getAttribute('data-cfg-mod-price');
+        var curPrice = Math.max(0, Number(inp.value || 0));
+        if (!d.pricingConfig.module_prices[k]) d.pricingConfig.module_prices[k] = {};
+        d.pricingConfig.module_prices[k].price = curPrice;
+        d.pricingConfig.module_prices[k].defaultDiscountPct = Number(STATE_SA.quoteDiscountsByMod[k] || 0);
+
+        var checked = Boolean(STATE_SA.quoteSelected[k]);
+        var modDisc = Number(STATE_SA.quoteDiscountsByMod[k] || 0);
+        var netMod = Math.round(curPrice * (1 - modDisc / 100));
+        var netCell = bodyEl.querySelector('[data-net-mod-cell="' + k + '"]');
+        if (netCell) {
+          netCell.textContent = checked ? fmtArs.format(netMod) : '—';
+        }
       });
-    }
-    var qGMonths = bodyEl.querySelector('#ms-q-gmonths');
-    if (qGMonths) {
-      qGMonths.addEventListener('change', function () {
-        STATE_SA.quoteTempMonths = Number(qGMonths.value || 3);
-        renderBody();
-      });
+
+      var quote = computeLocalQuote(
+        STATE_SA.quoteOptionType,
+        STATE_SA.quoteSelected,
+        STATE_SA.quoteDiscountsByMod,
+        STATE_SA.quoteGlobalType,
+        STATE_SA.quoteGlobalPct,
+        STATE_SA.quoteGlobalFixed,
+        STATE_SA.quoteTempMonths
+      );
+
+      var countEl = bodyEl.querySelector('#ms-sa-selected-mods-count');
+      if (countEl) countEl.textContent = String(selectedCount);
+
+      var subModsEl = bodyEl.querySelector('#ms-sa-selected-mods-subtotal');
+      if (subModsEl) subModsEl.textContent = fmtArs.format(quote.modTotal);
+
+      var promoEl = bodyEl.querySelector('#ms-q-sim-promo');
+      if (promoEl) promoEl.textContent = fmtArs.format(quote.promoMonthly);
+
+      var breakdownEl = bodyEl.querySelector('#ms-q-sim-breakdown');
+      if (breakdownEl) {
+        breakdownEl.textContent =
+          'Base Opción ' +
+          STATE_SA.quoteOptionType +
+          ': ' +
+          fmtArs.format(quote.optionBase) +
+          ' + Módulos: ' +
+          fmtArs.format(quote.modTotal) +
+          ' = Subtotal: ' +
+          fmtArs.format(quote.subtotal);
+      }
+
+      var tempNoteEl = bodyEl.querySelector('#ms-q-sim-temp-note');
+      if (tempNoteEl) {
+        if (quote.months > 0) {
+          tempNoteEl.style.display = '';
+          tempNoteEl.textContent =
+            '⏱ Descuento temporal por ' +
+            quote.months +
+            ' meses · Desde el mes ' +
+            (quote.months + 1) +
+            ': ' +
+            fmtArs.format(quote.regularMonthly) +
+            '/mes';
+        } else {
+          tempNoteEl.style.display = 'none';
+          tempNoteEl.textContent = '';
+        }
+      }
     }
 
-    bodyEl.querySelectorAll('[data-q-mod]').forEach(function (chk) {
-      chk.addEventListener('change', function () {
-        STATE_SA.quoteSelected[chk.getAttribute('data-q-mod')] = chk.checked;
-        renderBody();
-      });
+    ['#ms-q-opt', '#ms-q-gtype', '#ms-q-gpct', '#ms-q-gmonths', '#ms-cfg-opt1', '#ms-cfg-opt2'].forEach(function (sel) {
+      var el = bodyEl.querySelector(sel);
+      if (el) {
+        el.addEventListener('input', refreshPricingDomLive);
+        el.addEventListener('change', refreshPricingDomLive);
+      }
     });
 
-    bodyEl.querySelectorAll('[data-q-mod-disc]').forEach(function (inp) {
-      inp.addEventListener('change', function () {
-        STATE_SA.quoteDiscountsByMod[inp.getAttribute('data-q-mod-disc')] = Number(inp.value || 0);
-        renderBody();
-      });
+    bodyEl.querySelectorAll('[data-q-mod], [data-q-mod-disc], [data-cfg-mod-price]').forEach(function (el) {
+      el.addEventListener('input', refreshPricingDomLive);
+      el.addEventListener('change', refreshPricingDomLive);
     });
 
     var applyToNewBtn = bodyEl.querySelector('#ms-q-apply-to-new');
