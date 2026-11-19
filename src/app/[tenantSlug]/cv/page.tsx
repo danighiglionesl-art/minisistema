@@ -105,8 +105,7 @@ export default async function TenantPublicCvPage(context: {
             style={{ color: "rgba(255, 255, 255, 0.9)" }}
           >
             Completá tus datos personales, ubicación, disponibilidad horaria, formación,
-            fotografía y adjuntá tu CV en PDF. Al finalizar el envío recibirás tu
-            notificación y comprobante inmediato en pantalla.
+            fotografía y adjuntá tu CV en PDF.
           </p>
           <div className="mt-6 flex flex-wrap gap-3 text-xs font-extrabold sm:text-sm">
             <span className="rounded-xl border border-[#56D7A1]/40 bg-[#FFFFFF]/10 px-3.5 py-2 text-[#FFFFFF]">
