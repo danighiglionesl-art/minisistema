@@ -219,13 +219,22 @@ export default function PublicCvForm(props: PublicCvFormProps) {
   const [experiencias, setExperiencias] = useState<ExperienceRow[]>([emptyExperience()]);
 
   const [fotoBase64, setFotoBase64] = useState("");
+  const [clearPhoto, setClearPhoto] = useState(false);
   const [pdfBase64, setPdfBase64] = useState("");
   const [pdfFileName, setPdfFileName] = useState("");
   const [pdfSizeKb, setPdfSizeKb] = useState(0);
+  const [existingPdfUrl, setExistingPdfUrl] = useState("");
+  const [clearPdf, setClearPdf] = useState(false);
+
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [existingCvCode, setExistingCvCode] = useState("");
+  const [existingCvUpdatedAt, setExistingCvUpdatedAt] = useState("");
+  const [lastLookedUpDoc, setLastLookedUpDoc] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [submittedReceipt, setSubmittedReceipt] = useState<{
+    isUpdate?: boolean;
     codigo: string;
     submittedAt: string;
     candidateName: string;
@@ -261,6 +270,165 @@ export default function PublicCvForm(props: PublicCvFormProps) {
     }
   };
 
+  const applyExistingCvData = (cv: Record<string, any>) => {
+    const p = cv.personal || {};
+    const u = cv.ubicacionContacto || {};
+    const post = cv.postulacion || {};
+    const fh = cv.formacionHabilidades || {};
+    const arch = cv.archivos || {};
+    const exps = Array.isArray(cv.experiencias) ? cv.experiencias : [];
+
+    setExistingCvCode(String(cv.codigo || ""));
+    setExistingCvUpdatedAt(String(cv.updatedAt || cv.createdAt || ""));
+
+    if (p.nombres) setNombres(String(p.nombres));
+    if (p.apellidos) setApellidos(String(p.apellidos));
+    if (p.tipoDoc) setTipoDoc(String(p.tipoDoc));
+    if (p.nroDoc) setNroDoc(String(p.nroDoc));
+    if (p.fechaNacimiento) setFechaNacimiento(String(p.fechaNacimiento));
+    if (p.genero) setGenero(String(p.genero));
+    if (p.estadoCivil) setEstadoCivil(String(p.estadoCivil));
+    if (p.hijosACargo) setHijosACargo(String(p.hijosACargo));
+    if (p.nacionalidad) setNacionalidad(String(p.nacionalidad));
+
+    if (u.pais) setPais(String(u.pais));
+    if (u.provincia) setProvincia(String(u.provincia));
+    if (u.localidad) setLocalidad(String(u.localidad));
+    if (u.cp) setCp(String(u.cp));
+    setDomicilioCalle(String(u.domicilioCalle || u.domicilio || ""));
+    setDomicilioNumero(String(u.domicilioNumero || ""));
+    setDomicilioPiso(String(u.domicilioPiso || ""));
+    setDomicilioDpto(String(u.domicilioDpto || ""));
+    setDomicilioEdificio(String(u.domicilioEdificio || ""));
+    setDomicilioTorre(String(u.domicilioTorre || ""));
+    setDomicilioBarrio(String(u.domicilioBarrio || ""));
+
+    if (u.whatsappPrefijo || u.whatsappPais) {
+      const idx = WHATSAPP_COUNTRIES.findIndex(
+        (w) =>
+          w.prefix === String(u.whatsappPrefijo || "").trim() ||
+          w.country.toLowerCase() === String(u.whatsappPais || "").toLowerCase()
+      );
+      if (idx >= 0) setWaCountryIdx(idx);
+    }
+    setWhatsappNumero(String(u.whatsappNumero || ""));
+    setTelefonoAlternativo(String(u.telefonoAlternativo || ""));
+    setEmail(String(u.email || ""));
+    setFacebookUrl(String(u.facebookUrl || ""));
+    setInstagramUrl(String(u.instagramUrl || ""));
+    setLinkedinUrl(String(u.linkedinUrl || ""));
+
+    if (post.puestoPrincipal) setPuestoPrincipal(String(post.puestoPrincipal));
+    setPuestoSecundario(
+      post.puestoSecundario ? String(post.puestoSecundario) : "Sin segundo puesto"
+    );
+    if (post.disponibilidadHoraria) setDisponibilidadHoraria(String(post.disponibilidadHoraria));
+    if (post.incorporacion) setIncorporacion(String(post.incorporacion));
+    if (post.modalidad) setModalidad(String(post.modalidad));
+    if (post.experienciaTotal) {
+      setExperienciaTotal(String(post.experienciaTotal));
+      setSinExperienciaPrevia(
+        post.experienciaTotal === "Sin experiencia / Primer empleo" || exps.length === 0
+      );
+    }
+    if (post.licenciaConducir) setLicenciaConducir(String(post.licenciaConducir));
+    if (post.movilidadPropia) setMovilidadPropia(String(post.movilidadPropia));
+    if (post.disponibilidadViajarRotar) {
+      setDisponibilidadViajarRotar(String(post.disponibilidadViajarRotar));
+    }
+    if (post.pretensionSalarial) setPretensionSalarial(String(post.pretensionSalarial));
+    setPresentacion(String(post.presentacion || ""));
+
+    if (fh.nivelEstudios) setNivelEstudios(String(fh.nivelEstudios));
+    if (fh.estadoEstudios) setEstadoEstudios(String(fh.estadoEstudios));
+    setTituloCarrera(String(fh.tituloCarrera || ""));
+    setInstitucion(String(fh.institucion || ""));
+    if (fh.nivelPosFacturacion) setNivelPosFacturacion(String(fh.nivelPosFacturacion));
+    if (fh.nivelExcel) setNivelExcel(String(fh.nivelExcel));
+    if (fh.nivelAtencionDigital) setNivelAtencionDigital(String(fh.nivelAtencionDigital));
+    if (fh.idiomaPrincipal) setIdiomaPrincipal(String(fh.idiomaPrincipal));
+    if (fh.nivelIdioma) setNivelIdioma(String(fh.nivelIdioma));
+    setCursosAdicionales(String(fh.cursosAdicionales || ""));
+
+    if (exps.length > 0) {
+      setSinExperienciaPrevia(false);
+      setExperiencias(
+        exps.map((e: Record<string, any>) => ({
+          empresa: String(e.empresa || ""),
+          rubroEmpresa: String(e.rubroEmpresa || "Comercio Minorista / Tienda"),
+          puesto: String(e.puesto || ""),
+          antiguedad: String(e.antiguedad || "1 a 2 años"),
+          desdeAnio: String(e.desdeAnio || String(new Date().getFullYear() - 2)),
+          hastaAnio: String(e.hastaAnio || "Actualidad"),
+          motivoEgreso: String(e.motivoEgreso || "Búsqueda de crecimiento profesional"),
+          referenciaNombre: String(e.referenciaNombre || ""),
+          referenciaTelefono: String(e.referenciaTelefono || ""),
+          tareas: String(e.tareas || ""),
+        }))
+      );
+    } else {
+      setSinExperienciaPrevia(true);
+      setExperiencias([emptyExperience()]);
+    }
+
+    if (arch.fotoUrl) {
+      setFotoBase64(String(arch.fotoUrl));
+      setClearPhoto(false);
+    }
+    if (arch.pdfUrl) {
+      setExistingPdfUrl(String(arch.pdfUrl));
+      setPdfFileName(String(arch.pdfNombreOriginal || "CV_registrado.pdf"));
+      setPdfBase64("");
+      setClearPdf(false);
+    }
+  };
+
+  const lookupCvByDni = async (rawDocValue: string, forceLookup = false) => {
+    const cleanDigits = String(rawDocValue || "").replace(/\D/g, "");
+    const lookupKey = cleanDigits.length >= 6 ? cleanDigits : String(rawDocValue || "").trim();
+    if (!lookupKey || lookupKey.length < 6) {
+      setExistingCvCode("");
+      setExistingCvUpdatedAt("");
+      return;
+    }
+    if (!forceLookup && lookupKey === lastLookedUpDoc) return;
+    setLastLookedUpDoc(lookupKey);
+    setLookupLoading(true);
+    try {
+      const res = await fetch(
+        `/api/cv?tenant=${encodeURIComponent(props.tenantSlug)}&nroDoc=${encodeURIComponent(lookupKey)}`,
+        { cache: "no-store" }
+      );
+      const data = await res.json();
+      if (res.ok && data && data.ok && data.found && data.cv) {
+        applyExistingCvData(data.cv);
+      } else {
+        setExistingCvCode("");
+        setExistingCvUpdatedAt("");
+      }
+    } catch {
+      // ignore network error on background lookup
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const cleanDigits = String(nroDoc || "").replace(/\D/g, "");
+    if (cleanDigits.length < 7) {
+      if (cleanDigits.length < 6) {
+        setExistingCvCode("");
+        setExistingCvUpdatedAt("");
+      }
+      return;
+    }
+    const timer = setTimeout(() => {
+      void lookupCvByDni(nroDoc, false);
+    }, 450);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nroDoc]);
+
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -271,6 +439,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
     try {
       const resized = await resizePhotoToDataUrl(file);
       setFotoBase64(resized);
+      setClearPhoto(false);
       setErrorMsg("");
     } catch {
       setErrorMsg("No se pudo procesar la fotografía seleccionada.");
@@ -293,6 +462,8 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       setPdfBase64(dataUrl);
       setPdfFileName(file.name);
       setPdfSizeKb(Math.max(1, Math.round(file.size / 1024)));
+      setExistingPdfUrl("");
+      setClearPdf(false);
       setErrorMsg("");
     } catch {
       setErrorMsg("No se pudo leer el archivo PDF seleccionado.");
@@ -381,8 +552,10 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             cursosAdicionales,
             experiencias: sinExperienciaPrevia ? [] : experiencias,
             fotoBase64,
+            clearPhoto,
             pdfBase64,
             pdfFileName,
+            clearPdf,
           }),
         }
       );
@@ -396,6 +569,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       }
 
       setSubmittedReceipt({
+        isUpdate: Boolean(data.isUpdate),
         codigo: data.codigo,
         submittedAt: data.submittedAt,
         candidateName: data.candidateName,
@@ -425,14 +599,20 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           ✅
         </div>
         <div className="mb-1 text-xs font-extrabold uppercase tracking-wider text-[#0f6845]">
-          Notificación de Recepción Exitosa
+          {submittedReceipt.isUpdate
+            ? "Actualización de CV Registrada · Alerta Enviada al Administrador"
+            : "Notificación de Recepción Exitosa"}
         </div>
         <h2 className="text-2xl font-extrabold text-[#112D3A]">
-          ¡Tu Curriculum Vitae fue enviado correctamente!
+          {submittedReceipt.isUpdate
+            ? "¡Tus datos de Curriculum Vitae fueron actualizados!"
+            : "¡Tu Curriculum Vitae fue enviado correctamente!"}
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-[#112D3A]/80">
-          Gracias <strong>{submittedReceipt.candidateName}</strong>. Tus datos, perfil
-          laboral y archivos adjuntos ya ingresaron al módulo de selección de{" "}
+          Gracias <strong>{submittedReceipt.candidateName}</strong>.{" "}
+          {submittedReceipt.isUpdate
+            ? `Tus nuevos datos actualizaron tu ficha existente sin duplicar tu postulación y se envió un alerta de nuevos datos al administrador de `
+            : `Tus datos, perfil laboral y archivos adjuntos ya ingresaron al módulo de selección de `}
           <strong>{props.fantasyName}</strong>.
         </p>
 
@@ -523,7 +703,10 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               {fotoBase64 && (
                 <button
                   type="button"
-                  onClick={() => setFotoBase64("")}
+                  onClick={() => {
+                    setFotoBase64("");
+                    setClearPhoto(true);
+                  }}
                   className="ml-2 text-xs font-bold text-[#dc2626] underline"
                 >
                   Quitar
@@ -536,7 +719,79 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
         </div>
 
+        {/* BUSCADOR / VERIFICADOR POR DNI PARA EVITAR DUPLICACIÓN Y RECUPERAR DATOS */}
+        <div className="mb-5 rounded-2xl border-2 border-[#56D7A1] bg-[#112D3A]/[0.03] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-extrabold uppercase tracking-wider text-[#112D3A]">
+                🔎 Verificación de DNI · Control Anti-Duplicación de CV
+              </div>
+              <p className="mt-0.5 text-xs text-[#112D3A]/75">
+                Ingresá primero tu <strong>DNI / Documento</strong>. Si ya cargaste tu CV anteriormente, el sistema recupera automáticamente todos tus datos para que puedas revisarlos o actualizarlos sin duplicar tu postulación.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void lookupCvByDni(nroDoc, true)}
+              disabled={lookupLoading || String(nroDoc || "").replace(/\D/g, "").length < 6}
+              className="rounded-xl bg-[#112D3A] px-4 py-2 text-xs font-extrabold text-[#56D7A1] shadow hover:brightness-110 disabled:opacity-50"
+            >
+              {lookupLoading ? "Buscando DNI..." : "🔍 Verificar DNI / Traer mis datos"}
+            </button>
+          </div>
+
+          {existingCvCode && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-3 rounded-xl border border-[#56D7A1] bg-[#112D3A] p-3.5 text-xs text-[#FFFFFF]"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#56D7A1] px-2.5 py-0.5 text-[11px] font-black text-[#112D3A]">
+                  ✓ CV YA REGISTRADO ({existingCvCode})
+                </span>
+                {existingCvUpdatedAt && (
+                  <span className="text-[11px] text-[#56D7A1]">
+                    Última carga: {new Date(existingCvUpdatedAt).toLocaleString("es-AR")}
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 leading-relaxed text-[#FFFFFF]/90">
+                Encontramos tu Curriculum Vitae asociado al documento <strong>{nroDoc}</strong> y cargamos todos tus datos en el formulario. Podés modificar cualquier dato, foto o archivo PDF y presionar <strong>&ldquo;Actualizar mi Curriculum Vitae&rdquo;</strong> al final (el administrador recibirá un alerta con tus nuevos datos).
+              </p>
+            </div>
+          )}
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-5 gap-2">
+            <div className="col-span-2">
+              <label className={labelCls}>Tipo Doc. *</label>
+              <select
+                className={inputCls}
+                required
+                value={tipoDoc}
+                onChange={(e) => setTipoDoc(e.target.value)}
+              >
+                <option value="DNI">DNI</option>
+                <option value="CUIL">CUIL</option>
+                <option value="CUIT">CUIT</option>
+                <option value="Pasaporte">Pasaporte</option>
+                <option value="Doc. Extranjero">Extranjero</option>
+              </select>
+            </div>
+            <div className="col-span-3">
+              <label className={labelCls}>Número (DNI) *</label>
+              <input
+                className={inputCls}
+                required
+                value={nroDoc}
+                onChange={(e) => setNroDoc(e.target.value)}
+                onBlur={() => void lookupCvByDni(nroDoc, true)}
+                placeholder="Ej: 38123456"
+              />
+            </div>
+          </div>
           <div>
             <label className={labelCls}>Nombre(s) *</label>
             <input
@@ -556,33 +811,6 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               onChange={(e) => setApellidos(e.target.value)}
               placeholder="Ej: González"
             />
-          </div>
-          <div className="grid grid-cols-5 gap-2">
-            <div className="col-span-2">
-              <label className={labelCls}>Tipo Doc. *</label>
-              <select
-                className={inputCls}
-                required
-                value={tipoDoc}
-                onChange={(e) => setTipoDoc(e.target.value)}
-              >
-                <option value="DNI">DNI</option>
-                <option value="CUIL">CUIL</option>
-                <option value="CUIT">CUIT</option>
-                <option value="Pasaporte">Pasaporte</option>
-                <option value="Doc. Extranjero">Extranjero</option>
-              </select>
-            </div>
-            <div className="col-span-3">
-              <label className={labelCls}>Número *</label>
-              <input
-                className={inputCls}
-                required
-                value={nroDoc}
-                onChange={(e) => setNroDoc(e.target.value)}
-                placeholder="Ej: 38123456"
-              />
-            </div>
           </div>
 
           <div>
@@ -1557,21 +1785,36 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           {pdfFileName && (
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-[#FFFFFF] px-4 py-2.5 text-xs font-bold text-[#112D3A] shadow-sm">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#FFFFFF] px-4 py-2.5 text-xs font-bold text-[#112D3A] shadow-sm">
               <span>
-                ✅ {pdfFileName} ({pdfSizeKb} KB)
+                ✅ {pdfFileName}
+                {pdfSizeKb > 0 ? ` (${pdfSizeKb} KB)` : " (PDF ya registrado)"}
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setPdfBase64("");
-                  setPdfFileName("");
-                  setPdfSizeKb(0);
-                }}
-                className="text-[#dc2626] underline"
-              >
-                Quitar PDF
-              </button>
+              <div className="flex items-center gap-3">
+                {existingPdfUrl && !pdfBase64 && (
+                  <a
+                    href={existingPdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-extrabold text-[#0b5e3e] underline"
+                  >
+                    Ver PDF actual ↗
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPdfBase64("");
+                    setPdfFileName("");
+                    setPdfSizeKb(0);
+                    setExistingPdfUrl("");
+                    setClearPdf(true);
+                  }}
+                  className="text-[#dc2626] underline"
+                >
+                  Quitar PDF
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1583,11 +1826,17 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             className="w-full rounded-2xl bg-[#56D7A1] px-8 py-4 text-base font-black text-[#112D3A] shadow-lg transition hover:brightness-95 disabled:opacity-60 sm:w-auto"
           >
             {submitting
-              ? "Enviando tu Curriculum Vitae..."
-              : "🚀 Enviar mi Curriculum Vitae"}
+              ? existingCvCode
+                ? "Actualizando tu Curriculum Vitae..."
+                : "Enviando tu Curriculum Vitae..."
+              : existingCvCode
+                ? `🔄 Actualizar mis datos de CV (${existingCvCode})`
+                : "🚀 Enviar mi Curriculum Vitae"}
           </button>
           <span className="text-[11px] text-[#112D3A]/60">
-            Al enviar recibirás en pantalla tu comprobante inmediato de recepción.
+            {existingCvCode
+              ? "Se actualizará tu CV existente sin duplicarlo y el administrador recibirá un alerta con tus nuevos datos."
+              : "Al enviar recibirás en pantalla tu comprobante inmediato de recepción."}
           </span>
         </div>
       </section>

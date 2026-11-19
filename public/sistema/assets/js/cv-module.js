@@ -15,6 +15,7 @@
     stats: {
       totalActivos: 0,
       recibidosSinVer: 0,
+      actualizadosSinVerCount: 0,
       previsualizadosCount: 0,
       promedioValoracion: null
     },
@@ -24,6 +25,7 @@
     filterPuesto: '',
     filterMinRating: 0,
     filterSearch: '',
+    filterDni: '',
     sortBy: 'recent' // 'recent' | 'rating_desc'
   };
 
@@ -265,10 +267,16 @@
 
   function syncCountersUi() {
     var unread = Number(STATE_CV.stats.recibidosSinVer || 0);
+    var updatedUnread = Number(STATE_CV.stats.actualizadosSinVerCount || 0);
     var prevCount = Number(STATE_CV.stats.previsualizadosCount || 0);
 
     var bRec = document.getElementById('ms-cv-badge-recibidos');
-    if (bRec) bRec.textContent = unread + ' sin ver';
+    if (bRec) {
+      bRec.textContent =
+        unread +
+        ' sin ver' +
+        (updatedUnread > 0 ? ' · 🔔 ' + updatedUnread + ' actualizados' : '');
+    }
 
     var bPrev = document.getElementById('ms-cv-badge-prev');
     if (bPrev) {
@@ -278,8 +286,13 @@
 
     var homeBadge = document.getElementById('ms-cv-home-unread-pill');
     if (homeBadge) {
-      homeBadge.textContent = unread > 0 ? unread + ' NUEVOS' : 'ACTIVO';
-      homeBadge.style.background = unread > 0 ? '#56D7A1' : 'rgba(86,215,161,0.18)';
+      if (updatedUnread > 0) {
+        homeBadge.textContent = '🔔 ' + unread + ' (' + updatedUnread + ' ACT.)';
+        homeBadge.style.background = '#56D7A1';
+      } else {
+        homeBadge.textContent = unread > 0 ? unread + ' NUEVOS' : 'ACTIVO';
+        homeBadge.style.background = unread > 0 ? '#56D7A1' : 'rgba(86,215,161,0.18)';
+      }
     }
 
     var openTop = document.getElementById('ms-cv-open-public-top');
@@ -325,6 +338,14 @@
     });
 
     var filtered = sourceList.filter(function (c) {
+      if (STATE_CV.filterDni) {
+        var qDni = String(STATE_CV.filterDni).replace(/\D/g, '') || String(STATE_CV.filterDni).toLowerCase();
+        var docRaw = String((c.personal && c.personal.nroDoc) || '');
+        var docClean = docRaw.replace(/\D/g, '') || docRaw.toLowerCase();
+        if (docClean.indexOf(qDni) === -1 && docRaw.toLowerCase().indexOf(String(STATE_CV.filterDni).toLowerCase()) === -1) {
+          return false;
+        }
+      }
       if (STATE_CV.filterPuesto && (!c.postulacion || c.postulacion.puestoPrincipal !== STATE_CV.filterPuesto)) {
         return false;
       }
@@ -413,19 +434,31 @@
                   '</div>';
               }
 
+              var updateBadgeHtml = c.hasCandidateUpdate
+                ? '<span style="display:inline-flex;align-items:center;gap:0.25rem;background:#56D7A1;color:#112D3A;font-size:0.7rem;font-weight:900;padding:0.15rem 0.5rem;border-radius:999px;margin-left:0.4rem;">🔔 NUEVOS DATOS ACTUALIZADOS</span>'
+                : Number(c.candidateUpdateCount || 0) > 0
+                  ? '<span style="display:inline-flex;align-items:center;gap:0.25rem;background:rgba(86,215,161,0.2);color:#0f5d3f;font-size:0.7rem;font-weight:800;padding:0.12rem 0.45rem;border-radius:999px;margin-left:0.4rem;">↻ Actualizado (' +
+                    esc(c.candidateUpdateCount) +
+                    ')</span>'
+                  : '';
+
               return (
-                '<tr style="border-bottom:1px solid #e2ecf0;">' +
+                '<tr style="border-bottom:1px solid #e2ecf0;' +
+                (c.hasCandidateUpdate ? 'background:rgba(86,215,161,0.1);' : '') +
+                '">' +
                 '<td style="padding:0.65rem;">' +
                 '<div style="display:flex;align-items:center;gap:0.65rem;">' +
                 renderAvatarHtml(c, 44) +
                 '<div>' +
-                '<div style="font-weight:800;color:#112D3A;">' +
+                '<div style="font-weight:800;color:#112D3A;display:flex;align-items:center;flex-wrap:wrap;gap:0.2rem;">' +
                 esc(p.nombreCompleto || '') +
+                updateBadgeHtml +
                 '</div>' +
                 '<div style="font-size:0.75rem;color:#546e7a;">' +
                 esc(p.tipoDoc || 'DNI') +
-                ' ' +
+                ' <strong>' +
                 esc(p.nroDoc || '') +
+                '</strong>' +
                 (p.edad ? ' · ' + esc(p.edad) + ' años' : '') +
                 ' · <code>' +
                 esc(c.codigo) +
@@ -451,7 +484,12 @@
                   : '<span style="color:#94a3b8;">Sin PDF</span>') +
                 '</td>' +
                 '<td style="padding:0.65rem;font-size:0.78rem;color:#475569;">' +
-                esc(new Date(c.createdAt).toLocaleDateString('es-AR')) +
+                esc(new Date(c.lastCandidateUpdateAt || c.updatedAt || c.createdAt).toLocaleDateString('es-AR')) +
+                (c.lastCandidateUpdateAt
+                  ? '<br><small style="color:#0f5d3f;font-weight:800;">Act. ' +
+                    esc(new Date(c.lastCandidateUpdateAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })) +
+                    '</small>'
+                  : '') +
                 '</td>' +
                 (isPrevisualizados
                   ? '<td style="padding:0.65rem;">' + quickSelectRating + '</td>'
@@ -468,12 +506,30 @@
             })
             .join('');
 
+    var updatedAlertsInList = sourceList.filter(function (c) {
+      return Boolean(c.hasCandidateUpdate);
+    });
+    var alertBannerHtml =
+      updatedAlertsInList.length > 0
+        ? '<div style="margin-bottom:0.9rem;padding:0.75rem 1rem;border-radius:12px;border:2px solid #56D7A1;background:#112D3A;color:#FFFFFF;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">' +
+          '<div style="font-size:0.84rem;">' +
+          '<strong style="color:#56D7A1;">🔔 Alerta de Nuevos Datos en CV:</strong> Hay <strong>' +
+          esc(updatedAlertsInList.length) +
+          '</strong> postulante(s) que actualizaron su Curriculum Vitae usando su DNI (sin duplicar registro).' +
+          '</div>' +
+          '</div>'
+        : '';
+
     return (
       '<div class="ms-sa-card">' +
+      alertBannerHtml +
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0.65rem;margin-bottom:1rem;">' +
-      '<div><label class="ms-sa-label">Buscar por Nombre, DNI o Localidad</label><input class="ms-sa-input" id="ms-cv-search-inp" value="' +
+      '<div><label class="ms-sa-label">🔎 Filtro por DNI / Documento</label><input class="ms-sa-input" id="ms-cv-dni-inp" value="' +
+      esc(STATE_CV.filterDni) +
+      '" placeholder="Ej: 38123456"></div>' +
+      '<div><label class="ms-sa-label">Buscar por Nombre, Código o Localidad</label><input class="ms-sa-input" id="ms-cv-search-inp" value="' +
       esc(STATE_CV.filterSearch) +
-      '" placeholder="Ej: González, 38123..., Río Cuarto"></div>' +
+      '" placeholder="Ej: González, CV-2026..., Río Cuarto"></div>' +
       '<div><label class="ms-sa-label">Filtrar por Puesto</label><select class="ms-sa-select" id="ms-cv-puesto-sel"><option value="">Todos los puestos</option>' +
       puestoOptions +
       '</select></div>' +
@@ -616,6 +672,14 @@
       '<span style="background:#56D7A1;color:#112D3A;font-size:0.72rem;font-weight:900;padding:0.18rem 0.6rem;border-radius:999px;">' +
       esc(c.codigo) +
       ' · PREVISUALIZADO</span>' +
+      (Number(c.candidateUpdateCount || 0) > 0
+        ? '<span style="background:rgba(86,215,161,0.22);color:#56D7A1;border:1px solid #56D7A1;font-size:0.7rem;font-weight:900;padding:0.16rem 0.55rem;border-radius:999px;margin-left:0.4rem;">🔔 ACTUALIZADO POR DNI (' +
+          esc(c.candidateUpdateCount) +
+          (c.lastCandidateUpdateAt
+            ? ' · ' + esc(new Date(c.lastCandidateUpdateAt).toLocaleString('es-AR'))
+            : '') +
+          ')</span>'
+        : '') +
       '<h3 style="margin:0.35rem 0 0.15rem;font-size:1.35rem;color:#FFFFFF;">' +
       esc(p.nombreCompleto || '') +
       '</h3>' +
@@ -879,6 +943,19 @@
   }
 
   function bindCvWorkspaceEvents(bodyEl) {
+    var dniInp = bodyEl.querySelector('#ms-cv-dni-inp');
+    if (dniInp) {
+      dniInp.addEventListener('input', function () {
+        STATE_CV.filterDni = dniInp.value;
+        renderCvWorkspace();
+        var nextDniInp = document.getElementById('ms-cv-dni-inp');
+        if (nextDniInp) {
+          nextDniInp.focus();
+          nextDniInp.setSelectionRange(nextDniInp.value.length, nextDniInp.value.length);
+        }
+      });
+    }
+
     var searchInp = bodyEl.querySelector('#ms-cv-search-inp');
     if (searchInp) {
       searchInp.addEventListener('input', function () {

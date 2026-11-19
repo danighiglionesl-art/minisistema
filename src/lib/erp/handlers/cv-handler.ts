@@ -30,6 +30,9 @@ export interface CvRecord {
   codigo: string;
   createdAt: string;
   updatedAt: string;
+  hasCandidateUpdate?: boolean;
+  lastCandidateUpdateAt?: string | null;
+  candidateUpdateCount?: number;
   viewed: boolean;
   viewedAt: string | null;
   viewedBy: string | null;
@@ -172,10 +175,49 @@ async function trySendCandidateConfirmationEmail(params: {
   }
 }
 
+function normalizeDocDigits(raw: string): string {
+  const digits = String(raw || "").replace(/\D/g, "");
+  return digits.length >= 6 ? digits : String(raw || "").trim().toUpperCase();
+}
+
 export async function handlePublicCvCatalogs(
-  _req: NextRequest,
+  req: NextRequest,
   tenant: ErpTenantRecord
 ): Promise<NextResponse> {
+  const lookupDocRaw = req.nextUrl.searchParams.get("nroDoc") || "";
+  if (lookupDocRaw.trim()) {
+    const targetDoc = normalizeDocDigits(lookupDocRaw);
+    if (!targetDoc || targetDoc.length < 6) {
+      return NextResponse.json({ ok: true, found: false, cv: null });
+    }
+    const { payload: db } = await getTenantDoc<CvDbDoc>(tenant, "cv_db", emptyCvDb());
+    const items = Array.isArray(db.items) ? db.items : [];
+    const existing = items.find(
+      (x) =>
+        !x.deleted &&
+        normalizeDocDigits(x.personal?.nroDoc || "") === targetDoc
+    );
+    if (!existing) {
+      return NextResponse.json({ ok: true, found: false, cv: null });
+    }
+    return NextResponse.json({
+      ok: true,
+      found: true,
+      cv: {
+        id: existing.id,
+        codigo: existing.codigo,
+        createdAt: existing.createdAt,
+        updatedAt: existing.updatedAt,
+        personal: existing.personal,
+        ubicacionContacto: existing.ubicacionContacto,
+        postulacion: existing.postulacion,
+        formacionHabilidades: existing.formacionHabilidades,
+        experiencias: existing.experiencias,
+        archivos: existing.archivos,
+      },
+    });
+  }
+
   const brand = enforceOptionBranding(
     tenant.option_type,
     tenant.is_base,
@@ -393,13 +435,24 @@ export async function handlePublicCvSubmission(
   const { payload: db } = await getTenantDoc<CvDbDoc>(tenant, "cv_db", emptyCvDb());
   if (!Array.isArray(db.items)) db.items = [];
 
-  const nextSeq = Number(db.lastSeq || 0) + 1;
-  db.lastSeq = nextSeq;
-  const year = new Date().getFullYear();
-  const codigo = `CV-${year}-${String(nextSeq).padStart(4, "0")}`;
-  const cvId = `cv_${Date.now()}_${nextSeq}`;
+  const targetDocNorm = normalizeDocDigits(nroDoc);
+  const existingIdx = db.items.findIndex(
+    (x) => !x.deleted && normalizeDocDigits(x.personal?.nroDoc || "") === targetDocNorm
+  );
+  const existingRecord = existingIdx >= 0 ? db.items[existingIdx] : null;
+  const isUpdate = Boolean(existingRecord);
 
-  let fotoUrl = "";
+  const nextSeq = existingRecord ? existingRecord.seq : Number(db.lastSeq || 0) + 1;
+  if (!existingRecord) {
+    db.lastSeq = nextSeq;
+  }
+  const year = new Date().getFullYear();
+  const codigo = existingRecord
+    ? existingRecord.codigo
+    : `CV-${year}-${String(nextSeq).padStart(4, "0")}`;
+  const cvId = existingRecord ? existingRecord.id : `cv_${Date.now()}_${nextSeq}`;
+
+  let fotoUrl = existingRecord?.archivos?.fotoUrl || "";
   const rawPhoto = String(body.fotoBase64 || "").trim();
   if (rawPhoto) {
     const mPhoto = rawPhoto.match(/^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/i);
@@ -413,12 +466,19 @@ export async function handlePublicCvSubmission(
         data_b64: mPhoto[2],
       });
       fotoUrl = `/sistema/assets/products/${photoKey}?tenant=${encodeURIComponent(tenant.slug)}`;
+    } else if (rawPhoto.startsWith("/sistema/assets/") || rawPhoto.startsWith("http")) {
+      fotoUrl = rawPhoto;
     }
+  } else if (body.clearPhoto === true) {
+    fotoUrl = "";
   }
 
-  let pdfUrl = "";
+  let pdfUrl = existingRecord?.archivos?.pdfUrl || "";
+  let pdfNombreOriginal =
+    String(body.pdfFileName || "").trim() ||
+    existingRecord?.archivos?.pdfNombreOriginal ||
+    "";
   const rawPdf = String(body.pdfBase64 || "").trim();
-  const pdfNombreOriginal = String(body.pdfFileName || "").trim();
   if (rawPdf) {
     const mPdf = rawPdf.match(/^data:(application\/pdf);base64,(.+)$/i);
     if (!mPdf) {
@@ -442,6 +502,9 @@ export async function handlePublicCvSubmission(
       data_b64: mPdf[2],
     });
     pdfUrl = `/sistema/assets/banners/${pdfKey}?tenant=${encodeURIComponent(tenant.slug)}`;
+  } else if (body.clearPdf === true) {
+    pdfUrl = "";
+    pdfNombreOriginal = "";
   }
 
   const domicilioParts = [
@@ -479,16 +542,21 @@ export async function handlePublicCvSubmission(
     id: cvId,
     seq: nextSeq,
     codigo,
-    createdAt: nowIso,
+    createdAt: existingRecord ? existingRecord.createdAt : nowIso,
     updatedAt: nowIso,
+    hasCandidateUpdate: isUpdate,
+    lastCandidateUpdateAt: isUpdate ? nowIso : existingRecord?.lastCandidateUpdateAt || null,
+    candidateUpdateCount: isUpdate
+      ? Number(existingRecord?.candidateUpdateCount || 0) + 1
+      : 0,
     viewed: false,
     viewedAt: null,
     viewedBy: null,
-    rating: null,
-    ratedAt: null,
-    ratedBy: null,
-    stage: "recibido",
-    notes: "",
+    rating: existingRecord ? existingRecord.rating : null,
+    ratedAt: existingRecord ? existingRecord.ratedAt : null,
+    ratedBy: existingRecord ? existingRecord.ratedBy : null,
+    stage: isUpdate ? "actualizado" : "recibido",
+    notes: existingRecord ? existingRecord.notes : "",
     personal: {
       nombres,
       apellidos,
@@ -558,9 +626,18 @@ export async function handlePublicCvSubmission(
     },
   };
 
+  if (existingIdx >= 0) {
+    db.items.splice(existingIdx, 1);
+  }
   db.items.unshift(record);
   db.updatedAt = nowIso;
-  await putTenantDoc(tenant, "cv_db", db, "postulante_web", "submit_cv");
+  await putTenantDoc(
+    tenant,
+    "cv_db",
+    db,
+    "postulante_web",
+    isUpdate ? "update_cv_by_dni" : "submit_cv"
+  );
 
   const emailSent = await trySendCandidateConfirmationEmail({
     candidateEmail: email,
@@ -572,12 +649,15 @@ export async function handlePublicCvSubmission(
 
   return NextResponse.json({
     ok: true,
+    isUpdate,
     codigo,
     submittedAt: nowIso,
     candidateName: `${nombres} ${apellidos}`,
     puesto: puestoPrincipal,
     emailNotificationSent: emailSent,
-    message: `¡Tu Curriculum Vitae fue enviado y registrado correctamente bajo el comprobante ${codigo}!`,
+    message: isUpdate
+      ? `¡Tus datos de Curriculum Vitae (DNI ${nroDoc}) fueron actualizados correctamente bajo tu comprobante ${codigo} y se envió una alerta de nuevos datos al administrador!`
+      : `¡Tu Curriculum Vitae fue enviado y registrado correctamente bajo el comprobante ${codigo}!`,
   });
 }
 
@@ -604,6 +684,7 @@ export async function handleErpCurriculum(
 
   if (req.method === "GET") {
     const recibidos = activeItems.filter((x) => !x.viewed);
+    const actualizadosSinVer = recibidos.filter((x) => Boolean(x.hasCandidateUpdate));
     const previsualizados = activeItems.filter((x) => Boolean(x.viewed));
     const rated = previsualizados.filter(
       (x) => typeof x.rating === "number" && x.rating >= 1 && x.rating <= 10
@@ -632,6 +713,7 @@ export async function handleErpCurriculum(
       stats: {
         totalActivos: activeItems.length,
         recibidosSinVer: recibidos.length,
+        actualizadosSinVerCount: actualizadosSinVer.length,
         previsualizadosCount: previsualizados.length,
         promedioValoracion: avgRating,
       },
@@ -656,11 +738,12 @@ export async function handleErpCurriculum(
     const nowIso = new Date().toISOString();
 
     if (action === "mark_previewed") {
-      if (!item.viewed) {
+      if (!item.viewed || item.hasCandidateUpdate) {
         item.viewed = true;
         item.viewedAt = nowIso;
         item.viewedBy = actor || "admin";
-        if (item.stage === "recibido") {
+        item.hasCandidateUpdate = false;
+        if (item.stage === "recibido" || item.stage === "actualizado") {
           item.stage = "previsualizado";
         }
         item.updatedAt = nowIso;
