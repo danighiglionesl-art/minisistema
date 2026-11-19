@@ -4273,9 +4273,12 @@ function renderAbmRubrosSection() {
     actWrap.style.gap = '0.4rem';
     actWrap.style.flexWrap = 'wrap';
 
+    const uniformAbmBtnStyle = 'width:158px; min-height:32px; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; white-space:nowrap;';
+
     const btnEdit = document.createElement('button');
     btnEdit.type = 'button';
     btnEdit.className = 'btn-secondary btn-sm';
+    btnEdit.style.cssText = uniformAbmBtnStyle;
     btnEdit.textContent = '✏️ Modificar';
     btnEdit.addEventListener('click', () => editRubroInAbm(r));
     actWrap.appendChild(btnEdit);
@@ -4283,6 +4286,7 @@ function renderAbmRubrosSection() {
     const btnBaja = document.createElement('button');
     btnBaja.type = 'button';
     btnBaja.className = 'btn-secondary btn-sm';
+    btnBaja.style.cssText = uniformAbmBtnStyle;
     if (isBaja) {
       btnBaja.textContent = '♻️ Reactivar';
       btnBaja.style.borderColor = 'rgba(49, 196, 141, 0.45)';
@@ -4641,9 +4645,12 @@ function renderAbmMarcasTable(countsMap = null) {
     actWrap.style.gap = '0.4rem';
     actWrap.style.flexWrap = 'wrap';
 
+    const uniformAbmBtnStyle = 'width:158px; min-height:32px; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; white-space:nowrap;';
+
     const btnEdit = document.createElement('button');
     btnEdit.type = 'button';
     btnEdit.className = 'btn-secondary btn-sm';
+    btnEdit.style.cssText = uniformAbmBtnStyle;
     btnEdit.textContent = '✏️ Modificar';
     btnEdit.addEventListener('click', () => editMarcaInAbm(m));
     actWrap.appendChild(btnEdit);
@@ -4651,6 +4658,7 @@ function renderAbmMarcasTable(countsMap = null) {
     const btnBaja = document.createElement('button');
     btnBaja.type = 'button';
     btnBaja.className = 'btn-secondary btn-sm';
+    btnBaja.style.cssText = uniformAbmBtnStyle;
     if (isBaja) {
       btnBaja.textContent = '♻️ Reactivar';
       btnBaja.style.borderColor = 'rgba(49, 196, 141, 0.45)';

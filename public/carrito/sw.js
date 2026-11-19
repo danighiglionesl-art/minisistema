@@ -1,4 +1,4 @@
-const APP_BUILD_VERSION = 'v48-20261118184817';
+const APP_BUILD_VERSION = 'v48-20261119104218';
 
 const IS_PASEO_SW =
   self.location.hostname.includes('paseoalberdi') ||

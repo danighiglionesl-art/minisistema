@@ -211,27 +211,9 @@ html[data-brand="minisistema"] .store-brand-text {
   align-items: center !important;
 }
 
-/* 5. BOTÓN Y SECCIÓN EXCLUSIVA ADMINISTRADOR GENERAL (@danielg) */
+/* 5. SECCIÓN EXCLUSIVA ADMINISTRADOR GENERAL (@danielg) */
 .ms-superadmin-topbar-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.46rem 0.9rem;
-  border-radius: 999px;
-  background: #56D7A1;
-  color: #112D3A;
-  font-weight: 800;
-  font-size: 0.8rem;
-  border: 1.5px solid #FFFFFF;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(86, 215, 161, 0.35);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  white-space: nowrap;
-}
-
-.ms-superadmin-topbar-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(86, 215, 161, 0.5);
+  display: none !important;
 }
 
 .ms-sa-grid {
