@@ -23,15 +23,210 @@ import {
   savePricingConfig,
 } from "../tenant-service";
 import {
+  DEFINED_USER_TYPES,
+  type DefinedUserType,
+  type GlobalManagedUserRecord,
+  type GlobalUserStatus,
+  INITIAL_ANTIGRAVITY_USERS,
+} from "../global-users-seed";
+import {
   type DiscountDurationType,
   ERP_COMMERCIAL_MODULES,
   type ErpTenantRecord,
   expandCommercialToErpModules,
+  GENERAL_ADMIN_DEFAULT_PASS,
   GENERAL_ADMIN_USERNAME,
   normalizeErpRole,
 } from "../types";
 
 type AnyObj = Record<string, any>;
+
+const GLOBAL_USERS_DOC_KEY = "global_users_directory_v1";
+
+interface GlobalUsersDocPayload {
+  updatedAt: string;
+  items: GlobalManagedUserRecord[];
+}
+
+function normalizeDefinedUserType(raw: unknown, username = ""): DefinedUserType {
+  if (String(username || "").trim().toLowerCase() === GENERAL_ADMIN_USERNAME) {
+    return "Admin. Gral.";
+  }
+  const clean = String(raw || "").trim();
+  const valid = DEFINED_USER_TYPES.find(
+    (t) => t.key.toLowerCase() === clean.toLowerCase()
+  );
+  if (valid) return valid.key;
+  if (clean.toLowerCase() === "administrador general") return "Admin. Gral.";
+  return "Usuario";
+}
+
+function mapUserTypeToErpRole(
+  userType: DefinedUserType,
+  username: string
+): "Administrador General" | "Administrador" | "Usuario" {
+  if (username.toLowerCase() === GENERAL_ADMIN_USERNAME || userType === "Admin. Gral.") {
+    return "Administrador General";
+  }
+  if (userType === "Administrador") return "Administrador";
+  return "Usuario";
+}
+
+async function getAndEnsureVaultDoc(baseTenant: ErpTenantRecord): Promise<GlobalUsersDocPayload> {
+  const { payload } = await getTenantDoc<GlobalUsersDocPayload>(
+    baseTenant,
+    GLOBAL_USERS_DOC_KEY,
+    { updatedAt: new Date().toISOString(), items: [] }
+  );
+  const items = Array.isArray(payload?.items) ? [...payload.items] : [];
+  const existingIds = new Set(items.map((x) => x.id));
+  let changed = false;
+  for (const seedItem of INITIAL_ANTIGRAVITY_USERS) {
+    if (!existingIds.has(seedItem.id)) {
+      items.push({ ...seedItem });
+      existingIds.add(seedItem.id);
+      changed = true;
+    }
+  }
+  if (changed) {
+    const nextDoc: GlobalUsersDocPayload = {
+      updatedAt: new Date().toISOString(),
+      items,
+    };
+    await putTenantDoc(
+      baseTenant,
+      GLOBAL_USERS_DOC_KEY,
+      nextDoc,
+      GENERAL_ADMIN_USERNAME,
+      "seed_global_users_directory"
+    );
+    return nextDoc;
+  }
+  return { updatedAt: payload?.updatedAt || new Date().toISOString(), items };
+}
+
+async function buildGlobalUsersInventory(
+  baseTenant: ErpTenantRecord,
+  tenants: ErpTenantRecord[]
+): Promise<GlobalManagedUserRecord[]> {
+  const vaultDoc = await getAndEnsureVaultDoc(baseTenant);
+  const vaultById = new Map<string, GlobalManagedUserRecord>();
+  for (const v of vaultDoc.items) {
+    vaultById.set(v.id, v);
+  }
+
+  const erpResults: GlobalManagedUserRecord[] = [];
+  await Promise.all(
+    tenants.map(async (t) => {
+      try {
+        const [tUsers, { payload: suspDb }] = await Promise.all([
+          listTenantUsersFromDb(t),
+          getTenantDoc<Record<string, { reason?: string; note?: string; userType?: DefinedUserType }>>(
+            t,
+            "users_suspension_meta",
+            {}
+          ),
+        ]);
+        const projLabel = t.is_base
+          ? "MiniSistema ERP (/sistema)"
+          : `MiniSistema ERP — ${t.fantasy_name}`;
+        const projUrl =
+          t.deployment?.publicErpUrl ||
+          (t.is_base
+            ? "https://www.minisistema.com.ar/sistema"
+            : `https://www.minisistema.com.ar/${t.slug}`);
+
+        const hasDaniel = tUsers.some(
+          (u) => u.username.toLowerCase() === GENERAL_ADMIN_USERNAME
+        );
+        const fullList = hasDaniel
+          ? tUsers
+          : [
+              {
+                username: GENERAL_ADMIN_USERNAME,
+                plain_compat: GENERAL_ADMIN_DEFAULT_PASS,
+                name: "Daniel G.",
+                role: "Administrador General" as const,
+                branch: t.fantasy_name || "Casa Central",
+                whatsapp: "+5493585095475",
+                active: true,
+              },
+              ...tUsers,
+            ];
+
+        for (const u of fullList) {
+          const uLower = u.username.toLowerCase();
+          const rowId = `erp__${t.slug}__${uLower}`;
+          const meta = suspDb?.[uLower] || {};
+          const vaultOverride = vaultById.get(rowId);
+          const normRole = normalizeErpRole(u.role, uLower);
+          const resolvedType: DefinedUserType =
+            uLower === GENERAL_ADMIN_USERNAME
+              ? "Admin. Gral."
+              : meta.userType
+                ? normalizeDefinedUserType(meta.userType, uLower)
+                : normRole === "Administrador"
+                  ? "Administrador"
+                  : "Usuario";
+
+          let status: GlobalUserStatus = "active";
+          let suspendedReason = "";
+          if (uLower !== GENERAL_ADMIN_USERNAME) {
+            if (u.active === false) {
+              if (meta.reason === "falta_pago") {
+                status = "suspended_nonpayment";
+                suspendedReason = meta.note || "Deshabilitado transitoriamente por falta de pago";
+              } else {
+                status = "disabled";
+                suspendedReason = meta.note || "Usuario deshabilitado manualmente";
+              }
+            } else if (t.status === "suspended") {
+              status = "suspended_nonpayment";
+              suspendedReason = "Sistema del comercio suspendido por falta de pago";
+            }
+          }
+
+          erpResults.push({
+            id: rowId,
+            source: "erp_tenant",
+            tenantSlug: t.slug,
+            project: projLabel,
+            projectUrl: projUrl,
+            name: u.name || u.username,
+            username: u.username,
+            email: vaultOverride?.email || "",
+            password:
+              u.plain_compat ||
+              vaultOverride?.password ||
+              (uLower === GENERAL_ADMIN_USERNAME ? GENERAL_ADMIN_DEFAULT_PASS : ""),
+            altPasswordNote: "",
+            userType: resolvedType,
+            status,
+            suspendedReason,
+            whatsapp: u.whatsapp || "",
+            notes:
+              meta.note ||
+              vaultOverride?.notes ||
+              (t.is_base
+                ? "Base limpia oficial MiniSistema (Supabase erp_minisistema)"
+                : `Comercio ${t.option_type === 1 ? "Opción 1" : "Opción 2"} (${t.db_schema})`),
+            deleted: false,
+            createdAt: t.created_at || new Date().toISOString(),
+            updatedAt: t.updated_at || new Date().toISOString(),
+          });
+        }
+      } catch {
+        // Ignore isolated tenant read errors so global directory always loads
+      }
+    })
+  );
+
+  const vaultOnly = vaultDoc.items.filter(
+    (x) => !x.deleted && x.source !== "erp_tenant"
+  );
+
+  return [...erpResults, ...vaultOnly];
+}
 
 function requireGeneralAdmin(req: NextRequest, activeTenantSlug: string) {
   const sess =
@@ -69,7 +264,7 @@ export async function handleErpSuperAdmin(
     );
   }
 
-  await ensureBaseMiniSistemaTenant();
+  const baseTenant = await ensureBaseMiniSistemaTenant();
   const sb = await getPlatformSupabase();
 
   if (req.method === "GET") {
@@ -144,11 +339,24 @@ export async function handleErpSuperAdmin(
           .limit(30),
       ]);
 
+    const tenantsList = (tenants || []) as ErpTenantRecord[];
+    const globalUsers = await buildGlobalUsersInventory(baseTenant, tenantsList);
+
+    if (action === "global_users") {
+      return NextResponse.json({
+        ok: true,
+        definedUserTypes: DEFINED_USER_TYPES,
+        globalUsers,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       commercialModules: ERP_COMMERCIAL_MODULES,
+      definedUserTypes: DEFINED_USER_TYPES,
+      globalUsers,
       pricingConfig: pricing,
-      tenants: tenants || [],
+      tenants: tenantsList,
       recentEvents: events || [],
       credentialsStatus: {
         mpConfigured: Boolean(secrets.mp_access_token),
@@ -677,6 +885,411 @@ export async function handleErpSuperAdmin(
       return NextResponse.json({
         ok: true,
         message: `Usuario @${username} dado de baja.`,
+      });
+    }
+
+    if (action === "save_global_user") {
+      const targetSlug = String(body.tenantSlug || "").trim().toLowerCase();
+      const rawUsername = String(body.username || "").trim();
+      const password = String(body.password || "").trim();
+      const name = String(body.name || rawUsername).trim();
+      const email = String(body.email || "").trim();
+      const whatsapp = String(body.whatsapp || "").trim();
+      const notes = String(body.notes || "").trim();
+      const rawStatus = String(body.status || "active") as GlobalUserStatus;
+      const status: GlobalUserStatus =
+        rawStatus === "suspended_nonpayment" || rawStatus === "disabled"
+          ? rawStatus
+          : "active";
+      const userType = normalizeDefinedUserType(body.userType, rawUsername);
+
+      if (!rawUsername || rawUsername.length < 2) {
+        return NextResponse.json(
+          { ok: false, message: "Ingresá un usuario o correo válido." },
+          { status: 400 }
+        );
+      }
+
+      if (targetSlug) {
+        const targetTenant = await getTenantBySlug(targetSlug);
+        if (!targetTenant) {
+          return NextResponse.json(
+            { ok: false, message: "El sistema / comercio seleccionado no existe." },
+            { status: 404 }
+          );
+        }
+        const cleanErpUser = rawUsername
+          .toLowerCase()
+          .replace(/[^a-z0-9._@-]/g, "");
+        const isProtectedDaniel =
+          cleanErpUser === GENERAL_ADMIN_USERNAME && targetTenant.is_base;
+        const effectiveStatus: GlobalUserStatus = isProtectedDaniel ? "active" : status;
+        const erpRole = mapUserTypeToErpRole(userType, cleanErpUser);
+
+        await upsertTenantUserInDb(targetTenant, {
+          username: cleanErpUser,
+          password_hash: password.length >= 3 ? hashPassword(password) : "",
+          plain_compat: password.length >= 3 ? password : "",
+          name,
+          vendedor: name.toUpperCase(),
+          role: erpRole,
+          branch: targetTenant.fantasy_name || "Casa Central",
+          whatsapp,
+          avatar: "",
+          modules: targetTenant.enabled_modules,
+          active: effectiveStatus === "active",
+          actor: GENERAL_ADMIN_USERNAME,
+        });
+
+        const { payload: suspDb } = await getTenantDoc<
+          Record<string, { reason?: string; note?: string; userType?: DefinedUserType }>
+        >(targetTenant, "users_suspension_meta", {});
+        suspDb[cleanErpUser] = {
+          reason:
+            effectiveStatus === "suspended_nonpayment"
+              ? "falta_pago"
+              : effectiveStatus === "disabled"
+                ? "manual"
+                : "",
+          note: notes,
+          userType,
+        };
+        await putTenantDoc(
+          targetTenant,
+          "users_suspension_meta",
+          suspDb,
+          GENERAL_ADMIN_USERNAME,
+          "save_global_user_meta"
+        );
+
+        return NextResponse.json({
+          ok: true,
+          message: `Usuario @${cleanErpUser} (${userType}) guardado y sincronizado en ${targetTenant.fantasy_name}.`,
+        });
+      }
+
+      // Usuario de Proyecto Externo / Bóveda Maestra
+      const project = String(body.project || "").trim() || "Proyecto Externo";
+      const projectUrl = String(body.projectUrl || "").trim();
+      const vaultDoc = await getAndEnsureVaultDoc(baseTenant);
+      const nowIso = new Date().toISOString();
+      const reqId = String(body.id || "").trim();
+      const idx = reqId
+        ? vaultDoc.items.findIndex((x) => x.id === reqId)
+        : -1;
+
+      if (idx >= 0) {
+        vaultDoc.items[idx] = {
+          ...vaultDoc.items[idx],
+          source: "project_vault",
+          tenantSlug: null,
+          project,
+          projectUrl,
+          name,
+          username: rawUsername,
+          email,
+          password: password || vaultDoc.items[idx].password,
+          userType,
+          status,
+          suspendedReason:
+            status === "suspended_nonpayment"
+              ? notes || "Deshabilitado transitoriamente por falta de pago"
+              : status === "disabled"
+                ? notes || "Deshabilitado manualmente"
+                : "",
+          whatsapp,
+          notes,
+          deleted: false,
+          updatedAt: nowIso,
+        };
+      } else {
+        const newId = `vault_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        vaultDoc.items.unshift({
+          id: newId,
+          source: "project_vault",
+          tenantSlug: null,
+          project,
+          projectUrl,
+          name,
+          username: rawUsername,
+          email,
+          password,
+          userType,
+          status,
+          suspendedReason:
+            status === "suspended_nonpayment"
+              ? notes || "Deshabilitado transitoriamente por falta de pago"
+              : "",
+          whatsapp,
+          notes,
+          deleted: false,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        });
+      }
+
+      vaultDoc.updatedAt = nowIso;
+      await putTenantDoc(
+        baseTenant,
+        GLOBAL_USERS_DOC_KEY,
+        vaultDoc,
+        GENERAL_ADMIN_USERNAME,
+        "save_vault_user"
+      );
+
+      return NextResponse.json({
+        ok: true,
+        message: `Usuario "${rawUsername}" guardado en el proyecto "${project}".`,
+      });
+    }
+
+    if (action === "toggle_global_user_status") {
+      const rowId = String(body.id || "").trim();
+      const targetSlug = String(body.tenantSlug || "").trim().toLowerCase();
+      const username = String(body.username || "").trim().toLowerCase();
+      const nextStatus = String(body.status || "active") as GlobalUserStatus;
+      const reasonNote = String(body.note || "").trim();
+
+      if (targetSlug) {
+        const targetTenant = await getTenantBySlug(targetSlug);
+        if (!targetTenant) {
+          return NextResponse.json(
+            { ok: false, message: "Comercio no encontrado." },
+            { status: 404 }
+          );
+        }
+        if (username === GENERAL_ADMIN_USERNAME) {
+          return NextResponse.json(
+            {
+              ok: false,
+              message: "El usuario Admin. Gral. (@danielg) nunca puede deshabilitarse.",
+            },
+            { status: 400 }
+          );
+        }
+        const existingUsers = await listTenantUsersFromDb(targetTenant);
+        const uRec = existingUsers.find(
+          (u) => u.username.toLowerCase() === username
+        );
+        if (!uRec) {
+          return NextResponse.json(
+            { ok: false, message: "Usuario no encontrado en el comercio." },
+            { status: 404 }
+          );
+        }
+
+        await upsertTenantUserInDb(targetTenant, {
+          ...uRec,
+          active: nextStatus === "active",
+          actor: GENERAL_ADMIN_USERNAME,
+        });
+
+        const { payload: suspDb } = await getTenantDoc<
+          Record<string, { reason?: string; note?: string; userType?: DefinedUserType }>
+        >(targetTenant, "users_suspension_meta", {});
+        suspDb[username] = {
+          ...(suspDb[username] || {}),
+          reason:
+            nextStatus === "suspended_nonpayment"
+              ? "falta_pago"
+              : nextStatus === "disabled"
+                ? "manual"
+                : "",
+          note:
+            reasonNote ||
+            (nextStatus === "suspended_nonpayment"
+              ? "Deshabilitado transitoriamente por falta de pago"
+              : ""),
+        };
+        await putTenantDoc(
+          targetTenant,
+          "users_suspension_meta",
+          suspDb,
+          GENERAL_ADMIN_USERNAME,
+          "toggle_global_user_status"
+        );
+
+        return NextResponse.json({
+          ok: true,
+          message:
+            nextStatus === "suspended_nonpayment"
+              ? `⏸️ Usuario @${username} (${targetTenant.fantasy_name}) deshabilitado transitoriamente por falta de pago.`
+              : nextStatus === "active"
+                ? `✅ Usuario @${username} (${targetTenant.fantasy_name}) rehabilitado.`
+                : `⛔ Usuario @${username} deshabilitado.`,
+        });
+      }
+
+      const vaultDoc = await getAndEnsureVaultDoc(baseTenant);
+      const idx = vaultDoc.items.findIndex((x) => x.id === rowId);
+      if (idx < 0) {
+        return NextResponse.json(
+          { ok: false, message: "Registro de usuario no encontrado." },
+          { status: 404 }
+        );
+      }
+      vaultDoc.items[idx].status = nextStatus;
+      vaultDoc.items[idx].suspendedReason =
+        nextStatus === "suspended_nonpayment"
+          ? reasonNote || "Deshabilitado transitoriamente por falta de pago"
+          : nextStatus === "disabled"
+            ? reasonNote || "Deshabilitado manualmente"
+            : "";
+      vaultDoc.items[idx].updatedAt = new Date().toISOString();
+      vaultDoc.updatedAt = new Date().toISOString();
+      await putTenantDoc(
+        baseTenant,
+        GLOBAL_USERS_DOC_KEY,
+        vaultDoc,
+        GENERAL_ADMIN_USERNAME,
+        "toggle_vault_user_status"
+      );
+
+      return NextResponse.json({
+        ok: true,
+        message:
+          nextStatus === "suspended_nonpayment"
+            ? `⏸️ Usuario "${vaultDoc.items[idx].username}" marcado como suspendido por falta de pago.`
+            : nextStatus === "active"
+              ? `✅ Usuario "${vaultDoc.items[idx].username}" rehabilitado.`
+              : `⛔ Usuario "${vaultDoc.items[idx].username}" deshabilitado.`,
+      });
+    }
+
+    if (action === "toggle_project_nonpayment") {
+      const project = String(body.project || "").trim();
+      const targetSlug = String(body.tenantSlug || "").trim().toLowerCase();
+      const suspend = Boolean(body.suspend);
+
+      if (targetSlug) {
+        const targetTenant = await getTenantBySlug(targetSlug);
+        if (!targetTenant || targetTenant.is_base) {
+          return NextResponse.json(
+            {
+              ok: false,
+              message: "El sistema base de MiniSistema no puede suspenderse.",
+            },
+            { status: 400 }
+          );
+        }
+        await sb
+          .from("erp_tenants")
+          .update({
+            status: suspend ? "suspended" : "active",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("slug", targetTenant.slug);
+
+        const tUsers = await listTenantUsersFromDb(targetTenant);
+        const { payload: suspDb } = await getTenantDoc<
+          Record<string, { reason?: string; note?: string; userType?: DefinedUserType }>
+        >(targetTenant, "users_suspension_meta", {});
+        for (const u of tUsers) {
+          if (u.username.toLowerCase() === GENERAL_ADMIN_USERNAME) continue;
+          await upsertTenantUserInDb(targetTenant, {
+            ...u,
+            active: !suspend,
+            actor: GENERAL_ADMIN_USERNAME,
+          });
+          suspDb[u.username.toLowerCase()] = {
+            ...(suspDb[u.username.toLowerCase()] || {}),
+            reason: suspend ? "falta_pago" : "",
+            note: suspend ? "Suspensión transitoria por falta de pago" : "",
+          };
+        }
+        await putTenantDoc(
+          targetTenant,
+          "users_suspension_meta",
+          suspDb,
+          GENERAL_ADMIN_USERNAME,
+          "toggle_project_nonpayment"
+        );
+        return NextResponse.json({
+          ok: true,
+          message: suspend
+            ? `⏸️ Todos los usuarios de "${targetTenant.fantasy_name}" fueron suspendidos transitoriamente por falta de pago.`
+            : `✅ Todos los usuarios de "${targetTenant.fantasy_name}" fueron rehabilitados.`,
+        });
+      }
+
+      if (!project) {
+        return NextResponse.json(
+          { ok: false, message: "Seleccioná un proyecto válido." },
+          { status: 400 }
+        );
+      }
+      const vaultDoc = await getAndEnsureVaultDoc(baseTenant);
+      let count = 0;
+      for (const item of vaultDoc.items) {
+        if (!item.deleted && item.project === project) {
+          item.status = suspend ? "suspended_nonpayment" : "active";
+          item.suspendedReason = suspend
+            ? "Deshabilitado transitoriamente por falta de pago"
+            : "";
+          item.updatedAt = new Date().toISOString();
+          count++;
+        }
+      }
+      vaultDoc.updatedAt = new Date().toISOString();
+      await putTenantDoc(
+        baseTenant,
+        GLOBAL_USERS_DOC_KEY,
+        vaultDoc,
+        GENERAL_ADMIN_USERNAME,
+        "toggle_project_nonpayment"
+      );
+      return NextResponse.json({
+        ok: true,
+        message: suspend
+          ? `⏸️ ${count} usuario(s) de "${project}" marcados en suspensión transitoria por falta de pago.`
+          : `✅ ${count} usuario(s) de "${project}" rehabilitados.`,
+      });
+    }
+
+    if (action === "delete_global_user") {
+      const rowId = String(body.id || "").trim();
+      const targetSlug = String(body.tenantSlug || "").trim().toLowerCase();
+      const username = String(body.username || "").trim().toLowerCase();
+
+      if (targetSlug) {
+        const targetTenant = await getTenantBySlug(targetSlug);
+        if (!targetTenant || !username || username === GENERAL_ADMIN_USERNAME) {
+          return NextResponse.json(
+            {
+              ok: false,
+              message: "No se puede dar de baja al Admin. Gral. (@danielg).",
+            },
+            { status: 400 }
+          );
+        }
+        await softDeleteTenantUserInDb(targetTenant, username);
+        return NextResponse.json({
+          ok: true,
+          message: `🗑️ Usuario @${username} eliminado de ${targetTenant.fantasy_name}.`,
+        });
+      }
+
+      const vaultDoc = await getAndEnsureVaultDoc(baseTenant);
+      const idx = vaultDoc.items.findIndex((x) => x.id === rowId);
+      if (idx < 0) {
+        return NextResponse.json(
+          { ok: false, message: "Usuario no encontrado." },
+          { status: 404 }
+        );
+      }
+      vaultDoc.items[idx].deleted = true;
+      vaultDoc.items[idx].updatedAt = new Date().toISOString();
+      vaultDoc.updatedAt = new Date().toISOString();
+      await putTenantDoc(
+        baseTenant,
+        GLOBAL_USERS_DOC_KEY,
+        vaultDoc,
+        GENERAL_ADMIN_USERNAME,
+        "delete_vault_user"
+      );
+      return NextResponse.json({
+        ok: true,
+        message: `🗑️ Usuario "${vaultDoc.items[idx].username}" dado de baja del directorio.`,
       });
     }
 

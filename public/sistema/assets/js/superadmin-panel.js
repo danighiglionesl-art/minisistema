@@ -24,7 +24,15 @@
     newLogo1x1Data: '',
     newLogoHorizData: '',
     managingUsersSlug: null,
-    managingUsersList: []
+    managingUsersList: [],
+    usersSearch: '',
+    usersProjectFilter: 'ALL',
+    usersTypeFilter: 'ALL',
+    usersStatusFilter: 'ALL',
+    usersShowAllPasswords: true,
+    usersRevealedMap: {},
+    usersFormOpen: false,
+    usersEditingItem: null
   };
 
   var fmtArs = new Intl.NumberFormat('es-AR', {
@@ -115,6 +123,7 @@
     if (viewKey === 'new') return 'Habilitar Nuevo Sistema';
     if (viewKey === 'pricing') return 'Valor Mensual, Descuentos y Mercado Pago';
     if (viewKey === 'secrets') return 'Credenciales API';
+    if (viewKey === 'users') return 'Usuarios';
     return 'Administrador General';
   }
 
@@ -181,6 +190,17 @@
               '</svg>' +
             '</div>' +
             '<h3>Credenciales API</h3>' +
+          '</article>' +
+          '<article class="module-card" role="button" tabindex="0" data-sa-open-view="users">' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>' +
+                '<circle cx="9" cy="7" r="4"></circle>' +
+                '<path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>' +
+                '<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>' +
+              '</svg>' +
+            '</div>' +
+            '<h3>Usuarios</h3>' +
           '</article>' +
         '</div>';
 
@@ -1212,6 +1232,700 @@
     });
   }
 
+  function getUserTypeBadgeStyle(uType) {
+    if (uType === 'Admin. Gral.') return 'background:#112D3A;color:#56D7A1;border:1px solid #56D7A1;';
+    if (uType === 'Administrador') return 'background:#fef3c7;color:#92400e;border:1px solid #f59e0b;';
+    if (uType === 'Usuario Fábrica') return 'background:#e0f2fe;color:#075985;border:1px solid #38bdf8;';
+    if (uType === 'Profesional / Especialista') return 'background:#f3e8ff;color:#6b21a8;border:1px solid #c084fc;';
+    if (uType === 'Socio / Cliente') return 'background:#f1f5f9;color:#334155;border:1px solid #94a3b8;';
+    return 'background:#dcfce7;color:#166534;border:1px solid #4ade80;';
+  }
+
+  function renderStatusBadgeHtml(status, reason) {
+    if (status === 'suspended_nonpayment') {
+      return (
+        '<span style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.22rem 0.55rem;border-radius:999px;font-size:0.73rem;font-weight:800;background:#ffedd5;color:#9a3412;border:1px solid #fb923c;" title="' +
+        esc(reason || 'Deshabilitado transitoriamente por falta de pago') +
+        '">⏸️ Falta de Pago</span>'
+      );
+    }
+    if (status === 'disabled') {
+      return (
+        '<span style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.22rem 0.55rem;border-radius:999px;font-size:0.73rem;font-weight:800;background:#fee2e2;color:#991b1b;border:1px solid #f87171;" title="' +
+        esc(reason || 'Deshabilitado') +
+        '">⛔ Deshabilitado</span>'
+      );
+    }
+    return '<span style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.22rem 0.55rem;border-radius:999px;font-size:0.73rem;font-weight:800;background:#dcfce7;color:#166534;border:1px solid #4ade80;">✅ Activo</span>';
+  }
+
+  function getFilteredGlobalUsers() {
+    var d = STATE_SA.data || {};
+    var all = Array.isArray(d.globalUsers) ? d.globalUsers : [];
+    var q = String(STATE_SA.usersSearch || '').trim().toLowerCase();
+    var pFilter = STATE_SA.usersProjectFilter || 'ALL';
+    var tFilter = STATE_SA.usersTypeFilter || 'ALL';
+    var sFilter = STATE_SA.usersStatusFilter || 'ALL';
+
+    return all.filter(function (u) {
+      if (pFilter !== 'ALL' && u.project !== pFilter) return false;
+      if (tFilter !== 'ALL' && u.userType !== tFilter) return false;
+      if (sFilter !== 'ALL' && u.status !== sFilter) return false;
+      if (q) {
+        var hay =
+          (u.project || '') +
+          ' ' +
+          (u.name || '') +
+          ' ' +
+          (u.username || '') +
+          ' ' +
+          (u.email || '') +
+          ' ' +
+          (u.password || '') +
+          ' ' +
+          (u.userType || '') +
+          ' ' +
+          (u.notes || '');
+        if (hay.toLowerCase().indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderUsersTab() {
+    var d = STATE_SA.data || {};
+    var all = Array.isArray(d.globalUsers) ? d.globalUsers : [];
+    var tenants = Array.isArray(d.tenants) ? d.tenants : [];
+    var defTypes = Array.isArray(d.definedUserTypes) && d.definedUserTypes.length
+      ? d.definedUserTypes
+      : [
+          { key: 'Admin. Gral.', label: 'Admin. Gral.', description: 'Superadministrador global' },
+          { key: 'Administrador', label: 'Administrador', description: 'Administrador titular de sistema' },
+          { key: 'Usuario', label: 'Usuario', description: 'Operador / cajero / vendedor' },
+          { key: 'Usuario Fábrica', label: 'Usuario Fábrica', description: 'Proveedor mayorista' },
+          { key: 'Profesional / Especialista', label: 'Profesional / Especialista', description: 'Médico / terapeuta' },
+          { key: 'Socio / Cliente', label: 'Socio / Cliente', description: 'Cliente / socio web' }
+        ];
+
+    var projectCounts = {};
+    var projectTenantSlug = {};
+    var typeCounts = {};
+    var activeCount = 0;
+    var nonPaymentCount = 0;
+
+    all.forEach(function (u) {
+      var p = u.project || 'Sin Proyecto';
+      projectCounts[p] = (projectCounts[p] || 0) + 1;
+      if (u.tenantSlug) projectTenantSlug[p] = u.tenantSlug;
+      var ut = u.userType || 'Usuario';
+      typeCounts[ut] = (typeCounts[ut] || 0) + 1;
+      if (u.status === 'active') activeCount++;
+      if (u.status === 'suspended_nonpayment') nonPaymentCount++;
+    });
+
+    var projectNames = Object.keys(projectCounts).sort(function (a, b) {
+      if (a.indexOf('MiniSistema') === 0 && b.indexOf('MiniSistema') !== 0) return -1;
+      if (b.indexOf('MiniSistema') === 0 && a.indexOf('MiniSistema') !== 0) return 1;
+      return a.localeCompare(b, 'es');
+    });
+
+    var filtered = getFilteredGlobalUsers();
+    var ed = STATE_SA.usersEditingItem || null;
+
+    var kpiHtml =
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:0.8rem;margin-bottom:1rem;">' +
+        '<div class="ms-sa-card" style="padding:0.9rem 1.1rem;border-left:4px solid #112D3A;">' +
+          '<div style="font-size:0.73rem;font-weight:800;text-transform:uppercase;opacity:0.75;">Proyectos / Sistemas</div>' +
+          '<div style="font-size:1.65rem;font-weight:900;color:#112D3A;">' + projectNames.length + '</div>' +
+          '<div style="font-size:0.74rem;opacity:0.75;">Desde el inicio de Antigravity</div>' +
+        '</div>' +
+        '<div class="ms-sa-card" style="padding:0.9rem 1.1rem;border-left:4px solid #56D7A1;">' +
+          '<div style="font-size:0.73rem;font-weight:800;text-transform:uppercase;opacity:0.75;">Total Usuarios y Claves</div>' +
+          '<div style="font-size:1.65rem;font-weight:900;color:#112D3A;">' + all.length + '</div>' +
+          '<div style="font-size:0.74rem;opacity:0.75;">Mostrando ' + filtered.length + ' en tabla</div>' +
+        '</div>' +
+        '<div class="ms-sa-card" style="padding:0.9rem 1.1rem;border-left:4px solid #22c55e;">' +
+          '<div style="font-size:0.73rem;font-weight:800;text-transform:uppercase;opacity:0.75;">Usuarios Habilitados</div>' +
+          '<div style="font-size:1.65rem;font-weight:900;color:#15803d;">' + activeCount + '</div>' +
+          '<div style="font-size:0.74rem;opacity:0.75;">Con acceso operativo activo</div>' +
+        '</div>' +
+        '<div class="ms-sa-card" style="padding:0.9rem 1.1rem;border-left:4px solid #f97316;">' +
+          '<div style="font-size:0.73rem;font-weight:800;text-transform:uppercase;opacity:0.75;">Suspendidos (Falta Pago)</div>' +
+          '<div style="font-size:1.65rem;font-weight:900;color:#c2410c;">' + nonPaymentCount + '</div>' +
+          '<div style="font-size:0.74rem;opacity:0.75;">Deshabilitación transitoria</div>' +
+        '</div>' +
+      '</div>';
+
+    var typePillsHtml =
+      '<div class="ms-sa-card" style="padding:0.85rem 1rem;margin-bottom:1rem;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.55rem;">' +
+          '<strong style="font-size:0.82rem;text-transform:uppercase;letter-spacing:0.03em;">🏷️ Tipos de Usuarios Definidos (Clic para filtrar)</strong>' +
+          '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+            '<button type="button" class="ms-sa-btn" id="ms-gu-open-new" style="padding:0.42rem 0.85rem;font-size:0.8rem;">➕ Nuevo Usuario (ABM)</button>' +
+            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-gu-toggle-all-pass" style="padding:0.42rem 0.85rem;font-size:0.8rem;">' +
+              (STATE_SA.usersShowAllPasswords ? '🙈 Ocultar Contraseñas' : '👁️ Mostrar Contraseñas') +
+            '</button>' +
+            '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-gu-export-csv" style="padding:0.42rem 0.85rem;font-size:0.8rem;">📥 Exportar Nómina CSV</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:0.45rem;">' +
+          '<button type="button" data-gu-type-pill="ALL" style="cursor:pointer;padding:0.32rem 0.7rem;border-radius:999px;font-size:0.76rem;font-weight:800;border:2px solid ' +
+            (STATE_SA.usersTypeFilter === 'ALL' ? '#112D3A' : 'transparent') +
+            ';background:#e2e8f0;color:#0f172a;">Todos (' + all.length + ')</button>' +
+          defTypes
+            .map(function (t) {
+              var cnt = typeCounts[t.key] || 0;
+              var active = STATE_SA.usersTypeFilter === t.key;
+              return (
+                '<button type="button" data-gu-type-pill="' +
+                esc(t.key) +
+                '" title="' +
+                esc(t.description || '') +
+                '" style="cursor:pointer;padding:0.32rem 0.7rem;border-radius:999px;font-size:0.76rem;font-weight:800;' +
+                getUserTypeBadgeStyle(t.key) +
+                (active ? 'box-shadow:0 0 0 2px #112D3A;' : 'opacity:0.9;') +
+                '">' +
+                esc(t.label) +
+                ' (' +
+                cnt +
+                ')</button>'
+              );
+            })
+            .join('') +
+        '</div>' +
+      '</div>';
+
+    var formHtml = '';
+    if (STATE_SA.usersFormOpen) {
+      var edTargetMode = ed
+        ? ed.tenantSlug
+          ? 'erp:' + ed.tenantSlug
+          : 'vault'
+        : 'erp:minisistema';
+      var tenantSelectOpts =
+        tenants
+          .map(function (t) {
+            var val = 'erp:' + t.slug;
+            return (
+              '<option value="' +
+              esc(val) +
+              '" ' +
+              (edTargetMode === val ? 'selected' : '') +
+              '>⚡ Sistema ERP Activo: ' +
+              esc(t.fantasy_name) +
+              ' (' +
+              esc(t.slug) +
+              ')</option>'
+            );
+          })
+          .join('') +
+        '<option value="vault" ' +
+        (edTargetMode === 'vault' ? 'selected' : '') +
+        '>🗂️ Proyecto Externo / Otro Sistema Antigravity</option>';
+
+      var datalistProjects = projectNames
+        .map(function (p) {
+          return '<option value="' + esc(p) + '"></option>';
+        })
+        .join('');
+
+      formHtml =
+        '<div class="ms-sa-card" style="border:2px solid #56D7A1;margin-bottom:1rem;background:#f8fafc;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">' +
+            '<h4 style="margin:0;color:#112D3A;">' +
+              (ed ? '✏️ Modificar Usuario: ' + esc(ed.username) + ' (' + esc(ed.project) + ')' : '➕ Alta de Nuevo Usuario en Sistema / Proyecto') +
+            '</h4>' +
+            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-gu-cancel-form" style="padding:0.3rem 0.7rem;font-size:0.76rem;">✕ Cerrar</button>' +
+          '</div>' +
+          '<form id="ms-gu-abm-form" style="display:grid;gap:0.75rem;">' +
+            '<input type="hidden" name="id" value="' + esc(ed ? ed.id : '') + '">' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0.65rem;">' +
+              '<div>' +
+                '<label class="ms-sa-label">Asociar a Sistema / Proyecto *</label>' +
+                '<select class="ms-sa-select" name="targetMode" id="ms-gu-target-mode">' +
+                  tenantSelectOpts +
+                '</select>' +
+              '</div>' +
+              '<div id="ms-gu-vault-proj-wrap" style="' + (edTargetMode === 'vault' ? '' : 'display:none;') + '">' +
+                '<label class="ms-sa-label">Nombre del Proyecto *</label>' +
+                '<input class="ms-sa-input" name="project" list="ms-gu-projects-dl" value="' + esc(ed ? ed.project : '') + '" placeholder="Ej: Casa Nueva ERP, Mate-Mática, Nova...">' +
+                '<datalist id="ms-gu-projects-dl">' + datalistProjects + '</datalist>' +
+              '</div>' +
+              '<div id="ms-gu-vault-url-wrap" style="' + (edTargetMode === 'vault' ? '' : 'display:none;') + '">' +
+                '<label class="ms-sa-label">URL / Acceso del Proyecto</label>' +
+                '<input class="ms-sa-input" name="projectUrl" value="' + esc(ed ? ed.projectUrl : '') + '" placeholder="https://...">' +
+              '</div>' +
+              '<div>' +
+                '<label class="ms-sa-label">Nombre y Apellido / Titular *</label>' +
+                '<input class="ms-sa-input" name="name" required value="' + esc(ed ? ed.name : '') + '" placeholder="Ej: Juan Pérez">' +
+              '</div>' +
+              '<div>' +
+                '<label class="ms-sa-label">Usuario / Login (@usuario o Email) *</label>' +
+                '<input class="ms-sa-input" name="username" required value="' + esc(ed ? ed.username : '') + '" placeholder="Ej: juanp">' +
+              '</div>' +
+              '<div>' +
+                '<label class="ms-sa-label">Contraseña *</label>' +
+                '<div style="display:flex;gap:0.35rem;">' +
+                  '<input class="ms-sa-input" type="text" name="password" id="ms-gu-pass-inp" required value="' + esc(ed ? ed.password : '') + '" placeholder="Clave de acceso">' +
+                  '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-gu-gen-pass" title="Generar clave segura" style="padding:0.4rem 0.65rem;">🎲</button>' +
+                '</div>' +
+              '</div>' +
+              '<div>' +
+                '<label class="ms-sa-label">Tipo de Usuario Definido *</label>' +
+                '<select class="ms-sa-select" name="userType">' +
+                  defTypes
+                    .map(function (t) {
+                      return (
+                        '<option value="' +
+                        esc(t.key) +
+                        '" ' +
+                        (ed && ed.userType === t.key ? 'selected' : !ed && t.key === 'Usuario' ? 'selected' : '') +
+                        '>' +
+                        esc(t.label) +
+                        '</option>'
+                      );
+                    })
+                    .join('') +
+                '</select>' +
+              '</div>' +
+              '<div>' +
+                '<label class="ms-sa-label">Estado de Acceso *</label>' +
+                '<select class="ms-sa-select" name="status">' +
+                  '<option value="active" ' + (!ed || ed.status === 'active' ? 'selected' : '') + '>✅ Activo (Habilitado)</option>' +
+                  '<option value="suspended_nonpayment" ' + (ed && ed.status === 'suspended_nonpayment' ? 'selected' : '') + '>⏸️ Deshabilitado transitoriamente (Falta de Pago)</option>' +
+                  '<option value="disabled" ' + (ed && ed.status === 'disabled' ? 'selected' : '') + '>⛔ Deshabilitado / Baja Lógica</option>' +
+                '</select>' +
+              '</div>' +
+              '<div>' +
+                '<label class="ms-sa-label">Correo Electrónico (Opcional)</label>' +
+                '<input class="ms-sa-input" name="email" value="' + esc(ed ? ed.email : '') + '" placeholder="correo@dominio.com">' +
+              '</div>' +
+              '<div>' +
+                '<label class="ms-sa-label">WhatsApp (Opcional)</label>' +
+                '<input class="ms-sa-input" name="whatsapp" value="' + esc(ed ? ed.whatsapp : '') + '" placeholder="+54 9 358...">' +
+              '</div>' +
+              '<div style="grid-column:1 / -1;">' +
+                '<label class="ms-sa-label">Observaciones / Detalle de Rol o Suspensión</label>' +
+                '<input class="ms-sa-input" name="notes" value="' + esc(ed ? ed.notes : '') + '" placeholder="Ej: Abono mensual vencido / Cajero turno mañana / Permisos especiales...">' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:0.6rem;justify-content:flex-end;">' +
+              '<button type="submit" class="ms-sa-btn">💾 Guardar Usuario</button>' +
+            '</div>' +
+          '</form>' +
+        '</div>';
+    }
+
+    var selectedProjSlug =
+      STATE_SA.usersProjectFilter !== 'ALL'
+        ? projectTenantSlug[STATE_SA.usersProjectFilter] || ''
+        : '';
+    var canBatchProject =
+      STATE_SA.usersProjectFilter !== 'ALL' && selectedProjSlug !== 'minisistema';
+
+    var filterBarHtml =
+      '<div class="ms-sa-card" style="padding:0.85rem 1rem;margin-bottom:1rem;">' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.65rem;align-items:end;">' +
+          '<div>' +
+            '<label class="ms-sa-label">🔎 Buscar por Proyecto, Usuario, Nombre o Clave</label>' +
+            '<input class="ms-sa-input" id="ms-gu-search" value="' + esc(STATE_SA.usersSearch) + '" placeholder="Ej: danielg, Casa Nueva, Mate-Mática, Nova...">' +
+          '</div>' +
+          '<div>' +
+            '<label class="ms-sa-label">📁 Filtrar por Proyecto / Sistema</label>' +
+            '<select class="ms-sa-select" id="ms-gu-proj-filter">' +
+              '<option value="ALL">Todos los Proyectos (' + projectNames.length + ')</option>' +
+              projectNames
+                .map(function (p) {
+                  return (
+                    '<option value="' +
+                    esc(p) +
+                    '" ' +
+                    (STATE_SA.usersProjectFilter === p ? 'selected' : '') +
+                    '>' +
+                    esc(p) +
+                    ' (' +
+                    projectCounts[p] +
+                    ')</option>'
+                  );
+                })
+                .join('') +
+            '</select>' +
+          '</div>' +
+          '<div>' +
+            '<label class="ms-sa-label">🚦 Filtrar por Estado</label>' +
+            '<select class="ms-sa-select" id="ms-gu-status-filter">' +
+              '<option value="ALL" ' + (STATE_SA.usersStatusFilter === 'ALL' ? 'selected' : '') + '>Todos los Estados</option>' +
+              '<option value="active" ' + (STATE_SA.usersStatusFilter === 'active' ? 'selected' : '') + '>✅ Activos</option>' +
+              '<option value="suspended_nonpayment" ' + (STATE_SA.usersStatusFilter === 'suspended_nonpayment' ? 'selected' : '') + '>⏸️ Suspendidos (Falta de Pago)</option>' +
+              '<option value="disabled" ' + (STATE_SA.usersStatusFilter === 'disabled' ? 'selected' : '') + '>⛔ Deshabilitados</option>' +
+            '</select>' +
+          '</div>' +
+        '</div>' +
+        (canBatchProject
+          ? '<div style="margin-top:0.75rem;padding-top:0.7rem;border-top:1px dashed rgba(17,45,58,0.16);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">' +
+              '<span style="font-size:0.8rem;font-weight:700;color:#112D3A;">Acción masiva sobre el proyecto seleccionado: <strong>' + esc(STATE_SA.usersProjectFilter) + '</strong></span>' +
+              '<div style="display:flex;gap:0.45rem;flex-wrap:wrap;">' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-gu-batch-suspend" data-proj="' + esc(STATE_SA.usersProjectFilter) + '" data-slug="' + esc(selectedProjSlug) + '" style="padding:0.35rem 0.75rem;font-size:0.76rem;border-color:#ea580c;color:#9a3412;">⏸️ Suspender todo el proyecto (Falta de Pago)</button>' +
+                '<button type="button" class="ms-sa-btn" id="ms-gu-batch-activate" data-proj="' + esc(STATE_SA.usersProjectFilter) + '" data-slug="' + esc(selectedProjSlug) + '" style="padding:0.35rem 0.75rem;font-size:0.76rem;">▶️ Rehabilitar todo el proyecto</button>' +
+              '</div>' +
+            '</div>'
+          : '') +
+      '</div>';
+
+    var rowsHtml = filtered
+      .map(function (u) {
+        var showPass = STATE_SA.usersShowAllPasswords || STATE_SA.usersRevealedMap[u.id];
+        var isBaseDaniel = u.tenantSlug === 'minisistema' && String(u.username || '').toLowerCase() === 'danielg';
+        var isSuspended = u.status === 'suspended_nonpayment' || u.status === 'disabled';
+
+        return (
+          '<tr style="' + (u.status === 'suspended_nonpayment' ? 'background:rgba(251,146,60,0.08);' : '') + '">' +
+            '<td>' +
+              '<div style="font-weight:800;color:#112D3A;">' + esc(u.project) + '</div>' +
+              (u.projectUrl
+                ? '<a href="' + esc(u.projectUrl) + '" target="_blank" rel="noopener noreferrer" style="font-size:0.73rem;color:#0f766e;text-decoration:underline;word-break:break-all;">' + esc(u.projectUrl.replace(/^https?:\/\//, '')) + ' ↗</a>'
+                : '') +
+              (u.source === 'erp_tenant'
+                ? '<div><span style="font-size:0.66rem;font-weight:800;background:#dcfce7;color:#166534;padding:0.1rem 0.4rem;border-radius:4px;">⚡ Sincronizado Supabase</span></div>'
+                : '') +
+            '</td>' +
+            '<td>' +
+              '<div style="font-weight:700;">' + esc(u.name || '—') + '</div>' +
+              (u.notes ? '<div style="font-size:0.72rem;opacity:0.75;">' + esc(u.notes) + '</div>' : '') +
+            '</td>' +
+            '<td>' +
+              '<code style="font-weight:900;font-size:0.84rem;background:rgba(17,45,58,0.07);padding:0.18rem 0.45rem;border-radius:6px;color:#112D3A;">' + esc(u.username) + '</code>' +
+              (u.email && u.email !== u.username ? '<div style="font-size:0.72rem;opacity:0.8;margin-top:0.15rem;">' + esc(u.email) + '</div>' : '') +
+            '</td>' +
+            '<td>' +
+              '<div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">' +
+                '<code style="font-weight:800;font-size:0.83rem;padding:0.18rem 0.48rem;border-radius:6px;background:' +
+                  (showPass ? '#ecfdf5' : '#f1f5f9') +
+                  ';color:#064e3b;border:1px solid rgba(16,185,129,0.35);">' +
+                  (showPass ? esc(u.password || '—') : '••••••••••') +
+                '</code>' +
+                '<button type="button" data-gu-reveal="' + esc(u.id) + '" title="Mostrar / Ocultar clave" style="border:none;background:transparent;cursor:pointer;font-size:0.88rem;padding:0.15rem;">' + (showPass ? '🙈' : '👁️') + '</button>' +
+                (u.password
+                  ? '<button type="button" data-gu-copy="' + esc(u.password) + '" title="Copiar contraseña" style="border:none;background:transparent;cursor:pointer;font-size:0.85rem;padding:0.15rem;">📋</button>'
+                  : '') +
+              '</div>' +
+              (u.altPasswordNote ? '<div style="font-size:0.69rem;color:#0f766e;margin-top:0.15rem;">' + esc(u.altPasswordNote) + '</div>' : '') +
+            '</td>' +
+            '<td>' +
+              '<span style="display:inline-block;padding:0.22rem 0.58rem;border-radius:999px;font-size:0.73rem;font-weight:800;' + getUserTypeBadgeStyle(u.userType) + '">' +
+                esc(u.userType) +
+              '</span>' +
+            '</td>' +
+            '<td>' + renderStatusBadgeHtml(u.status, u.suspendedReason) + '</td>' +
+            '<td>' +
+              '<div style="display:flex;gap:0.35rem;flex-wrap:wrap;">' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-gu-edit="' + esc(u.id) + '" style="padding:0.28rem 0.55rem;font-size:0.73rem;">✏️ Editar</button>' +
+                (!isBaseDaniel
+                  ? isSuspended
+                    ? '<button type="button" class="ms-sa-btn" data-gu-status="' + esc(u.id) + '" data-next-status="active" style="padding:0.28rem 0.55rem;font-size:0.73rem;">▶️ Habilitar</button>'
+                    : '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-gu-status="' + esc(u.id) + '" data-next-status="suspended_nonpayment" title="Deshabilitar transitoriamente por falta de pago" style="padding:0.28rem 0.55rem;font-size:0.73rem;border-color:#ea580c;color:#9a3412;">⏸️ Falta Pago</button>'
+                  : '') +
+                (!isBaseDaniel
+                  ? '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-gu-del="' + esc(u.id) + '" style="padding:0.28rem 0.52rem;font-size:0.73rem;border-color:#ef4444;color:#991b1b;">🗑️</button>'
+                  : '') +
+              '</div>' +
+            '</td>' +
+          '</tr>'
+        );
+      })
+      .join('');
+
+    var tableCardHtml =
+      '<div class="ms-sa-card" style="overflow-x:auto;">' +
+        '<table class="ms-sa-table" style="width:100%;min-width:880px;">' +
+          '<thead>' +
+            '<tr>' +
+              '<th>Proyecto / Sistema Asociado</th>' +
+              '<th>Nombre / Referencia</th>' +
+              '<th>Usuario / Login</th>' +
+              '<th>Contraseña</th>' +
+              '<th>Tipo de Usuario</th>' +
+              '<th>Estado</th>' +
+              '<th>Acciones ABM</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' +
+            (rowsHtml || '<tr><td colspan="7" style="text-align:center;padding:1.5rem;opacity:0.7;">No se encontraron usuarios con los filtros actuales.</td></tr>') +
+          '</tbody>' +
+        '</table>' +
+      '</div>';
+
+    return kpiHtml + typePillsHtml + formHtml + filterBarHtml + tableCardHtml;
+  }
+
+  function bindUsersTabEvents(bodyEl) {
+    var d = STATE_SA.data || {};
+    var all = Array.isArray(d.globalUsers) ? d.globalUsers : [];
+
+    var searchInp = bodyEl.querySelector('#ms-gu-search');
+    if (searchInp) {
+      searchInp.addEventListener('input', function () {
+        var pos = searchInp.selectionStart || 0;
+        STATE_SA.usersSearch = searchInp.value;
+        renderBody();
+        var nextInp = document.getElementById('ms-gu-search');
+        if (nextInp) {
+          nextInp.focus();
+          try { nextInp.setSelectionRange(pos, pos); } catch (_e) {}
+        }
+      });
+    }
+
+    var projSel = bodyEl.querySelector('#ms-gu-proj-filter');
+    if (projSel) {
+      projSel.addEventListener('change', function () {
+        STATE_SA.usersProjectFilter = projSel.value;
+        renderBody();
+      });
+    }
+
+    var stSel = bodyEl.querySelector('#ms-gu-status-filter');
+    if (stSel) {
+      stSel.addEventListener('change', function () {
+        STATE_SA.usersStatusFilter = stSel.value;
+        renderBody();
+      });
+    }
+
+    bodyEl.querySelectorAll('[data-gu-type-pill]').forEach(function (pill) {
+      pill.addEventListener('click', function () {
+        STATE_SA.usersTypeFilter = pill.getAttribute('data-gu-type-pill') || 'ALL';
+        renderBody();
+      });
+    });
+
+    var toggleAllPassBtn = bodyEl.querySelector('#ms-gu-toggle-all-pass');
+    if (toggleAllPassBtn) {
+      toggleAllPassBtn.addEventListener('click', function () {
+        STATE_SA.usersShowAllPasswords = !STATE_SA.usersShowAllPasswords;
+        renderBody();
+      });
+    }
+
+    bodyEl.querySelectorAll('[data-gu-reveal]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-gu-reveal');
+        STATE_SA.usersRevealedMap[id] = !STATE_SA.usersRevealedMap[id];
+        renderBody();
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-gu-copy]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var pw = btn.getAttribute('data-gu-copy') || '';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(pw).then(function () {
+            showFeedback('📋 Contraseña copiada al portapapeles.', false);
+          });
+        }
+      });
+    });
+
+    var exportBtn = bodyEl.querySelector('#ms-gu-export-csv');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', function () {
+        var rows = getFilteredGlobalUsers();
+        var header = ['Proyecto', 'URL', 'Nombre', 'Usuario', 'Email', 'Contrasena', 'TipoUsuario', 'Estado', 'Notas'];
+        var lines = [header.join(';')];
+        rows.forEach(function (u) {
+          var vals = [
+            u.project || '',
+            u.projectUrl || '',
+            u.name || '',
+            u.username || '',
+            u.email || '',
+            u.password || '',
+            u.userType || '',
+            u.status === 'suspended_nonpayment' ? 'Suspendido Falta de Pago' : u.status === 'disabled' ? 'Deshabilitado' : 'Activo',
+            u.notes || ''
+          ].map(function (v) {
+            return '"' + String(v).replace(/"/g, '""') + '"';
+          });
+          lines.push(vals.join(';'));
+        });
+        var blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'minisistema_usuarios_proyectos.csv';
+        a.click();
+      });
+    }
+
+    var openNewBtn = bodyEl.querySelector('#ms-gu-open-new');
+    if (openNewBtn) {
+      openNewBtn.addEventListener('click', function () {
+        STATE_SA.usersEditingItem = null;
+        STATE_SA.usersFormOpen = true;
+        renderBody();
+      });
+    }
+
+    var cancelFormBtn = bodyEl.querySelector('#ms-gu-cancel-form');
+    if (cancelFormBtn) {
+      cancelFormBtn.addEventListener('click', function () {
+        STATE_SA.usersFormOpen = false;
+        STATE_SA.usersEditingItem = null;
+        renderBody();
+      });
+    }
+
+    var targetModeSel = bodyEl.querySelector('#ms-gu-target-mode');
+    if (targetModeSel) {
+      targetModeSel.addEventListener('change', function () {
+        var isVault = targetModeSel.value === 'vault';
+        var w1 = bodyEl.querySelector('#ms-gu-vault-proj-wrap');
+        var w2 = bodyEl.querySelector('#ms-gu-vault-url-wrap');
+        if (w1) w1.style.display = isVault ? '' : 'none';
+        if (w2) w2.style.display = isVault ? '' : 'none';
+      });
+    }
+
+    var genPassBtn = bodyEl.querySelector('#ms-gu-gen-pass');
+    if (genPassBtn) {
+      genPassBtn.addEventListener('click', function () {
+        var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+        var out = '';
+        for (var i = 0; i < 8; i++) out += chars.charAt(Math.floor(Math.random() * chars.length));
+        var inp = bodyEl.querySelector('#ms-gu-pass-inp');
+        if (inp) inp.value = out + '26';
+      });
+    }
+
+    var abmForm = bodyEl.querySelector('#ms-gu-abm-form');
+    if (abmForm) {
+      abmForm.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        var fd = new FormData(abmForm);
+        var mode = String(fd.get('targetMode') || 'vault');
+        var tenantSlug = mode.indexOf('erp:') === 0 ? mode.slice(4) : '';
+        var res = await apiSuperAdmin('POST', {
+          action: 'save_global_user',
+          id: String(fd.get('id') || ''),
+          tenantSlug: tenantSlug,
+          project: String(fd.get('project') || ''),
+          projectUrl: String(fd.get('projectUrl') || ''),
+          name: String(fd.get('name') || ''),
+          username: String(fd.get('username') || ''),
+          password: String(fd.get('password') || ''),
+          userType: String(fd.get('userType') || 'Usuario'),
+          status: String(fd.get('status') || 'active'),
+          email: String(fd.get('email') || ''),
+          whatsapp: String(fd.get('whatsapp') || ''),
+          notes: String(fd.get('notes') || '')
+        });
+        if (res && res.ok) {
+          showFeedback(res.message, false);
+          STATE_SA.usersFormOpen = false;
+          STATE_SA.usersEditingItem = null;
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo guardar el usuario.', true);
+        }
+      });
+    }
+
+    bodyEl.querySelectorAll('[data-gu-edit]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-gu-edit');
+        var found = all.find(function (x) { return x.id === id; });
+        if (!found) return;
+        STATE_SA.usersEditingItem = found;
+        STATE_SA.usersFormOpen = true;
+        renderBody();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-gu-status]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var id = btn.getAttribute('data-gu-status');
+        var nextStatus = btn.getAttribute('data-next-status') || 'active';
+        var found = all.find(function (x) { return x.id === id; });
+        if (!found) return;
+        var res = await apiSuperAdmin('POST', {
+          action: 'toggle_global_user_status',
+          id: found.id,
+          tenantSlug: found.tenantSlug || '',
+          username: found.username,
+          status: nextStatus
+        });
+        if (res && res.ok) {
+          showFeedback(res.message, false);
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo cambiar el estado.', true);
+        }
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-gu-del]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var id = btn.getAttribute('data-gu-del');
+        var found = all.find(function (x) { return x.id === id; });
+        if (!found) return;
+        if (!window.confirm('¿Confirmás dar de baja al usuario "' + found.username + '" del proyecto "' + found.project + '"?')) return;
+        var res = await apiSuperAdmin('POST', {
+          action: 'delete_global_user',
+          id: found.id,
+          tenantSlug: found.tenantSlug || '',
+          username: found.username
+        });
+        if (res && res.ok) {
+          showFeedback(res.message, false);
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo eliminar el usuario.', true);
+        }
+      });
+    });
+
+    var batchSusp = bodyEl.querySelector('#ms-gu-batch-suspend');
+    if (batchSusp) {
+      batchSusp.addEventListener('click', async function () {
+        var proj = batchSusp.getAttribute('data-proj') || '';
+        var slug = batchSusp.getAttribute('data-slug') || '';
+        if (!window.confirm('¿Suspender transitoriamente por falta de pago a todos los usuarios de "' + proj + '"?')) return;
+        var res = await apiSuperAdmin('POST', {
+          action: 'toggle_project_nonpayment',
+          project: proj,
+          tenantSlug: slug,
+          suspend: true
+        });
+        if (res && res.ok) {
+          showFeedback(res.message, false);
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo suspender el proyecto.', true);
+        }
+      });
+    }
+
+    var batchAct = bodyEl.querySelector('#ms-gu-batch-activate');
+    if (batchAct) {
+      batchAct.addEventListener('click', async function () {
+        var proj = batchAct.getAttribute('data-proj') || '';
+        var slug = batchAct.getAttribute('data-slug') || '';
+        var res = await apiSuperAdmin('POST', {
+          action: 'toggle_project_nonpayment',
+          project: proj,
+          tenantSlug: slug,
+          suspend: false
+        });
+        if (res && res.ok) {
+          showFeedback(res.message, false);
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo rehabilitar el proyecto.', true);
+        }
+      });
+    }
+  }
+
   function renderBody() {
     var bodyEl = document.getElementById('ms-sa-body');
     if (!bodyEl || !STATE_SA.data) return;
@@ -1223,8 +1937,12 @@
     else if (STATE_SA.activeView === 'new') bodyEl.innerHTML = renderNewTenantTab();
     else if (STATE_SA.activeView === 'pricing') bodyEl.innerHTML = renderPricingTab();
     else if (STATE_SA.activeView === 'secrets') bodyEl.innerHTML = renderSecretsTab();
+    else if (STATE_SA.activeView === 'users') bodyEl.innerHTML = renderUsersTab();
 
     bindBodyEvents(bodyEl);
+    if (STATE_SA.activeView === 'users') {
+      bindUsersTabEvents(bodyEl);
+    }
   }
 
   function bindBodyEvents(bodyEl) {
