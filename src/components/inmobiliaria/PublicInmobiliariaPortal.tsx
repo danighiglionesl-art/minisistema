@@ -537,24 +537,28 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                 className="h-full w-full object-cover transition-all duration-700"
               />
               <div
-                className="absolute inset-0 flex flex-col justify-end p-5 sm:p-8"
+                className="absolute inset-0 flex flex-col justify-end p-5 pl-12 sm:p-8 sm:pl-14"
                 style={{
                   background:
                     "linear-gradient(90deg, rgba(22,22,22,0.92) 0%, rgba(28,28,28,0.52) 55%, rgba(31,31,31,0.04) 100%)",
                 }}
               >
-                <div className="max-w-2xl">
+                <div className="max-w-xl">
                   <span
                     className="inline-block rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wider"
                     style={{ backgroundColor: accent, color: primary }}
                   >
                     {config.matriculaCorredor || props.fantasyName}
                   </span>
-                  <h1 className="mt-2 text-xl font-black leading-tight text-[#FFFFFF] sm:text-3xl lg:text-4xl">
+                  <h1
+                    className={`mt-2 text-lg font-black leading-tight text-[#FFFFFF] sm:text-2xl lg:text-3xl ${
+                      activeBanner.titulo.length <= 38 ? "sm:whitespace-nowrap" : ""
+                    }`}
+                  >
                     {activeBanner.titulo}
                   </h1>
                   {activeBanner.subtitulo && (
-                    <p className="mt-1.5 hidden text-sm font-medium text-[#FFFFFF]/90 sm:block">
+                    <p className="mt-1.5 hidden max-w-lg text-sm font-medium text-[#FFFFFF]/90 sm:block">
                       {activeBanner.subtitulo}
                     </p>
                   )}

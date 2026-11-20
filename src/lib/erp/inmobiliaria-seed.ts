@@ -455,7 +455,7 @@ export function buildInitialInmobiliariaDb(tenant: ErpTenantRecord): InmoDbDoc {
         : `${tenant.fantasy_name || "Inmobiliaria Degiovanni"} · Inmobiliaria`,
       subtituloPortal:
         "Propiedades urbanas y rurales en Venta, Alquiler y Alquiler Temporario. Portal inteligente con búsqueda por IA y autogestión de arrendamientos.",
-      matriculaCorredor: "Inmobiliaria Degiovanni · Alcira Gigena",
+      matriculaCorredor: "Alcira Gigena",
       whatsappNumero: "5493585615820",
       whatsappMensajeDefault: `¡Hola ${tenant.is_base ? "Inmobiliaria Degiovanni" : tenant.fantasy_name || "Inmobiliaria Degiovanni"}! Quiero consultar por una propiedad.`,
       emailContacto: "inmobiliariadegiovanni@hotmail.com",
@@ -487,7 +487,7 @@ export function buildInitialInmobiliariaDb(tenant: ErpTenantRecord): InmoDbDoc {
     banners: [
       {
         id: "inmo_banner_1",
-        titulo: `${tenant.is_base ? "Inmobiliaria Degiovanni" : tenant.fantasy_name || "Inmobiliaria Degiovanni"} · Tu Próxima Propiedad Te Espera`,
+        titulo: "Tu Próxima Propiedad te espera",
         subtitulo:
           "Ventas, Alquileres y Alquileres Temporarios en Alcira Gigena y la región con asesoramiento integral.",
         imageUrl: "/inmobiliaria/banner-degiovanni-1.png",
