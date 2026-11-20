@@ -9,6 +9,11 @@ import type {
   InmoPropiedadRecord,
   OperacionInmobiliaria,
 } from "@/lib/erp/inmobiliaria-types";
+import {
+  FacebookIcon,
+  InstagramIcon,
+  WhatsAppIcon,
+} from "@/components/icons/SocialIcons";
 import InmoClientPortalModal from "./InmoClientPortalModal";
 
 interface PaisItem {
@@ -397,9 +402,31 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
     [propiedades, compareIds]
   );
 
-  const waBaseDigits = (config.whatsappNumero || "5493585095475").replace(/\D/g, "");
+  const rawWaDigits = (config.whatsappNumero || "5493585615820").replace(/\D/g, "");
+  const waBaseDigits =
+    rawWaDigits.length === 10 && !rawWaDigits.startsWith("54")
+      ? `549${rawWaDigits}`
+      : rawWaDigits || "5493585615820";
+  const waDisplay =
+    waBaseDigits === "5493585615820"
+      ? "358 561-5820"
+      : waBaseDigits.replace(/^549/, "").replace(/^(\d{3})(\d{3})(\d{4})$/, "$1 $2-$3");
   const buildWaHref = (msg: string) =>
     `https://wa.me/${waBaseDigits}?text=${encodeURIComponent(msg)}`;
+
+  const officeAddress = config.direccionOficina || "Rivadavia 476, Alcira Gigena, Córdoba";
+  const officeMapsHref =
+    config.googleMapsUrl ||
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(officeAddress)}`;
+  const officeHours =
+    config.horariosAtencion || "Lunes a Viernes · 9:00 a 13:00 hs · 16:30 a 19:30 hs";
+  const officeInstagramUrl =
+    config.instagramUrl || "https://www.instagram.com/p/DeubjQUx1Mb/";
+  const officeInstagramLabel = config.instagramLabel || "inmobiliariadegiovanni";
+  const officeFacebookUrl =
+    config.facebookUrl || "https://www.facebook.com/search/top?q=Inmobiliaria%20Degiovanni";
+  const officeFacebookLabel = config.facebookLabel || "Inmobiliaria Degiovanni";
+  const officeEmail = config.emailContacto || "inmobiliariadegiovanni@hotmail.com";
 
   const primary = props.primaryHex || "#112D3A";
   const accent = props.accentHex || "#56D7A1";
@@ -417,7 +444,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
   }, [selectedProp, calcAnticipoPct, calcAnios, calcTna]);
 
   return (
-    <div className="min-h-screen bg-[#f3f8fa] text-[#112D3A] pb-24">
+    <div className="min-h-screen bg-[#f3f8fa] text-[#112D3A] flex flex-col">
       {/* CABECERA INSTITUCIONAL CON ACCESO A CLIENTES Y WHATSAPP */}
       <header
         className="sticky top-0 z-40 border-b-4 shadow-md"
@@ -488,7 +515,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
         </div>
       </header>
 
-      <main id="top" className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 space-y-8">
+      <main id="top" className="mx-auto w-full flex-1 max-w-7xl px-4 pt-5 sm:px-6 space-y-8">
         {/* 1. CARRUSEL DE BANNERS 1530x370 */}
         {banners.length > 0 && activeBanner && (
           <section
@@ -1210,12 +1237,155 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
         </section>
       </main>
 
-      {/* BOTÓN FIJO DE WHATSAPP + BOTÓN RÁPIDO ACCESO A CLIENTES */}
-      <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-2.5">
+      {/* PIE INSTITUCIONAL: DIRECCIÓN + GOOGLE MAPS, HORARIOS DE ATENCIÓN, REDES Y CONTACTO */}
+      <footer
+        className="mt-14 border-t-4 text-[#FFFFFF] pb-24 pt-10"
+        style={{ backgroundColor: primary, borderColor: accent }}
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="grid gap-8 md:grid-cols-3">
+            {/* Dirección y Google Maps */}
+            <div className="space-y-3">
+              <div
+                className="text-xs font-black uppercase tracking-wider"
+                style={{ color: accent }}
+              >
+                📍 Dirección y Ubicación
+              </div>
+              <p className="text-base font-extrabold text-[#FFFFFF] leading-snug">
+                {officeAddress}
+              </p>
+              <a
+                href={officeMapsHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-black transition hover:brightness-110"
+                style={{
+                  borderColor: accent,
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                  color: "#FFFFFF",
+                }}
+              >
+                <span>🗺️</span>
+                <span>Abrir en Google Maps</span>
+                <span aria-hidden="true">↗</span>
+              </a>
+            </div>
+
+            {/* Horarios de Atención */}
+            <div className="space-y-3">
+              <div
+                className="text-xs font-black uppercase tracking-wider"
+                style={{ color: accent }}
+              >
+                🕒 Horarios de Atención
+              </div>
+              <div className="rounded-2xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/5 p-4 text-sm font-bold text-[#FFFFFF]/95 leading-relaxed">
+                {officeHours.split("·").map((segment, idx) => (
+                  <div
+                    key={idx}
+                    className={idx === 0 ? "font-black text-[#FFFFFF]" : "text-[#FFFFFF]/90"}
+                  >
+                    {segment.trim()}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Redes Sociales y Contacto Directo */}
+            <div className="space-y-3">
+              <div
+                className="text-xs font-black uppercase tracking-wider"
+                style={{ color: accent }}
+              >
+                📲 Redes y Contacto
+              </div>
+              <div className="flex flex-col gap-2.5 text-sm font-bold">
+                <a
+                  href={buildWaHref(
+                    config.whatsappMensajeDefault ||
+                      `¡Hola ${props.fantasyName}! Quiero consultar por propiedades disponibles.`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2.5 text-[#FFFFFF]/95 transition hover:text-[#56D7A1]"
+                >
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-[#FFFFFF]"
+                  >
+                    <WhatsAppIcon size={17} />
+                  </span>
+                  <span>WhatsApp · {waDisplay}</span>
+                </a>
+
+                {officeInstagramUrl && (
+                  <a
+                    href={officeInstagramUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2.5 text-[#FFFFFF]/95 transition hover:text-[#56D7A1]"
+                  >
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#56D7A1]/50 bg-[#FFFFFF]/10 text-[#56D7A1]"
+                    >
+                      <InstagramIcon size={17} />
+                    </span>
+                    <span>{officeInstagramLabel}</span>
+                  </a>
+                )}
+
+                {officeFacebookUrl && (
+                  <a
+                    href={officeFacebookUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2.5 text-[#FFFFFF]/95 transition hover:text-[#56D7A1]"
+                  >
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#56D7A1]/50 bg-[#FFFFFF]/10 text-[#56D7A1]"
+                    >
+                      <FacebookIcon size={17} />
+                    </span>
+                    <span>{officeFacebookLabel}</span>
+                  </a>
+                )}
+
+                {officeEmail && (
+                  <a
+                    href={`mailto:${officeEmail}`}
+                    className="inline-flex items-center gap-2.5 text-[#FFFFFF]/95 transition hover:text-[#56D7A1] break-all"
+                  >
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#56D7A1]/50 bg-[#FFFFFF]/10 text-[#56D7A1]"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        aria-hidden="true"
+                      >
+                        <rect x="2" y="4" width="20" height="16" rx="2" />
+                        <path d="m22 7-10 6L2 7" />
+                      </svg>
+                    </span>
+                    <span>{officeEmail}</span>
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      {/* BOTÓN RÁPIDO ACCESO A CLIENTES + BOTÓN REDONDO DE WHATSAPP AL LADO */}
+      <div className="fixed bottom-5 right-5 z-40 flex flex-row items-center gap-3">
         <button
           type="button"
           onClick={() => setClientModalOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full border-2 px-4 py-2.5 text-xs font-black shadow-xl transition hover:scale-105"
+          className="inline-flex h-12 items-center gap-2 rounded-full border-2 px-4 text-xs font-black shadow-xl transition hover:scale-105"
           style={{ backgroundColor: primary, borderColor: accent, color: "#FFFFFF" }}
         >
           <span>🔑</span>
@@ -1229,10 +1399,10 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Contactar por WhatsApp"
-          className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-3 text-sm font-black text-[#FFFFFF] shadow-2xl transition hover:scale-105"
+          title="Contactar por WhatsApp"
+          className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-[#FFFFFF] shadow-2xl transition hover:scale-105"
         >
-          <span>💬</span>
-          <span>WhatsApp</span>
+          <WhatsAppIcon size={25} className="shrink-0" />
         </a>
       </div>
 

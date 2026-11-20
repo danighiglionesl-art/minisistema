@@ -961,6 +961,13 @@
       '<div><label class="ms-sa-label">Matrícula Corredor (CPI / CUCICBA)</label><input class="ms-sa-input" name="matriculaCorredor" value="' + esc(cfg.matriculaCorredor || '') + '"></div>' +
       '<div><label class="ms-sa-label">WhatsApp Fijo (con código país)</label><input class="ms-sa-input" name="whatsappNumero" value="' + esc(cfg.whatsappNumero || '') + '"></div>' +
       '<div><label class="ms-sa-label">Email de Contacto</label><input class="ms-sa-input" name="emailContacto" value="' + esc(cfg.emailContacto || '') + '"></div>' +
+      '<div><label class="ms-sa-label">Dirección de Oficina</label><input class="ms-sa-input" name="direccionOficina" value="' + esc(cfg.direccionOficina || '') + '"></div>' +
+      '<div><label class="ms-sa-label">Vínculo Google Maps</label><input class="ms-sa-input" name="googleMapsUrl" value="' + esc(cfg.googleMapsUrl || '') + '" placeholder="https://www.google.com/maps/..."></div>' +
+      '<div><label class="ms-sa-label">Horarios de Atención</label><input class="ms-sa-input" name="horariosAtencion" value="' + esc(cfg.horariosAtencion || '') + '"></div>' +
+      '<div><label class="ms-sa-label">Instagram (URL)</label><input class="ms-sa-input" name="instagramUrl" value="' + esc(cfg.instagramUrl || '') + '" placeholder="https://www.instagram.com/..."></div>' +
+      '<div><label class="ms-sa-label">Instagram (Usuario visible)</label><input class="ms-sa-input" name="instagramLabel" value="' + esc(cfg.instagramLabel || '') + '"></div>' +
+      '<div><label class="ms-sa-label">Facebook (URL)</label><input class="ms-sa-input" name="facebookUrl" value="' + esc(cfg.facebookUrl || '') + '" placeholder="https://www.facebook.com/..."></div>' +
+      '<div><label class="ms-sa-label">Facebook (Nombre visible)</label><input class="ms-sa-input" name="facebookLabel" value="' + esc(cfg.facebookLabel || '') + '"></div>' +
       '<div><label class="ms-sa-label">% Comisión Inmobiliaria por Defecto (Split)</label><input type="number" min="0" max="100" step="0.5" class="ms-sa-input" name="defaultInmobiliariaPct" value="' + esc(cfg.defaultInmobiliariaPct ?? 10) + '"></div>' +
       '<div><label class="ms-sa-label">Google OAuth Client ID (Acceso Clientes)</label><input class="ms-sa-input" name="googleClientId" value="' + esc(cfg.googleClientId || '') + '" placeholder="xxx.apps.googleusercontent.com"></div>' +
       '</div>' +
@@ -1397,6 +1404,13 @@
             matriculaCorredor: fd.get('matriculaCorredor'),
             whatsappNumero: fd.get('whatsappNumero'),
             emailContacto: fd.get('emailContacto'),
+            direccionOficina: fd.get('direccionOficina'),
+            googleMapsUrl: fd.get('googleMapsUrl'),
+            horariosAtencion: fd.get('horariosAtencion'),
+            instagramUrl: fd.get('instagramUrl'),
+            instagramLabel: fd.get('instagramLabel'),
+            facebookUrl: fd.get('facebookUrl'),
+            facebookLabel: fd.get('facebookLabel'),
             defaultInmobiliariaPct: Number(fd.get('defaultInmobiliariaPct') || 10),
             googleClientId: fd.get('googleClientId'),
             etiquetasPersonalizadas: fd.get('etiquetasPersonalizadas'),

@@ -320,7 +320,12 @@ export interface InmoPortalConfig {
   whatsappMensajeDefault: string;
   emailContacto: string;
   direccionOficina: string;
+  googleMapsUrl?: string;
   horariosAtencion: string;
+  instagramUrl?: string;
+  instagramLabel?: string;
+  facebookUrl?: string;
+  facebookLabel?: string;
   googleClientId?: string; // Para Sign-In con Google en Acceso a Clientes
   defaultPropietarioPct: number; // ej. 90
   defaultInmobiliariaPct: number; // ej. 10
