@@ -215,6 +215,18 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
     [propiedades]
   );
 
+  const destacadasTrack = useMemo(() => {
+    if (destacadas.length === 0) return [];
+    const repeatCount = Math.max(1, Math.ceil(6 / destacadas.length));
+    const out: InmoPropiedadRecord[] = [];
+    for (let r = 0; r < repeatCount; r++) {
+      for (const p of destacadas) out.push(p);
+    }
+    return out;
+  }, [destacadas]);
+
+  const featuredMarqueeSeconds = Math.max(28, Math.round(destacadasTrack.length * 6.5));
+
   const tabCounts = useMemo(() => {
     return {
       venta: propiedades.filter((p) => p.operacion === "venta").length,
@@ -623,70 +635,107 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
           </section>
         )}
 
-        {/* 2. CARRUSEL DE IMÁGENES DESTACADAS (CLIC LLEVA DIRECTO AL SECTOR PUBLICADO) */}
-        {destacadas.length > 0 && (
-          <section aria-label="Propiedades destacadas">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
+        {/* 2. CARRUSEL VIVO DE SELECCIÓN DESTACADA (MARQUEE INFINITO ESTILO CAMPODIRECTO.AR) */}
+        {destacadasTrack.length > 0 && (
+          <section
+            aria-label="Selección Destacada"
+            className="overflow-hidden rounded-2xl border border-[#1F1F1F]/10 bg-[#FFFFFF] p-4 shadow-md sm:rounded-3xl sm:p-5"
+          >
+            {/* Cabecera mejorada de Selección Destacada */}
+            <div className="mb-4 flex items-center justify-center sm:mb-5">
+              <div
+                className="inline-flex items-center gap-2.5 rounded-full border-2 px-5 py-2 shadow-sm"
+                style={{ backgroundColor: primary, borderColor: accent }}
+              >
                 <span
-                  className="text-xs font-extrabold uppercase tracking-wider"
-                  style={{ color: primary }}
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-black"
+                  style={{ backgroundColor: accent, color: primary }}
+                  aria-hidden="true"
                 >
-                  ⭐ Selección Destacada
+                  ★
                 </span>
-                <h2 className="text-lg font-black text-[#1F1F1F] sm:text-xl">
-                  Propiedades Destacadas (clic para ir a la publicación)
+                <h2 className="text-xs font-black uppercase tracking-[0.16em] text-[#FFFFFF] sm:text-sm">
+                  Selección Destacada
                 </h2>
+                <span
+                  className="h-2 w-2 rounded-full animate-pulse"
+                  style={{ backgroundColor: accent }}
+                  aria-hidden="true"
+                />
               </div>
-              <span className="text-xs font-bold text-[#1F1F1F]/60">
-                Deslizá →
-              </span>
             </div>
 
-            <div className="flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory">
-              {destacadas.map((prop) => {
-                const cover = prop.fotos?.[0] || "/photos/ref-01.png";
-                return (
-                  <button
-                    key={prop.id}
-                    type="button"
-                    onClick={() => handleClickFeatured(prop)}
-                    title={`Ir a ${prop.titulo} en ${opLabel(prop.operacion)}`}
-                    className="group relative h-44 w-72 flex-shrink-0 snap-start overflow-hidden rounded-2xl border-2 border-[#1F1F1F]/15 bg-[#1F1F1F] shadow-md transition hover:scale-[1.02] hover:border-[#FC8006] sm:h-48 sm:w-80"
+            {/* Riel del Carrusel Vivo Infinito con Máscaras de Gradiente Lateral */}
+            <div className="inmo-marquee-viewport relative w-full overflow-hidden">
+              <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-10 bg-gradient-to-r from-[#FFFFFF] via-[#FFFFFF]/80 to-transparent sm:w-20" />
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-10 bg-gradient-to-l from-[#FFFFFF] via-[#FFFFFF]/80 to-transparent sm:w-20" />
+
+              <div
+                className="inmo-marquee-track py-1.5"
+                style={
+                  {
+                    "--inmo-marquee-duration": `${featuredMarqueeSeconds}s`,
+                  } as React.CSSProperties
+                }
+              >
+                {[0, 1].map((trackIdx) => (
+                  <div
+                    key={`dest-track-${trackIdx}`}
+                    aria-hidden={trackIdx === 1 ? true : undefined}
+                    className="flex shrink-0 items-center gap-4 pr-4 sm:gap-5 sm:pr-5"
                   >
-                    <img
-                      src={cover}
-                      alt={prop.titulo}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                    />
-                    {prop.cartelCruzado && (
-                      <div
-                        className="pointer-events-none absolute -left-10 top-5 w-44 -rotate-45 py-1 text-center text-[10px] font-black uppercase tracking-wider shadow-lg"
-                        style={{
-                          backgroundColor: ribbonBgColor(prop.cartelCruzado, prop.cartelColorBg),
-                          color:
-                            ribbonBgColor(prop.cartelCruzado, prop.cartelColorBg) === "#FC8006"
-                              ? "#1F1F1F"
-                              : "#FFFFFF",
-                        }}
-                      >
-                        {prop.cartelCruzado}
-                      </div>
-                    )}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#1F1F1F]/95 via-[#1F1F1F]/60 to-transparent p-3 text-left">
-                      <span
-                        className="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase"
-                        style={{ backgroundColor: accent, color: primary }}
-                      >
-                        {opLabel(prop.operacion)} · {prop.localidad}
-                      </span>
-                      <div className="mt-1 line-clamp-1 text-xs font-extrabold text-[#FFFFFF]">
-                        {prop.titulo}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                    {destacadasTrack.map((prop, itemIdx) => {
+                      const cover = prop.fotos?.[0] || "/photos/ref-01.png";
+                      return (
+                        <button
+                          key={`dest-${trackIdx}-${itemIdx}-${prop.id}`}
+                          type="button"
+                          tabIndex={trackIdx === 1 ? -1 : 0}
+                          onClick={() => handleClickFeatured(prop)}
+                          title={`Ver ${prop.titulo} (${opLabel(prop.operacion)})`}
+                          className="group relative h-52 w-52 flex-shrink-0 overflow-hidden rounded-2xl border-2 border-[#1F1F1F]/12 bg-[#1F1F1F] shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-[#FC8006] hover:shadow-xl sm:h-60 sm:w-60"
+                        >
+                          <img
+                            src={cover}
+                            alt={prop.titulo}
+                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                          />
+                          {prop.cartelCruzado && (
+                            <div
+                              className="pointer-events-none absolute -left-10 top-5 w-44 -rotate-45 py-1 text-center text-[10px] font-black uppercase tracking-wider shadow-lg"
+                              style={{
+                                backgroundColor: ribbonBgColor(prop.cartelCruzado, prop.cartelColorBg),
+                                color:
+                                  ribbonBgColor(prop.cartelCruzado, prop.cartelColorBg) === "#FC8006"
+                                    ? "#1F1F1F"
+                                    : "#FFFFFF",
+                              }}
+                            >
+                              {prop.cartelCruzado}
+                            </div>
+                          )}
+                          {prop.mostrarPrecio && prop.precio > 0 && (
+                            <div className="pointer-events-none absolute right-2.5 top-2.5 rounded-full border border-[#FFFFFF]/20 bg-[#1F1F1F]/80 px-2.5 py-0.5 text-[11px] font-black text-[#FFFFFF] backdrop-blur-sm shadow">
+                              {fmtMoney(prop.precio, prop.moneda)}
+                            </div>
+                          )}
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#1F1F1F]/95 via-[#1F1F1F]/65 to-transparent p-3 text-left">
+                            <span
+                              className="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase"
+                              style={{ backgroundColor: accent, color: primary }}
+                            >
+                              {opLabel(prop.operacion)} · {prop.localidad}
+                            </span>
+                            <div className="mt-1 line-clamp-1 text-xs font-extrabold text-[#FFFFFF]">
+                              {prop.titulo}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
         )}
@@ -1063,7 +1112,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     {/* 1RA FOTOGRAFÍA CON CARTEL CRUZADO DIAGONAL */}
                     <div
                       onClick={() => openPropertyDetail(prop)}
-                      className="relative h-60 w-full cursor-pointer overflow-hidden bg-[#1F1F1F]"
+                      className="relative aspect-square w-full cursor-pointer overflow-hidden bg-[#1F1F1F]"
                     >
                       <img
                         src={cover}
@@ -1472,11 +1521,11 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
             <div className="p-5 sm:p-7 space-y-6">
               {/* Galería fotográfica con cartel cruzado en foto 0 */}
               <div className="space-y-2.5">
-                <div className="relative h-72 w-full overflow-hidden rounded-2xl bg-[#1F1F1F] sm:h-96">
+                <div className="relative h-80 w-full overflow-hidden rounded-2xl bg-[#1F1F1F] sm:h-[420px]">
                   <img
                     src={selectedProp.fotos?.[selectedPhotoIdx] || selectedProp.fotos?.[0] || "/photos/ref-01.png"}
                     alt={selectedProp.titulo}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                   />
                   {selectedPhotoIdx === 0 && selectedProp.cartelCruzado && (
                     <div
