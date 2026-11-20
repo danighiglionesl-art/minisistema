@@ -1255,21 +1255,30 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               <p className="text-base font-extrabold text-[#FFFFFF] leading-snug">
                 {officeAddress}
               </p>
-              <a
-                href={officeMapsHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-black transition hover:brightness-110"
-                style={{
-                  borderColor: accent,
-                  backgroundColor: "rgba(255,255,255,0.08)",
-                  color: "#FFFFFF",
-                }}
+              <div
+                className="relative h-40 w-full overflow-hidden rounded-2xl border-2 shadow-lg bg-[#0d222c]"
+                style={{ borderColor: accent }}
               >
-                <span>🗺️</span>
-                <span>Abrir en Google Maps</span>
-                <span aria-hidden="true">↗</span>
-              </a>
+                <iframe
+                  title={`Mapa de ${officeAddress}`}
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                    officeAddress
+                  )}&t=m&z=16&output=embed`}
+                  className="h-full w-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+                <a
+                  href={officeMapsHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-black shadow-lg transition hover:scale-105"
+                  style={{ backgroundColor: primary, color: "#FFFFFF", border: `1px solid ${accent}` }}
+                >
+                  <span>Abrir en Maps</span>
+                  <span aria-hidden="true">↗</span>
+                </a>
+              </div>
             </div>
 
             {/* Horarios de Atención */}
@@ -1292,7 +1301,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               </div>
             </div>
 
-            {/* Redes Sociales y Contacto Directo */}
+            {/* Redes Sociales y Contacto Directo (solo botones con sus colores) */}
             <div className="space-y-3">
               <div
                 className="text-xs font-black uppercase tracking-wider"
@@ -1300,7 +1309,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               >
                 📲 Redes y Contacto
               </div>
-              <div className="flex flex-col gap-2.5 text-sm font-bold">
+              <div className="flex flex-wrap items-center gap-3.5 pt-1">
                 <a
                   href={buildWaHref(
                     config.whatsappMensajeDefault ||
@@ -1308,14 +1317,14 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2.5 text-[#FFFFFF]/95 transition hover:text-[#56D7A1]"
+                  title={`WhatsApp · ${waDisplay}`}
+                  aria-label={`Contactar por WhatsApp (${waDisplay})`}
+                  className="group relative flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#56D7A1]"
                 >
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-[#FFFFFF]"
-                  >
-                    <WhatsAppIcon size={17} />
+                  <WhatsAppIcon size={24} className="shrink-0" />
+                  <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#091820] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                    WhatsApp · {waDisplay}
                   </span>
-                  <span>WhatsApp · {waDisplay}</span>
                 </a>
 
                 {officeInstagramUrl && (
@@ -1323,14 +1332,18 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     href={officeInstagramUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2.5 text-[#FFFFFF]/95 transition hover:text-[#56D7A1]"
+                    title={`Instagram · ${officeInstagramLabel}`}
+                    aria-label={`Instagram ${officeInstagramLabel}`}
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #f9ce34 0%, #ee2a7b 50%, #6228d7 100%)",
+                    }}
+                    className="group relative flex h-12 w-12 items-center justify-center rounded-full text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#56D7A1]"
                   >
-                    <span
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#56D7A1]/50 bg-[#FFFFFF]/10 text-[#56D7A1]"
-                    >
-                      <InstagramIcon size={17} />
+                    <InstagramIcon size={23} className="shrink-0" />
+                    <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#091820] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                      Instagram · {officeInstagramLabel}
                     </span>
-                    <span>{officeInstagramLabel}</span>
                   </a>
                 )}
 
@@ -1339,39 +1352,39 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     href={officeFacebookUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2.5 text-[#FFFFFF]/95 transition hover:text-[#56D7A1]"
+                    title={`Facebook · ${officeFacebookLabel}`}
+                    aria-label={`Facebook ${officeFacebookLabel}`}
+                    className="group relative flex h-12 w-12 items-center justify-center rounded-full bg-[#1877F2] text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#56D7A1]"
                   >
-                    <span
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#56D7A1]/50 bg-[#FFFFFF]/10 text-[#56D7A1]"
-                    >
-                      <FacebookIcon size={17} />
+                    <FacebookIcon size={23} className="shrink-0" />
+                    <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#091820] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                      Facebook · {officeFacebookLabel}
                     </span>
-                    <span>{officeFacebookLabel}</span>
                   </a>
                 )}
 
                 {officeEmail && (
                   <a
                     href={`mailto:${officeEmail}`}
-                    className="inline-flex items-center gap-2.5 text-[#FFFFFF]/95 transition hover:text-[#56D7A1] break-all"
+                    title={`Email · ${officeEmail}`}
+                    aria-label={`Enviar correo a ${officeEmail}`}
+                    className="group relative flex h-12 w-12 items-center justify-center rounded-full bg-[#EA4335] text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#56D7A1]"
                   >
-                    <span
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#56D7A1]/50 bg-[#FFFFFF]/10 text-[#56D7A1]"
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      aria-hidden="true"
                     >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        aria-hidden="true"
-                      >
-                        <rect x="2" y="4" width="20" height="16" rx="2" />
-                        <path d="m22 7-10 6L2 7" />
-                      </svg>
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m22 7-10 6L2 7" />
+                    </svg>
+                    <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#091820] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                      {officeEmail}
                     </span>
-                    <span>{officeEmail}</span>
                   </a>
                 )}
               </div>
