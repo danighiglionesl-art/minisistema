@@ -142,6 +142,10 @@ export function renderErpHtmlResponse(params: {
     tenant.option_type === 2 && !tenant.is_base
       ? `/${tenant.slug}/verificador`
       : "/verificador";
+  const turnosPath =
+    tenant.option_type === 2 && !tenant.is_base
+      ? `/${tenant.slug}/turnos`
+      : "/turnos";
 
   const bootPayload = {
     slug: tenant.slug,
@@ -170,11 +174,12 @@ export function renderErpHtmlResponse(params: {
     erpUrl: `${siteOrigin}${erpPath}`,
     carritoUrl: `${siteOrigin}${carritoPath}`,
     verificadorUrl: `${siteOrigin}${verificadorPath}`,
+    turnosUrl: `${siteOrigin}${turnosPath}`,
     enabledModules: tenant.enabled_modules,
   };
 
   const verMatch = html.match(/assets\/(?:js\/app|css\/styles)\.(?:js|css)\?v=(\d+)/i);
-  const assetVer = `${verMatch ? verMatch[1] : "271"}.13`;
+  const assetVer = `${verMatch ? verMatch[1] : "271"}.14`;
 
   const headBootInjection = `
   <base href="${baseHref}">
@@ -267,7 +272,7 @@ export function renderErpHtmlResponse(params: {
   if (kind === "sistema") {
     html = html.replace(
       "</body>",
-      `  <script src="/sistema/assets/js/superadmin-panel.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/cv-module.js?v=${assetVer}"></script>\n</body>`
+      `  <script src="/sistema/assets/js/superadmin-panel.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/cv-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/turnos-module.js?v=${assetVer}"></script>\n</body>`
     );
   }
 

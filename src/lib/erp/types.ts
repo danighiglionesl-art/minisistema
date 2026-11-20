@@ -75,6 +75,7 @@ export interface ErpTenantDeployment {
   publicErpUrl: string;
   publicCarritoUrl: string;
   publicVerificadorUrl: string;
+  publicTurnosUrl?: string;
   githubRepoUrl: string | null;
   vercelProjectId: string | null;
   vercelDomainVerified: boolean;
@@ -202,6 +203,16 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "cv",
   "cv:recibidos",
   "cv:previsualizados",
+  "turnos",
+  "turnos:profesionales",
+  "turnos:obras_sociales",
+  "turnos:planes",
+  "turnos:especialidades",
+  "turnos:gestion_profesionales",
+  "turnos:pacientes",
+  "turnos:gestion_turnos",
+  "turnos:pagos_split",
+  "turnos:portal",
   "tema",
   "verificador",
   "perfil",
@@ -367,6 +378,24 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     description: "Portal público /cv con foto y PDF, bandeja de CV recibidos, CV previsualizados y valoración de 1 a 10.",
     defaultMonthlyArs: 10000,
     erpModuleKeys: ["cv", "cv:recibidos", "cv:previsualizados"],
+  },
+  {
+    key: "turnos",
+    name: "Turnero Web (Salud, Videollamada y Split Mercado Pago)",
+    description: "Portal público /turnos configurable por dominio o extensión, ABM Profesionales/Obras Sociales/Planes/Especialidades, agendas 5 a 60 min, registro web por DNI, videollamada 1:1 y pagos particulares con Split Mercado Pago.",
+    defaultMonthlyArs: 24000,
+    erpModuleKeys: [
+      "turnos",
+      "turnos:profesionales",
+      "turnos:obras_sociales",
+      "turnos:planes",
+      "turnos:especialidades",
+      "turnos:gestion_profesionales",
+      "turnos:pacientes",
+      "turnos:gestion_turnos",
+      "turnos:pagos_split",
+      "turnos:portal",
+    ],
   },
   {
     key: "manual_usuario",

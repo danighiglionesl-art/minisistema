@@ -15,6 +15,7 @@ import {
   handleErpWhatsappCloud,
 } from "@/lib/erp/handlers/misc-handlers";
 import { handleErpSuperAdmin } from "@/lib/erp/handlers/superadmin-handler";
+import { handleErpTurnos } from "@/lib/erp/handlers/turnos-handler";
 import { handleErpVentas } from "@/lib/erp/handlers/ventas-handler";
 import {
   getTenantBySlug,
@@ -81,6 +82,9 @@ export async function dispatchErpEndpoint(
       case "curriculum":
       case "cv":
         res = await handleErpCurriculum(req, tenant);
+        break;
+      case "turnos":
+        res = await handleErpTurnos(req, tenant);
         break;
       default:
         res = NextResponse.json(

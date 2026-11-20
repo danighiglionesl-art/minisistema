@@ -219,6 +219,10 @@
     hideAllErpSections();
     var inicio = document.getElementById('sec-inicio');
     if (inicio) inicio.hidden = false;
+    var backTopBtn = document.getElementById('btn-topbar-back-facturacion');
+    if (backTopBtn) backTopBtn.hidden = true;
+    var topbarModInd = document.getElementById('topbar-caja-indicator');
+    if (topbarModInd) topbarModInd.hidden = true;
   }
 
   async function openCvView(viewName) {
@@ -227,17 +231,32 @@
     STATE_CV.activeView = viewName || 'menu';
     hideAllErpSections();
 
+    var titleMap = {
+      recibidos: 'CV recibidos (sin previsualizar)',
+      previsualizados: 'CV previsualizados (Valoración 1 a 10)',
+      portal: 'Enlace Público y Código QR (/cv)',
+      detail: 'Ficha Completa del Postulante'
+    };
+
+    var backTopBtn = document.getElementById('btn-topbar-back-facturacion');
+    if (backTopBtn) {
+      backTopBtn.hidden = false;
+      backTopBtn.textContent = '← Atrás';
+    }
+    var topbarModInd = document.getElementById('topbar-caja-indicator');
+    if (topbarModInd) {
+      topbarModInd.hidden = false;
+      topbarModInd.textContent =
+        STATE_CV.activeView === 'menu'
+          ? 'Curriculum Vitae'
+          : 'Curriculum Vitae · ' + (titleMap[STATE_CV.activeView] || '');
+    }
+
     if (STATE_CV.activeView === 'menu') {
       refs.menuSec.hidden = false;
       await reloadCvData(false);
     } else {
       refs.detailSec.hidden = false;
-      var titleMap = {
-        recibidos: 'CV recibidos (sin previsualizar)',
-        previsualizados: 'CV previsualizados (Valoración 1 a 10)',
-        portal: 'Enlace Público y Código QR (/cv)',
-        detail: 'Ficha Completa del Postulante'
-      };
       var tEl = document.getElementById('ms-cv-sub-title');
       if (tEl) tEl.textContent = titleMap[STATE_CV.activeView] || 'Curriculum Vitae';
       if (STATE_CV.activeView !== 'detail') {
@@ -1102,10 +1121,27 @@
       function (ev) {
         var t = ev.target;
         if (!t || typeof t.closest !== 'function') return;
-        var navTrigger = t.closest('#topbar-home-btn, [data-open-section], #ms-superadmin-home-card');
+        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-turnos-home-card');
         if (navTrigger) {
           var m = document.getElementById('sec-menu-cv');
           var d = document.getElementById('sec-cv-workspace');
+          var isCvActive = (m && !m.hidden) || (d && !d.hidden);
+
+          if (navTrigger.id === 'btn-topbar-back-facturacion' && isCvActive) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (d && !d.hidden) {
+              if (STATE_CV.activeView === 'detail') {
+                openCvView(STATE_CV.previousListView || 'previsualizados');
+              } else {
+                openCvView('menu');
+              }
+            } else {
+              closeCvToHome();
+            }
+            return;
+          }
+
           if (m) m.hidden = true;
           if (d) d.hidden = true;
         }
