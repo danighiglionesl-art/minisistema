@@ -10530,8 +10530,63 @@ html[data-theme="dark"] .admin-orgchart-child-label.is-checked {
    ========================================================================== */
 .catalog-table thead th,
 .erp-table thead th,
-.cierre-classic-table thead th {
+.cierre-classic-table thead th,
+.ms-excel-table thead th,
+.ms-sa-table thead th,
+.mc-table thead th {
   position: relative;
+}
+
+.ms-sa-table {
+  border-collapse: collapse;
+}
+
+.ms-sa-table thead th {
+  padding: 0.65rem 0.7rem;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #112D3A;
+  border-bottom: 2px solid #56D7A1;
+  background: rgba(17, 45, 58, 0.04);
+}
+
+.ms-sa-table tbody td {
+  padding: 0.6rem 0.7rem;
+  border-bottom: 1px solid rgba(17, 45, 58, 0.1);
+  vertical-align: middle;
+}
+
+html[data-theme="dark"] .ms-sa-table thead th {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .ms-sa-table tbody td {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.ms-excel-col-movable {
+  cursor: grab;
+  user-select: none;
+}
+
+.ms-excel-col-movable:active {
+  cursor: grabbing;
+}
+
+.ms-excel-table thead th.is-col-dragging {
+  opacity: 0.42;
+}
+
+.ms-excel-table thead th.is-col-drag-over-left {
+  box-shadow: inset 3px 0 0 #56D7A1 !important;
+  background: rgba(86, 215, 161, 0.16) !important;
+}
+
+.ms-excel-table thead th.is-col-drag-over-right {
+  box-shadow: inset -3px 0 0 #56D7A1 !important;
+  background: rgba(86, 215, 161, 0.16) !important;
 }
 
 .col-resizer-handle {
@@ -10567,7 +10622,7 @@ html[data-theme="dark"] .col-resizer-handle::after {
   top: 0;
   bottom: 0;
   width: 2.5px;
-  background: var(--gold-main, #d4a017);
+  background: var(--ms-accent, var(--gold-main, #56D7A1));
 }
 
 body.is-col-resizing-active,
@@ -10578,7 +10633,10 @@ body.is-col-resizing-active * {
 
 .catalog-table.is-col-resized,
 .erp-table.is-col-resized,
-.cierre-classic-table.is-col-resized {
+.cierre-classic-table.is-col-resized,
+.ms-excel-table.is-col-resized,
+.ms-sa-table.is-col-resized,
+.mc-table.is-col-resized {
   table-layout: fixed !important;
   min-width: 0 !important;
 }
@@ -10591,7 +10649,16 @@ body.is-col-resizing-active * {
 .erp-table.is-col-resized tbody td,
 .cierre-classic-table.is-col-resized thead th,
 .cierre-classic-table.is-col-resized tbody th,
-.cierre-classic-table.is-col-resized tbody td {
+.cierre-classic-table.is-col-resized tbody td,
+.ms-excel-table.is-col-resized thead th,
+.ms-excel-table.is-col-resized tbody th,
+.ms-excel-table.is-col-resized tbody td,
+.ms-sa-table.is-col-resized thead th,
+.ms-sa-table.is-col-resized tbody th,
+.ms-sa-table.is-col-resized tbody td,
+.mc-table.is-col-resized thead th,
+.mc-table.is-col-resized tbody th,
+.mc-table.is-col-resized tbody td {
   min-width: 0 !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -10604,7 +10671,13 @@ body.is-col-resizing-active * {
 .erp-table.is-col-resized tbody td *,
 .erp-table.is-col-resized tbody th *,
 .cierre-classic-table.is-col-resized tbody td *,
-.cierre-classic-table.is-col-resized tbody th * {
+.cierre-classic-table.is-col-resized tbody th *,
+.ms-excel-table.is-col-resized tbody td *,
+.ms-excel-table.is-col-resized tbody th *,
+.ms-sa-table.is-col-resized tbody td *,
+.ms-sa-table.is-col-resized tbody th *,
+.mc-table.is-col-resized tbody td *,
+.mc-table.is-col-resized tbody th * {
   min-width: 0 !important;
   max-width: 100% !important;
   overflow: hidden !important;

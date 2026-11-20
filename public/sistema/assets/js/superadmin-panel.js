@@ -459,7 +459,7 @@
         '<h4 style="margin-top:0;">Usuarios del Sistema (Esquema <code>' +
         esc(targetT ? targetT.db_schema : '') +
         '</code>)</h4>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:0.86rem;">' +
+        '<table class="ms-sa-table" data-excel-table-key="sa-tenant-users" style="width:100%;border-collapse:collapse;font-size:0.86rem;">' +
         '<thead><tr style="text-align:left;border-bottom:2px solid #112D3A;"><th style="padding:0.45rem;">Usuario</th><th style="padding:0.45rem;">Jerarquía</th><th style="padding:0.45rem;">Clave</th><th style="padding:0.45rem;">Estado</th><th style="padding:0.45rem;">Acción</th></tr></thead>' +
         '<tbody>' +
         rowsHtml +
@@ -948,7 +948,7 @@
       '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-save-pricing-btn">💾 Guardar Lista Oficial de Valores Mensuales</button>' +
       '</div>' +
       '<div style="overflow-x:auto;">' +
-      '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
+      '<table class="ms-sa-table" data-excel-table-key="sa-pricing" style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
       '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;">' +
       '<th style="padding:0.5rem;white-space:nowrap;">' +
       '<label style="display:inline-flex;align-items:center;gap:0.45rem;cursor:pointer;user-select:none;font-weight:800;color:#112D3A;" title="Tildar o destildar todos los módulos">' +
@@ -1574,7 +1574,10 @@
 
     var rowsHtml = filtered
       .map(function (u) {
-        var showPass = STATE_SA.usersShowAllPasswords || STATE_SA.usersRevealedMap[u.id];
+        var hasRowOverride = Object.prototype.hasOwnProperty.call(STATE_SA.usersRevealedMap, u.id);
+        var showPass = hasRowOverride
+          ? Boolean(STATE_SA.usersRevealedMap[u.id])
+          : Boolean(STATE_SA.usersShowAllPasswords);
         var isBaseDaniel = u.tenantSlug === 'minisistema' && String(u.username || '').toLowerCase() === 'danielg';
         var isSuspended = u.status === 'suspended_nonpayment' || u.status === 'disabled';
 
@@ -1599,12 +1602,12 @@
             '</td>' +
             '<td>' +
               '<div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">' +
-                '<code style="font-weight:800;font-size:0.83rem;padding:0.18rem 0.48rem;border-radius:6px;background:' +
+                '<code data-gu-pass-code="' + esc(u.id) + '" data-gu-pass-raw="' + esc(u.password || '—') + '" style="font-weight:800;font-size:0.83rem;padding:0.18rem 0.48rem;border-radius:6px;background:' +
                   (showPass ? '#ecfdf5' : '#f1f5f9') +
                   ';color:#064e3b;border:1px solid rgba(16,185,129,0.35);">' +
                   (showPass ? esc(u.password || '—') : '••••••••••') +
                 '</code>' +
-                '<button type="button" data-gu-reveal="' + esc(u.id) + '" title="Mostrar / Ocultar clave" style="border:none;background:transparent;cursor:pointer;font-size:0.88rem;padding:0.15rem;">' + (showPass ? '🙈' : '👁️') + '</button>' +
+                '<button type="button" data-gu-reveal="' + esc(u.id) + '" title="' + (showPass ? 'Ocultar contraseña' : 'Mostrar contraseña') + '" aria-label="' + (showPass ? 'Ocultar contraseña' : 'Mostrar contraseña') + '" style="border:none;background:transparent;cursor:pointer;font-size:0.88rem;padding:0.15rem;">' + (showPass ? '🙈' : '👁️') + '</button>' +
                 (u.password
                   ? '<button type="button" data-gu-copy="' + esc(u.password) + '" title="Copiar contraseña" style="border:none;background:transparent;cursor:pointer;font-size:0.85rem;padding:0.15rem;">📋</button>'
                   : '') +
@@ -1637,7 +1640,7 @@
 
     var tableCardHtml =
       '<div class="ms-sa-card" style="overflow-x:auto;">' +
-        '<table class="ms-sa-table" style="width:100%;min-width:880px;">' +
+        '<table class="ms-sa-table" data-excel-table-key="sa-global-users" style="width:100%;min-width:880px;">' +
           '<thead>' +
             '<tr>' +
               '<th>Proyecto / Sistema Asociado</th>' +
@@ -1703,15 +1706,32 @@
     if (toggleAllPassBtn) {
       toggleAllPassBtn.addEventListener('click', function () {
         STATE_SA.usersShowAllPasswords = !STATE_SA.usersShowAllPasswords;
+        STATE_SA.usersRevealedMap = {};
         renderBody();
       });
     }
 
     bodyEl.querySelectorAll('[data-gu-reveal]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
         var id = btn.getAttribute('data-gu-reveal');
-        STATE_SA.usersRevealedMap[id] = !STATE_SA.usersRevealedMap[id];
-        renderBody();
+        var hasOverride = Object.prototype.hasOwnProperty.call(STATE_SA.usersRevealedMap, id);
+        var currentlyShown = hasOverride
+          ? Boolean(STATE_SA.usersRevealedMap[id])
+          : Boolean(STATE_SA.usersShowAllPasswords);
+        var nextShown = !currentlyShown;
+        STATE_SA.usersRevealedMap[id] = nextShown;
+
+        var codeEl = btn.parentElement ? btn.parentElement.querySelector('[data-gu-pass-code]') : null;
+        if (codeEl) {
+          var rawPass = codeEl.getAttribute('data-gu-pass-raw') || '—';
+          codeEl.textContent = nextShown ? rawPass : '••••••••••';
+          codeEl.style.background = nextShown ? '#ecfdf5' : '#f1f5f9';
+        }
+        btn.textContent = nextShown ? '🙈' : '👁️';
+        btn.title = nextShown ? 'Ocultar contraseña' : 'Mostrar contraseña';
+        btn.setAttribute('aria-label', btn.title);
       });
     });
 

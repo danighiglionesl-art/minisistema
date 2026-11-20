@@ -68843,15 +68843,306 @@ function initApp() {
   // Títulos reales automáticos en vista móvil para todas las tablas .catalog-table del ERP
   installCatalogTablesMobileLabelsObserver();
 
-  // Divisor de columnas estilo Excel (achicar / agrandar) en la línea de títulos de todos los listados
+  // Columnas estilo Excel (mover / ampliar / reducir + persistencia) en todos los listados del ERP
   (function installUniversalExcelColumnResizers() {
-    const TABLE_TH_SELECTOR = '.catalog-table thead th, .erp-table thead th, .cierre-classic-table thead th';
+    const EXCEL_TABLE_SELECTOR = [
+      '.catalog-table',
+      '.erp-table',
+      '.cierre-classic-table',
+      '.ms-sa-table',
+      '.mc-table',
+      '.erp-section table'
+    ].join(', ');
+    const EXCLUDED_TABLE_SELECTOR =
+      '.a4-items-table, .a4-totals-table, .pdf-toc-table, .no-excel-cols, [data-no-excel-cols="1"]';
+    const STORAGE_PREFIX = 'ms_excel_cols_v1:';
+    const INTERACTIVE_CHILD_SELECTOR = 'input, button, select, textarea, label, a, .col-resizer-handle';
+
+    let activeDragTable = null;
+    let activeDragTh = null;
+
+    function getHeaderRow(table) {
+      if (!table || !table.tHead || !table.tHead.rows || table.tHead.rows.length !== 1) return null;
+      const row = table.tHead.rows[0];
+      const cells = Array.from(row.children).filter((el) => el.tagName === 'TH');
+      if (cells.length < 2) return null;
+      const hasComplexSpan = cells.some((th) => th.colSpan > 1 || th.rowSpan > 1);
+      if (hasComplexSpan) return null;
+      return row;
+    }
+
+    function getTableStorageKey(table, headerCells) {
+      if (table.dataset.excelStorageKey) return table.dataset.excelStorageKey;
+      const explicit = table.getAttribute('data-excel-table-key') || table.id;
+      if (explicit) {
+        table.dataset.excelStorageKey = STORAGE_PREFIX + explicit;
+        return table.dataset.excelStorageKey;
+      }
+      const sec = table.closest('.erp-section');
+      const secId = sec && sec.id ? sec.id : 'global';
+      const sig = headerCells
+        .map((th) => String(th.textContent || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 20))
+        .join('|');
+      table.dataset.excelStorageKey = STORAGE_PREFIX + secId + ':' + sig;
+      return table.dataset.excelStorageKey;
+    }
+
+    function loadSavedState(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      } catch (_e) {
+        return null;
+      }
+    }
+
+    function saveTableState(table) {
+      const headerRow = getHeaderRow(table);
+      if (!headerRow) return;
+      const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
+      const key = getTableStorageKey(table, ths);
+      const order = ths.map((th, i) => th.dataset.excelColId || String(i));
+      const widths = {};
+      if (table.classList.contains('is-col-resized')) {
+        ths.forEach((th, i) => {
+          const cid = th.dataset.excelColId || String(i);
+          const w = parseInt(th.style.width, 10) || Math.round(th.getBoundingClientRect().width);
+          if (w >= 28) widths[cid] = w;
+        });
+      }
+      try {
+        localStorage.setItem(key, JSON.stringify({ order, widths }));
+      } catch (_e) {}
+    }
+
+    function clearDragIndicators(table) {
+      if (!table) return;
+      table.querySelectorAll('thead th.is-col-drag-over-left, thead th.is-col-drag-over-right, thead th.is-col-dragging').forEach((el) => {
+        el.classList.remove('is-col-drag-over-left', 'is-col-drag-over-right', 'is-col-dragging');
+      });
+    }
+
+    function getHeaderOrderSig(headerRow) {
+      return Array.from(headerRow.children)
+        .filter((el) => el.tagName === 'TH')
+        .map((th, i) => th.dataset.excelColId || String(i))
+        .join(',');
+    }
+
+    function applyOrderToRowFromDefault(tr, orderIds, orderSig) {
+      const cells = Array.from(tr.children);
+      if (cells.length !== orderIds.length) return;
+      if (cells.some((c) => c.colSpan > 1 || c.rowSpan > 1)) return;
+      const frag = document.createDocumentFragment();
+      orderIds.forEach((origId) => {
+        const origIdx = Number(origId);
+        if (cells[origIdx]) frag.appendChild(cells[origIdx]);
+      });
+      tr.appendChild(frag);
+      tr.dataset.excelRowOrder = orderSig;
+    }
+
+    function syncBodyRowsToHeaderOrder(table) {
+      const headerRow = getHeaderRow(table);
+      if (!headerRow) return;
+      const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
+      const orderIds = ths.map((th, i) => th.dataset.excelColId || String(i));
+      const orderSig = orderIds.join(',');
+      const defaultSig = ths.map((_, i) => String(i)).join(',');
+      if (orderSig === defaultSig) return;
+
+      const sections = [
+        ...Array.from(table.tBodies || []),
+        ...(table.tFoot ? [table.tFoot] : [])
+      ];
+      sections.forEach((sec) => {
+        Array.from(sec.rows || []).forEach((tr) => {
+          if (tr.dataset.excelRowOrder === orderSig) return;
+          if (!tr.dataset.excelRowOrder) {
+            applyOrderToRowFromDefault(tr, orderIds, orderSig);
+          }
+        });
+      });
+    }
+
+    function moveColumnVisual(table, fromIdx, toIdx) {
+      const headerRow = getHeaderRow(table);
+      if (!headerRow || fromIdx === toIdx) return;
+      const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
+      const colCount = ths.length;
+      if (fromIdx < 0 || toIdx < 0 || fromIdx >= colCount || toIdx >= colCount) return;
+
+      function moveChildInParent(parent, fIdx, tIdx) {
+        const children = Array.from(parent.children);
+        if (children.length !== colCount) return;
+        if (children.some((c) => c.colSpan > 1 || c.rowSpan > 1)) return;
+        const moving = children[fIdx];
+        if (!moving) return;
+        if (fIdx < tIdx) {
+          const afterNode = children[tIdx] ? children[tIdx].nextSibling : null;
+          parent.insertBefore(moving, afterNode);
+        } else {
+          parent.insertBefore(moving, children[tIdx] || null);
+        }
+      }
+
+      moveChildInParent(headerRow, fromIdx, toIdx);
+
+      const newSig = getHeaderOrderSig(headerRow);
+      const colgroup = table.querySelector('colgroup');
+      if (colgroup && colgroup.children.length === colCount) {
+        moveChildInParent(colgroup, fromIdx, toIdx);
+      }
+
+      const sections = [
+        ...Array.from(table.tBodies || []),
+        ...(table.tFoot ? [table.tFoot] : [])
+      ];
+      sections.forEach((sec) => {
+        Array.from(sec.rows || []).forEach((tr) => {
+          if (tr.children.length !== colCount) return;
+          if (Array.from(tr.children).some((c) => c.colSpan > 1 || c.rowSpan > 1)) return;
+          moveChildInParent(tr, fromIdx, toIdx);
+          tr.dataset.excelRowOrder = newSig;
+        });
+      });
+
+      saveTableState(table);
+    }
+
+    function applySavedWidths(table, widthsMap) {
+      if (!widthsMap || typeof widthsMap !== 'object' || Object.keys(widthsMap).length === 0) return;
+      const headerRow = getHeaderRow(table);
+      if (!headerRow) return;
+      const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
+      const visibleThs = ths.filter((cell) => !cell.hidden && cell.offsetParent !== null);
+      if (visibleThs.length < 2) return;
+
+      let totalW = 0;
+      const resolved = visibleThs.map((cell, idx) => {
+        const cid = cell.dataset.excelColId || String(idx);
+        const savedW = Number(widthsMap[cid]);
+        const w = Number.isFinite(savedW) && savedW >= 28 ? Math.round(savedW) : Math.max(28, Math.round(cell.getBoundingClientRect().width));
+        totalW += w;
+        return w;
+      });
+      if (totalW <= 0) return;
+
+      table.classList.add('is-col-resized');
+      table.style.setProperty('table-layout', 'fixed', 'important');
+      table.style.setProperty('width', `${totalW}px`, 'important');
+      table.style.setProperty('min-width', `${totalW}px`, 'important');
+      table.style.setProperty('max-width', `${totalW}px`, 'important');
+      visibleThs.forEach((cell, idx) => {
+        const w = resolved[idx];
+        cell.style.setProperty('width', `${w}px`, 'important');
+        cell.style.setProperty('min-width', `${w}px`, 'important');
+        cell.style.setProperty('max-width', `${w}px`, 'important');
+      });
+    }
+
+    function resetTableWidths(table) {
+      const headerRow = getHeaderRow(table);
+      if (!headerRow) return;
+      table.classList.remove('is-col-resized');
+      table.style.removeProperty('table-layout');
+      table.style.removeProperty('width');
+      table.style.removeProperty('min-width');
+      table.style.removeProperty('max-width');
+      Array.from(headerRow.children).forEach((cell) => {
+        cell.style.removeProperty('width');
+        cell.style.removeProperty('min-width');
+        cell.style.removeProperty('max-width');
+      });
+      saveTableState(table);
+    }
+
+    function attachDragReorderToTh(th, table) {
+      if (!th || th.dataset.excelDragBound === '1') return;
+      th.dataset.excelDragBound = '1';
+      th.classList.add('ms-excel-col-movable');
+      th.setAttribute('draggable', 'true');
+      if (!th.getAttribute('title')) {
+        th.setAttribute('title', 'Arrastrá para mover columna · Borde derecho para ampliar o reducir');
+      }
+
+      let suppressNextDrag = false;
+      th.addEventListener('pointerdown', (e) => {
+        suppressNextDrag = Boolean(e.target && e.target.closest && e.target.closest(INTERACTIVE_CHILD_SELECTOR));
+      });
+
+      th.addEventListener('dragstart', (e) => {
+        if (suppressNextDrag || document.body.classList.contains('is-col-resizing-active')) {
+          e.preventDefault();
+          return;
+        }
+        activeDragTable = table;
+        activeDragTh = th;
+        th.classList.add('is-col-dragging');
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          try {
+            e.dataTransfer.setData('text/plain', th.dataset.excelColId || '');
+          } catch (_e) {}
+        }
+      });
+
+      th.addEventListener('dragover', (e) => {
+        if (!activeDragTable || activeDragTable !== table || !activeDragTh || activeDragTh === th) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        const rect = th.getBoundingClientRect();
+        const isLeft = e.clientX < rect.left + rect.width / 2;
+        th.classList.toggle('is-col-drag-over-left', isLeft);
+        th.classList.toggle('is-col-drag-over-right', !isLeft);
+      });
+
+      th.addEventListener('dragleave', () => {
+        th.classList.remove('is-col-drag-over-left', 'is-col-drag-over-right');
+      });
+
+      th.addEventListener('drop', (e) => {
+        if (!activeDragTable || activeDragTable !== table || !activeDragTh || activeDragTh === th) return;
+        e.preventDefault();
+        const headerRow = getHeaderRow(table);
+        if (!headerRow) return;
+        const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
+        const fromIdx = ths.indexOf(activeDragTh);
+        const targetIdx = ths.indexOf(th);
+        const rect = th.getBoundingClientRect();
+        const isLeft = e.clientX < rect.left + rect.width / 2;
+        clearDragIndicators(table);
+        if (fromIdx < 0 || targetIdx < 0) return;
+
+        let nextIdx = isLeft ? targetIdx : targetIdx + 1;
+        if (fromIdx < nextIdx) nextIdx -= 1;
+        if (nextIdx !== fromIdx) {
+          moveColumnVisual(table, fromIdx, nextIdx);
+        }
+      });
+
+      th.addEventListener('dragend', () => {
+        clearDragIndicators(activeDragTable || table);
+        activeDragTable = null;
+        activeDragTh = null;
+        suppressNextDrag = false;
+      });
+    }
 
     function attachResizerToTh(th) {
       if (!th || th.querySelector(':scope > .col-resizer-handle')) return;
       const handle = document.createElement('span');
       handle.className = 'col-resizer-handle';
       handle.setAttribute('aria-hidden', 'true');
+      handle.setAttribute('title', 'Arrastrá para ampliar o reducir · Doble clic para restablecer ancho');
+      handle.setAttribute('draggable', 'false');
+
+      handle.addEventListener('dragstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
 
       handle.addEventListener('click', (e) => {
         e.preventDefault();
@@ -68861,9 +69152,14 @@ function initApp() {
       handle.addEventListener('dblclick', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        th.style.width = '';
-        th.style.minWidth = '';
-        th.style.maxWidth = '';
+        const table = th.closest('table');
+        if (table) {
+          resetTableWidths(table);
+        } else {
+          th.style.width = '';
+          th.style.minWidth = '';
+          th.style.maxWidth = '';
+        }
       });
 
       handle.addEventListener('pointerdown', (e) => {
@@ -68874,6 +69170,9 @@ function initApp() {
         const table = th.closest('table');
         const headerRow = th.parentElement;
         if (!table || !headerRow) return;
+
+        const prevDraggable = th.getAttribute('draggable');
+        th.setAttribute('draggable', 'false');
 
         const visibleThs = Array.from(headerRow.children).filter(
           (cell) => !cell.hidden && cell.offsetParent !== null
@@ -68922,9 +69221,12 @@ function initApp() {
         const onPointerUp = () => {
           handle.classList.remove('is-resizing');
           document.body.classList.remove('is-col-resizing-active');
+          if (prevDraggable !== null) th.setAttribute('draggable', prevDraggable);
+          else th.setAttribute('draggable', 'true');
           window.removeEventListener('pointermove', onPointerMove);
           window.removeEventListener('pointerup', onPointerUp);
           window.removeEventListener('pointercancel', onPointerUp);
+          saveTableState(table);
         };
 
         window.addEventListener('pointermove', onPointerMove);
@@ -68935,8 +69237,79 @@ function initApp() {
       th.appendChild(handle);
     }
 
+    function enhanceExcelTable(table) {
+      if (!table || table.matches(EXCLUDED_TABLE_SELECTOR)) return;
+      const headerRow = getHeaderRow(table);
+      if (!headerRow) return;
+
+      const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
+      table.classList.add('ms-excel-table');
+
+      if (table.dataset.excelColsReady !== '1') {
+        table.dataset.excelColsReady = '1';
+        ths.forEach((th, idx) => {
+          if (!th.dataset.excelColId) th.dataset.excelColId = String(idx);
+        });
+
+        const key = getTableStorageKey(table, ths);
+        const saved = loadSavedState(key);
+
+        if (saved && Array.isArray(saved.order) && saved.order.length === ths.length) {
+          const validSet = new Set(ths.map((th) => th.dataset.excelColId));
+          const allMatch =
+            saved.order.every((id) => validSet.has(String(id))) &&
+            new Set(saved.order.map(String)).size === ths.length;
+          if (allMatch) {
+            const byId = {};
+            ths.forEach((th) => {
+              byId[th.dataset.excelColId] = th;
+            });
+            const frag = document.createDocumentFragment();
+            saved.order.forEach((id) => {
+              if (byId[String(id)]) frag.appendChild(byId[String(id)]);
+            });
+            headerRow.appendChild(frag);
+
+            const colgroup = table.querySelector('colgroup');
+            if (colgroup && colgroup.children.length === ths.length) {
+              const cols = Array.from(colgroup.children);
+              const cFrag = document.createDocumentFragment();
+              saved.order.forEach((id) => {
+                const c = cols[Number(id)];
+                if (c) cFrag.appendChild(c);
+              });
+              colgroup.appendChild(cFrag);
+            }
+          }
+        }
+
+        syncBodyRowsToHeaderOrder(table);
+
+        if (saved && saved.widths && Object.keys(saved.widths).length > 0) {
+          table.dataset.excelPendingWidths = JSON.stringify(saved.widths);
+          applySavedWidths(table, saved.widths);
+        }
+      } else {
+        syncBodyRowsToHeaderOrder(table);
+        if (table.dataset.excelPendingWidths && !table.classList.contains('is-col-resized') && table.offsetParent !== null) {
+          try {
+            const wMap = JSON.parse(table.dataset.excelPendingWidths);
+            applySavedWidths(table, wMap);
+            delete table.dataset.excelPendingWidths;
+          } catch (_e) {}
+        }
+      }
+
+      Array.from(headerRow.children)
+        .filter((el) => el.tagName === 'TH')
+        .forEach((th) => {
+          attachResizerToTh(th);
+          attachDragReorderToTh(th, table);
+        });
+    }
+
     function scanAndAttachAllTableResizers(root = document) {
-      root.querySelectorAll(TABLE_TH_SELECTOR).forEach(attachResizerToTh);
+      root.querySelectorAll(EXCEL_TABLE_SELECTOR).forEach(enhanceExcelTable);
     }
 
     scanAndAttachAllTableResizers(document);
