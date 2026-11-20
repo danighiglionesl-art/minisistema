@@ -69,6 +69,7 @@
 
   const state = {
     articulos: [],
+    allArticulos: [],
     rubrosMap: new Map(),
     marcasMap: new Map(),
     rubroCounts: new Map(),
@@ -688,9 +689,9 @@
         }
       }
 
-      // Publicamos los 11.335 artículos activos (bl !== 1) tildados con Carrito Web (cw !== 0).
-      // Los artículos SIN STOCK (sf <= 0) se publican con su insignia "Sin Stock".
-      state.articulos = (data.articulos || [])
+      // Guardamos todos los artículos activos (bl !== 1) en state.allArticulos para Consultador de Precios y Soy Cajero en salón,
+      // y filtramos state.articulos con Carrito Web (cw === 1) para el catálogo de Compra Web.
+      const mappedActive = (data.articulos || [])
         .map((a) => ({
           id: Number(a.id),
           c: String(a.c || a.co || String(a.id).padStart(5, '0')),
@@ -698,8 +699,9 @@
           r: Number(a.r ?? a.ru ?? 0),
           mk: Number(a.mk ?? a.ma ?? 0),
           bc: Array.isArray(a.bc) ? a.bc : [],
+          fr: Number(a.fr) === 1 ? 1 : 0,
           bl: Number(a.bl) || 0,
-          cw: a.cw === 0 || a.cw === false ? 0 : 1,
+          cw: a.cw === 0 || a.cw === false || a.cw === '0' ? 0 : 1,
           sf: Number(a.sf) || 0,
           al: Number(a.al) || 21,
           p1f: Number(a.p1f) || 0,
@@ -709,7 +711,12 @@
           pfidManual: Number(a.pfidManual) || 0,
           ptsCanje: Number(a.ptsCanje || a.pfid) || 0
         }))
-        .filter((a) => a.bl !== 1 && a.cw === 1);
+        .filter((a) => a.bl !== 1);
+
+      state.allArticulos = mappedActive;
+      const onlyInStockStore = data.carritoWebStockMode === 'solo_con_stock';
+      state.carritoWebStockMode = onlyInStockStore ? 'solo_con_stock' : 'todos_sin_stock';
+      state.articulos = mappedActive.filter((a) => a.cw === 1 && (!onlyInStockStore || a.sf > 0));
 
       state.rubroCounts.clear();
       state.marcaCounts.clear();
@@ -1134,11 +1141,20 @@
     };
   };
 
+  const findAnyArticleById = (artId) => {
+    const idNum = Number(artId);
+    return (
+      state.allArticulos.find((a) => Number(a.id) === idNum) ||
+      state.articulos.find((a) => Number(a.id) === idNum) ||
+      null
+    );
+  };
+
   // ==========================================
   // QUICKVIEW PRODUCT DETAIL MODAL
   // ==========================================
   const openQuickViewModal = (artId, opts = {}) => {
-    const art = state.articulos.find((a) => Number(a.id) === Number(artId));
+    const art = findAnyArticleById(artId);
     const dialog = document.getElementById('product-detail-dialog');
     const content = document.getElementById('quickview-content');
     const rubroEl = document.getElementById('detail-dialog-rubro');
@@ -1310,7 +1326,7 @@
       document.getElementById('login-dialog')?.showModal();
       return;
     }
-    const art = state.articulos.find((a) => Number(a.id) === Number(artId));
+    const art = findAnyArticleById(artId);
     if (!art) return;
     if (Number(art.sf) <= 0) {
       showToast('Este artículo se encuentra Sin Stock.');
@@ -1342,7 +1358,7 @@
     let totalAmount = 0;
 
     for (const item of state.cart) {
-      const art = state.articulos.find((a) => Number(a.id) === Number(item.id));
+      const art = findAnyArticleById(item.id);
       const unitPrice = art ? getArticleUnitPrice(art) : 0;
       totalUnits += Number(item.qty) || 0;
       totalAmount += (Number(item.qty) || 0) * unitPrice;
@@ -1368,7 +1384,7 @@
     let total = 0;
     container.innerHTML = state.cart
       .map((item) => {
-        const art = state.articulos.find((a) => Number(a.id) === Number(item.id));
+        const art = findAnyArticleById(item.id);
         const unitPrice = art ? getArticleUnitPrice(art) : 0;
         const subtotal = unitPrice * (Number(item.qty) || 1);
         total += subtotal;
@@ -3859,7 +3875,7 @@
       }
 
       const itemsPayload = state.cart.map((item) => {
-        const art = state.articulos.find((a) => Number(a.id) === Number(item.id));
+        const art = findAnyArticleById(item.id);
         const unitPrice = art ? getArticleUnitPrice(art) : 0;
         return {
           id: item.id,
@@ -4513,39 +4529,165 @@
   };
 
   // 2. SECCIÓN CONSULTADOR DE PRECIOS
+  const expandUpcEToUpcA = (upcE) => {
+    if (!/^[01]\d{7}$/.test(upcE)) return null;
+    const ns = upcE[0];
+    const d1 = upcE[1];
+    const d2 = upcE[2];
+    const d3 = upcE[3];
+    const d4 = upcE[4];
+    const d5 = upcE[5];
+    const d6 = upcE[6];
+    const chk = upcE[7];
+    if (d6 === '0' || d6 === '1' || d6 === '2') {
+      return `${ns}${d1}${d2}${d6}0000${d3}${d4}${d5}${chk}`;
+    }
+    if (d6 === '3') {
+      return `${ns}${d1}${d2}${d3}00000${d4}${d5}${chk}`;
+    }
+    if (d6 === '4') {
+      return `${ns}${d1}${d2}${d3}${d4}00000${d5}${chk}`;
+    }
+    return `${ns}${d1}${d2}${d3}${d4}${d5}0000${d6}${chk}`;
+  };
+
+  const sanitizeScannedBarcodeStr = (raw) => {
+    let s = String(raw || '').trim();
+    if (!s) return '';
+    s = s.replace(/^\][A-Za-z]\d/, '').trim();
+    if (/^[\d\s\r\n\t-]+$/.test(s) && s.replace(/\D/g, '').length >= 8) {
+      s = s.replace(/\D/g, '');
+    }
+    return s;
+  };
+
+  const buildBarcodeComparableKeys = (rawBc) => {
+    const keys = new Set();
+    const s = sanitizeScannedBarcodeStr(rawBc).toUpperCase();
+    if (!s) return keys;
+    keys.add(s);
+    if (/^\d{8,18}$/.test(s)) {
+      const stripped = s.replace(/^0+/, '');
+      if (stripped.length >= 7) {
+        keys.add(stripped);
+      }
+      if (s.length === 12) {
+        keys.add('0' + s);
+      } else if (s.length === 13 && s.startsWith('0')) {
+        keys.add(s.slice(1));
+      }
+      if (s.length === 8 && (s[0] === '0' || s[0] === '1')) {
+        const upcA = expandUpcEToUpcA(s);
+        if (upcA) {
+          keys.add(upcA);
+          keys.add('0' + upcA);
+          const upcStripped = upcA.replace(/^0+/, '');
+          if (upcStripped.length >= 7) keys.add(upcStripped);
+        }
+      }
+    }
+    return keys;
+  };
+
   const findArticlesByBarcodeOrQuery = (rawQuery) => {
-    const q = String(rawQuery || '').trim().toUpperCase();
+    const cleanRaw = sanitizeScannedBarcodeStr(rawQuery);
+    const q = cleanRaw.toUpperCase();
     if (!q) return { exact: null, list: [] };
 
+    const catalogPool = state.allArticulos.length > 0 ? state.allArticulos : state.articulos;
     const digits = q.replace(/\D/g, '');
+    const isPureNumeric = /^\d+$/.test(q);
     let scaleMeta = null;
 
-    // Soporte para etiquetas de balanza EAN-13 (prefijo 20 o 21: 20 + PLU 5 dígitos + peso/importe 5 dígitos + verificador)
-    if (digits.length === 13 && (digits.startsWith('20') || digits.startsWith('21'))) {
-      const pluRaw = digits.slice(2, 7);
+    // 0. Soporte para etiquetas de balanza EAN-13 (prefijos 20, 21 o 23 + PLU 5 dígitos + peso/importe 5 dígitos + verificador)
+    let scaleDigits = digits;
+    if (isPureNumeric) {
+      if (/^0(20|21|23)\d{11}$/.test(scaleDigits)) {
+        scaleDigits = scaleDigits.slice(1);
+      } else if (/^(20|21|23)\d{10}$/.test(scaleDigits)) {
+        scaleDigits = scaleDigits + '0';
+      }
+    }
+    if (
+      isPureNumeric &&
+      scaleDigits.length === 13 &&
+      (scaleDigits.startsWith('20') || scaleDigits.startsWith('21') || scaleDigits.startsWith('23'))
+    ) {
+      const pluRaw = scaleDigits.slice(2, 7);
       const pluClean = String(Number(pluRaw));
-      const valRaw = Number(digits.slice(7, 12)) || 0;
-      const scaleArt = state.articulos.find(
-        (a) => String(a.c) === pluRaw || String(Number(a.c)) === pluClean
+      const valRaw = Number(scaleDigits.slice(7, 12)) || 0;
+      let scaleArt = catalogPool.find(
+        (a) =>
+          String(a.c || '').padStart(5, '0') === pluRaw ||
+          String(a.c) === pluRaw ||
+          String(Number(a.c)) === pluClean
       );
+      if (!scaleArt && pluRaw.endsWith('00')) {
+        const altCod5 = '00' + pluRaw.slice(0, 3);
+        scaleArt = catalogPool.find((a) => String(a.c || '').padStart(5, '0') === altCod5);
+      }
       if (scaleArt) {
-        const qtyKg = valRaw / 1000;
-        scaleMeta = { isScaleTicket: true, qtyKg: qtyKg > 0 ? qtyKg : 1, rawBarcode: digits };
-        return { exact: scaleArt, scaleMeta, list: [scaleArt] };
+        const fixedOwner = catalogPool.find(
+          (a) =>
+            a.id !== scaleArt.id &&
+            Array.isArray(a.bc) &&
+            a.bc.some((b) => String(b.c || b || '').trim() === scaleDigits)
+        );
+        if (!fixedOwner || Number(scaleArt.fr) === 1) {
+          const qtyKg = valRaw / 1000;
+          scaleMeta = { isScaleTicket: true, qtyKg: qtyKg > 0 ? qtyKg : 1, rawBarcode: scaleDigits };
+          return { exact: scaleArt, scaleMeta, list: [scaleArt] };
+        }
       }
     }
 
-    // Coincidencia exacta por código interno o EAN
-    const exact = state.articulos.find((a) => {
-      if (String(a.c).toUpperCase() === q || String(Number(a.c)) === q) return true;
-      if (Array.isArray(a.bc)) {
-        return a.bc.some((b) => String(b.c || b || '').trim().toUpperCase() === q);
+    // 1. Coincidencia estricta por código de barras o código interno (incluye ceros a la izquierda en códigos internos <= 5 dígitos)
+    const padded5 = isPureNumeric && q.length <= 5 ? q.padStart(5, '0') : null;
+    let exact = catalogPool.find((a) => {
+      if (Array.isArray(a.bc) && a.bc.some((b) => sanitizeScannedBarcodeStr(b.c || b || '').toUpperCase() === q)) {
+        return true;
+      }
+      const codeUpper = String(a.c || '').toUpperCase();
+      if (codeUpper === q || (padded5 && codeUpper === padded5) || (isPureNumeric && q.length <= 5 && String(Number(a.c)) === String(Number(q)))) {
+        return true;
       }
       return false;
     });
 
+    // 2. Equivalencia UPC-A (12 dígitos) <-> EAN-13 (13 dígitos con 0 inicial), UPC-E (8 dígitos) y ceros iniciales en códigos de barras
+    if (!exact && isPureNumeric && q.length >= 8) {
+      const qKeys = buildBarcodeComparableKeys(q);
+      exact = catalogPool.find((a) => {
+        if (!Array.isArray(a.bc) || a.bc.length === 0) return false;
+        return a.bc.some((b) => {
+          const bKeys = buildBarcodeComparableKeys(b.c || b || '');
+          for (const k of bKeys) {
+            if (qKeys.has(k)) return true;
+          }
+          return false;
+        });
+      });
+
+      // 3. Fallback prefijo argentino 779 <-> 79 (cuando se almacenó o leyó truncado en 12 dígitos)
+      if (!exact) {
+        const altPref =
+          q.length === 12 && q.startsWith('79')
+            ? '7' + q
+            : q.length === 13 && q.startsWith('779')
+            ? q.slice(1)
+            : '';
+        if (altPref) {
+          exact = catalogPool.find(
+            (a) =>
+              Array.isArray(a.bc) &&
+              a.bc.some((b) => sanitizeScannedBarcodeStr(b.c || b || '') === altPref)
+          );
+        }
+      }
+    }
+
     const tokens = q.split(/\s+/).filter(Boolean);
-    const matches = state.articulos
+    const matches = catalogPool
       .filter((a) => {
         const codeStr = String(a.c || '').toUpperCase();
         const nameStr = String(a.n || '').toUpperCase();
@@ -4555,6 +4697,10 @@
         return tokens.every((tk) => hay.includes(tk));
       })
       .slice(0, 25);
+
+    if (exact && !matches.some((m) => m.id === exact.id)) {
+      matches.unshift(exact);
+    }
 
     return { exact: exact || matches[0] || null, scaleMeta, list: matches };
   };
@@ -4888,21 +5034,37 @@
     return null;
   };
 
+  const pickBestPortalDetectedCode = (codes) => {
+    if (!Array.isArray(codes) || codes.length === 0) return null;
+    const vals = codes
+      .map((c) => (c && c.rawValue ? String(c.rawValue).trim() : ''))
+      .filter(Boolean);
+    if (vals.length === 0) return null;
+    for (const v of vals) {
+      if (/^(FM-|CF-|https?:|\{)/i.test(v)) return v;
+      const hit = findArticlesByBarcodeOrQuery(v);
+      if (hit && hit.exact) return v;
+    }
+    vals.sort((a, b) => b.length - a.length);
+    return vals[0];
+  };
+
   const decodePortalVideoFrame = async (video) => {
     if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return null;
     if (!isIOSOrSafariPortal() && 'BarcodeDetector' in window && typeof window.BarcodeDetector === 'function') {
       try {
         if (!window.__portalNativeDetector) {
           window.__portalNativeDetector = new window.BarcodeDetector({
-            formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code']
+            formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'itf', 'qr_code']
           });
         }
         const codes = await Promise.race([
           window.__portalNativeDetector.detect(video),
-          new Promise((r) => setTimeout(() => r(null), 80))
+          new Promise((r) => setTimeout(() => r(null), 90))
         ]);
-        if (codes && codes.length > 0 && codes[0].rawValue) {
-          return String(codes[0].rawValue).trim();
+        const bestNative = pickBestPortalDetectedCode(codes);
+        if (bestNative) {
+          return bestNative;
         }
       } catch (_e) {}
     }
@@ -4941,15 +5103,16 @@
         try {
           if (!window.__portalNativeDetector) {
             window.__portalNativeDetector = new window.BarcodeDetector({
-              formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code']
+              formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'itf', 'qr_code']
             });
           }
           const nativeCodes = await Promise.race([
             window.__portalNativeDetector.detect(portalZXingCanvas),
-            new Promise((r) => setTimeout(() => r(null), 55))
+            new Promise((r) => setTimeout(() => r(null), 60))
           ]);
-          if (nativeCodes && nativeCodes.length > 0 && nativeCodes[0].rawValue) {
-            return String(nativeCodes[0].rawValue).trim();
+          const bestCanvasNative = pickBestPortalDetectedCode(nativeCodes);
+          if (bestCanvasNative) {
+            return bestCanvasNative;
           }
         } catch (_e) {}
       }
@@ -5027,14 +5190,21 @@
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
           audio: false
         });
-      } catch (_cErr) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-          audio: false
-        });
+      } catch (_hdErr) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false
+          });
+        } catch (_cErr) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' },
+            audio: false
+          });
+        }
       }
       activePortalCameraStream = stream;
       video.srcObject = stream;
@@ -5053,6 +5223,8 @@
       }
 
       let isScanning = false;
+      let pendingUnknownCode = '';
+      let pendingUnknownHits = 0;
       activePortalCameraTimer = setInterval(async () => {
         if (!video || isScanning) return;
         if (video.paused && !video.ended) {
@@ -5063,15 +5235,34 @@
         try {
           const rawVal = await decodePortalVideoFrame(video);
           if (rawVal) {
+            const isQrLike = /^(FM-|CF-|https?:|\{)/i.test(rawVal);
+            const lookup = findArticlesByBarcodeOrQuery(rawVal);
+            const isKnownCatalogHit = Boolean(lookup && lookup.exact);
+
+            // Protección anti-desenfoque en Android: si un cuadro borroso decodifica un 1D inexistente
+            // mientras el lente está enfocando (ej. botella curva), exigimos 3 lecturas idénticas antes de descartar.
+            if (!isQrLike && !isKnownCatalogHit) {
+              if (rawVal === pendingUnknownCode) {
+                pendingUnknownHits += 1;
+              } else {
+                pendingUnknownCode = rawVal;
+                pendingUnknownHits = 1;
+              }
+              if (pendingUnknownHits < 3) {
+                return;
+              }
+            }
+            pendingUnknownCode = '';
+            pendingUnknownHits = 0;
+
             stopPortalCamera();
             if (mode === 'consultador') {
               const inp = document.getElementById('nx-cons-input');
               if (inp) inp.value = rawVal;
               renderConsultadorSection(rawVal);
             } else {
-              const { exact, scaleMeta } = findArticlesByBarcodeOrQuery(rawVal);
-              if (exact) {
-                addProductToSoyCajero(exact, scaleMeta ? scaleMeta.qtyKg : 1, scaleMeta || {});
+              if (lookup && lookup.exact) {
+                addProductToSoyCajero(lookup.exact, lookup.scaleMeta ? lookup.scaleMeta.qtyKg : 1, lookup.scaleMeta || {});
               } else {
                 showToast(`⚠️ Código "${rawVal}" no encontrado en el padrón.`);
               }
@@ -5080,7 +5271,7 @@
         } catch (_e) {} finally {
           isScanning = false;
         }
-      }, 125);
+      }, 115);
     } catch (_err) {
       wrap.hidden = true;
       showToast('⚠️ No se pudo acceder a la cámara. Verificá los permisos del navegador.');
@@ -7309,7 +7500,7 @@
     document.getElementById('nx-subview-consultador')?.addEventListener('click', (e) => {
       const btnSc = e.target.closest('[data-cons-add-sc]');
       if (btnSc) {
-        const art = state.articulos.find((a) => Number(a.id) === Number(btnSc.getAttribute('data-cons-add-sc')));
+        const art = findAnyArticleById(btnSc.getAttribute('data-cons-add-sc'));
         if (art) addProductToSoyCajero(art, 1);
         return;
       }
@@ -7371,7 +7562,7 @@
     scSug?.addEventListener('click', (e) => {
       const row = e.target.closest('[data-sc-pick-id]');
       if (!row) return;
-      const art = state.articulos.find((a) => Number(a.id) === Number(row.getAttribute('data-sc-pick-id')));
+      const art = findAnyArticleById(row.getAttribute('data-sc-pick-id'));
       if (art) {
         addProductToSoyCajero(art, 1);
         if (scSearch) scSearch.value = '';

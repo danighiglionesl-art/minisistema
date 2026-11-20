@@ -36,6 +36,7 @@ export const config = {
     "/verificador/:path*",
     "/cv/:path*",
     "/turnos/:path*",
+    "/cemep/:path*",
     "/inmobiliaria/:path*",
   ],
 };

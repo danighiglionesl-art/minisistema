@@ -25,6 +25,7 @@ const RESERVED_SLUGS = new Set([
   "verificador",
   "cv",
   "turnos",
+  "cemep",
   "inmobiliaria",
   "admin",
   "api",

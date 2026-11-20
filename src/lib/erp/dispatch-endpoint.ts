@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleErpAuth } from "@/lib/erp/handlers/auth-handler";
 import { handleErpCatalog } from "@/lib/erp/handlers/catalog-handler";
 import { handleErpClientes } from "@/lib/erp/handlers/clientes-handler";
+import { handleErpConsultorios } from "@/lib/erp/handlers/consultorios-handler";
 import { handleErpCurriculum } from "@/lib/erp/handlers/cv-handler";
 import { handleErpInmobiliaria } from "@/lib/erp/handlers/inmobiliaria-handler";
 import {
@@ -87,6 +88,11 @@ export async function dispatchErpEndpoint(
         break;
       case "turnos":
         res = await handleErpTurnos(req, tenant);
+        break;
+      case "consultorios":
+      case "historia_clinica":
+      case "gestion_web":
+        res = await handleErpConsultorios(req, tenant);
         break;
       case "inmobiliaria":
         res = await handleErpInmobiliaria(req, tenant);

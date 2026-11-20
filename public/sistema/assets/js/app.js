@@ -147,8 +147,9 @@ const ALL_SYSTEM_MODULES = [
   {
     key: 'estadisticas',
     label: 'Estadísticas',
-    sections: ['sec-menu-estadisticas', 'sec-est-facturacion', 'sec-est-ranking', 'sec-est-medios', 'sec-est-margenes', 'sec-est-ganancia-bruta', 'sec-est-ganancia-neta', 'sec-est-art-generico'],
+    sections: ['sec-menu-estadisticas', 'sec-est-dashboard', 'sec-est-facturacion', 'sec-est-ranking', 'sec-est-medios', 'sec-est-margenes', 'sec-est-ganancia-bruta', 'sec-est-ganancia-neta', 'sec-est-art-generico'],
     submodules: [
+      { key: 'estadisticas:dashboard', label: 'Dashboard Automático', selector: '#sec-menu-estadisticas [data-open-section="sec-est-dashboard"]', sections: ['sec-est-dashboard'] },
       { key: 'estadisticas:facturacion', label: 'Facturación, Promedio Diario y Proyección', selector: '#sec-menu-estadisticas [data-open-section="sec-est-facturacion"]', sections: ['sec-est-facturacion'] },
       { key: 'estadisticas:ranking', label: 'Ranking de Productos Más Vendidos', selector: '#sec-menu-estadisticas [data-open-section="sec-est-ranking"]', sections: ['sec-est-ranking'] },
       { key: 'estadisticas:medios', label: 'Importes por Tipo de Facturación', selector: '#sec-menu-estadisticas [data-open-section="sec-est-medios"]', sections: ['sec-est-medios'] },
@@ -159,7 +160,7 @@ const ALL_SYSTEM_MODULES = [
     ]
   },
   { key: 'tema', label: 'Fondo Claro / Fondo Oscuro', sections: [], submodules: [] },
-  { key: 'verificador', label: 'Consulta de Precios', sections: ['sec-verificador-precios'], submodules: [] },
+    { key: 'verificador', label: 'Consulta de Precios', sections: ['sec-verificador-precios'], submodules: [] },
   {
     key: 'cv',
     label: 'Curriculum Vitae',
@@ -170,18 +171,47 @@ const ALL_SYSTEM_MODULES = [
     ]
   },
   {
+    key: 'turnos',
+    label: 'Turnero Web',
+    sections: ['sec-menu-turnos', 'sec-turnos-workspace'],
+    submodules: [
+      { key: 'turnos:profesionales', label: 'ABM Profesionales', selector: '#sec-menu-turnos [data-turnos-sub="profesionales"]', sections: [] },
+      { key: 'turnos:obras_sociales', label: 'ABM Obras Sociales', selector: '#sec-menu-turnos [data-turnos-sub="obras_sociales"]', sections: [] },
+      { key: 'turnos:planes', label: 'ABM Planes', selector: '#sec-menu-turnos [data-turnos-sub="planes"]', sections: [] },
+      { key: 'turnos:especialidades', label: 'ABM Especialidades', selector: '#sec-menu-turnos [data-turnos-sub="especialidades"]', sections: [] },
+      { key: 'turnos:gestion_profesionales', label: 'Gestión de Profesionales', selector: '#sec-menu-turnos [data-turnos-sub="gestion_profesionales"]', sections: [] },
+      { key: 'turnos:pacientes', label: 'Gestión de Pacientes', selector: '#sec-menu-turnos [data-turnos-sub="pacientes"]', sections: [] },
+      { key: 'turnos:gestion_turnos', label: 'Gestión de Turnos', selector: '#sec-menu-turnos [data-turnos-sub="gestion_turnos"]', sections: [] },
+      { key: 'turnos:pagos_split', label: 'Pagos Online y Split MP', selector: '#sec-menu-turnos [data-turnos-sub="pagos_split"]', sections: [] },
+      { key: 'turnos:portal', label: 'Portal Público /turnos', selector: '#sec-menu-turnos [data-turnos-sub="portal"]', sections: [] }
+    ]
+  },
+  {
     key: 'inmobiliaria',
     label: 'Inmobiliaria',
     sections: ['sec-menu-inmobiliaria', 'sec-inmobiliaria-workspace'],
     submodules: [
-      { key: 'inmobiliaria:banners', label: 'Banners 1530×370', selector: '#sec-menu-inmobiliaria [data-inmo-sub="banners"]', sections: [] },
-      { key: 'inmobiliaria:propiedades', label: 'Propiedades (Ventas, Alquileres y Temporarios)', selector: '#sec-menu-inmobiliaria [data-inmo-sub="propiedades"]', sections: [] },
-      { key: 'inmobiliaria:clientes', label: 'Clientes (Inquilinos y Propietarios)', selector: '#sec-menu-inmobiliaria [data-inmo-sub="clientes"]', sections: [] },
-      { key: 'inmobiliaria:contratos', label: 'Contratos, PDFs y Cuenta Corriente', selector: '#sec-menu-inmobiliaria [data-inmo-sub="contratos"]', sections: [] },
-      { key: 'inmobiliaria:plantillas', label: 'Modelos de Contratos con Campos Automáticos', selector: '#sec-menu-inmobiliaria [data-inmo-sub="plantillas"]', sections: [] },
-      { key: 'inmobiliaria:pagos_split', label: 'Pagos Split (Propietario / Inmobiliaria)', selector: '#sec-menu-inmobiliaria [data-inmo-sub="pagos_split"]', sections: [] },
-      { key: 'inmobiliaria:consultas', label: 'Consultas, Visitas y Leads Web', selector: '#sec-menu-inmobiliaria [data-inmo-sub="consultas"]', sections: [] },
-      { key: 'inmobiliaria:portal', label: 'Portal Web /inmobiliaria, QR y Configuración', selector: '#sec-menu-inmobiliaria [data-inmo-sub="portal"]', sections: [] }
+      { key: 'inmobiliaria:banners', label: 'Banners', selector: '', sections: [] },
+      { key: 'inmobiliaria:propiedades', label: 'Propiedades', selector: '', sections: [] },
+      { key: 'inmobiliaria:clientes', label: 'Clientes', selector: '', sections: [] },
+      { key: 'inmobiliaria:contratos', label: 'Contratos', selector: '', sections: [] },
+      { key: 'inmobiliaria:plantillas', label: 'Plantillas', selector: '', sections: [] },
+      { key: 'inmobiliaria:pagos_split', label: 'Pagos Split', selector: '', sections: [] },
+      { key: 'inmobiliaria:consultas', label: 'Consultas', selector: '', sections: [] },
+      { key: 'inmobiliaria:portal', label: 'Portal', selector: '', sections: [] }
+    ]
+  },
+  {
+    key: 'mi_contador',
+    label: 'Mi Contador',
+    sections: ['sec-menu-micontador', 'sec-micontador-workspace'],
+    submodules: [
+      { key: 'mi_contador:ia', label: 'Asesor IA', selector: '#sec-menu-micontador [data-mc-sub="ia"]', sections: [] },
+      { key: 'mi_contador:arca_ri', label: 'ARCA RI (F.2051/F.2083/F.5663)', selector: '#sec-menu-micontador [data-mc-sub="arca_ri"]', sections: [] },
+      { key: 'mi_contador:monotributo', label: 'ARCA Monotributo', selector: '#sec-menu-micontador [data-mc-sub="monotributo"]', sections: [] },
+      { key: 'mi_contador:gastos_retiros', label: 'Compras, Gastos y Retiros', selector: '#sec-menu-micontador [data-mc-sub="gastos_retiros"]', sections: [] },
+      { key: 'mi_contador:finanzas_stock', label: 'Stock y Finanzas', selector: '#sec-menu-micontador [data-mc-sub="finanzas_stock"]', sections: [] },
+      { key: 'mi_contador:config', label: 'Configuración Fiscal', selector: '#sec-menu-micontador [data-mc-sub="config"]', sections: [] }
     ]
   },
   { key: 'perfil', label: 'Perfil de Usuario', sections: ['sec-perfil-usuario'], submodules: [] },
@@ -277,6 +307,9 @@ function expandUserModulesWithDefaults(rawModules) {
   }
   if (set.has('carrito:banners') || set.has('carrito')) {
     set.add('carrito:ventana_emergente');
+  }
+  if (set.has('estadisticas') || set.has('estadisticas:facturacion')) {
+    set.add('estadisticas:dashboard');
   }
   ALL_SYSTEM_MODULES.forEach((mod) => {
     if (Array.isArray(mod.submodules) && mod.submodules.length > 0) {
@@ -1109,13 +1142,13 @@ function updateTopbarUserDisplay(user) {
   const dir = ADMIN_DIRECTORY[uKey] || {};
   const displayName = user.name || dir.name || 'Administrador';
   const displayRole = normalizeErpUserRole(user.role || dir.role, uKey);
-  const topbarRoleLabel = displayRole === 'Administrador General' ? 'Admin. Gral.' : displayRole;
   const displayAvatar = user.avatar !== undefined ? user.avatar : (dir.avatar || '');
 
   const nameEl = document.getElementById('user-display-name');
   const roleEl = document.getElementById('user-display-role');
   const avatarEl = document.getElementById('user-avatar-initial');
   if (nameEl) nameEl.textContent = displayName;
+  const topbarRoleLabel = displayRole === 'Administrador General' ? 'Admin. Gral.' : displayRole;
   if (roleEl) roleEl.textContent = `${topbarRoleLabel} (@${uKey || user.username})`;
   renderUserAvatarElement(avatarEl, displayName, displayAvatar);
 }
@@ -1826,6 +1859,8 @@ async function loadCatalogDatabase(forceReload = false) {
   }
   STATE.fpSupplierConfigs =
     data.fpSupplierConfigs && typeof data.fpSupplierConfigs === 'object' ? data.fpSupplierConfigs : {};
+  STATE.carritoWebStockMode =
+    data.carritoWebStockMode === 'solo_con_stock' ? 'solo_con_stock' : 'todos_sin_stock';
   if (data.fidelizacionCatalogConfig && typeof data.fidelizacionCatalogConfig === 'object') {
     if (Number(data.fidelizacionCatalogConfig.factorCanje) > 0) {
       STATE.fidelizacionConfig.factorCanje = Number(data.fidelizacionCatalogConfig.factorCanje);
@@ -1846,7 +1881,10 @@ async function loadCatalogDatabase(forceReload = false) {
   STATE.articulos = (data.articulos || []).map((a) => {
     if (a.cw === undefined || a.cw === null) {
       a.cw = 1;
+    } else {
+      a.cw = a.cw === 0 || a.cw === false || a.cw === '0' ? 0 : 1;
     }
+    a.bl = Number(a.bl) === 1 ? 1 : 0;
     a.si = round2(Number(a.si) || 0);
     a.sf = round2(Number(a.sf) || 0);
     a.sc = round2(a.sf - a.si);
@@ -2586,11 +2624,11 @@ function updateKpis() {
   let sysImgCount = 0;
   let webImgCount = 0;
   for (const a of STATE.articulos) {
-    if (a.bl === 1) {
+    if (Number(a.bl) === 1) {
       bajaCount++;
     } else {
       activeCount++;
-      if (a.cw !== 0) cwCount++;
+      if (isArticlePublishedInCarritoWeb(a)) cwCount++;
       if (Number(a.env) === 1) envCount++;
     }
     if (a.ims === 'web') webImgCount++;
@@ -2848,7 +2886,7 @@ function applyCatalogFilters(page = 1) {
     if (estado === 'activos' && art.bl === 1) return false;
     if (estado === 'bajo_stock_minimo' && (art.bl === 1 || !isArticleBelowStockMinimo(art))) return false;
     if (estado === 'envase_retornable' && (art.bl === 1 || Number(art.env) !== 1)) return false;
-    if (estado === 'carrito_web' && (art.bl === 1 || art.cw === 0)) return false;
+    if (estado === 'carrito_web' && (Number(art.bl) === 1 || !isArticlePublishedInCarritoWeb(art))) return false;
     if (estado === 'canje_fidelizacion' && (art.bl === 1 || Number(art.cfid) !== 1)) return false;
     if (estado === 'baja' && art.bl !== 1) return false;
     if (rubroId > 0 && Number(art.r) !== rubroId) return false;
@@ -3383,7 +3421,7 @@ function openArticleModal(art = null, options = {}) {
   }
   const artCwChk = document.getElementById('art-carrito-web');
   if (artCwChk) {
-    artCwChk.checked = isNew ? true : art.cw !== 0;
+    artCwChk.checked = isNew ? true : isArticlePublishedInCarritoWeb(art);
   }
   const artCfidChk = document.getElementById('art-canje-fidelizacion');
   const artCanjeBox = document.getElementById('art-canje-config-box');
@@ -5113,6 +5151,54 @@ function normalizeClientRecord(raw, catalogs = {}) {
   return c;
 }
 
+function sanitizeCtaCteComprobanteParts(m) {
+  let tca = String(m.tca || '').trim().toUpperCase();
+  let letra = String(m.letra || m.l || '').trim().toUpperCase();
+  let rawN = String(m.n || m.num || '').trim();
+
+  const prefixLoopRe = /^(FA|FC|FB|NC|ND|CI|TI|OP|RE|RC)\s+(?:([ABCX])\s+)?/i;
+  let guard = 0;
+  while (guard < 5 && prefixLoopRe.test(rawN)) {
+    const match = rawN.match(prefixLoopRe);
+    if (!match) break;
+    tca = match[1].toUpperCase();
+    if (match[2]) letra = match[2].toUpperCase();
+    rawN = rawN.slice(match[0].length).trim();
+    guard++;
+  }
+  const bareLetterRe = /^([ABCX])\s+(\d{4}-\d{6,8}\b.*)$/i;
+  const bareMatch = rawN.match(bareLetterRe);
+  if (bareMatch) {
+    letra = bareMatch[1].toUpperCase();
+    rawN = bareMatch[2].trim();
+  }
+
+  let comp = String(m.comprobante || '').trim();
+  if (comp) {
+    let cleanComp = comp;
+    let lastTca = '';
+    let lastLetra = '';
+    let cGuard = 0;
+    while (cGuard < 5 && prefixLoopRe.test(cleanComp)) {
+      const match = cleanComp.match(prefixLoopRe);
+      if (!match) break;
+      lastTca = match[1].toUpperCase();
+      if (match[2]) lastLetra = match[2].toUpperCase();
+      cleanComp = cleanComp.slice(match[0].length).trim();
+      cGuard++;
+    }
+    if (lastTca) {
+      tca = lastTca;
+      if (lastLetra) letra = lastLetra;
+      comp = [lastTca, lastLetra, cleanComp].filter(Boolean).join(' ');
+    }
+  } else {
+    comp = [tca, letra, rawN].filter(Boolean).join(' ') || '-';
+  }
+
+  return { comprobante: comp || '-', letra };
+}
+
 function normalizeMovimientoRecord(m) {
   const dh = Number(m.dh) || 1;
   const imp = Number(m.importe ?? m.imp) || 0;
@@ -5121,15 +5207,17 @@ function normalizeMovimientoRecord(m) {
   const origen = m.origen
     ? String(m.origen).toUpperCase()
     : (tipoComp.includes('COMPRA') || tipoComp.includes('ORDEN DE PAGO') ? 'COMPRA' : 'VENTA');
+  const cleanedComp = sanitizeCtaCteComprobanteParts(m);
   return {
     id: m.id,
     idVenta: m.idVenta ?? m.vId ?? 0,
+    vId: m.vId ?? m.idVenta ?? 0,
     cId: m.cId,
     fecha: m.fecha || m.f || '',
     hora: m.hora || m.h_str || '',
     vencimiento: m.vencimiento || m.v || m.f || '',
     tipoComp,
-    comprobante: m.comprobante || [m.tca, m.l, m.n || m.num].filter(Boolean).join(' ') || '-',
+    comprobante: cleanedComp.comprobante,
     dh,
     debe: esCompensacion ? 0 : (Number(m.debe ?? m.d ?? (dh === 1 ? imp : 0)) || 0),
     haber: esCompensacion ? 0 : (Number(m.haber ?? m.h ?? (dh === -1 ? imp : 0)) || 0),
@@ -5139,7 +5227,7 @@ function normalizeMovimientoRecord(m) {
     saldo: Number(m.saldo ?? m.s) || 0,
     obs: m.obs || '',
     origen,
-    letra: String(m.letra || m.l || '').trim().toUpperCase(),
+    letra: cleanedComp.letra,
     uid: m.uid || '',
     medioPago: m.medioPago || '',
     cae: m.cae || '',
@@ -7321,9 +7409,28 @@ function renderActiveCtaCteModalContent() {
   }
 
   // Calculate running balance in chronological order
+  const parseModalMovDateIso = (rawF) => {
+    const s = String(rawF || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+  };
+  const sortedRawMovs = rawMovs
+    .map((m, origIdx) => ({ m, origIdx, iso: parseModalMovDateIso(m?.fecha || m?.fechaIso || '') }))
+    .sort((a, b) => {
+      if (a.iso && b.iso && a.iso !== b.iso) return a.iso.localeCompare(b.iso);
+      if (a.iso && !b.iso) return -1;
+      if (!a.iso && b.iso) return 1;
+      const hA = String(a.m?.hora || '').trim();
+      const hB = String(b.m?.hora || '').trim();
+      if (hA && hB && hA !== hB) return hA.localeCompare(hB);
+      return a.origIdx - b.origIdx;
+    })
+    .map((entry) => entry.m);
+
   let running = 0;
   const compByIdMap = new Map(allCompModal.map((r) => [Number(r.id), r]));
-  const enriched = rawMovs.map((m) => {
+  const enriched = sortedRawMovs.map((m) => {
     const debe = Number(m.debe) || 0;
     const haber = Number(m.haber) || 0;
     running = round2(running + debe - haber);
@@ -7353,7 +7460,7 @@ function renderActiveCtaCteModalContent() {
   if (displayList.length === 0) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 8;
+    td.colSpan = 7;
     td.className = 'table-loading-cell';
     td.textContent = 'No hay movimientos para el filtro seleccionado.';
     tr.appendChild(td);
@@ -7480,10 +7587,6 @@ function renderActiveCtaCteModalContent() {
     tdComp.appendChild(compStack);
     tr.appendChild(tdComp);
 
-    const tdVenc = document.createElement('td');
-    tdVenc.textContent = m.vencimiento || m.fecha || '-';
-    tr.appendChild(tdVenc);
-
     const tdDebe = document.createElement('td');
     tdDebe.innerHTML = isCompensacionRow
       ? `<span class="badge" style="font-size:0.7rem;">⚖️ $ ${formatArs(m.importe || m.cancelado || 0)}</span>`
@@ -7558,9 +7661,31 @@ async function openOnlineRegModal() {
 // SUBMÓDULOS CARRITO WEB EN EL ERP: USUARIOS REGISTRADOS Y SELECCIÓN DE ARTÍCULOS
 // ============================================================================
 
+function isArticlePublishedInCarritoWeb(art) {
+  if (!art) return false;
+  return !(art.cw === 0 || art.cw === false || art.cw === '0');
+}
+
+function hasAnyActiveCarritoArticulosFilter() {
+  const q = (document.getElementById('cw-art-q')?.value || '').trim();
+  const rubroId = Number(document.getElementById('cw-art-rubro')?.value) || 0;
+  const marcaId = Number(document.getElementById('cw-art-marca')?.value) || 0;
+  const provId = Number(document.getElementById('cw-art-proveedor')?.value) || 0;
+  const stockMode = document.getElementById('cw-art-stock')?.value || 'todos';
+  const pubMode = document.getElementById('cw-art-pub')?.value || 'todos';
+  return Boolean(
+    q !== '' ||
+    rubroId > 0 ||
+    marcaId > 0 ||
+    provId > 0 ||
+    stockMode !== 'todos' ||
+    pubMode !== 'todos'
+  );
+}
+
 async function toggleSingleArticleCarritoWeb(artId, isPublished) {
   const cwVal = isPublished ? 1 : 0;
-  const art = STATE.articulos.find((a) => a.id === artId);
+  const art = STATE.articulos.find((a) => Number(a.id) === Number(artId));
   if (art) {
     art.cw = cwVal;
   }
@@ -7570,7 +7695,7 @@ async function toggleSingleArticleCarritoWeb(artId, isPublished) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'bulk_set_carrito_web',
-        ids: [artId],
+        ids: [Number(artId)],
         cw: cwVal
       })
     });
@@ -7579,15 +7704,28 @@ async function toggleSingleArticleCarritoWeb(artId, isPublished) {
 }
 
 async function bulkSetCarritoWebForFiltered(cwVal) {
-  const ids = STATE.cwArtFiltered.map((a) => a.id);
+  const hasFilter = hasAnyActiveCarritoArticulosFilter();
+  const applyToAllActive = !hasFilter;
+  const targetArticles = applyToAllActive
+    ? STATE.articulos.filter((a) => Number(a.bl) !== 1)
+    : STATE.cwArtFiltered;
+  const ids = targetArticles.map((a) => Number(a.id));
   if (ids.length === 0) return;
 
-  const idSet = new Set(ids);
-  STATE.articulos.forEach((a) => {
-    if (idSet.has(a.id)) {
-      a.cw = cwVal;
-    }
-  });
+  if (applyToAllActive) {
+    STATE.articulos.forEach((a) => {
+      if (Number(a.bl) !== 1) {
+        a.cw = cwVal;
+      }
+    });
+  } else {
+    const idSet = new Set(ids);
+    STATE.articulos.forEach((a) => {
+      if (idSet.has(Number(a.id))) {
+        a.cw = cwVal;
+      }
+    });
+  }
 
   const btnPub = document.getElementById('btn-cw-bulk-publish');
   const btnUnpub = document.getElementById('btn-cw-bulk-unpublish');
@@ -7598,11 +7736,19 @@ async function bulkSetCarritoWebForFiltered(cwVal) {
     await fetch('api/catalog.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'bulk_set_carrito_web',
-        ids,
-        cw: cwVal
-      })
+      body: JSON.stringify(
+        applyToAllActive
+          ? {
+              action: 'bulk_set_carrito_web',
+              allActive: true,
+              cw: cwVal
+            }
+          : {
+              action: 'bulk_set_carrito_web',
+              ids,
+              cw: cwVal
+            }
+      )
     });
   } catch {}
 
@@ -7611,27 +7757,13 @@ async function bulkSetCarritoWebForFiltered(cwVal) {
 
   applyCarritoArticulosFilters(STATE.cwArtPage);
   applyCatalogFilters(STATE.currentPage);
+  updateKpis();
 }
 
 async function toggleCarritoWebStockPubMode() {
-  let pubOutStock = 0;
-  for (const a of STATE.articulos) {
-    if (a.bl === 1) continue;
-    if (a.cw !== 0 && (Number(a.sf) || 0) <= 0) {
-      pubOutStock++;
-    }
-  }
-
-  // Si actualmente hay artículos sin stock publicados -> pasamos a "Publicar solo Artículos con Stock"
-  // Si actualmente solo están publicados con stock -> pasamos a "Publicar Artículos aunque no tengan Stock"
-  const nextMode = pubOutStock > 0 ? 'solo_con_stock' : 'todos_sin_stock';
-  const onlyInStock = nextMode === 'solo_con_stock';
-
-  STATE.articulos.forEach((a) => {
-    if (a.bl === 1) return;
-    const sf = Number(a.sf) || 0;
-    a.cw = onlyInStock ? (sf > 0 ? 1 : 0) : 1;
-  });
+  const currMode = STATE.carritoWebStockMode === 'solo_con_stock' ? 'solo_con_stock' : 'todos_sin_stock';
+  const nextMode = currMode === 'solo_con_stock' ? 'todos_sin_stock' : 'solo_con_stock';
+  STATE.carritoWebStockMode = nextMode;
 
   const btnMode = document.getElementById('btn-cw-toggle-stock-pub-mode');
   if (btnMode) btnMode.disabled = true;
@@ -7649,21 +7781,23 @@ async function toggleCarritoWebStockPubMode() {
 
   if (btnMode) btnMode.disabled = false;
 
-  applyCarritoArticulosFilters(1);
+  applyCarritoArticulosFilters(STATE.cwArtPage || 1);
   applyCatalogFilters(STATE.currentPage);
+  updateKpis();
 }
 
 function updateCarritoArticulosKpis() {
-  let pubTotal = 0;
+  let checkedTotal = 0;
   let unpubTotal = 0;
   let pubInStock = 0;
   let pubOutStock = 0;
+  const onlyInStockMode = STATE.carritoWebStockMode === 'solo_con_stock';
 
   for (const a of STATE.articulos) {
-    if (a.bl === 1) continue;
-    const isPub = a.cw !== 0;
+    if (Number(a.bl) === 1) continue;
+    const isPub = isArticlePublishedInCarritoWeb(a);
     if (isPub) {
-      pubTotal++;
+      checkedTotal++;
       if ((Number(a.sf) || 0) > 0) pubInStock++;
       else pubOutStock++;
     } else {
@@ -7671,25 +7805,39 @@ function updateCarritoArticulosKpis() {
     }
   }
 
+  const visibleInStoreTotal = onlyInStockMode ? pubInStock : checkedTotal;
+
   const elPub = document.getElementById('kpi-cw-art-published');
-  if (elPub) elPub.textContent = pubTotal.toLocaleString('es-AR');
+  if (elPub) elPub.textContent = visibleInStoreTotal.toLocaleString('es-AR');
   const elUnpub = document.getElementById('kpi-cw-art-unpublished');
-  if (elUnpub) elUnpub.textContent = `${unpubTotal.toLocaleString('es-AR')} destildados (no publicados en Web)`;
+  if (elUnpub) {
+    elUnpub.textContent = onlyInStockMode
+      ? `${checkedTotal.toLocaleString('es-AR')} tildados · ${unpubTotal.toLocaleString('es-AR')} excluidos manualmente`
+      : `${unpubTotal.toLocaleString('es-AR')} destildados (excluidos manualmente)`;
+  }
   const elIn = document.getElementById('kpi-cw-art-instock');
   if (elIn) elIn.textContent = pubInStock.toLocaleString('es-AR');
   const elOut = document.getElementById('kpi-cw-art-outstock');
   if (elOut) elOut.textContent = pubOutStock.toLocaleString('es-AR');
+  const elOutSub = document.getElementById('kpi-cw-art-outstock-sub');
+  if (elOutSub) {
+    elOutSub.textContent = onlyInStockMode
+      ? '⏸️ Tildados pero ocultos en Tienda por falta de Stock'
+      : 'Visibles en Tienda con indicador "SIN STOCK"';
+  }
   const elFilt = document.getElementById('kpi-cw-art-filtered');
   if (elFilt) elFilt.textContent = STATE.cwArtFiltered.length.toLocaleString('es-AR');
 
   const btnMode = document.getElementById('btn-cw-toggle-stock-pub-mode');
   if (btnMode) {
-    if (pubOutStock > 0) {
-      btnMode.textContent = '📦 Publicar solo Artículos con Stock';
-      btnMode.title = 'Destildar automáticamente de la tienda todos los artículos sin stock y dejar publicados únicamente los artículos con stock disponible';
+    if (onlyInStockMode) {
+      btnMode.textContent = '📦 Publicar Todos los Tildados (Con y Sin Stock)';
+      btnMode.title =
+        'Modo actual: SOLO CON STOCK (los artículos sin stock están ocultos en la tienda). Hacé clic para mostrar en la tienda todos los artículos tildados aunque no tengan stock, respetando los destildados manualmente.';
     } else {
-      btnMode.textContent = '📦 Publicar Artículos aunque no tengan Stock';
-      btnMode.title = 'Publicar en la tienda web todos los artículos activos, incluidos aquellos sin stock (se muestran con aviso SIN STOCK)';
+      btnMode.textContent = '📦 Publicar solo Artículos con Stock';
+      btnMode.title =
+        'Modo actual: TODOS LOS TILDADOS (con y sin stock). Hacé clic para ocultar automáticamente de la tienda los artículos sin stock sin perder tus tildes manuales.';
     }
   }
 }
@@ -7705,7 +7853,7 @@ function applyCarritoArticulosFilters(page = 1) {
   const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
 
   STATE.cwArtFiltered = STATE.articulos.filter((art) => {
-    if (art.bl === 1) return false;
+    if (Number(art.bl) === 1) return false;
     if (rubroId > 0 && Number(art.r) !== rubroId) return false;
     if (marcaId > 0 && Number(art.mk) !== marcaId) return false;
     if (provId > 0) {
@@ -7718,7 +7866,7 @@ function applyCarritoArticulosFilters(page = 1) {
     if (stockMode === 'positivo' && sf <= 0) return false;
     if (stockMode === 'sinstock' && sf > 0) return false;
 
-    const isPub = art.cw !== 0;
+    const isPub = isArticlePublishedInCarritoWeb(art);
     if (pubMode === 'publicados' && !isPub) return false;
     if (pubMode === 'nopublicados' && isPub) return false;
 
@@ -7759,7 +7907,7 @@ function renderCarritoArticulosTable(totalPages) {
     statusEl.textContent = `Mostrando ${slice.length} de ${total.toLocaleString('es-AR')} artículos en el filtro actual (los botones masivos aplican sobre los ${total.toLocaleString('es-AR')} artículos filtrados)`;
   }
   syncUnifiedPaginationControls(pageInd, btnPrev, btnNext, STATE.cwArtPage, totalPages, (nextPage) => {
-    applyCwArticulosFilters(nextPage);
+    applyCarritoArticulosFilters(nextPage);
   });
 
   tbody.textContent = '';
@@ -7778,7 +7926,7 @@ function renderCarritoArticulosTable(totalPages) {
   slice.forEach((art) => {
     const tr = document.createElement('tr');
 
-    // 1. Checkbox Publicar en Carrito Web
+    // 1. Checkbox Publicar en Carrito Web (Decisión manual por artículo + Estado real en Tienda según modo de Stock)
     const th = document.createElement('th');
     th.scope = 'row';
     const lbl = document.createElement('label');
@@ -7786,14 +7934,27 @@ function renderCarritoArticulosTable(totalPages) {
     lbl.style.fontWeight = '700';
     const chk = document.createElement('input');
     chk.type = 'checkbox';
-    chk.checked = art.cw !== 0;
+    chk.checked = isArticlePublishedInCarritoWeb(art);
     const spanState = document.createElement('span');
-    spanState.textContent = chk.checked ? '✅ Publicado en Web' : '🚫 No Publicado';
-    spanState.style.color = chk.checked ? 'var(--success)' : 'var(--danger)';
+    const sfRow = Number(art.sf) || 0;
+    const onlyInStockRow = STATE.carritoWebStockMode === 'solo_con_stock';
+
+    const syncRowCwVisual = (isChecked) => {
+      if (!isChecked) {
+        spanState.textContent = '🚫 Excluido (Destildado)';
+        spanState.style.color = 'var(--danger)';
+      } else if (onlyInStockRow && sfRow <= 0) {
+        spanState.textContent = '⏸️ Tildado (Oculto s/Stock)';
+        spanState.style.color = 'var(--gold-dark)';
+      } else {
+        spanState.textContent = '✅ Publicado en Web';
+        spanState.style.color = 'var(--success)';
+      }
+    };
+    syncRowCwVisual(chk.checked);
 
     chk.addEventListener('change', () => {
-      spanState.textContent = chk.checked ? '✅ Publicado en Web' : '🚫 No Publicado';
-      spanState.style.color = chk.checked ? 'var(--success)' : 'var(--danger)';
+      syncRowCwVisual(chk.checked);
       toggleSingleArticleCarritoWeb(art.id, chk.checked);
     });
 
@@ -7837,6 +7998,8 @@ function renderCarritoArticulosTable(totalPages) {
     const sf = Number(art.sf) || 0;
     if (sf > 0) {
       tdStock.innerHTML = `<div class="price-cell-stack"><span class="badge badge--green" style="width:fit-content;">DISPONIBLE (${sf})</span><span class="art-sub-meta">Stock positivo</span></div>`;
+    } else if (STATE.carritoWebStockMode === 'solo_con_stock') {
+      tdStock.innerHTML = `<div class="price-cell-stack"><span class="saldo-badge saldo-badge--deudor" style="width:fit-content;">SIN STOCK (${sf})</span><span class="art-sub-meta">Oculto en Web hasta ingresar stock</span></div>`;
     } else {
       tdStock.innerHTML = `<div class="price-cell-stack"><span class="saldo-badge saldo-badge--deudor" style="width:fit-content;">SIN STOCK (${sf})</span><span class="art-sub-meta">Se publica con estado "SIN STOCK"</span></div>`;
     }
@@ -11681,6 +11844,7 @@ const SECTION_TOPBAR_META = {
   'sec-reporte-mejoras': { title: '📝 Reporte de Mejoras', back: 'sec-menu-ayuda' },
   'sec-crm': { title: '🗂️ CRM · Reportes de Mejoras (Administrador General)', back: 'sec-inicio' },
   'sec-menu-estadisticas': { title: 'Estadísticas', back: 'sec-inicio' },
+  'sec-est-dashboard': { title: 'Estadísticas · Dashboard Automático', back: 'sec-menu-estadisticas' },
   'sec-est-facturacion': { title: 'Estadísticas · Facturación', back: 'sec-menu-estadisticas' },
   'sec-est-ranking': { title: 'Estadísticas · Ranking', back: 'sec-menu-estadisticas' },
   'sec-est-medios': { title: 'Estadísticas · Medios de Pago', back: 'sec-menu-estadisticas' },
@@ -12560,6 +12724,7 @@ function initApp() {
     }
     if (
       targetId === 'sec-menu-estadisticas' ||
+      targetId === 'sec-est-dashboard' ||
       targetId === 'sec-est-facturacion' ||
       targetId === 'sec-est-ranking' ||
       targetId === 'sec-est-medios' ||
@@ -12674,6 +12839,45 @@ function initApp() {
     return clean === '20';
   }
 
+  function expandUpcEToUpcAErp(upcE) {
+    if (!/^[01]\d{7}$/.test(upcE)) return null;
+    const ns = upcE[0];
+    const d1 = upcE[1];
+    const d2 = upcE[2];
+    const d3 = upcE[3];
+    const d4 = upcE[4];
+    const d5 = upcE[5];
+    const d6 = upcE[6];
+    const chk = upcE[7];
+    if (d6 === '0' || d6 === '1' || d6 === '2') return `${ns}${d1}${d2}${d6}0000${d3}${d4}${d5}${chk}`;
+    if (d6 === '3') return `${ns}${d1}${d2}${d3}00000${d4}${d5}${chk}`;
+    if (d6 === '4') return `${ns}${d1}${d2}${d3}${d4}00000${d5}${chk}`;
+    return `${ns}${d1}${d2}${d3}${d4}${d5}0000${d6}${chk}`;
+  }
+
+  function buildErpBarcodeComparableKeys(rawBc) {
+    const keys = new Set();
+    const s = sanitizeScannerBarcode(rawBc).toUpperCase();
+    if (!s) return keys;
+    keys.add(s);
+    if (/^\d{8,18}$/.test(s)) {
+      const stripped = s.replace(/^0+/, '');
+      if (stripped.length >= 7) keys.add(stripped);
+      if (s.length === 12) keys.add('0' + s);
+      else if (s.length === 13 && s.startsWith('0')) keys.add(s.slice(1));
+      if (s.length === 8 && (s[0] === '0' || s[0] === '1')) {
+        const upcA = expandUpcEToUpcAErp(s);
+        if (upcA) {
+          keys.add(upcA);
+          keys.add('0' + upcA);
+          const upcStripped = upcA.replace(/^0+/, '');
+          if (upcStripped.length >= 7) keys.add(upcStripped);
+        }
+      }
+    }
+    return keys;
+  }
+
   /**
    * Busca un artículo por Código de Producto (ej. 7435 -> 07435), Código de Barras de Balanza (prefijos 21/23 de Oliver) o Código de Barras (EAN/interno)
    */
@@ -12710,6 +12914,39 @@ function initApp() {
         const hitBc = art.bc.find((b) => String(b.c || '').trim().toUpperCase() === upper);
         if (hitBc) {
           return { art, barcodeQty: Number(hitBc.q) > 0 ? Number(hitBc.q) : 1 };
+        }
+      }
+    }
+
+    // 1b. Equivalencia UPC-A (12 dígitos) <-> EAN-13 (13 dígitos con 0 inicial), UPC-E (8 dígitos) y prefijo 779 <-> 79
+    if (/^\d{8,18}$/.test(clean)) {
+      const qKeys = buildErpBarcodeComparableKeys(clean);
+      for (const art of STATE.articulos) {
+        if (art.bl === 1 || !Array.isArray(art.bc) || art.bc.length === 0) continue;
+        const hitEq = art.bc.find((b) => {
+          const bKeys = buildErpBarcodeComparableKeys(b.c || '');
+          for (const k of bKeys) {
+            if (qKeys.has(k)) return true;
+          }
+          return false;
+        });
+        if (hitEq) {
+          return { art, barcodeQty: Number(hitEq.q) > 0 ? Number(hitEq.q) : 1 };
+        }
+      }
+      const altPref =
+        clean.length === 12 && clean.startsWith('79')
+          ? '7' + clean
+          : clean.length === 13 && clean.startsWith('779')
+          ? clean.slice(1)
+          : '';
+      if (altPref) {
+        for (const art of STATE.articulos) {
+          if (art.bl === 1 || !Array.isArray(art.bc)) continue;
+          const hitPref = art.bc.find((b) => sanitizeScannerBarcode(b.c || '') === altPref);
+          if (hitPref) {
+            return { art, barcodeQty: Number(hitPref.q) > 0 ? Number(hitPref.q) : 1 };
+          }
         }
       }
     }
@@ -14412,12 +14649,12 @@ function initApp() {
       // 5. Otros Valores (Tickets) + Transferencia si existe
       const otrosVal = Number(c.otrosValoresTotal ?? 0) || 0;
       const transfVal = Number(c.transferencia ?? 0) || 0;
-      const ticketsCount = Array.isArray(c.tickets) ? c.tickets.length : 0;
-      const otrosSubParts = [`${ticketsCount} ticket(s)`];
-      if (transfVal > 0) otrosSubParts.push(`Transf: $ ${formatArs(transfVal)}`);
+      const otrosSubHtml = transfVal > 0
+        ? `<span class="price-neto-val">${escapeHtml(`Transf: $ ${formatArs(transfVal)}`)}</span>`
+        : '';
       const tdOtros = document.createElement('td');
       tdOtros.className = 'num-col';
-      tdOtros.innerHTML = `<div class="price-cell-stack" style="align-items:flex-end;"><strong>$ ${formatArs(otrosVal)}</strong><span class="price-neto-val">${escapeHtml(otrosSubParts.join(' · '))}</span></div>`;
+      tdOtros.innerHTML = `<div class="price-cell-stack" style="align-items:flex-end;"><strong>$ ${formatArs(otrosVal)}</strong>${otrosSubHtml}</div>`;
       tr.appendChild(tdOtros);
 
       // 6. Diferencia de Caja
@@ -22743,7 +22980,16 @@ function initApp() {
           .catch(() => {});
 
         if (method === 'ctacte' && selectedCliIdSnapshot) {
-          const compFormatted = `FA ${letra} ${pv}-${String(nro).padStart(8, '0')}`;
+          const tcaPos =
+            tipoBase === 'Nota de Crédito'
+              ? 'NC'
+              : tipoBase === 'Nota de Débito'
+                ? 'ND'
+                : tipoBase === 'Comprobante Interno'
+                  ? 'CI'
+                  : 'FA';
+          const cleanPvNro = `${pv}-${String(nro).padStart(8, '0')}`;
+          const compFormatted = `${tcaPos} ${letra} ${cleanPvNro}`;
           const dh = tipoBase === 'Nota de Crédito' ? -1 : 1;
           fetch('api/clientes.php', {
             method: 'POST',
@@ -22754,13 +23000,19 @@ function initApp() {
               movement: {
                 cId: selectedCliIdSnapshot,
                 imp: importe,
-                tcn: tipoBase.toUpperCase(),
-                n: compFormatted,
-                tipoComp: tipoBase.toUpperCase(),
+                tcn: `${tipoBase.toUpperCase()} ${letra}`.trim(),
+                tca: tcaPos,
+                l: letra,
+                n: cleanPvNro,
+                tipoComp: `${tipoBase.toUpperCase()} ${letra}`.trim(),
                 dh,
                 comprobante: compFormatted,
                 importe,
-                obs: fullObs
+                obs: fullObs,
+                uid: saleRecord.uid || '',
+                cae: saleRecord.cae || '',
+                caeVto: saleRecord.caeVto || '',
+                items: itemsSnapshot
               }
             })
           }).catch(() => {});
@@ -34226,6 +34478,8 @@ function initApp() {
   ];
 
   const EST_STATE = {
+    chartTypeDashEvolucion: 'line',
+    chartTypeDashMedios: 'pie',
     chartTypeFact: 'line',
     chartTypeFactPv: 'bar',
     chartTypeRanking: 'bar',
@@ -34296,6 +34550,7 @@ function initApp() {
     const filterBar = document.getElementById('est-shared-filter-bar');
     if (!filterBar) return;
     const slotMap = {
+      'sec-est-dashboard': 'est-shared-filter-slot-dashboard',
       'sec-est-facturacion': 'est-shared-filter-slot-facturacion',
       'sec-est-ranking': 'est-shared-filter-slot-ranking',
       'sec-est-medios': 'est-shared-filter-slot-medios',
@@ -34615,7 +34870,7 @@ function initApp() {
     return records;
   }
 
-  function getFilteredRealProductSalesItems(artById) {
+  function getFilteredRealProductSalesItems(artById = {}) {
     const pvs = new Set(getSelectedEstPVs());
     const df = getSelectedEstDateFilter();
     const monthsSet = new Set(df.months);
@@ -34779,9 +35034,10 @@ function initApp() {
     return s;
   }
 
-  function drawEstControlChart(canvasId, chartType, labels, values, options = {}) {
-    const canvas = document.getElementById(canvasId);
+  function drawEstControlChart(canvasOrId, chartType, labels, values, options = {}) {
+    const canvas = typeof canvasOrId === 'string' ? document.getElementById(canvasOrId) : canvasOrId;
     if (!canvas) return;
+    const canvasId = canvas.id || (typeof canvasOrId === 'string' ? canvasOrId : '');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -36902,10 +37158,489 @@ function initApp() {
     });
   }
 
+  // =========================================================================
+  // SUBMÓDULO 0: DASHBOARD AUTOMÁTICO GERENCIAL EN TIEMPO REAL
+  // =========================================================================
+  function renderEstDashboardSubmodule() {
+    const records = getFilteredEstRecords();
+    const allRecords = getEstadisticasDataset();
+    const pvs = getSelectedEstPVs();
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1;
+    const curDay = now.getDate();
+    const todayIso = `${curYear}-${String(curMonth).padStart(2, '0')}-${String(curDay).padStart(2, '0')}`;
+    const curYm = `${curYear}-${String(curMonth).padStart(2, '0')}`;
+    const daysInCurMonth = new Date(curYear, curMonth, 0).getDate();
+
+    const syncEl = document.getElementById('est-dash-last-sync');
+    if (syncEl) {
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      syncEl.textContent = `Sincronizado: ${hh}:${mm}:${ss}`;
+    }
+
+    // 1. KPIs del período y de Hoy
+    const yesterdayDt = new Date(now.getTime() - 86400000);
+    const yesterdayIso = `${yesterdayDt.getFullYear()}-${String(yesterdayDt.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDt.getDate()).padStart(2, '0')}`;
+
+    let factHoy = 0;
+    let ticketsHoy = 0;
+    let factAyer = 0;
+    let factMesActual = 0;
+    const diasMesActualSet = new Set();
+
+    allRecords.forEach((r) => {
+      if (!pvs.includes(r.pv)) return;
+      if (r.fechaIso === todayIso) {
+        factHoy = round2(factHoy + r.importe);
+        ticketsHoy += Number(r.tickets) || 1;
+      } else if (r.fechaIso === yesterdayIso) {
+        factAyer = round2(factAyer + r.importe);
+      }
+      if (r.ym === curYm) {
+        factMesActual = round2(factMesActual + r.importe);
+        diasMesActualSet.add(r.fechaIso);
+      }
+    });
+
+    let totalFactPeriodo = 0;
+    let totalCostoPeriodo = 0;
+    let totalGananciaPeriodo = 0;
+    let totalTicketsPeriodo = 0;
+    const diasPeriodoSet = new Set();
+
+    records.forEach((r) => {
+      totalFactPeriodo = round2(totalFactPeriodo + r.importe);
+      totalCostoPeriodo = round2(totalCostoPeriodo + r.costoTotal);
+      totalGananciaPeriodo = round2(totalGananciaPeriodo + r.ganancia);
+      totalTicketsPeriodo += Number(r.tickets) || 1;
+      diasPeriodoSet.add(r.fechaIso);
+    });
+
+    const diasActivosPeriodo = Math.max(1, diasPeriodoSet.size);
+    const promDiarioPeriodo = round2(totalFactPeriodo / diasActivosPeriodo);
+    const diasTranscurridosMes = Math.max(1, curDay, diasMesActualSet.size);
+    const promDiarioMes = round2(factMesActual / diasTranscurridosMes);
+    const proyeccionMes = round2(promDiarioMes * daysInCurMonth);
+
+    const margenSobreVenta = totalFactPeriodo > 0 ? (totalGananciaPeriodo / totalFactPeriodo) * 100 : 0;
+    const markupSobreCosto = totalCostoPeriodo > 0 ? (totalGananciaPeriodo / totalCostoPeriodo) * 100 : 0;
+    const ticketPromedio = totalTicketsPeriodo > 0 ? round2(totalFactPeriodo / totalTicketsPeriodo) : 0;
+
+    let compAyerTxt = '';
+    if (factAyer > 0) {
+      const diffPct = ((factHoy - factAyer) / factAyer) * 100;
+      const sign = diffPct >= 0 ? '▲ +' : '▼ ';
+      compAyerTxt = ` · ${sign}${diffPct.toFixed(1).replace('.', ',')}% vs. ayer`;
+    } else if (promDiarioMes > 0 && factHoy > 0) {
+      const diffPct = ((factHoy - promDiarioMes) / promDiarioMes) * 100;
+      const sign = diffPct >= 0 ? '▲ +' : '▼ ';
+      compAyerTxt = ` · ${sign}${diffPct.toFixed(1).replace('.', ',')}% vs. prom. diario`;
+    }
+
+    const elHoy = document.getElementById('est-dash-kpi-hoy');
+    const elHoySub = document.getElementById('est-dash-kpi-hoy-sub');
+    const elPeriodo = document.getElementById('est-dash-kpi-periodo');
+    const elProy = document.getElementById('est-dash-kpi-proyeccion');
+    const elGan = document.getElementById('est-dash-kpi-ganancia');
+    const elMargen = document.getElementById('est-dash-kpi-margen');
+    const elTkProm = document.getElementById('est-dash-kpi-ticket-prom');
+    const elTks = document.getElementById('est-dash-kpi-tickets');
+
+    if (elHoy) elHoy.textContent = `$ ${formatArs(factHoy)}`;
+    if (elHoySub) elHoySub.textContent = `${ticketsHoy.toLocaleString('es-AR')} comprobantes hoy${compAyerTxt}`;
+    if (elPeriodo) elPeriodo.textContent = `$ ${formatArs(totalFactPeriodo)}`;
+    if (elProy) elProy.textContent = `Proyección cierre mes: $ ${formatArs(proyeccionMes)}`;
+    if (elGan) elGan.textContent = `$ ${formatArs(totalGananciaPeriodo)}`;
+    if (elMargen) {
+      elMargen.textContent = `Margen s/Venta: ${margenSobreVenta.toFixed(1).replace('.', ',')}% · Markup: ${markupSobreCosto.toFixed(1).replace('.', ',')}%`;
+    }
+    if (elTkProm) elTkProm.textContent = `$ ${formatArs(ticketPromedio)}`;
+    if (elTks) {
+      elTks.textContent = `${totalTicketsPeriodo.toLocaleString('es-AR')} tickets · Prom. diario: $ ${formatArs(promDiarioPeriodo)}`;
+    }
+
+    // 2. Estado de las 3 Cajas en Vivo (Hoy)
+    const cajasGrid = document.getElementById('est-dash-cajas-grid');
+    if (cajasGrid) {
+      cajasGrid.textContent = '';
+      const cajasDefs = [
+        { id: 'caja1', nombre: 'Caja 1', pvs: ['0002', '0099'], labelPvs: 'PV 0002 / 0099' },
+        { id: 'caja2', nombre: 'Caja 2', pvs: ['0003', '0100'], labelPvs: 'PV 0003 / 0100' },
+        { id: 'caja3', nombre: 'Caja 3', pvs: ['0004', '0101'], labelPvs: 'PV 0004 / 0101' }
+      ];
+      cajasDefs.forEach((cj) => {
+        const activeAp = typeof getActiveShiftAperturaForCaja === 'function' ? getActiveShiftAperturaForCaja(cj.id) : null;
+        let hoyImp = 0;
+        let hoyTks = 0;
+        let mesImp = 0;
+        allRecords.forEach((r) => {
+          if (!cj.pvs.includes(r.pv)) return;
+          if (r.fechaIso === todayIso) {
+            hoyImp = round2(hoyImp + r.importe);
+            hoyTks += Number(r.tickets) || 1;
+          }
+          if (r.ym === curYm) {
+            mesImp = round2(mesImp + r.importe);
+          }
+        });
+        const isOpen = Boolean(activeAp) || hoyTks > 0;
+        const cajeroTxt = activeAp?.empleado
+          ? `Abierta (${activeAp.empleado})`
+          : hoyTks > 0
+            ? 'Con Ventas Hoy'
+            : 'Sin Apertura Hoy';
+        const statusColor = activeAp ? '#16a34a' : hoyTks > 0 ? '#2563eb' : '#6b7280';
+        const statusBg = activeAp ? '#dcfce7' : hoyTks > 0 ? '#dbeafe' : '#f3f4f6';
+
+        const card = document.createElement('div');
+        card.style.cssText = 'padding:12px; border-radius:10px; border:1px solid var(--color-border); background:var(--color-surface); display:flex; flex-direction:column; gap:6px;';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+            <strong style="font-size:0.88rem; color:#092837;">🖥️ ${escapeHtml(cj.nombre)}</strong>
+            <span style="font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:999px; background:${statusBg}; color:${statusColor};">
+              ${isOpen ? '🟢' : '⚪'} ${escapeHtml(cajeroTxt)}
+            </span>
+          </div>
+          <div style="font-size:0.72rem; color:var(--color-text-muted); font-weight:700;">${escapeHtml(cj.labelPvs)}</div>
+          <div style="font-size:1.12rem; font-weight:900; color:#092837;">$ ${formatArs(hoyImp)}</div>
+          <div style="font-size:0.73rem; color:var(--color-text-muted); display:flex; justify-content:space-between;">
+            <span>Hoy: <strong>${hoyTks}</strong> tickets</span>
+            <span>Mes: <strong>$ ${formatArs(mesImp)}</strong></span>
+          </div>
+        `;
+        cajasGrid.appendChild(card);
+      });
+    }
+
+    // 3. Semáforo de Alertas Operativas Automáticas (con acceso directo en 1 clic)
+    const alertasGrid = document.getElementById('est-dash-alertas-grid');
+    if (alertasGrid) {
+      alertasGrid.textContent = '';
+      const activeArts = (STATE.articulos || []).filter((a) => Number(a.bl) !== 1);
+      let negCount = 0;
+      let minStockCount = 0;
+      let cwPublishedCount = 0;
+      const cwMode = STATE.carritoWebStockMode === 'todos_sin_stock' ? 'todos_sin_stock' : 'solo_con_stock';
+
+      activeArts.forEach((a) => {
+        const sf = Number(a.sf) || 0;
+        const sm = Number(a.sm) || 0;
+        if (sf < 0) negCount++;
+        else if (sm > 0 && sf <= sm) minStockCount++;
+        const isTildado = Number(a.cw ?? 1) === 1;
+        if (isTildado && (cwMode === 'todos_sin_stock' || sf > 0)) {
+          cwPublishedCount++;
+        }
+      });
+
+      const gondolaQueueCount = Object.keys(STATE.gondolaQueue || {}).length;
+      let pendingCanjesCount = 0;
+      (STATE.clientes || []).forEach((c) => {
+        if (Array.isArray(c.historialPuntos)) {
+          c.historialPuntos.forEach((m) => {
+            if (m && m.tipo === 'CANJE' && !m.entregado) pendingCanjesCount++;
+          });
+        }
+      });
+
+      const alertasList = [
+        {
+          icon: negCount > 0 ? '🚨' : '✅',
+          title: 'Stock Negativo',
+          value: `${negCount.toLocaleString('es-AR')} art.`,
+          sub: negCount > 0 ? 'Requiere ajuste de stock' : 'Sin stock negativo',
+          bg: negCount > 0 ? '#fef2f2' : '#f0fdf4',
+          border: negCount > 0 ? '#fecaca' : '#bbf7d0',
+          color: negCount > 0 ? '#b91c1c' : '#166534',
+          target: 'sec-stock-negativo'
+        },
+        {
+          icon: minStockCount > 0 ? '⚠️' : '📦',
+          title: 'Bajo Stock Mínimo',
+          value: `${minStockCount.toLocaleString('es-AR')} art.`,
+          sub: 'Para reposición a proveedor',
+          bg: minStockCount > 0 ? '#fffbeb' : '#f0fdf4',
+          border: minStockCount > 0 ? '#fde68a' : '#bbf7d0',
+          color: minStockCount > 0 ? '#b45309' : '#166534',
+          target: 'sec-pedidos-proveedores'
+        },
+        {
+          icon: '🏷️',
+          title: 'Etiquetas de Góndola',
+          value: `${gondolaQueueCount.toLocaleString('es-AR')} pend.`,
+          sub: gondolaQueueCount > 0 ? 'Listas para imprimir' : 'Cola de impresión al día',
+          bg: gondolaQueueCount > 0 ? '#eff6ff' : '#f9fafb',
+          border: gondolaQueueCount > 0 ? '#bfdbfe' : '#e5e7eb',
+          color: gondolaQueueCount > 0 ? '#1d4ed8' : '#374151',
+          target: 'sec-precios-gondola'
+        },
+        {
+          icon: '🛒',
+          title: 'Tienda Carrito Web',
+          value: `${cwPublishedCount.toLocaleString('es-AR')} pub.`,
+          sub: cwMode === 'solo_con_stock' ? 'Modo: Solo con Stock' : 'Modo: Todos (c/s Stock)',
+          bg: '#f0fdf4',
+          border: '#bbf7d0',
+          color: '#166534',
+          target: 'sec-carrito-articulos'
+        }
+      ];
+
+      if (pendingCanjesCount > 0) {
+        alertasList.push({
+          icon: '🎁',
+          title: 'Canjes Club Pendientes',
+          value: `${pendingCanjesCount} retiro(s)`,
+          sub: 'Pendientes de entrega en local',
+          bg: '#faf5ff',
+          border: '#e9d5ff',
+          color: '#6b21a8',
+          target: 'sec-fid-canjes'
+        });
+      }
+
+      alertasList.forEach((al) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('data-open-section', al.target);
+        btn.style.cssText = `text-align:left; padding:10px 12px; border-radius:10px; background:${al.bg}; border:1px solid ${al.border}; cursor:pointer; display:flex; flex-direction:column; gap:3px; transition:transform 0.12s ease;`;
+        btn.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+            <span style="font-size:0.75rem; font-weight:800; color:${al.color};">${al.icon} ${escapeHtml(al.title)}</span>
+            <span style="font-size:0.72rem; font-weight:800; color:${al.color};">Abrir →</span>
+          </div>
+          <strong style="font-size:1.05rem; font-weight:900; color:${al.color};">${escapeHtml(al.value)}</strong>
+          <span style="font-size:0.71rem; color:${al.color}; opacity:0.88;">${escapeHtml(al.sub)}</span>
+        `;
+        btn.addEventListener('click', () => switchSection(al.target));
+        alertasGrid.appendChild(btn);
+      });
+    }
+
+    // 4. Gráfico 1: Evolución Diaria de Facturación
+    const byDateMap = new Map();
+    records.forEach((r) => {
+      const prev = byDateMap.get(r.fechaIso) || 0;
+      byDateMap.set(r.fechaIso, round2(prev + r.importe));
+    });
+    const sortedDates = Array.from(byDateMap.keys()).sort();
+    const chartDates = sortedDates.slice(-31);
+    const chartLabels = chartDates.map((iso) => {
+      const parts = iso.split('-');
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}` : iso;
+    });
+    const chartValues = chartDates.map((iso) => byDateMap.get(iso) || 0);
+
+    drawEstControlChart(
+      'canvas-est-dash-evolucion',
+      EST_STATE.chartTypeDashEvolucion || 'line',
+      chartLabels.length > 0 ? chartLabels : ['Sin datos'],
+      chartValues.length > 0 ? chartValues : [0],
+      {
+        showAverageLine: true,
+        averageValue: promDiarioPeriodo,
+        averageLabel: `Prom. Diario: $ ${formatArs(promDiarioPeriodo)}`
+      }
+    );
+
+    // 5. Gráfico 2: Distribución por Medios de Pago
+    const mediosMap = new Map();
+    EST_MEDIOS_LIST.forEach((m) => mediosMap.set(m, 0));
+    records.forEach((r) => {
+      const m = mediosMap.has(r.medioPago) ? r.medioPago : 'Efectivo';
+      mediosMap.set(m, round2((mediosMap.get(m) || 0) + r.importe));
+    });
+    const mediosEntries = Array.from(mediosMap.entries()).filter(([, val]) => val > 0);
+    drawEstControlChart(
+      'canvas-est-dash-medios',
+      EST_STATE.chartTypeDashMedios || 'pie',
+      mediosEntries.length > 0 ? mediosEntries.map(([k]) => k) : ['Sin ventas'],
+      mediosEntries.length > 0 ? mediosEntries.map(([, v]) => v) : [0]
+    );
+
+    // 6. Top 10 Productos Estrella y Top 5 Rubros del Período
+    const artById = {};
+    (STATE.articulos || []).forEach((a) => {
+      artById[a.id] = a;
+    });
+    const realItems = getFilteredRealProductSalesItems(artById);
+    const prodAgg = new Map();
+    const rubroAgg = new Map();
+    let totalRubrosVenta = 0;
+
+    realItems.forEach((it) => {
+      const codigo = it.c || it.codigo || String(it.artId || '-');
+      const nombre = it.n || it.nombre || 'ARTÍCULO';
+      const unidades = Number(it.qty ?? it.unidades) || 0;
+      const venta = Number(it.subtotal ?? it.venta) || 0;
+      const costo = Number(it.costoTotal) || 0;
+      const ganancia = it.ganancia !== undefined ? Number(it.ganancia) : round2(venta - costo);
+
+      const key = `${it.artId || codigo}__${nombre}`;
+      const prevP = prodAgg.get(key) || {
+        codigo,
+        nombre,
+        unidades: 0,
+        venta: 0,
+        ganancia: 0
+      };
+      prevP.unidades = round2(prevP.unidades + unidades);
+      prevP.venta = round2(prevP.venta + venta);
+      prevP.ganancia = round2(prevP.ganancia + ganancia);
+      prodAgg.set(key, prevP);
+
+      const rName = getEstRubroName(it.rId);
+      const prevR = rubroAgg.get(rName) || { rubro: rName, venta: 0, ganancia: 0 };
+      prevR.venta = round2(prevR.venta + venta);
+      prevR.ganancia = round2(prevR.ganancia + ganancia);
+      rubroAgg.set(rName, prevR);
+      totalRubrosVenta = round2(totalRubrosVenta + venta);
+    });
+
+    const topProducts = Array.from(prodAgg.values())
+      .sort((a, b) => b.venta - a.venta)
+      .slice(0, 10);
+
+    const topProdTbody = document.getElementById('est-dash-top-productos-tbody');
+    if (topProdTbody) {
+      topProdTbody.textContent = '';
+      if (topProducts.length === 0) {
+        topProdTbody.innerHTML = '<tr><td colspan="5" class="table-loading-cell">Sin ventas detalladas de artículos en el período seleccionado.</td></tr>';
+      } else {
+        topProducts.forEach((p, idx) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>#${idx + 1}</strong></td>
+            <td>
+              <span class="art-code-pill" style="margin-right:4px;">#${escapeHtml(String(p.codigo))}</span>
+              <strong>${escapeHtml(p.nombre)}</strong>
+            </td>
+            <td class="num-col">${Number.isInteger(p.unidades) ? p.unidades.toLocaleString('es-AR') : p.unidades.toFixed(2).replace('.', ',')}</td>
+            <td class="num-col"><strong>$ ${formatArs(p.venta)}</strong></td>
+            <td class="num-col" style="color:#166534; font-weight:700;">$ ${formatArs(p.ganancia)}</td>
+          `;
+          topProdTbody.appendChild(tr);
+        });
+      }
+    }
+
+    const topRubros = Array.from(rubroAgg.values())
+      .sort((a, b) => b.venta - a.venta)
+      .slice(0, 5);
+
+    const topRubrosTbody = document.getElementById('est-dash-top-rubros-tbody');
+    if (topRubrosTbody) {
+      topRubrosTbody.textContent = '';
+      if (topRubros.length === 0) {
+        topRubrosTbody.innerHTML = '<tr><td colspan="4" class="table-loading-cell">Sin datos de rubros en el período.</td></tr>';
+      } else {
+        topRubros.forEach((r) => {
+          const pct = totalRubrosVenta > 0 ? (r.venta / totalRubrosVenta) * 100 : 0;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${escapeHtml(r.rubro)}</strong></td>
+            <td class="num-col">${pct.toFixed(1).replace('.', ',')}%</td>
+            <td class="num-col"><strong>$ ${formatArs(r.venta)}</strong></td>
+            <td class="num-col" style="color:#166534; font-weight:700;">$ ${formatArs(r.ganancia)}</td>
+          `;
+          topRubrosTbody.appendChild(tr);
+        });
+      }
+    }
+
+    // 7. Finanzas en Vivo: Cuentas Corrientes (Clientes y Proveedores)
+    let totalCobrarClientes = 0;
+    let countClientesDeudores = 0;
+    let totalPagarProvs = 0;
+    let countProvsAcreedores = 0;
+    const clientesDeudoresList = [];
+    const provsAcreedoresList = [];
+
+    (STATE.clientes || []).forEach((c) => {
+      if (!c || (typeof isSystemConfigClient === 'function' && isSystemConfigClient(c))) return;
+      const saldo = round2(Number(c.saldoActual) || 0);
+      if (c.esProveedor && !c.esCliente) {
+        const deudaProv = Math.abs(saldo);
+        if (deudaProv > 0.01) {
+          totalPagarProvs = round2(totalPagarProvs + deudaProv);
+          countProvsAcreedores++;
+          provsAcreedoresList.push({ id: c.id, nombre: c.nombre || 'PROVEEDOR', saldo: deudaProv });
+        }
+      } else {
+        if (saldo > 0.01) {
+          totalCobrarClientes = round2(totalCobrarClientes + saldo);
+          countClientesDeudores++;
+          clientesDeudoresList.push({ id: c.id, nombre: c.nombre || 'CLIENTE', saldo });
+        } else if (c.esProveedor && saldo < -0.01) {
+          const deudaProv = Math.abs(saldo);
+          totalPagarProvs = round2(totalPagarProvs + deudaProv);
+          countProvsAcreedores++;
+          provsAcreedoresList.push({ id: c.id, nombre: c.nombre || 'PROVEEDOR', saldo: deudaProv });
+        }
+      }
+    });
+
+    const elCtaCli = document.getElementById('est-dash-ctacte-clientes-total');
+    const elCtaCliSub = document.getElementById('est-dash-ctacte-clientes-sub');
+    const elCtaProv = document.getElementById('est-dash-ctacte-provs-total');
+    const elCtaProvSub = document.getElementById('est-dash-ctacte-provs-sub');
+    const elCtaNeto = document.getElementById('est-dash-ctacte-neto');
+
+    if (elCtaCli) elCtaCli.textContent = `$ ${formatArs(totalCobrarClientes)}`;
+    if (elCtaCliSub) elCtaCliSub.textContent = `${countClientesDeudores} cliente(s) con saldo`;
+    if (elCtaProv) elCtaProv.textContent = `$ ${formatArs(totalPagarProvs)}`;
+    if (elCtaProvSub) elCtaProvSub.textContent = `${countProvsAcreedores} proveedor(es) con saldo`;
+    if (elCtaNeto) {
+      const neto = round2(totalCobrarClientes - totalPagarProvs);
+      elCtaNeto.textContent = `${neto < 0 ? '- ' : ''}$ ${formatArs(Math.abs(neto))}`;
+      elCtaNeto.style.color = neto >= 0 ? '#15803d' : '#b91c1c';
+    }
+
+    const topCliTbody = document.getElementById('est-dash-top-clientes-deudores');
+    if (topCliTbody) {
+      topCliTbody.textContent = '';
+      const top5Cli = clientesDeudoresList.sort((a, b) => b.saldo - a.saldo).slice(0, 5);
+      if (top5Cli.length === 0) {
+        topCliTbody.innerHTML = '<tr><td colspan="2" class="table-loading-cell">No hay clientes con saldo deudor pendiente.</td></tr>';
+      } else {
+        top5Cli.forEach((c) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${escapeHtml(c.nombre)}</strong></td>
+            <td class="num-col" style="color:#b91c1c; font-weight:800;">$ ${formatArs(c.saldo)}</td>
+          `;
+          topCliTbody.appendChild(tr);
+        });
+      }
+    }
+
+    const topProvTbody = document.getElementById('est-dash-top-provs-acreedores');
+    if (topProvTbody) {
+      topProvTbody.textContent = '';
+      const top5Prov = provsAcreedoresList.sort((a, b) => b.saldo - a.saldo).slice(0, 5);
+      if (top5Prov.length === 0) {
+        topProvTbody.innerHTML = '<tr><td colspan="2" class="table-loading-cell">No hay saldos pendientes a proveedores.</td></tr>';
+      } else {
+        top5Prov.forEach((p) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${escapeHtml(p.nombre)}</strong></td>
+            <td class="num-col" style="color:#b45309; font-weight:800;">$ ${formatArs(p.saldo)}</td>
+          `;
+          topProvTbody.appendChild(tr);
+        });
+      }
+    }
+  }
+
   function renderActiveEstSection(sectionId) {
     const activeId =
       sectionId ||
       [
+        'sec-est-dashboard',
         'sec-est-facturacion',
         'sec-est-ranking',
         'sec-est-medios',
@@ -36915,7 +37650,8 @@ function initApp() {
         'sec-est-art-generico'
       ].find((id) => !document.getElementById(id)?.hidden);
     updateEstFilterSummaryBadge();
-    if (activeId === 'sec-est-facturacion') renderEstFacturacionSubmodule();
+    if (activeId === 'sec-est-dashboard') renderEstDashboardSubmodule();
+    else if (activeId === 'sec-est-facturacion') renderEstFacturacionSubmodule();
     else if (activeId === 'sec-est-ranking') renderEstRankingSubmodule();
     else if (activeId === 'sec-est-medios') renderEstMediosSubmodule();
     else if (activeId === 'sec-est-margenes') renderEstMargenesSubmodule();
@@ -37151,6 +37887,69 @@ function initApp() {
     }
   });
 
+  document.getElementById('btn-est-dash-refresh')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-est-dash-refresh');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Actualizando...';
+    }
+    try {
+      await Promise.all([
+        loadCatalogDatabase(true),
+        loadClientesDatabase(true),
+        loadVentasDatabase(true)
+      ]);
+      renderEstDashboardSubmodule();
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🔄 Actualizar Ahora';
+      }
+    }
+  });
+
+  document.querySelectorAll('.est-dash-quick-period').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const period = btn.getAttribute('data-dash-period') || 'mes';
+      document.querySelectorAll('.est-dash-quick-period').forEach((b) => {
+        b.classList.toggle('is-active', b === btn);
+      });
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const todayIso = `${y}-${m}-${d}`;
+      let fromIso = `${y}-${m}-01`;
+
+      if (period === 'hoy') {
+        fromIso = todayIso;
+      } else if (period === '7d') {
+        const dt = new Date(now.getTime() - 6 * 86400000);
+        fromIso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+      } else if (period === '30d') {
+        const dt = new Date(now.getTime() - 29 * 86400000);
+        fromIso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+      } else if (period === 'anio') {
+        fromIso = `${y}-01-01`;
+      }
+
+      const rangoRadio = document.querySelector('input[name="est_date_mode"][value="rango"]');
+      if (rangoRadio && !rangoRadio.checked) {
+        rangoRadio.checked = true;
+        const boxRango = document.getElementById('est-date-rango-panel');
+        const boxMeses = document.getElementById('est-date-meses-panel');
+        if (boxRango) boxRango.hidden = false;
+        if (boxMeses) boxMeses.hidden = true;
+      }
+      const fromInp = document.getElementById('est-date-from');
+      const toInp = document.getElementById('est-date-to');
+      if (fromInp) fromInp.value = fromIso;
+      if (toInp) toInp.value = todayIso;
+      updateEstFilterSummaryBadge();
+      renderEstDashboardSubmodule();
+    });
+  });
+
   document.addEventListener('click', (e) => {
     const chartBtn = e.target.closest('.est-chart-btn');
     if (!chartBtn) return;
@@ -37162,7 +37961,13 @@ function initApp() {
       b.classList.toggle('is-active', b === chartBtn);
     });
 
-    if (target === 'fact-main' || target === 'facturacion') {
+    if (target === 'dash-evolucion') {
+      EST_STATE.chartTypeDashEvolucion = type;
+      renderEstDashboardSubmodule();
+    } else if (target === 'dash-medios') {
+      EST_STATE.chartTypeDashMedios = type;
+      renderEstDashboardSubmodule();
+    } else if (target === 'fact-main' || target === 'facturacion') {
       EST_STATE.chartTypeFact = type;
       renderEstFacturacionSubmodule();
     } else if (target === 'fact-pv') {
@@ -42038,7 +42843,7 @@ function initApp() {
     if (totalItems === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 7;
+      td.colSpan = 6;
       td.className = 'table-loading-cell';
       td.textContent = 'Aún no se registraron comprobantes de proveedores en el historial.';
       tr.appendChild(td);
@@ -42049,6 +42854,8 @@ function initApp() {
 
     const pageItems = FP_STATE.history.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     const frag = document.createDocumentFragment();
+    const uniformBtnCss =
+      'width:118px; min-width:118px; height:30px; min-height:30px; padding:0 0.5rem; border-radius:7px; font-size:0.77rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; gap:0.3rem; white-space:nowrap; box-sizing:border-box;';
 
     pageItems.forEach((h) => {
       const tr = document.createElement('tr');
@@ -42066,21 +42873,19 @@ function initApp() {
         <td><span class="code-mono-input">${escapeHtml(h.fechaHora || '')}</span></td>
         <td><strong>${escapeHtml(h.proveedor || '')}</strong></td>
         <td><div class="price-cell-stack"><strong>${escapeHtml(h.comprobante || '')}</strong><span class="price-neto-val">${escapeHtml(h.modoIva || '')}</span></div></td>
-        <td>${escapeHtml(h.archivo || 'Lectura IA')}</td>
         <td><div class="price-cell-stack"><span class="badge badge--green" style="width:fit-content;">${Number(h.actualizados || 0)} artículo(s)</span>${ctaCteInfo}</div></td>
         <td><span class="price-neto-val">${escapeHtml(h.resumenAlertas || '—')}</span></td>
       `;
 
       const tdActions = document.createElement('td');
+      tdActions.className = 'actions-col';
       const actWrap = document.createElement('div');
-      actWrap.style.display = 'flex';
-      actWrap.style.gap = '0.35rem';
-      actWrap.style.flexWrap = 'wrap';
+      actWrap.style.cssText = 'display:flex; flex-direction:column; align-items:flex-end; gap:0.32rem;';
 
       const btnEdit = document.createElement('button');
       btnEdit.type = 'button';
       btnEdit.className = isEditingThis ? 'btn-primary btn-sm' : 'btn-edit-row';
-      btnEdit.style.width = 'auto';
+      btnEdit.style.cssText = uniformBtnCss;
       btnEdit.textContent = isEditingThis ? '✏️ Editando...' : '✏️ Editar';
       btnEdit.title =
         'Reabrir y editar este comprobante (Proveedor, Tipo/Nro, Condición IVA, Importe Cta. Cte. y sus renglones de artículos)';
@@ -42090,7 +42895,7 @@ function initApp() {
       const btnCta = document.createElement('button');
       btnCta.type = 'button';
       btnCta.className = 'btn-edit-row';
-      btnCta.style.width = 'auto';
+      btnCta.style.cssText = uniformBtnCss;
       btnCta.textContent = '📒 Cta. Cte.';
       btnCta.title = 'Abrir Cuenta Corriente de este proveedor';
       btnCta.addEventListener('click', () => {
@@ -42115,9 +42920,8 @@ function initApp() {
       const btnDel = document.createElement('button');
       btnDel.type = 'button';
       btnDel.className = 'btn-edit-row';
-      btnDel.style.width = 'auto';
-      btnDel.style.color = 'var(--danger, #dc2626)';
-      btnDel.textContent = '🗑️';
+      btnDel.style.cssText = `${uniformBtnCss} color:var(--danger, #dc2626);`;
+      btnDel.textContent = '🗑️ Eliminar';
       btnDel.title = 'Eliminar este comprobante del historial';
       btnDel.addEventListener('click', () => deleteFpHistoryEntry(h));
       actWrap.appendChild(btnDel);
@@ -44587,7 +45391,7 @@ function initApp() {
     if (totalItems === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 7;
+      td.colSpan = 6;
       td.className = 'table-loading-cell';
       td.textContent = 'Aún no se registraron comprobantes en modo Solo actualiza Stock.';
       tr.appendChild(td);
@@ -44598,6 +45402,8 @@ function initApp() {
 
     const pageItems = FPS_STATE.history.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     const frag = document.createDocumentFragment();
+    const uniformBtnCss =
+      'width:118px; min-width:118px; height:30px; min-height:30px; padding:0 0.5rem; border-radius:7px; font-size:0.77rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; gap:0.3rem; white-space:nowrap; box-sizing:border-box;';
 
     pageItems.forEach((h) => {
       const tr = document.createElement('tr');
@@ -44614,21 +45420,19 @@ function initApp() {
         <td><span class="code-mono-input">${escapeHtml(h.fechaHora || '')}</span></td>
         <td><strong>${escapeHtml(h.proveedor || '')}</strong></td>
         <td><strong>${escapeHtml(h.comprobante || '')}</strong></td>
-        <td>${escapeHtml(h.archivo || 'Lectura IA')}</td>
         <td><span class="badge badge--green">${Number(h.actualizados || 0)} artículo(s) (+${Number(h.unidadesTotales || 0)} u.)</span>${ctaCteHtml}</td>
         <td><span class="price-neto-val">${escapeHtml(h.detalle || '🔒 Precios sin cambios')}</span></td>
       `;
 
       const tdActions = document.createElement('td');
+      tdActions.className = 'actions-col';
       const actWrap = document.createElement('div');
-      actWrap.style.display = 'flex';
-      actWrap.style.gap = '0.35rem';
-      actWrap.style.flexWrap = 'wrap';
+      actWrap.style.cssText = 'display:flex; flex-direction:column; align-items:flex-end; gap:0.32rem;';
 
       const btnEdit = document.createElement('button');
       btnEdit.type = 'button';
       btnEdit.className = isEditingThis ? 'btn-primary btn-sm' : 'btn-edit-row';
-      btnEdit.style.width = 'auto';
+      btnEdit.style.cssText = uniformBtnCss;
       btnEdit.textContent = isEditingThis ? '✏️ Editando...' : '✏️ Editar';
       btnEdit.title = 'Reabrir y editar este comprobante de Solo Stock';
       btnEdit.addEventListener('click', () => startEditFpsHistoryEntry(h));
@@ -44637,7 +45441,7 @@ function initApp() {
       const btnCta = document.createElement('button');
       btnCta.type = 'button';
       btnCta.className = 'btn-edit-row';
-      btnCta.style.width = 'auto';
+      btnCta.style.cssText = uniformBtnCss;
       btnCta.textContent = '📒 Cta. Cte.';
       btnCta.title = 'Abrir Cuenta Corriente de este proveedor';
       btnCta.addEventListener('click', () => {
@@ -44662,9 +45466,8 @@ function initApp() {
       const btnDel = document.createElement('button');
       btnDel.type = 'button';
       btnDel.className = 'btn-edit-row';
-      btnDel.style.width = 'auto';
-      btnDel.style.color = 'var(--danger, #dc2626)';
-      btnDel.textContent = '🗑️';
+      btnDel.style.cssText = `${uniformBtnCss} color:var(--danger, #dc2626);`;
+      btnDel.textContent = '🗑️ Eliminar';
       btnDel.title = 'Eliminar este comprobante del historial';
       btnDel.addEventListener('click', () => deleteFpsHistoryEntry(h));
       actWrap.appendChild(btnDel);
@@ -45892,6 +46695,21 @@ function initApp() {
     const ctx = zxingScratchCanvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
 
+    const pickBestErpDetectedCode = (codes) => {
+      if (!Array.isArray(codes) || codes.length === 0) return null;
+      const vals = codes
+        .map((c) => (c && c.rawValue ? String(c.rawValue).trim() : ''))
+        .filter(Boolean);
+      if (vals.length === 0) return null;
+      for (const v of vals) {
+        if (/^(FM-|CF-|https?:|\{)/i.test(v)) return v;
+        const hit = findArticleByCodeOrBarcode(v);
+        if (hit && hit.art) return v;
+      }
+      vals.sort((a, b) => b.length - a.length);
+      return vals[0];
+    };
+
     // 1. Si el navegador NO es iOS Safari y tiene BarcodeDetector nativo (ej. Android Chrome), probar rápido con timeout para no bloquear si Play Services tarda o falla
     if (window.__nativeBarcodeDetectorClass && !isIOSOrSafariWebKit()) {
       try {
@@ -45902,10 +46720,11 @@ function initApp() {
         }
         const nativeRes = await Promise.race([
           window.__nativeBarcodeDetectorInstance.detect(source),
-          new Promise((r) => setTimeout(() => r(null), 80))
+          new Promise((r) => setTimeout(() => r(null), 90))
         ]);
-        if (nativeRes && nativeRes.length > 0 && nativeRes[0].rawValue) {
-          return String(nativeRes[0].rawValue).trim();
+        const bestNative = pickBestErpDetectedCode(nativeRes);
+        if (bestNative) {
+          return bestNative;
         }
       } catch {}
     }
@@ -45949,10 +46768,11 @@ function initApp() {
           }
           const nativeCanvasRes = await Promise.race([
             window.__nativeBarcodeDetectorInstance.detect(zxingScratchCanvas),
-            new Promise((r) => setTimeout(() => r(null), 55))
+            new Promise((r) => setTimeout(() => r(null), 60))
           ]);
-          if (nativeCanvasRes && nativeCanvasRes.length > 0 && nativeCanvasRes[0].rawValue) {
-            return String(nativeCanvasRes[0].rawValue).trim();
+          const bestCanvasNative = pickBestErpDetectedCode(nativeCanvasRes);
+          if (bestCanvasNative) {
+            return bestCanvasNative;
           }
         } catch {}
       }
@@ -46106,6 +46926,8 @@ function initApp() {
       }
 
       let isDecodingFrame = false;
+      let csPendingUnknown = '';
+      let csPendingHits = 0;
       CS_STATE.cameraScanTimer = setInterval(async () => {
         if (!CS_STATE.cameraStream || camPanel.hidden || isDecodingFrame) return;
         if (video.paused && !video.ended) {
@@ -46118,6 +46940,18 @@ function initApp() {
             zoom: CS_STATE.cameraZoom || 1
           });
           if (code) {
+            const isQrLike = /^(FM-|CF-|https?:|\{)/i.test(code);
+            const hit = findArticleByCodeOrBarcode(code);
+            if (!isQrLike && !(hit && hit.art)) {
+              if (code === csPendingUnknown) csPendingHits += 1;
+              else {
+                csPendingUnknown = code;
+                csPendingHits = 1;
+              }
+              if (csPendingHits < 3) return;
+            }
+            csPendingUnknown = '';
+            csPendingHits = 0;
             window.stopControlStockCamera();
             handleControlStockScanSubmit(code);
           }
@@ -46305,6 +47139,8 @@ function initApp() {
       }
 
       let busy = false;
+      let uniPendingUnknown = '';
+      let uniPendingHits = 0;
       UNI_SCAN_STATE.timer = setInterval(async () => {
         if (busy || !UNI_SCAN_STATE.stream) return;
         if (video.paused && !video.ended) {
@@ -46320,6 +47156,22 @@ function initApp() {
             new Promise((r) => setTimeout(() => r(null), 420))
           ]);
           if (rawCode) {
+            const isQrLike = /^(FM-|CF-|https?:|\{)/i.test(rawCode);
+            const hit = findArticleByCodeOrBarcode(rawCode);
+            if (!isQrLike && !(hit && hit.art)) {
+              if (rawCode === uniPendingUnknown) uniPendingHits += 1;
+              else {
+                uniPendingUnknown = rawCode;
+                uniPendingHits = 1;
+              }
+              if (uniPendingHits < 3) {
+                busy = false;
+                return;
+              }
+            }
+            uniPendingUnknown = '';
+            uniPendingHits = 0;
+
             const now = Date.now();
             if (rawCode === UNI_SCAN_STATE.lastCode && now - UNI_SCAN_STATE.lastTime < 1600) {
               busy = false;
@@ -51730,11 +52582,19 @@ function initApp() {
       }
       if (typeof updateKpis === 'function') updateKpis();
       if (typeof applyCatalogFilters === 'function') applyCatalogFilters(STATE.currentPage || 1);
+      if (typeof applyCarritoArticulosFilters === 'function' && !document.getElementById('sec-carrito-articulos')?.hidden) {
+        applyCarritoArticulosFilters(STATE.cwArtPage || 1);
+      } else if (typeof updateCarritoArticulosKpis === 'function') {
+        updateCarritoArticulosKpis();
+      }
       if (typeof window.onCatalogUpdatedForFacturaCargaRapida === 'function') {
         window.onCatalogUpdatedForFacturaCargaRapida(singleArt);
       }
       if (typeof renderOfertasAbmTable === 'function' && !document.getElementById('sec-ofertas-abm')?.hidden) {
         renderOfertasAbmTable();
+      }
+      if (!document.getElementById('sec-est-dashboard')?.hidden && typeof renderEstDashboardSubmodule === 'function') {
+        renderEstDashboardSubmodule();
       }
       if (!document.getElementById('sec-caja-pos')?.hidden) {
         const codeInp = document.getElementById('fact-first-code-input');
@@ -51865,6 +52725,9 @@ function initApp() {
         const rev = `${dbs.clientes_db.rev}:${dbs.clientes_db.mtime}:${dbs.clientes_db.size}`;
         if (dbRevisionsKnown.clientes_db !== null && dbRevisionsKnown.clientes_db !== rev && STATE.clientesLoaded) {
           await loadClientesDatabase(true);
+          if (!document.getElementById('sec-est-dashboard')?.hidden && typeof renderEstDashboardSubmodule === 'function') {
+            renderEstDashboardSubmodule();
+          }
         }
         dbRevisionsKnown.clientes_db = rev;
       }
@@ -51956,9 +52819,30 @@ function initApp() {
 
   function buildClientCtaCteComposition(client) {
     if (!client) return [];
-    const rawMovs = Array.isArray(STATE.movimientosPorCliente[String(client.id)])
+    const rawMovsUnsorted = Array.isArray(STATE.movimientosPorCliente[String(client.id)])
       ? STATE.movimientosPorCliente[String(client.id)]
       : [];
+
+    const rawMovs = rawMovsUnsorted
+      .map((m, origIdx) => ({
+        m,
+        origIdx,
+        iso: parseMovDateToIso(m?.fecha || m?.fechaIso || '')
+      }))
+      .sort((a, b) => {
+        if (a.iso && b.iso && a.iso !== b.iso) {
+          return a.iso.localeCompare(b.iso);
+        }
+        if (a.iso && !b.iso) return -1;
+        if (!a.iso && b.iso) return 1;
+        const hA = String(a.m?.hora || '').trim();
+        const hB = String(b.m?.hora || '').trim();
+        if (hA && hB && hA !== hB) {
+          return hA.localeCompare(hB);
+        }
+        return a.origIdx - b.origIdx;
+      })
+      .map((entry) => entry.m);
 
     let running = 0;
     const enriched = rawMovs.map((m, idx) => {
@@ -52002,6 +52886,8 @@ function initApp() {
       return {
         idx,
         id: m.id,
+        idVenta: m.idVenta ?? m.vId ?? 0,
+        vId: m.vId ?? m.idVenta ?? 0,
         fechaIso,
         fechaAr: formatMovDateToAr(m.fecha),
         hora: m.hora || '',
@@ -52773,6 +53659,26 @@ function initApp() {
     const hasCae = Boolean(enrichedMov.cae);
     const netTotal = round2(totalImp / 1.21);
     const ivaTotal = round2(totalImp - netTotal);
+
+    if (!Array.isArray(enrichedMov.items) || enrichedMov.items.length === 0) {
+      const vIdParam = Number(enrichedMov.idVenta || enrichedMov.vId || movRow?.idVenta || movRow?.vId || 0) || '';
+      try {
+        const res = await fetch(
+          `api/clientes.php?action=oliver_venta_items&vId=${encodeURIComponent(String(vIdParam))}&n=${encodeURIComponent(nroCompleto)}&letra=${encodeURIComponent(letraHist)}&_t=${Date.now()}`,
+          { cache: 'no-store' }
+        );
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.ok && Array.isArray(json.items) && json.items.length > 0) {
+            enrichedMov.items = json.items;
+            if (movRow && typeof movRow === 'object') {
+              movRow.items = json.items;
+            }
+          }
+        }
+      } catch {}
+    }
+
     const histItems =
       Array.isArray(enrichedMov.items) && enrichedMov.items.length > 0
         ? enrichedMov.items
@@ -52939,7 +53845,7 @@ function initApp() {
       if (detCompBanner) detCompBanner.hidden = true;
       if (btnEditFichaKpi) btnEditFichaKpi.hidden = true;
       if (btnEditFichaToolbar) btnEditFichaToolbar.hidden = true;
-      tbody.innerHTML = '<tr><td colspan="10" class="table-loading-cell">Seleccioná un cliente del padrón para consultar su Detalle de Cuenta Corriente.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="table-loading-cell">Seleccioná un cliente del padrón para consultar su Detalle de Cuenta Corriente.</td></tr>';
       if (tfoot) tfoot.textContent = '';
       const elCliNom = document.getElementById('det-kpi-cli-nombre');
       const elCliMeta = document.getElementById('det-kpi-cli-meta');
@@ -53142,7 +54048,7 @@ function initApp() {
     if (displayRows.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 10;
+      td.colSpan = 9;
       td.className = 'table-loading-cell';
       td.textContent = isHist
         ? 'No se encontraron comprobantes (cancelados ni por cancelar) para este cliente en el rango de fechas seleccionado.'
@@ -53292,12 +54198,7 @@ function initApp() {
       tdComp.appendChild(compStack);
       tr.appendChild(tdComp);
 
-      // 4. Vencimiento
-      const tdVenc = document.createElement('td');
-      tdVenc.textContent = r.vencimientoAr;
-      tr.appendChild(tdVenc);
-
-      // 5. Estado (CANCELADO / IMPUTADO vs SIN CANCELAR / POR IMPUTAR)
+      // 4. Estado (CANCELADO / IMPUTADO vs SIN CANCELAR / POR IMPUTAR)
       const tdEstado = document.createElement('td');
       if (r.esCompensacion) {
         tdEstado.innerHTML = '<span class="badge badge--green">⚖️ COMPENSADO</span>';
@@ -53366,7 +54267,7 @@ function initApp() {
     if (tfoot) {
       tfoot.innerHTML = `
         <tr style="font-weight:800; background:rgba(183, 139, 30, 0.08);">
-          <td colspan="5">TOTALES DEL PERÍODO (${displayRows.length} COMPROBANTE/S)</td>
+          <td colspan="4">TOTALES DEL PERÍODO (${displayRows.length} COMPROBANTE/S)</td>
           <td class="num-col">$ ${formatArs(sumDebe)}</td>
           <td class="num-col" style="color:var(--success);">$ ${formatArs(sumHaber)}</td>
           <td class="num-col" style="color:var(--success);">$ ${formatArs(sumCancelado)}</td>
@@ -53718,7 +54619,6 @@ function initApp() {
           <td>${escapeHtml(r.fechaAr)}</td>
           <td>${escapeHtml(r.tipoComp)}</td>
           <td><strong>${escapeHtml(r.comprobante)}</strong>${obsDetailHtml}${impDetailHtml}</td>
-          <td>${escapeHtml(r.vencimientoAr)}</td>
           <td>${escapeHtml(estadoTxt)}</td>
           <td style="text-align:right;">${r.debe > 0 ? `$ ${formatArs(r.debe)}` : '—'}</td>
           <td style="text-align:right;">${r.haber > 0 ? `$ ${formatArs(r.haber)}` : '—'}</td>
@@ -53782,7 +54682,6 @@ function initApp() {
               <th>Fecha</th>
               <th>Tipo</th>
               <th>N° Comprobante / Imputación</th>
-              <th>Venc.</th>
               <th>Estado</th>
               <th style="text-align:right;">Debe ($)</th>
               <th style="text-align:right;">Haber ($)</th>
@@ -53791,10 +54690,10 @@ function initApp() {
               <th style="text-align:right;">Saldo Acum. ($)</th>
             </tr>
           </thead>
-          <tbody>${trsHtml || '<tr><td colspan="10" style="text-align:center; padding:12px;">Sin comprobantes para mostrar en este período.</td></tr>'}</tbody>
+          <tbody>${trsHtml || '<tr><td colspan="9" style="text-align:center; padding:12px;">Sin comprobantes para mostrar en este período.</td></tr>'}</tbody>
           <tfoot>
             <tr>
-              <td colspan="5">TOTALES (${rows.length} COMPROBANTE/S)</td>
+              <td colspan="4">TOTALES (${rows.length} COMPROBANTE/S)</td>
               <td style="text-align:right;">$ ${formatArs(sumDebe)}</td>
               <td style="text-align:right;">$ ${formatArs(sumHaber)}</td>
               <td style="text-align:right;">$ ${formatArs(sumCancelado)}</td>

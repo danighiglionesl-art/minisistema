@@ -187,6 +187,10 @@
 
   function closeTurnosToHome() {
     hideAllErpSections();
+    if (typeof window.__MS_OPEN_GESTION_CONSULTORIOS__ === 'function') {
+      window.__MS_OPEN_GESTION_CONSULTORIOS__();
+      return;
+    }
     var inicio = document.getElementById('sec-inicio');
     if (inicio) inicio.hidden = false;
   }
@@ -249,8 +253,8 @@
       menuSec.innerHTML =
         '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
           '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
-            '<button type="button" class="btn-back-home" id="ms-turnos-back-home-btn">← Volver a Pantalla Principal</button>' +
-            '<span class="module-breadcrumb">ERP en Línea · <strong>Turnero Web</strong></span>' +
+            '<button type="button" class="btn-back-home" id="ms-turnos-back-home-btn">← Volver a Gestión Consultorios</button>' +
+            '<span class="module-breadcrumb">Gestión Consultorios · <strong>Turnero Web</strong></span>' +
           '</div>' +
           '<a href="/turnos" target="_blank" class="ms-sa-btn" style="padding:0.42rem 0.9rem;font-size:0.8rem;" id="ms-turnos-open-public-top">🌐 Abrir Portal Público /turnos ↗</a>' +
         '</div>' +
@@ -1962,7 +1966,7 @@
       function (ev) {
         var t = ev.target;
         if (!t || typeof t.closest !== 'function') return;
-        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-inmo-home-card, #ms-micontador-home-card');
+        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card');
         if (navTrigger) {
           var m = document.getElementById('sec-menu-turnos');
           var w = document.getElementById('sec-turnos-workspace');
@@ -1989,11 +1993,28 @@
 
   var initialLoaded = false;
 
+  window.__MS_OPEN_TURNOS_MENU__ = function () {
+    openTurnosView('menu');
+  };
+
   function syncTurnosHomeCard() {
     bindGlobalTurnosNavReset();
     var allowed = isTurnosModuleAllowed();
+    var ownedByConsultorios = Boolean(window.__MS_GESTION_CONSULTORIOS_OWNS_TURNOS__);
     var inicioGrid = document.querySelector('#sec-inicio .modules-grid');
     var existingCard = document.getElementById('ms-turnos-home-card');
+
+    if (ownedByConsultorios) {
+      if (existingCard) {
+        existingCard.hidden = true;
+        existingCard.style.display = 'none';
+      }
+      if (allowed && !initialLoaded) {
+        initialLoaded = true;
+        reloadTurnosData(false);
+      }
+      return;
+    }
 
     if (allowed && inicioGrid && !existingCard) {
       var card = document.createElement('article');

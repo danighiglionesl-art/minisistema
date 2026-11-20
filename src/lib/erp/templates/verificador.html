@@ -534,6 +534,45 @@
         }, 5000);
       }
 
+      function expandUpcEToUpcAVer(upcE) {
+        if (!/^[01]\d{7}$/.test(upcE)) return null;
+        const ns = upcE[0];
+        const d1 = upcE[1];
+        const d2 = upcE[2];
+        const d3 = upcE[3];
+        const d4 = upcE[4];
+        const d5 = upcE[5];
+        const d6 = upcE[6];
+        const chk = upcE[7];
+        if (d6 === '0' || d6 === '1' || d6 === '2') return `${ns}${d1}${d2}${d6}0000${d3}${d4}${d5}${chk}`;
+        if (d6 === '3') return `${ns}${d1}${d2}${d3}00000${d4}${d5}${chk}`;
+        if (d6 === '4') return `${ns}${d1}${d2}${d3}${d4}00000${d5}${chk}`;
+        return `${ns}${d1}${d2}${d3}${d4}${d5}0000${d6}${chk}`;
+      }
+
+      function buildVerBarcodeKeys(rawBc) {
+        const keys = new Set();
+        const s = sanitizeScannerBarcode(rawBc).toUpperCase();
+        if (!s) return keys;
+        keys.add(s);
+        if (/^\d{8,18}$/.test(s)) {
+          const stripped = s.replace(/^0+/, '');
+          if (stripped.length >= 7) keys.add(stripped);
+          if (s.length === 12) keys.add('0' + s);
+          else if (s.length === 13 && s.startsWith('0')) keys.add(s.slice(1));
+          if (s.length === 8 && (s[0] === '0' || s[0] === '1')) {
+            const upcA = expandUpcEToUpcAVer(s);
+            if (upcA) {
+              keys.add(upcA);
+              keys.add('0' + upcA);
+              const upcStripped = upcA.replace(/^0+/, '');
+              if (upcStripped.length >= 7) keys.add(upcStripped);
+            }
+          }
+        }
+        return keys;
+      }
+
       function findArticleForVerificador(rawTerm) {
         const clean = sanitizeScannerBarcode(rawTerm);
         if (!clean) return null;
@@ -555,6 +594,36 @@
           }
           if (Array.isArray(art.bc) && art.bc.some((b) => String(b.c).trim().toUpperCase() === upper)) {
             return { art, weightKg: 0 };
+          }
+        }
+
+        // 1b. Equivalencia UPC-A (12 dígitos) <-> EAN-13 (13 dígitos con 0 inicial), UPC-E y prefijo 779 <-> 79
+        if (/^\d{8,18}$/.test(clean)) {
+          const qKeys = buildVerBarcodeKeys(clean);
+          for (const art of STATE.articulos) {
+            if (art.bl === 1 || !Array.isArray(art.bc) || art.bc.length === 0) continue;
+            const eq = art.bc.some((b) => {
+              const bKeys = buildVerBarcodeKeys(b.c || '');
+              for (const k of bKeys) {
+                if (qKeys.has(k)) return true;
+              }
+              return false;
+            });
+            if (eq) return { art, weightKg: 0 };
+          }
+          const altPref =
+            clean.length === 12 && clean.startsWith('79')
+              ? '7' + clean
+              : clean.length === 13 && clean.startsWith('779')
+              ? clean.slice(1)
+              : '';
+          if (altPref) {
+            for (const art of STATE.articulos) {
+              if (art.bl === 1 || !Array.isArray(art.bc)) continue;
+              if (art.bc.some((b) => sanitizeScannerBarcode(b.c || '') === altPref)) {
+                return { art, weightKg: 0 };
+              }
+            }
           }
         }
 
@@ -659,15 +728,20 @@
           try {
             if (!window.__verNativeDetector) {
               window.__verNativeDetector = new window.BarcodeDetector({
-                formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code']
+                formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'itf', 'qr_code']
               });
             }
             const codes = await Promise.race([
               window.__verNativeDetector.detect(video),
-              new Promise((r) => setTimeout(() => r(null), 80))
+              new Promise((r) => setTimeout(() => r(null), 90))
             ]);
-            if (codes && codes.length > 0 && codes[0].rawValue) {
-              return String(codes[0].rawValue).trim();
+            if (Array.isArray(codes) && codes.length > 0) {
+              const vals = codes.map((c) => (c && c.rawValue ? String(c.rawValue).trim() : '')).filter(Boolean);
+              for (const v of vals) {
+                const hit = findArticleForVerificador(v);
+                if (hit && hit.art) return v;
+              }
+              if (vals.length > 0) return vals.sort((a, b) => b.length - a.length)[0];
             }
           } catch (_e) {}
         }
@@ -746,6 +820,8 @@
           video.srcObject = stream;
           await video.play().catch(() => {});
           let busy = false;
+          let verPendingUnknown = '';
+          let verPendingHits = 0;
           verCamTimer = setInterval(async () => {
             if (busy || !verCamStream) return;
             if (video.paused && !video.ended) video.play().catch(() => {});
@@ -757,13 +833,27 @@
                 new Promise((r) => setTimeout(() => r(null), 400))
               ]);
               if (code) {
+                const hit = findArticleForVerificador(code);
+                if (!(hit && hit.art)) {
+                  if (code === verPendingUnknown) verPendingHits += 1;
+                  else {
+                    verPendingUnknown = code;
+                    verPendingHits = 1;
+                  }
+                  if (verPendingHits < 3) {
+                    busy = false;
+                    return;
+                  }
+                }
+                verPendingUnknown = '';
+                verPendingHits = 0;
                 stopVerCameraScanner();
                 if (verificadorInput) verificadorInput.value = code;
                 executeVerificadorLookup(code);
               }
             } catch (_e2) {}
             busy = false;
-          }, 150);
+          }, 130);
         } catch (_err) {
           if (statusEl) statusEl.textContent = 'No se pudo acceder a la cámara en este navegador.';
         }
