@@ -1,0 +1,1137 @@
+"use client";
+
+import React, { useEffect, useMemo, useState } from "react";
+import type {
+  InmoClienteRecord,
+  InmoContratoRecord,
+  InmoCuotaContratoRecord,
+} from "@/lib/erp/inmobiliaria-types";
+
+interface PaisItem {
+  id: number;
+  nombre: string;
+}
+
+interface LocalidadItem {
+  nombre: string;
+  cp?: string;
+}
+
+const WHATSAPP_COUNTRIES = [
+  { country: "Argentina", prefix: "+549", label: "🇦🇷 Argentina (+54 9)" },
+  { country: "Uruguay", prefix: "+598", label: "🇺🇾 Uruguay (+598)" },
+  { country: "Paraguay", prefix: "+595", label: "🇵🇾 Paraguay (+595)" },
+  { country: "Chile", prefix: "+56", label: "🇨🇱 Chile (+56)" },
+  { country: "Brasil", prefix: "+55", label: "🇧🇷 Brasil (+55)" },
+  { country: "Bolivia", prefix: "+591", label: "🇧🇴 Bolivia (+591)" },
+  { country: "Perú", prefix: "+51", label: "🇵🇪 Perú (+51)" },
+  { country: "Colombia", prefix: "+57", label: "🇨🇴 Colombia (+57)" },
+  { country: "España", prefix: "+34", label: "🇪🇸 España (+34)" },
+  { country: "Estados Unidos / Canadá", prefix: "+1", label: "🇺🇸 EE.UU. / Canadá (+1)" },
+  { country: "Italia", prefix: "+39", label: "🇮🇹 Italia (+39)" },
+];
+
+type SanitizedClient = Omit<
+  InmoClienteRecord,
+  "passwordHash" | "passwordPlainCompat" | "resetCode" | "resetCodeExpiresAt"
+>;
+
+export interface InmoClientPortalModalProps {
+  open: boolean;
+  onClose: () => void;
+  tenantSlug: string;
+  fantasyName: string;
+  primaryHex: string;
+  accentHex: string;
+  googleClientId: string;
+  defaultProvincia: string;
+  defaultLocalidad: string;
+  defaultCp: string;
+  catalogs: {
+    paises: PaisItem[];
+    provincias: string[];
+    localidadesPorProvincia: Record<string, LocalidadItem[]>;
+  };
+  loggedClient: SanitizedClient | null;
+  loggedContracts: InmoContratoRecord[];
+  onSessionUpdate: (client: SanitizedClient | null, contratos: InmoContratoRecord[]) => void;
+}
+
+function fmtMoney(val: number, moneda: "ARS" | "USD"): string {
+  const n = Number(val || 0);
+  if (moneda === "USD") return `USD ${n.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`;
+  return `$ ${n.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`;
+}
+
+export default function InmoClientPortalModal(props: InmoClientPortalModalProps) {
+  const [authTab, setAuthTab] = useState<"login" | "register" | "recover">("login");
+  const [dashTab, setDashTab] = useState<"vigente" | "pasado" | "futuro" | "perfil">("vigente");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; isErr: boolean } | null>(null);
+
+  // Login form
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [googleEmailQuick, setGoogleEmailQuick] = useState("");
+  const [showGoogleFallback, setShowGoogleFallback] = useState(false);
+
+  // Recover form
+  const [recEmail, setRecEmail] = useState("");
+  const [recStep, setRecStep] = useState<1 | 2>(1);
+  const [recCode, setRecCode] = useState("");
+  const [recNewPass, setRecNewPass] = useState("");
+
+  // Register / Profile form (mismos campos que el resto de portales + cascada localidad/provincia/WA)
+  const [apellidos, setApellidos] = useState("");
+  const [nombres, setNombres] = useState("");
+  const [tipoDoc, setTipoDoc] = useState("DNI");
+  const [nroDoc, setNroDoc] = useState("");
+  const [cuitCuil, setCuitCuil] = useState("");
+  const [fechaNacimiento, setFechaNacimiento] = useState("");
+  const [estadoCivil, setEstadoCivil] = useState("Soltero/a");
+  const [nacionalidad, setNacionalidad] = useState("ARGENTINA");
+  const [pais, setPais] = useState("ARGENTINA");
+  const [provincia, setProvincia] = useState(props.defaultProvincia || "CÓRDOBA");
+  const [localidad, setLocalidad] = useState(props.defaultLocalidad || "RÍO CUARTO");
+  const [cp, setCp] = useState(props.defaultCp || "5800");
+  const [domicilioCalle, setDomicilioCalle] = useState("");
+  const [domicilioNumero, setDomicilioNumero] = useState("");
+  const [domicilioPiso, setDomicilioPiso] = useState("");
+  const [domicilioDpto, setDomicilioDpto] = useState("");
+  const [domicilioBarrio, setDomicilioBarrio] = useState("");
+  const [waCountryIdx, setWaCountryIdx] = useState(0);
+  const [whatsappNumero, setWhatsappNumero] = useState("");
+  const [telefonoAlternativo, setTelefonoAlternativo] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+
+  // Contrato seleccionado para ver PDF / Cuenta Corriente
+  const [selectedContractId, setSelectedContractId] = useState<string>("");
+  const [payingCuotaId, setPayingCuotaId] = useState<string>("");
+
+  // Sincronizar campos de perfil cuando hay cliente logueado
+  useEffect(() => {
+    if (!props.loggedClient) return;
+    const c = props.loggedClient;
+    setApellidos(c.apellidos || "");
+    setNombres(c.nombres || "");
+    setTipoDoc(c.tipoDoc || "DNI");
+    setNroDoc(c.nroDoc || "");
+    setCuitCuil(c.cuitCuil || "");
+    setFechaNacimiento(c.fechaNacimiento || "");
+    setEstadoCivil(c.estadoCivil || "Soltero/a");
+    setNacionalidad(c.nacionalidad || "ARGENTINA");
+    setPais(c.pais || "ARGENTINA");
+    setProvincia(c.provincia || props.defaultProvincia || "CÓRDOBA");
+    setLocalidad(c.localidad || props.defaultLocalidad || "RÍO CUARTO");
+    setCp(c.cp || props.defaultCp || "5800");
+    setDomicilioCalle(c.domicilioCalle || "");
+    setDomicilioNumero(c.domicilioNumero || "");
+    setDomicilioPiso(c.domicilioPiso || "");
+    setDomicilioDpto(c.domicilioDpto || "");
+    setDomicilioBarrio(c.domicilioBarrio || "");
+    const wIdx = WHATSAPP_COUNTRIES.findIndex(
+      (w) => w.prefix === c.whatsappPrefijo || w.country === c.whatsappPais
+    );
+    if (wIdx >= 0) setWaCountryIdx(wIdx);
+    setWhatsappNumero(c.whatsappNumero || "");
+    setTelefonoAlternativo(c.telefonoAlternativo || "");
+  }, [props.loggedClient, props.defaultProvincia, props.defaultLocalidad, props.defaultCp]);
+
+  // Inicializar botón oficial Google Identity Services si existe GOOGLE_CLIENT_ID
+  useEffect(() => {
+    if (!props.open || props.loggedClient || !props.googleClientId) return;
+    const scriptId = "google-gsi-client";
+    const initGsi = () => {
+      const g = (window as any).google;
+      if (!g?.accounts?.id) return;
+      g.accounts.id.initialize({
+        client_id: props.googleClientId,
+        callback: async (resp: { credential?: string }) => {
+          if (!resp?.credential) return;
+          setBusy(true);
+          setMsg(null);
+          try {
+            const res = await fetch(
+              `/api/inmobiliaria?tenant=${encodeURIComponent(props.tenantSlug)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "client_google_login",
+                  credential: resp.credential,
+                }),
+              }
+            );
+            const data = await res.json();
+            if (res.ok && data.ok) {
+              props.onSessionUpdate(data.client, data.contratos || []);
+            } else {
+              setMsg({ text: data.message || "Error con Google Sign-In.", isErr: true });
+            }
+          } finally {
+            setBusy(false);
+          }
+        },
+      });
+      const container = document.getElementById("inmo-google-btn-slot");
+      if (container) {
+        container.innerHTML = "";
+        g.accounts.id.renderButton(container, {
+          theme: "outline",
+          size: "large",
+          width: 320,
+          text: "continue_with",
+        });
+      }
+    };
+
+    if (!document.getElementById(scriptId)) {
+      const s = document.createElement("script");
+      s.id = scriptId;
+      s.src = "https://accounts.google.com/gsi/client";
+      s.async = true;
+      s.onload = initGsi;
+      document.head.appendChild(s);
+    } else {
+      setTimeout(initGsi, 120);
+    }
+  }, [props.open, props.loggedClient, props.googleClientId, props.tenantSlug, props.onSessionUpdate]);
+
+  const localidadesDisponibles = useMemo(() => {
+    if (pais !== "ARGENTINA") return [];
+    return props.catalogs.localidadesPorProvincia[provincia] || [];
+  }, [pais, provincia, props.catalogs.localidadesPorProvincia]);
+
+  useEffect(() => {
+    if (pais !== "ARGENTINA") return;
+    const list = props.catalogs.localidadesPorProvincia[provincia] || [];
+    if (list.length > 0 && !list.some((l) => l.nombre.toUpperCase() === localidad.toUpperCase())) {
+      setLocalidad(list[0].nombre);
+      if (list[0].cp) setCp(list[0].cp);
+    }
+  }, [pais, provincia, localidad, props.catalogs.localidadesPorProvincia]);
+
+  if (!props.open) return null;
+
+  const primary = props.primaryHex || "#112D3A";
+  const accent = props.accentHex || "#56D7A1";
+  const inputCls =
+    "w-full rounded-xl border border-[#112D3A]/20 bg-[#FFFFFF] px-3 py-2 text-xs font-medium text-[#112D3A] focus:border-[#56D7A1] focus:outline-none";
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/inmobiliaria?tenant=${encodeURIComponent(props.tenantSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "client_login",
+          email: loginEmail,
+          password: loginPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setMsg({ text: data.message || "Credenciales inválidas.", isErr: true });
+      } else {
+        props.onSessionUpdate(data.client, data.contratos || []);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleGoogleQuickSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/inmobiliaria?tenant=${encodeURIComponent(props.tenantSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "client_google_login",
+          googleEmail: googleEmailQuick,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setMsg({ text: data.message || "No se pudo ingresar con Google.", isErr: true });
+      } else {
+        props.onSessionUpdate(data.client, data.contratos || []);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    const wa = WHATSAPP_COUNTRIES[waCountryIdx] || WHATSAPP_COUNTRIES[0];
+    try {
+      const res = await fetch(`/api/inmobiliaria?tenant=${encodeURIComponent(props.tenantSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "client_register",
+          apellidos,
+          nombres,
+          tipoDoc,
+          nroDoc,
+          cuitCuil,
+          fechaNacimiento,
+          estadoCivil,
+          nacionalidad,
+          pais,
+          provincia,
+          localidad,
+          cp,
+          domicilioCalle,
+          domicilioNumero,
+          domicilioPiso,
+          domicilioDpto,
+          domicilioBarrio,
+          whatsappPais: wa.country,
+          whatsappPrefijo: wa.prefix,
+          whatsappNumero,
+          telefonoAlternativo,
+          email: regEmail,
+          password: regPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setMsg({ text: data.message || "No se pudo completar el registro.", isErr: true });
+      } else {
+        props.onSessionUpdate(data.client, data.contratos || []);
+        setMsg({ text: data.message, isErr: false });
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRecoverRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/inmobiliaria?tenant=${encodeURIComponent(props.tenantSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "client_request_reset", email: recEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setMsg({ text: data.message || "Correo no encontrado.", isErr: true });
+      } else {
+        setRecStep(2);
+        setMsg({ text: data.message, isErr: false });
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRecoverConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/inmobiliaria?tenant=${encodeURIComponent(props.tenantSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "client_confirm_reset",
+          email: recEmail,
+          code: recCode,
+          newPassword: recNewPass,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setMsg({ text: data.message || "Código inválido.", isErr: true });
+      } else {
+        setAuthTab("login");
+        setLoginEmail(recEmail);
+        setRecStep(1);
+        setMsg({ text: data.message, isErr: false });
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    const wa = WHATSAPP_COUNTRIES[waCountryIdx] || WHATSAPP_COUNTRIES[0];
+    try {
+      const res = await fetch(`/api/inmobiliaria?tenant=${encodeURIComponent(props.tenantSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "client_update_profile",
+          apellidos,
+          nombres,
+          tipoDoc,
+          nroDoc,
+          cuitCuil,
+          fechaNacimiento,
+          estadoCivil,
+          nacionalidad,
+          pais,
+          provincia,
+          localidad,
+          cp,
+          domicilioCalle,
+          domicilioNumero,
+          domicilioPiso,
+          domicilioDpto,
+          domicilioBarrio,
+          whatsappPais: wa.country,
+          whatsappPrefijo: wa.prefix,
+          whatsappNumero,
+          telefonoAlternativo,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        props.onSessionUpdate(data.client, props.loggedContracts);
+        setMsg({ text: "Tus datos personales fueron actualizados correctamente.", isErr: false });
+      } else {
+        setMsg({ text: data.message || "Error al guardar datos.", isErr: true });
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch(`/api/inmobiliaria?tenant=${encodeURIComponent(props.tenantSlug)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "client_logout" }),
+    });
+    props.onSessionUpdate(null, []);
+    setMsg(null);
+  };
+
+  const handlePayCuotaSplit = async (contrato: InmoContratoRecord, cuota: InmoCuotaContratoRecord) => {
+    setPayingCuotaId(cuota.id);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/inmobiliaria?tenant=${encodeURIComponent(props.tenantSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "client_pay_cuota_split",
+          contratoId: contrato.id,
+          cuotaId: cuota.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setMsg({ text: data.message || "No se pudo iniciar el pago.", isErr: true });
+        return;
+      }
+      if (data.initPointUrl) {
+        window.open(data.initPointUrl, "_blank", "noopener,noreferrer");
+        setMsg({ text: data.message, isErr: false });
+      } else if (data.contrato) {
+        const nextList = props.loggedContracts.map((c) =>
+          c.id === data.contrato.id ? data.contrato : c
+        );
+        props.onSessionUpdate(props.loggedClient, nextList);
+        setMsg({ text: data.message, isErr: false });
+      }
+    } finally {
+      setPayingCuotaId("");
+    }
+  };
+
+  const openCompiledContractPrint = (ctr: InmoContratoRecord) => {
+    const win = window.open("", "_blank", "width=900,height=780");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html lang="es-AR"><head><meta charset="UTF-8"><title>${ctr.codigo} — ${ctr.titulo}</title></head><body style="padding:28px;">${
+      ctr.contenidoCompiladoHtml || `<p>Contrato ${ctr.codigo}</p>`
+    }<script>window.onload=function(){window.print();};</script></body></html>`);
+    win.document.close();
+  };
+
+  const filteredContracts = props.loggedContracts.filter((c) => {
+    if (dashTab === "vigente") return c.estado === "vigente";
+    if (dashTab === "pasado") return c.estado === "pasado" || c.estado === "rescindido";
+    if (dashTab === "futuro") return c.estado === "futuro";
+    return false;
+  });
+
+  const activeContract =
+    filteredContracts.find((c) => c.id === selectedContractId) || filteredContracts[0] || null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#091820]/80 p-3 backdrop-blur-sm sm:p-5"
+      onClick={props.onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border-2 bg-[#FFFFFF] shadow-2xl"
+        style={{ borderColor: accent }}
+      >
+        <div
+          className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 px-6 py-4 text-[#FFFFFF]"
+          style={{ backgroundColor: primary }}
+        >
+          <div>
+            <div className="text-[11px] font-black uppercase tracking-wider" style={{ color: accent }}>
+              Portal de Arrendamientos · {props.fantasyName}
+            </div>
+            <h2 className="text-lg font-black">
+              {props.loggedClient
+                ? `Hola, ${props.loggedClient.nombres} ${props.loggedClient.apellidos}`
+                : "Acceso a Clientes (Inquilinos y Propietarios)"}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {props.loggedClient && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-xl border border-[#FFFFFF]/30 px-3 py-1.5 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#FFFFFF]/15"
+              >
+                Cerrar sesión
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={props.onClose}
+              className="rounded-xl bg-[#FFFFFF]/15 px-3.5 py-1.5 text-xs font-black text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
+            >
+              ✕ Cerrar
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 sm:p-7 space-y-5">
+          {msg && (
+            <div
+              className="rounded-2xl border p-3.5 text-xs font-bold"
+              style={{
+                backgroundColor: msg.isErr ? "#fee2e2" : "#dcfce7",
+                color: msg.isErr ? "#991b1b" : "#065f46",
+                borderColor: msg.isErr ? "#f87171" : "#34d399",
+              }}
+            >
+              {msg.isErr ? "⚠️ " : "✅ "}
+              {msg.text}
+            </div>
+          )}
+
+          {/* VISTA NO LOGUEADO: LOGIN (GOOGLE / EMAIL), REGISTRO COMPLETO Y RECUPERO */}
+          {!props.loggedClient ? (
+            <div className="space-y-5">
+              <div className="flex flex-wrap gap-2 border-b border-[#112D3A]/10 pb-3">
+                {[
+                  { k: "login", l: "🔐 Iniciar Sesión" },
+                  { k: "register", l: "📝 Crear Cuenta de Cliente" },
+                  { k: "recover", l: "🔄 Recuperar Contraseña" },
+                ].map((t) => (
+                  <button
+                    key={t.k}
+                    type="button"
+                    onClick={() => {
+                      setAuthTab(t.k as any);
+                      setMsg(null);
+                    }}
+                    className="rounded-xl px-4 py-2 text-xs font-black transition"
+                    style={{
+                      backgroundColor: authTab === t.k ? primary : "#f1f5f9",
+                      color: authTab === t.k ? accent : "#112D3A",
+                    }}
+                  >
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+
+              {authTab === "login" && (
+                <div className="grid gap-6 md:grid-cols-2">
+                  <form onSubmit={handleLogin} className="space-y-3 rounded-2xl border border-[#112D3A]/12 p-5">
+                    <h3 className="text-sm font-black text-[#112D3A]">Ingreso con Correo Electrónico</h3>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase text-[#112D3A]/70">
+                        Correo Electrónico o DNI
+                      </label>
+                      <input
+                        required
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
+                        placeholder="cliente@correo.com"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase text-[#112D3A]/70">
+                        Contraseña
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        placeholder="Tu contraseña"
+                        className={inputCls}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="w-full rounded-xl py-2.5 text-sm font-black shadow"
+                      style={{ backgroundColor: accent, color: primary }}
+                    >
+                      {busy ? "Ingresando..." : "Ingresar al Portal"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthTab("recover")}
+                      className="block w-full text-center text-xs font-bold text-[#112D3A]/75 underline"
+                    >
+                      ¿Olvidaste tu contraseña? Recuperala acá
+                    </button>
+                  </form>
+
+                  <div className="flex flex-col justify-between rounded-2xl border-2 border-[#56D7A1]/50 bg-[#f8fbfc] p-5 space-y-4">
+                    <div>
+                      <h3 className="text-sm font-black text-[#112D3A]">
+                        Ingreso Automático con Google
+                      </h3>
+                      <p className="mt-1 text-xs text-[#112D3A]/75">
+                        Accedé en un clic con tu cuenta de Google para consultar contratos PDF, cuenta corriente y pagar tus alquileres con acreditación Split.
+                      </p>
+                    </div>
+
+                    {props.googleClientId ? (
+                      <div id="inmo-google-btn-slot" className="flex justify-center py-2" />
+                    ) : (
+                      <div className="space-y-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowGoogleFallback(true)}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#112D3A]/20 bg-[#FFFFFF] px-4 py-2.5 text-xs font-black text-[#112D3A] shadow-sm hover:border-[#56D7A1]"
+                        >
+                          <span>🌐</span>
+                          <span>Continuar con Google</span>
+                        </button>
+                        {showGoogleFallback && (
+                          <form onSubmit={handleGoogleQuickSubmit} className="space-y-2 pt-1">
+                            <input
+                              type="email"
+                              required
+                              value={googleEmailQuick}
+                              onChange={(e) => setGoogleEmailQuick(e.target.value)}
+                              placeholder="Ingresá tu cuenta @gmail.com"
+                              className={inputCls}
+                            />
+                            <button
+                              type="submit"
+                              disabled={busy}
+                              className="w-full rounded-xl py-2 text-xs font-black"
+                              style={{ backgroundColor: primary, color: accent }}
+                            >
+                              Acceder con mi correo Google
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="rounded-xl bg-[#112D3A] p-3 text-[11px] text-[#FFFFFF]/85">
+                      <strong style={{ color: accent }}>¿Qué podés hacer en el portal?</strong>
+                      <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                        <li>Descargar PDFs de contratos vigentes, pasados y futuros.</li>
+                        <li>Consultar duración, vencimientos y valores actualizados.</li>
+                        <li>Revisar tu cuenta corriente y pagar online con Split automático (Propietario + Inmobiliaria).</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {authTab === "register" && (
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Apellido(s) *</label>
+                      <input required value={apellidos} onChange={(e) => setApellidos(e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Nombre(s) *</label>
+                      <input required value={nombres} onChange={(e) => setNombres(e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Tipo Doc. *</label>
+                      <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value)} className={inputCls}>
+                        <option value="DNI">DNI</option>
+                        <option value="CUIT">CUIT</option>
+                        <option value="CUIL">CUIL</option>
+                        <option value="Pasaporte">Pasaporte</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">N° Documento *</label>
+                      <input required value={nroDoc} onChange={(e) => setNroDoc(e.target.value)} className={inputCls} placeholder="38123456" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">CUIT / CUIL</label>
+                      <input value={cuitCuil} onChange={(e) => setCuitCuil(e.target.value)} className={inputCls} placeholder="20-38123456-7" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Fecha de Nacimiento</label>
+                      <input type="date" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Estado Civil</label>
+                      <select value={estadoCivil} onChange={(e) => setEstadoCivil(e.target.value)} className={inputCls}>
+                        <option>Soltero/a</option>
+                        <option>Casado/a</option>
+                        <option>Unión convivencial</option>
+                        <option>Divorciado/a</option>
+                        <option>Viudo/a</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Nacionalidad</label>
+                      <select value={nacionalidad} onChange={(e) => setNacionalidad(e.target.value)} className={inputCls}>
+                        {props.catalogs.paises.map((p) => (
+                          <option key={`n-${p.id}-${p.nombre}`} value={p.nombre}>{p.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Despliegue de País, Provincia, Localidad y CP */}
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">País *</label>
+                      <select value={pais} onChange={(e) => setPais(e.target.value)} className={inputCls}>
+                        {props.catalogs.paises.map((p) => (
+                          <option key={`p-${p.id}-${p.nombre}`} value={p.nombre}>{p.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Provincia *</label>
+                      {pais === "ARGENTINA" ? (
+                        <select value={provincia} onChange={(e) => setProvincia(e.target.value)} className={inputCls}>
+                          {props.catalogs.provincias.map((pr) => (
+                            <option key={pr} value={pr}>{pr}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input value={provincia} onChange={(e) => setProvincia(e.target.value)} className={inputCls} />
+                      )}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Localidad *</label>
+                      {pais === "ARGENTINA" && localidadesDisponibles.length > 0 ? (
+                        <select
+                          value={localidad}
+                          onChange={(e) => {
+                            setLocalidad(e.target.value);
+                            const m = localidadesDisponibles.find((l) => l.nombre === e.target.value);
+                            if (m?.cp) setCp(m.cp);
+                          }}
+                          className={inputCls}
+                        >
+                          {localidadesDisponibles.map((l, idx) => (
+                            <option key={`${l.nombre}-${idx}`} value={l.nombre}>{l.nombre}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input value={localidad} onChange={(e) => setLocalidad(e.target.value)} className={inputCls} />
+                      )}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Código Postal</label>
+                      <input value={cp} onChange={(e) => setCp(e.target.value)} className={inputCls} />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Calle</label>
+                      <input value={domicilioCalle} onChange={(e) => setDomicilioCalle(e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Número</label>
+                      <input value={domicilioNumero} onChange={(e) => setDomicilioNumero(e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Barrio</label>
+                      <input value={domicilioBarrio} onChange={(e) => setDomicilioBarrio(e.target.value)} className={inputCls} />
+                    </div>
+
+                    {/* País de WhatsApp + Número */}
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">País de WhatsApp *</label>
+                      <select
+                        value={waCountryIdx}
+                        onChange={(e) => setWaCountryIdx(Number(e.target.value))}
+                        className={inputCls}
+                      >
+                        {WHATSAPP_COUNTRIES.map((w, i) => (
+                          <option key={w.prefix} value={i}>{w.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">N° WhatsApp *</label>
+                      <input required value={whatsappNumero} onChange={(e) => setWhatsappNumero(e.target.value)} className={inputCls} placeholder="3585095475" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Correo Electrónico *</label>
+                      <input type="email" required value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase">Contraseña *</label>
+                      <input type="password" required minLength={4} value={regPassword} onChange={(e) => setRegPassword(e.target.value)} className={inputCls} placeholder="Mín. 4 caracteres" />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="rounded-xl px-6 py-3 text-sm font-black shadow"
+                    style={{ backgroundColor: accent, color: primary }}
+                  >
+                    {busy ? "Registrando..." : "Registrarme y Entrar al Portal"}
+                  </button>
+                </form>
+              )}
+
+              {authTab === "recover" && (
+                <div className="max-w-md rounded-2xl border border-[#112D3A]/12 p-5 space-y-3">
+                  <h3 className="text-sm font-black text-[#112D3A]">Recuperar Contraseña</h3>
+                  {recStep === 1 ? (
+                    <form onSubmit={handleRecoverRequest} className="space-y-3">
+                      <p className="text-xs text-[#112D3A]/75">
+                        Ingresá tu correo registrado y te enviaremos un código de 6 dígitos para crear una nueva contraseña.
+                      </p>
+                      <input
+                        type="email"
+                        required
+                        value={recEmail}
+                        onChange={(e) => setRecEmail(e.target.value)}
+                        placeholder="tu-correo@ejemplo.com"
+                        className={inputCls}
+                      />
+                      <button
+                        type="submit"
+                        disabled={busy}
+                        className="w-full rounded-xl py-2.5 text-xs font-black"
+                        style={{ backgroundColor: primary, color: accent }}
+                      >
+                        {busy ? "Enviando código..." : "Enviar código de recuperación"}
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleRecoverConfirm} className="space-y-3">
+                      <input
+                        required
+                        value={recCode}
+                        onChange={(e) => setRecCode(e.target.value)}
+                        placeholder="Código de 6 dígitos"
+                        className={inputCls}
+                      />
+                      <input
+                        type="password"
+                        required
+                        minLength={4}
+                        value={recNewPass}
+                        onChange={(e) => setRecNewPass(e.target.value)}
+                        placeholder="Nueva contraseña"
+                        className={inputCls}
+                      />
+                      <button
+                        type="submit"
+                        disabled={busy}
+                        className="w-full rounded-xl py-2.5 text-xs font-black"
+                        style={{ backgroundColor: accent, color: primary }}
+                      >
+                        Guardar nueva contraseña
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* VISTA LOGUEADO: CONTRATOS VIGENTES / PASADOS / FUTUROS, PDF, CTA CTE Y PAGO SPLIT */
+            <div className="space-y-5">
+              <div className="flex flex-wrap gap-2 border-b border-[#112D3A]/10 pb-3">
+                {[
+                  {
+                    k: "vigente",
+                    l: `📄 Contratos Vigentes (${props.loggedContracts.filter((c) => c.estado === "vigente").length})`,
+                  },
+                  {
+                    k: "pasado",
+                    l: `🗂️ Contratos Pasados (${props.loggedContracts.filter((c) => c.estado === "pasado" || c.estado === "rescindido").length})`,
+                  },
+                  {
+                    k: "futuro",
+                    l: `🗓️ Contratos Futuros (${props.loggedContracts.filter((c) => c.estado === "futuro").length})`,
+                  },
+                  { k: "perfil", l: "👤 Mis Datos Personales" },
+                ].map((t) => (
+                  <button
+                    key={t.k}
+                    type="button"
+                    onClick={() => setDashTab(t.k as any)}
+                    className="rounded-xl px-4 py-2 text-xs font-black transition"
+                    style={{
+                      backgroundColor: dashTab === t.k ? primary : "#f1f5f9",
+                      color: dashTab === t.k ? accent : "#112D3A",
+                    }}
+                  >
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+
+              {dashTab === "perfil" ? (
+                <form onSubmit={handleUpdateProfile} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold uppercase">Apellidos</label>
+                    <input value={apellidos} onChange={(e) => setApellidos(e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold uppercase">Nombres</label>
+                    <input value={nombres} onChange={(e) => setNombres(e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold uppercase">DNI</label>
+                    <input value={nroDoc} onChange={(e) => setNroDoc(e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold uppercase">Provincia</label>
+                    <select value={provincia} onChange={(e) => setProvincia(e.target.value)} className={inputCls}>
+                      {props.catalogs.provincias.map((pr) => (
+                        <option key={pr} value={pr}>{pr}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold uppercase">Localidad</label>
+                    <select value={localidad} onChange={(e) => setLocalidad(e.target.value)} className={inputCls}>
+                      {localidadesDisponibles.map((l, idx) => (
+                        <option key={`${l.nombre}-${idx}`} value={l.nombre}>{l.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold uppercase">WhatsApp</label>
+                    <input value={whatsappNumero} onChange={(e) => setWhatsappNumero(e.target.value)} className={inputCls} />
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="rounded-xl px-5 py-2.5 text-xs font-black"
+                      style={{ backgroundColor: accent, color: primary }}
+                    >
+                      💾 Guardar Mis Datos
+                    </button>
+                  </div>
+                </form>
+              ) : filteredContracts.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[#112D3A]/20 p-8 text-center text-sm text-[#112D3A]/70">
+                  No tenés contratos registrados en esta categoría ({dashTab}). Cuando la inmobiliaria cargue tu contrato con tu DNI o correo, aparecerá automáticamente acá.
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {filteredContracts.length > 1 && (
+                    <div className="flex flex-wrap gap-2">
+                      {filteredContracts.map((ctr) => (
+                        <button
+                          key={ctr.id}
+                          type="button"
+                          onClick={() => setSelectedContractId(ctr.id)}
+                          className="rounded-xl border px-3 py-1.5 text-xs font-extrabold"
+                          style={{
+                            borderColor: activeContract?.id === ctr.id ? accent : "#cbd5e1",
+                            backgroundColor: activeContract?.id === ctr.id ? primary : "#fff",
+                            color: activeContract?.id === ctr.id ? "#fff" : "#112D3A",
+                          }}
+                        >
+                          {ctr.codigo} · {ctr.propiedadTitulo}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {activeContract && (
+                    <div className="space-y-4">
+                      {/* Resumen del contrato + PDF */}
+                      <div
+                        className="rounded-2xl p-5 text-[#FFFFFF]"
+                        style={{ backgroundColor: primary }}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <span
+                              className="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase"
+                              style={{ backgroundColor: accent, color: primary }}
+                            >
+                              {activeContract.codigo} · {activeContract.estado.toUpperCase()}
+                            </span>
+                            <h3 className="mt-1 text-lg font-black">{activeContract.titulo}</h3>
+                            <div className="text-xs text-[#FFFFFF]/80">
+                              📍 {activeContract.propiedadDireccion || activeContract.propiedadTitulo}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {activeContract.pdfUrl && (
+                              <a
+                                href={activeContract.pdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded-xl px-4 py-2 text-xs font-black"
+                                style={{ backgroundColor: accent, color: primary }}
+                              >
+                                📄 Descargar PDF Oficial
+                              </a>
+                            )}
+                            {activeContract.contenidoCompiladoHtml && (
+                              <button
+                                type="button"
+                                onClick={() => openCompiledContractPrint(activeContract)}
+                                className="rounded-xl border border-[#FFFFFF]/30 bg-[#FFFFFF]/10 px-4 py-2 text-xs font-black text-[#FFFFFF]"
+                              >
+                                🖨️ Ver / Imprimir Contrato PDF
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
+                          <div className="rounded-xl bg-[#FFFFFF]/10 p-3">
+                            <div className="opacity-75">Duración y Vigencia</div>
+                            <div className="mt-0.5 font-black">
+                              {activeContract.duracionMeses} meses ({activeContract.fechaInicio} → {activeContract.fechaFin})
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-[#FFFFFF]/10 p-3">
+                            <div className="opacity-75">Valor Mensual Actual</div>
+                            <div className="mt-0.5 text-base font-black" style={{ color: accent }}>
+                              {fmtMoney(activeContract.valorMensualActual, activeContract.moneda)}
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-[#FFFFFF]/10 p-3">
+                            <div className="opacity-75">Actualización / Depósito</div>
+                            <div className="mt-0.5 font-bold">
+                              {activeContract.indiceAjuste} · {activeContract.mesDeposito}
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-[#FFFFFF]/10 p-3">
+                            <div className="opacity-75">Modalidad Split (ReikiOnline)</div>
+                            <div className="mt-0.5 font-black" style={{ color: accent }}>
+                              {activeContract.propietarioPct}% Propietario · {activeContract.inmobiliariaPct}% Inmobiliaria
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* CUENTA CORRIENTE Y PAGOS CON SPLIT AUTOMÁTICO */}
+                      <div className="rounded-2xl border border-[#112D3A]/15 p-4">
+                        <h4 className="mb-3 text-sm font-black text-[#112D3A]">
+                          💳 Cuenta Corriente y Pagos con Distribución Split Automática
+                        </h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse text-xs">
+                            <thead>
+                              <tr className="border-b-2 border-[#56D7A1] text-left">
+                                <th className="p-2">Período</th>
+                                <th className="p-2">Vencimiento</th>
+                                <th className="p-2 text-right">Total</th>
+                                <th className="p-2 text-right">Propietario ({activeContract.propietarioPct}%)</th>
+                                <th className="p-2 text-right">Inmobiliaria ({activeContract.inmobiliariaPct}%)</th>
+                                <th className="p-2">Estado</th>
+                                <th className="p-2 text-right">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {activeContract.cuotas.map((q) => (
+                                <tr key={q.id} className="border-b border-[#112D3A]/10">
+                                  <td className="p-2 font-bold">
+                                    #{q.numeroCuota} · {q.concepto}
+                                  </td>
+                                  <td className="p-2">{q.vencimiento}</td>
+                                  <td className="p-2 text-right font-black">
+                                    {fmtMoney(q.montoTotal, q.moneda)}
+                                  </td>
+                                  <td className="p-2 text-right text-[#0f5d3f] font-bold">
+                                    {fmtMoney(q.montoPropietario, q.moneda)}
+                                  </td>
+                                  <td className="p-2 text-right text-[#112D3A] font-bold">
+                                    {fmtMoney(q.montoInmobiliaria, q.moneda)}
+                                  </td>
+                                  <td className="p-2">
+                                    <span
+                                      className="rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase"
+                                      style={{
+                                        backgroundColor:
+                                          q.estado === "pagado"
+                                            ? "#dcfce7"
+                                            : q.estado === "vencido"
+                                              ? "#fee2e2"
+                                              : "#fef3c7",
+                                        color:
+                                          q.estado === "pagado"
+                                            ? "#065f46"
+                                            : q.estado === "vencido"
+                                              ? "#991b1b"
+                                              : "#92400e",
+                                      }}
+                                    >
+                                      {q.estado}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 text-right">
+                                    {q.estado === "pagado" ? (
+                                      <span className="text-[11px] font-bold text-[#065f46]">
+                                        ✅ {q.comprobanteRef || "Pagado"}
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        disabled={payingCuotaId === q.id}
+                                        onClick={() => handlePayCuotaSplit(activeContract, q)}
+                                        className="rounded-xl px-3 py-1.5 text-[11px] font-black shadow hover:brightness-95"
+                                        style={{ backgroundColor: accent, color: primary }}
+                                      >
+                                        {payingCuotaId === q.id
+                                          ? "Procesando..."
+                                          : "💳 Pagar (Split MP)"}
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

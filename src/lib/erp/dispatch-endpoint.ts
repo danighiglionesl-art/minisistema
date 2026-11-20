@@ -3,6 +3,7 @@ import { handleErpAuth } from "@/lib/erp/handlers/auth-handler";
 import { handleErpCatalog } from "@/lib/erp/handlers/catalog-handler";
 import { handleErpClientes } from "@/lib/erp/handlers/clientes-handler";
 import { handleErpCurriculum } from "@/lib/erp/handlers/cv-handler";
+import { handleErpInmobiliaria } from "@/lib/erp/handlers/inmobiliaria-handler";
 import {
   handleErpArcaComprobantes,
   handleErpBanners,
@@ -85,6 +86,9 @@ export async function dispatchErpEndpoint(
         break;
       case "turnos":
         res = await handleErpTurnos(req, tenant);
+        break;
+      case "inmobiliaria":
+        res = await handleErpInmobiliaria(req, tenant);
         break;
       default:
         res = NextResponse.json(

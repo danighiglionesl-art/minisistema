@@ -76,6 +76,7 @@ export interface ErpTenantDeployment {
   publicCarritoUrl: string;
   publicVerificadorUrl: string;
   publicTurnosUrl?: string;
+  publicInmobiliariaUrl?: string;
   githubRepoUrl: string | null;
   vercelProjectId: string | null;
   vercelDomainVerified: boolean;
@@ -213,6 +214,15 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "turnos:gestion_turnos",
   "turnos:pagos_split",
   "turnos:portal",
+  "inmobiliaria",
+  "inmobiliaria:banners",
+  "inmobiliaria:propiedades",
+  "inmobiliaria:clientes",
+  "inmobiliaria:contratos",
+  "inmobiliaria:plantillas",
+  "inmobiliaria:pagos_split",
+  "inmobiliaria:consultas",
+  "inmobiliaria:portal",
   "tema",
   "verificador",
   "perfil",
@@ -395,6 +405,24 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "turnos:gestion_turnos",
       "turnos:pagos_split",
       "turnos:portal",
+    ],
+  },
+  {
+    key: "inmobiliaria",
+    name: "Inmobiliaria & Marketplace Propiedades (IA, Contratos y Split)",
+    description:
+      "Portal público /inmobiliaria con banners 1530×370, destacadas, pestañas Ventas/Alquileres/Temporarios, Google Maps, carteles cruzados, buscador rápido e IA, Portal de Clientes (Google/Email) con PDFs, cuenta corriente y Split Propietario/Inmobiliaria.",
+    defaultMonthlyArs: 28000,
+    erpModuleKeys: [
+      "inmobiliaria",
+      "inmobiliaria:banners",
+      "inmobiliaria:propiedades",
+      "inmobiliaria:clientes",
+      "inmobiliaria:contratos",
+      "inmobiliaria:plantillas",
+      "inmobiliaria:pagos_split",
+      "inmobiliaria:consultas",
+      "inmobiliaria:portal",
     ],
   },
   {

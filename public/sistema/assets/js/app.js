@@ -169,6 +169,21 @@ const ALL_SYSTEM_MODULES = [
       { key: 'cv:previsualizados', label: 'CV previsualizados', selector: '#sec-menu-cv [data-cv-sub="previsualizados"]', sections: [] }
     ]
   },
+  {
+    key: 'inmobiliaria',
+    label: 'Inmobiliaria',
+    sections: ['sec-menu-inmobiliaria', 'sec-inmobiliaria-workspace'],
+    submodules: [
+      { key: 'inmobiliaria:banners', label: 'Banners 1530×370', selector: '#sec-menu-inmobiliaria [data-inmo-sub="banners"]', sections: [] },
+      { key: 'inmobiliaria:propiedades', label: 'Propiedades (Ventas, Alquileres y Temporarios)', selector: '#sec-menu-inmobiliaria [data-inmo-sub="propiedades"]', sections: [] },
+      { key: 'inmobiliaria:clientes', label: 'Clientes (Inquilinos y Propietarios)', selector: '#sec-menu-inmobiliaria [data-inmo-sub="clientes"]', sections: [] },
+      { key: 'inmobiliaria:contratos', label: 'Contratos, PDFs y Cuenta Corriente', selector: '#sec-menu-inmobiliaria [data-inmo-sub="contratos"]', sections: [] },
+      { key: 'inmobiliaria:plantillas', label: 'Modelos de Contratos con Campos Automáticos', selector: '#sec-menu-inmobiliaria [data-inmo-sub="plantillas"]', sections: [] },
+      { key: 'inmobiliaria:pagos_split', label: 'Pagos Split (Propietario / Inmobiliaria)', selector: '#sec-menu-inmobiliaria [data-inmo-sub="pagos_split"]', sections: [] },
+      { key: 'inmobiliaria:consultas', label: 'Consultas, Visitas y Leads Web', selector: '#sec-menu-inmobiliaria [data-inmo-sub="consultas"]', sections: [] },
+      { key: 'inmobiliaria:portal', label: 'Portal Web /inmobiliaria, QR y Configuración', selector: '#sec-menu-inmobiliaria [data-inmo-sub="portal"]', sections: [] }
+    ]
+  },
   { key: 'perfil', label: 'Perfil de Usuario', sections: ['sec-perfil-usuario'], submodules: [] },
   {
     key: 'ayuda',
