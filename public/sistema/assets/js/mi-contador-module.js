@@ -1115,7 +1115,7 @@
       function (ev) {
         var t = ev.target;
         if (!t || typeof t.closest !== 'function') return;
-        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-turnos-home-card, #ms-inmo-home-card');
+        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card');
         if (navTrigger) {
           var m = document.getElementById('sec-menu-micontador');
           var w = document.getElementById('sec-micontador-workspace');
@@ -1153,17 +1153,14 @@
       card.setAttribute('tabindex', '0');
       card.style.cursor = 'pointer';
       card.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-          '<div class="module-icon" aria-hidden="true" style="margin:0;">' +
-            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-              '<rect x="4" y="2" width="16" height="20" rx="2"></rect>' +
-              '<line x1="8" y1="6" x2="16" y2="6"></line>' +
-              '<line x1="8" y1="10" x2="10" y2="10"></line><line x1="14" y1="10" x2="16" y2="10"></line>' +
-              '<line x1="8" y1="14" x2="10" y2="14"></line><line x1="14" y1="14" x2="16" y2="14"></line>' +
-              '<line x1="8" y1="18" x2="16" y2="18"></line>' +
-            '</svg>' +
-          '</div>' +
-          '<span id="ms-mc-home-pill" style="background:' + c.accent + ';color:#112D3A;font-size:0.7rem;font-weight:900;padding:0.2rem 0.55rem;border-radius:999px;">ARCA + IA</span>' +
+        '<div class="module-icon" aria-hidden="true">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<rect x="4" y="2" width="16" height="20" rx="2"></rect>' +
+            '<line x1="8" y1="6" x2="16" y2="6"></line>' +
+            '<line x1="8" y1="10" x2="10" y2="10"></line><line x1="14" y1="10" x2="16" y2="10"></line>' +
+            '<line x1="8" y1="14" x2="10" y2="14"></line><line x1="14" y1="14" x2="16" y2="14"></line>' +
+            '<line x1="8" y1="18" x2="16" y2="18"></line>' +
+          '</svg>' +
         '</div>' +
         '<h3>Mi Contador</h3>';
 

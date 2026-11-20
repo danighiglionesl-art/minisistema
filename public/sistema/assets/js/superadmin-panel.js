@@ -1874,7 +1874,7 @@
       if (!target || typeof target.closest !== 'function') return;
 
       // Si el usuario hace clic en el logo de inicio o en cualquier botón nativo data-open-section, ocultar secciones de superadmin
-      var homeBtn = target.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-cv-home-card, #ms-turnos-home-card, #ms-inmo-home-card');
+      var homeBtn = target.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-cv-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card');
       if (homeBtn) {
         var menuSec = document.getElementById('sec-menu-superadmin');
         var detailSec = document.getElementById('sec-superadmin-detail');
@@ -1919,13 +1919,10 @@
       card.style.color = '#FFFFFF';
       card.style.cursor = 'pointer';
       card.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-          '<div class="module-icon" aria-hidden="true" style="margin:0;background:#56D7A1;color:#112D3A;">' +
-            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-              '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>' +
-            '</svg>' +
-          '</div>' +
-          '<span style="background:#56D7A1;color:#112D3A;font-size:0.7rem;font-weight:800;padding:0.2rem 0.55rem;border-radius:999px;">EXCLUSIVO @danielg</span>' +
+        '<div class="module-icon" aria-hidden="true" style="background:#56D7A1;color:#112D3A;">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>' +
+          '</svg>' +
         '</div>' +
         '<h3 style="margin:0;color:#FFFFFF;">Administrador General</h3>';
       card.addEventListener('click', function () {

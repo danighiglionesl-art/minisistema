@@ -665,11 +665,8 @@
       card.setAttribute('tabindex', '0');
       card.style.cursor = 'pointer';
       card.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-          '<div class="module-icon" aria-hidden="true" style="margin:0;">' +
-            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>' +
-          '</div>' +
-          '<span id="ms-gw-home-pill" style="background:#e0f2fe;color:#0369a1;font-size:0.7rem;font-weight:800;padding:0.2rem 0.55rem;border-radius:999px;">PORTAL /CEMEP</span>' +
+        '<div class="module-icon" aria-hidden="true">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>' +
         '</div>' +
         '<h3>Gestión Web</h3>';
 

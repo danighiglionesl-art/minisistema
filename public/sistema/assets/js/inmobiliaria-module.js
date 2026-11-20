@@ -1433,7 +1433,7 @@
     document.addEventListener('click', function (ev) {
       var t = ev.target;
       if (!t || typeof t.closest !== 'function') return;
-      var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-turnos-home-card');
+      var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-turnos-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card');
       if (navTrigger) {
         var m = document.getElementById('sec-menu-inmobiliaria');
         var w = document.getElementById('sec-inmobiliaria-workspace');
@@ -1471,14 +1471,11 @@
       card.setAttribute('tabindex', '0');
       card.style.cursor = 'pointer';
       card.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-          '<div class="module-icon" aria-hidden="true" style="margin:0;">' +
-            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-              '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>' +
-              '<polyline points="9 22 9 12 15 12 15 22"></polyline>' +
-            '</svg>' +
-          '</div>' +
-          '<span id="ms-inmo-home-pill" style="background:rgba(86,215,161,0.18);color:#112D3A;font-size:0.7rem;font-weight:800;padding:0.2rem 0.55rem;border-radius:999px;">PORTAL</span>' +
+        '<div class="module-icon" aria-hidden="true">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>' +
+            '<polyline points="9 22 9 12 15 12 15 22"></polyline>' +
+          '</svg>' +
         '</div>' +
         '<h3>Inmobiliaria</h3>';
 
