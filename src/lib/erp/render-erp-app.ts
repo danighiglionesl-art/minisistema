@@ -146,6 +146,10 @@ export function renderErpHtmlResponse(params: {
     tenant.option_type === 2 && !tenant.is_base
       ? `/${tenant.slug}/turnos`
       : "/turnos";
+  const inmobiliariaPath =
+    tenant.option_type === 2 && !tenant.is_base
+      ? `/${tenant.slug}/inmobiliaria`
+      : "/inmobiliaria";
 
   const bootPayload = {
     slug: tenant.slug,
@@ -175,6 +179,7 @@ export function renderErpHtmlResponse(params: {
     carritoUrl: `${siteOrigin}${carritoPath}`,
     verificadorUrl: `${siteOrigin}${verificadorPath}`,
     turnosUrl: `${siteOrigin}${turnosPath}`,
+    inmobiliariaUrl: `${siteOrigin}${inmobiliariaPath}`,
     enabledModules: tenant.enabled_modules,
   };
 

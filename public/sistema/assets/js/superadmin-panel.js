@@ -58,6 +58,8 @@
       '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><circle cx="10" cy="13" r="2"></circle><path d="M14 17c0-1.5-1.8-2.5-4-2.5s-4 1-4 2.5"></path></svg>',
     turnos:
       '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path></svg>',
+    inmobiliaria:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
     manual_usuario:
       '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>'
   };
@@ -529,6 +531,27 @@
                     : t.custom_domain
                       ? 'https://' + t.custom_domain + '/turnos'
                       : 'https://www.minisistema.com.ar/turnos')
+              ) +
+              '</a></div>'
+            : '') +
+          (t.is_base || (Array.isArray(t.enabled_modules) && t.enabled_modules.indexOf('inmobiliaria') !== -1)
+            ? '<div><strong>URL Inmobiliaria:</strong> <a href="' +
+              esc(
+                dep.publicInmobiliariaUrl ||
+                  (t.option_type === 2 && !t.is_base
+                    ? 'https://www.minisistema.com.ar/' + t.slug + '/inmobiliaria'
+                    : t.custom_domain
+                      ? 'https://' + t.custom_domain + '/inmobiliaria'
+                      : 'https://www.minisistema.com.ar/inmobiliaria')
+              ) +
+              '" target="_blank" style="color:#56D7A1;font-weight:800;">' +
+              esc(
+                dep.publicInmobiliariaUrl ||
+                  (t.option_type === 2 && !t.is_base
+                    ? 'https://www.minisistema.com.ar/' + t.slug + '/inmobiliaria'
+                    : t.custom_domain
+                      ? 'https://' + t.custom_domain + '/inmobiliaria'
+                      : 'https://www.minisistema.com.ar/inmobiliaria')
               ) +
               '</a></div>'
             : '') +
@@ -1793,7 +1816,7 @@
       if (!target || typeof target.closest !== 'function') return;
 
       // Si el usuario hace clic en el logo de inicio o en cualquier botón nativo data-open-section, ocultar secciones de superadmin
-      var homeBtn = target.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-cv-home-card, #ms-turnos-home-card');
+      var homeBtn = target.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-cv-home-card, #ms-turnos-home-card, #ms-inmo-home-card');
       if (homeBtn) {
         var menuSec = document.getElementById('sec-menu-superadmin');
         var detailSec = document.getElementById('sec-superadmin-detail');

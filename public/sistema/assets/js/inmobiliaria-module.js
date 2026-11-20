@@ -1419,7 +1419,7 @@
     document.addEventListener('click', function (ev) {
       var t = ev.target;
       if (!t || typeof t.closest !== 'function') return;
-      var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card');
+      var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-turnos-home-card');
       if (navTrigger) {
         var m = document.getElementById('sec-menu-inmobiliaria');
         var w = document.getElementById('sec-inmobiliaria-workspace');

@@ -1121,7 +1121,7 @@
       function (ev) {
         var t = ev.target;
         if (!t || typeof t.closest !== 'function') return;
-        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-turnos-home-card');
+        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-turnos-home-card, #ms-inmo-home-card');
         if (navTrigger) {
           var m = document.getElementById('sec-menu-cv');
           var d = document.getElementById('sec-cv-workspace');
