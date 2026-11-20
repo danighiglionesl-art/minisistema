@@ -46,6 +46,8 @@ const ASSETS_TO_CACHE = [
   '/sistema/assets/js/app.js?v=${currentVer}',
   '/sistema/assets/js/superadmin-panel.js?v=${currentVer}',
   '/sistema/assets/js/cv-module.js?v=${currentVer}',
+  '/sistema/assets/js/turnos-module.js?v=${currentVer}',
+  '/sistema/assets/js/mi-contador-module.js?v=${currentVer}',
   '/sistema/assets/img/minisistema/logo-1x1.png',
   '/sistema/assets/img/minisistema/logo-horizontal.png',
   '/sistema/assets/img/minisistema/logo-symbol.png',
@@ -119,6 +121,50 @@ if (!appJs.includes("key: 'cv'")) {
     submodules: [
       { key: 'cv:recibidos', label: 'CV recibidos', selector: '#sec-menu-cv [data-cv-sub="recibidos"]', sections: [] },
       { key: 'cv:previsualizados', label: 'CV previsualizados', selector: '#sec-menu-cv [data-cv-sub="previsualizados"]', sections: [] }
+    ]
+  },
+  {
+    key: 'turnos',
+    label: 'Turnero Web',
+    sections: ['sec-menu-turnos', 'sec-turnos-workspace'],
+    submodules: [
+      { key: 'turnos:profesionales', label: 'ABM Profesionales', selector: '#sec-menu-turnos [data-turnos-sub="profesionales"]', sections: [] },
+      { key: 'turnos:obras_sociales', label: 'ABM Obras Sociales', selector: '#sec-menu-turnos [data-turnos-sub="obras_sociales"]', sections: [] },
+      { key: 'turnos:planes', label: 'ABM Planes', selector: '#sec-menu-turnos [data-turnos-sub="planes"]', sections: [] },
+      { key: 'turnos:especialidades', label: 'ABM Especialidades', selector: '#sec-menu-turnos [data-turnos-sub="especialidades"]', sections: [] },
+      { key: 'turnos:gestion_profesionales', label: 'Gestión de Profesionales', selector: '#sec-menu-turnos [data-turnos-sub="gestion_profesionales"]', sections: [] },
+      { key: 'turnos:pacientes', label: 'Gestión de Pacientes', selector: '#sec-menu-turnos [data-turnos-sub="pacientes"]', sections: [] },
+      { key: 'turnos:gestion_turnos', label: 'Gestión de Turnos', selector: '#sec-menu-turnos [data-turnos-sub="gestion_turnos"]', sections: [] },
+      { key: 'turnos:pagos_split', label: 'Pagos Online y Split MP', selector: '#sec-menu-turnos [data-turnos-sub="pagos_split"]', sections: [] },
+      { key: 'turnos:portal', label: 'Portal Público /turnos', selector: '#sec-menu-turnos [data-turnos-sub="portal"]', sections: [] }
+    ]
+  },
+  {
+    key: 'inmobiliaria',
+    label: 'Inmobiliaria',
+    sections: ['sec-menu-inmobiliaria', 'sec-inmobiliaria-workspace'],
+    submodules: [
+      { key: 'inmobiliaria:banners', label: 'Banners', selector: '', sections: [] },
+      { key: 'inmobiliaria:propiedades', label: 'Propiedades', selector: '', sections: [] },
+      { key: 'inmobiliaria:clientes', label: 'Clientes', selector: '', sections: [] },
+      { key: 'inmobiliaria:contratos', label: 'Contratos', selector: '', sections: [] },
+      { key: 'inmobiliaria:plantillas', label: 'Plantillas', selector: '', sections: [] },
+      { key: 'inmobiliaria:pagos_split', label: 'Pagos Split', selector: '', sections: [] },
+      { key: 'inmobiliaria:consultas', label: 'Consultas', selector: '', sections: [] },
+      { key: 'inmobiliaria:portal', label: 'Portal', selector: '', sections: [] }
+    ]
+  },
+  {
+    key: 'mi_contador',
+    label: 'Mi Contador',
+    sections: ['sec-menu-micontador', 'sec-micontador-workspace'],
+    submodules: [
+      { key: 'mi_contador:ia', label: 'Asesor IA', selector: '#sec-menu-micontador [data-mc-sub="ia"]', sections: [] },
+      { key: 'mi_contador:arca_ri', label: 'ARCA RI (F.2051/F.2083/F.5663)', selector: '#sec-menu-micontador [data-mc-sub="arca_ri"]', sections: [] },
+      { key: 'mi_contador:monotributo', label: 'ARCA Monotributo', selector: '#sec-menu-micontador [data-mc-sub="monotributo"]', sections: [] },
+      { key: 'mi_contador:gastos_retiros', label: 'Compras, Gastos y Retiros', selector: '#sec-menu-micontador [data-mc-sub="gastos_retiros"]', sections: [] },
+      { key: 'mi_contador:finanzas_stock', label: 'Stock y Finanzas', selector: '#sec-menu-micontador [data-mc-sub="finanzas_stock"]', sections: [] },
+      { key: 'mi_contador:config', label: 'Configuración Fiscal', selector: '#sec-menu-micontador [data-mc-sub="config"]', sections: [] }
     ]
   },`;
   appJs = appJs.replace(

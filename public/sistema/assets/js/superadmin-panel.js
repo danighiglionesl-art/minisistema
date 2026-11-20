@@ -16,8 +16,8 @@
     quoteOptionType: 1,
     quoteSelected: {},
     quoteDiscountsByMod: {},
-    quoteGlobalType: 'temporary',
-    quoteGlobalPct: 20,
+    quoteGlobalType: 'none',
+    quoteGlobalPct: 0,
     quoteGlobalFixed: 0,
     quoteTempMonths: 3,
     newOptionType: 2,
@@ -60,6 +60,8 @@
       '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path></svg>',
     inmobiliaria:
       '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
+    mi_contador:
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="10" y2="10"></line><line x1="14" y1="10" x2="16" y2="10"></line><line x1="8" y1="14" x2="10" y2="14"></line><line x1="14" y1="14" x2="16" y2="14"></line><line x1="8" y1="18" x2="16" y2="18"></line></svg>',
     manual_usuario:
       '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>'
   };
@@ -948,7 +950,14 @@
       '</div>' +
       '<div style="font-size:2rem;font-weight:900;margin:0.4rem 0;"><span id="ms-q-sim-promo">' +
       fmtArs.format(quote.promoMonthly) +
-      '</span> <span style="font-size:0.95rem;font-weight:500;">/ mes</span></div>' +
+      '</span> <span style="font-size:0.95rem;font-weight:500;">/ mes</span>' +
+      '<span id="ms-q-sim-disc-badge" style="margin-left:0.6rem;font-size:0.76rem;font-weight:800;padding:0.2rem 0.6rem;border-radius:999px;background:#56D7A1;color:#112D3A;vertical-align:middle;' +
+      (STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0 ? '' : 'display:none;') +
+      '">' +
+      (STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0
+        ? '-' + esc(STATE_SA.quoteGlobalPct) + '% DTO. GLOBAL APLICADO'
+        : '') +
+      '</span></div>' +
       '<div id="ms-q-sim-breakdown" style="font-size:0.82rem;color:#d1fae5;">Base Opción ' +
       STATE_SA.quoteOptionType +
       ': ' +
@@ -957,6 +966,9 @@
       fmtArs.format(quote.modTotal) +
       ' = Subtotal: ' +
       fmtArs.format(quote.subtotal) +
+      (STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0
+        ? ' · Dto. global (' + esc(STATE_SA.quoteGlobalPct) + '%): -' + fmtArs.format(Math.max(0, quote.subtotal - quote.promoMonthly))
+        : '') +
       '</div>' +
       '<div id="ms-q-sim-temp-note" style="margin-top:0.35rem;font-size:0.83rem;color:#56D7A1;font-weight:700;' +
       (quote.months > 0 ? '' : 'display:none;') +
@@ -985,7 +997,9 @@
       '</select>' +
       '<input type="number" min="0" max="100" id="ms-q-gpct" class="ms-sa-input" placeholder="% Dto" title="% Descuento Global" value="' +
       esc(STATE_SA.quoteGlobalPct) +
-      '">' +
+      '" ' +
+      (STATE_SA.quoteGlobalType === 'none' ? 'disabled' : '') +
+      '>' +
       '<input type="number" min="1" max="60" id="ms-q-gmonths" class="ms-sa-input" placeholder="Meses" title="Meses de promoción" value="' +
       esc(STATE_SA.quoteTempMonths) +
       '" ' +
@@ -1484,7 +1498,14 @@
       if (qGTypeEl) STATE_SA.quoteGlobalType = qGTypeEl.value;
 
       var qGPctEl = bodyEl.querySelector('#ms-q-gpct');
-      if (qGPctEl) STATE_SA.quoteGlobalPct = Math.min(100, Math.max(0, Number(qGPctEl.value || 0)));
+      if (qGPctEl) {
+        qGPctEl.disabled = STATE_SA.quoteGlobalType === 'none';
+        if (STATE_SA.quoteGlobalType === 'none') {
+          STATE_SA.quoteGlobalPct = 0;
+        } else {
+          STATE_SA.quoteGlobalPct = Math.min(100, Math.max(0, Number(qGPctEl.value || 0)));
+        }
+      }
 
       var qGMonthsEl = bodyEl.querySelector('#ms-q-gmonths');
       if (qGMonthsEl) {
@@ -1549,8 +1570,26 @@
       var promoEl = bodyEl.querySelector('#ms-q-sim-promo');
       if (promoEl) promoEl.textContent = fmtArs.format(quote.promoMonthly);
 
+      var discBadgeEl = bodyEl.querySelector('#ms-q-sim-disc-badge');
+      if (discBadgeEl) {
+        if (STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0) {
+          discBadgeEl.style.display = '';
+          discBadgeEl.textContent = '-' + STATE_SA.quoteGlobalPct + '% DTO. GLOBAL APLICADO';
+        } else {
+          discBadgeEl.style.display = 'none';
+          discBadgeEl.textContent = '';
+        }
+      }
+
       var breakdownEl = bodyEl.querySelector('#ms-q-sim-breakdown');
       if (breakdownEl) {
+        var extraDiscTxt =
+          STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0
+            ? ' · Dto. global (' +
+              STATE_SA.quoteGlobalPct +
+              '%): -' +
+              fmtArs.format(Math.max(0, quote.subtotal - quote.promoMonthly))
+            : '';
         breakdownEl.textContent =
           'Base Opción ' +
           STATE_SA.quoteOptionType +
@@ -1559,7 +1598,8 @@
           ' + Módulos: ' +
           fmtArs.format(quote.modTotal) +
           ' = Subtotal: ' +
-          fmtArs.format(quote.subtotal);
+          fmtArs.format(quote.subtotal) +
+          extraDiscTxt;
       }
 
       var tempNoteEl = bodyEl.querySelector('#ms-q-sim-temp-note');
