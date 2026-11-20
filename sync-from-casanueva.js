@@ -174,6 +174,14 @@ if (!appJs.includes("key: 'cv'")) {
   fs.writeFileSync(appJsPath, appJs, "utf8");
   console.log("[SYNC] Preserved MiniSistema-exclusive 'cv' module in public/sistema/assets/js/app.js");
 }
+if (appJs.includes("if (roleEl) roleEl.textContent = `${displayRole} (@${uKey || user.username})`;")) {
+  appJs = appJs.replace(
+    "if (roleEl) roleEl.textContent = `${displayRole} (@${uKey || user.username})`;",
+    "const topbarRoleLabel = displayRole === 'Administrador General' ? 'Admin. Gral.' : displayRole;\n  if (roleEl) roleEl.textContent = `${topbarRoleLabel} (@${uKey || user.username})`;"
+  );
+  fs.writeFileSync(appJsPath, appJs, "utf8");
+  console.log("[SYNC] Preserved 'Admin. Gral.' topbar label in public/sistema/assets/js/app.js");
+}
 const modStart = appJs.indexOf("const ALL_SYSTEM_MODULES = [");
 const modEnd = appJs.indexOf("const DEFAULT_MODULE_KEYS =", modStart);
 if (modStart !== -1 && modEnd !== -1) {

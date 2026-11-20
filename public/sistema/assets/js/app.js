@@ -1109,13 +1109,14 @@ function updateTopbarUserDisplay(user) {
   const dir = ADMIN_DIRECTORY[uKey] || {};
   const displayName = user.name || dir.name || 'Administrador';
   const displayRole = normalizeErpUserRole(user.role || dir.role, uKey);
+  const topbarRoleLabel = displayRole === 'Administrador General' ? 'Admin. Gral.' : displayRole;
   const displayAvatar = user.avatar !== undefined ? user.avatar : (dir.avatar || '');
 
   const nameEl = document.getElementById('user-display-name');
   const roleEl = document.getElementById('user-display-role');
   const avatarEl = document.getElementById('user-avatar-initial');
   if (nameEl) nameEl.textContent = displayName;
-  if (roleEl) roleEl.textContent = `${displayRole} (@${uKey || user.username})`;
+  if (roleEl) roleEl.textContent = `${topbarRoleLabel} (@${uKey || user.username})`;
   renderUserAvatarElement(avatarEl, displayName, displayAvatar);
 }
 
