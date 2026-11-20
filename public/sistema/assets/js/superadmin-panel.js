@@ -20,7 +20,7 @@
     quoteGlobalPct: 0,
     quoteGlobalFixed: 0,
     quoteTempMonths: 3,
-    newOptionType: 2,
+    newOptionType: 1,
     newLogo1x1Data: '',
     newLogoHorizData: '',
     managingUsersSlug: null,
@@ -769,8 +769,20 @@
       '<div style="font-size:1.75rem;font-weight:900;margin:0.2rem 0;">' +
       fmtArs.format(quote.promoMonthly) +
       ' <span style="font-size:0.9rem;font-weight:500;">/ mes</span></div>' +
+      '<div style="font-size:0.78rem;color:#d1fae5;margin-top:0.15rem;">Base Opción ' +
+      STATE_SA.newOptionType +
+      ': ' +
+      fmtArs.format(quote.optionBase) +
+      ' + Módulos: ' +
+      fmtArs.format(quote.modTotal) +
+      ' = Subtotal: ' +
+      fmtArs.format(quote.subtotal) +
+      (STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0
+        ? ' · Dto. (' + esc(STATE_SA.quoteGlobalPct) + '%): -' + fmtArs.format(Math.max(0, quote.subtotal - quote.promoMonthly))
+        : '') +
+      '</div>' +
       (quote.months > 0
-        ? '<div style="font-size:0.8rem;color:#d1fae5;">Promoción por <strong>' +
+        ? '<div style="font-size:0.8rem;color:#56D7A1;font-weight:700;margin-top:0.2rem;">Promoción por <strong>' +
           quote.months +
           ' meses</strong> · Luego: ' +
           fmtArs.format(quote.regularMonthly) +
@@ -1333,7 +1345,9 @@
     // Tab 2: New Tenant
     bodyEl.querySelectorAll('[data-pick-opt]').forEach(function (card) {
       card.addEventListener('click', function () {
-        STATE_SA.newOptionType = Number(card.getAttribute('data-pick-opt')) === 1 ? 1 : 2;
+        var opt = Number(card.getAttribute('data-pick-opt')) === 1 ? 1 : 2;
+        STATE_SA.newOptionType = opt;
+        STATE_SA.quoteOptionType = opt;
         renderBody();
       });
     });
@@ -1629,6 +1643,7 @@
         } else {
           STATE_SA.quoteOptionType = which === 1 ? 2 : 1;
         }
+        STATE_SA.newOptionType = STATE_SA.quoteOptionType;
         refreshPricingDomLive();
       });
     });
@@ -1637,6 +1652,7 @@
     if (qOptSelect) {
       qOptSelect.addEventListener('change', function () {
         STATE_SA.quoteOptionType = Number(qOptSelect.value) === 1 ? 1 : 2;
+        STATE_SA.newOptionType = STATE_SA.quoteOptionType;
         refreshPricingDomLive();
       });
     }
