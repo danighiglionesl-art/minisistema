@@ -703,7 +703,7 @@
     document.addEventListener('click', function (ev) {
       var t = ev.target;
       if (!t || typeof t.closest !== 'function') return;
-      var nav = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-web-home-card');
+      var nav = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-web-home-card');
       if (nav) {
         var m = document.getElementById('sec-menu-gestion-consultorios');
         var h = document.getElementById('sec-hc-workspace');

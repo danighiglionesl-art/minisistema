@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
   '/sistema/assets/js/app.js?v=314',
   '/sistema/assets/js/superadmin-panel.js?v=314',
   '/sistema/assets/js/cv-module.js?v=314',
+  '/sistema/assets/js/personal-module.js?v=314',
   '/sistema/assets/js/turnos-module.js?v=314',
   '/sistema/assets/js/mi-contador-module.js?v=314',
   '/sistema/assets/img/minisistema/logo-1x1.png',

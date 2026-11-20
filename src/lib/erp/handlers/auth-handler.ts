@@ -672,14 +672,15 @@ export async function handleErpAuth(
     }
 
     if (rec.active === false && username !== GENERAL_ADMIN_USERNAME) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message:
-            "Tu usuario aún no está habilitado o fue suspendido. Consultá con el Administrador.",
-        },
-        { status: 403 }
-      );
+      const { payload: suspDb } = await getTenantDoc<
+        Record<string, { reason?: string; note?: string }>
+      >(tenant, "users_suspension_meta", {});
+      const suspInfo = suspDb[username];
+      const msg =
+        suspInfo?.reason === "falta_pago"
+          ? "Tu usuario se encuentra deshabilitado transitoriamente por falta de pago. Contactate con Administración para regularizar el abono."
+          : "Tu usuario aún no está habilitado o fue suspendido. Consultá con el Administrador.";
+      return NextResponse.json({ ok: false, message: msg }, { status: 403 });
     }
 
     if (

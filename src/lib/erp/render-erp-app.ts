@@ -189,7 +189,7 @@ export function renderErpHtmlResponse(params: {
   };
 
   const verMatch = html.match(/assets\/(?:js\/app|css\/styles)\.(?:js|css)\?v=(\d+)/i);
-  const assetVer = `${verMatch ? verMatch[1] : "271"}.19`;
+  const assetVer = `${verMatch ? verMatch[1] : "271"}.20`;
 
   const headBootInjection = `
   <base href="${baseHref}">
@@ -282,7 +282,7 @@ export function renderErpHtmlResponse(params: {
   if (kind === "sistema") {
     html = html.replace(
       "</body>",
-      `  <script src="/sistema/assets/js/superadmin-panel.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/cv-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/turnos-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-consultorios-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-web-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/inmobiliaria-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/mi-contador-module.js?v=${assetVer}"></script>\n</body>`
+      `  <script src="/sistema/assets/js/superadmin-panel.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/cv-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/personal-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/turnos-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-consultorios-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-web-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/inmobiliaria-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/mi-contador-module.js?v=${assetVer}"></script>\n</body>`
     );
   }
 

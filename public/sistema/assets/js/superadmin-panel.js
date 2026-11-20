@@ -1874,7 +1874,7 @@
       if (!target || typeof target.closest !== 'function') return;
 
       // Si el usuario hace clic en el logo de inicio o en cualquier botón nativo data-open-section, ocultar secciones de superadmin
-      var homeBtn = target.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-cv-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card');
+      var homeBtn = target.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card');
       if (homeBtn) {
         var menuSec = document.getElementById('sec-menu-superadmin');
         var detailSec = document.getElementById('sec-superadmin-detail');

@@ -17,7 +17,7 @@ import {
   type RecetaDigitalRecord,
   type RecetaEstado,
 } from "../consultorios-types";
-import { extractErpSessionFromRequest } from "../erp-session";
+import { extractErpSessionFromRequest, verifyErpUserPassword } from "../erp-session";
 import { getTenantDoc, putTenantDoc, listTenantUsersFromDb } from "../supabase-server";
 import { loadTurnosDb, TURNOS_DOC_KEY } from "./turnos-handler";
 import { normalizeDni, type TurnoEstado, type TurnosDbDoc } from "../turnos-types";
@@ -265,9 +265,10 @@ function canAccessConsultoriosErp(
   ) {
     return true;
   }
-  const mods = Array.isArray(session.modules) ? session.modules : [];
+  const rawMods = (session as AnyObj).modules;
+  const mods: string[] = Array.isArray(rawMods) ? rawMods.map(String) : [];
   return mods.some(
-    (m) =>
+    (m: string) =>
       m === "gestion_consultorios" ||
       m === "historia_clinica" ||
       m === "gestion_web" ||
@@ -453,7 +454,7 @@ function buildProfessionalPortalBundle(
       b.fechaEstudio.localeCompare(a.fechaEstudio) || b.createdAt.localeCompare(a.createdAt)
     ),
     recetas: hc.recetas.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    especialidades: turnosDb.especialidades.filter((e) => e.activo !== false),
+    especialidades: turnosDb.especialidades.filter((e) => e.activa !== false),
   };
 }
 
@@ -466,7 +467,7 @@ export async function handleErpConsultorios(
   req: NextRequest,
   tenant: ErpTenantRecord
 ): Promise<NextResponse> {
-  const session = extractErpSessionFromRequest(req);
+  const session = extractErpSessionFromRequest(req, tenant.slug);
   if (!session || !canAccessConsultoriosErp(session)) {
     return NextResponse.json(
       { ok: false, message: "No tenés permisos para operar Gestión Consultorios / Gestión Web." },
@@ -488,7 +489,7 @@ export async function handleErpConsultorios(
       {
         profAccountId: "erp_admin",
         profesionalId: "*",
-        nombre: session.name || session.username,
+        nombre: String((session as AnyObj).name || session.username),
         dni: "",
         email: "",
         isAdminFallback: true,
@@ -537,7 +538,7 @@ export async function handleErpConsultorios(
           especialidadIds: p.especialidadIds || [],
           activo: p.activo !== false,
         })),
-        especialidades: turnosDb.especialidades.filter((e) => e.activo !== false),
+        especialidades: turnosDb.especialidades.filter((e) => e.activa !== false),
         turnosRecientes: turnosDb.turnos.slice(0, 200),
       },
     };
@@ -556,7 +557,7 @@ export async function handleErpConsultorios(
 
   const action = String(body.action || "").trim();
   const nowIso = new Date().toISOString();
-  const actor = session.name || session.username || "Administrador";
+  const actor = String((session as AnyObj).name || session.username || "Administrador");
 
   // -------------------- HISTORIA CLÍNICA --------------------
 
@@ -1108,9 +1109,9 @@ export async function handlePublicCemepGet(
     googleClientId: webDb.googleClientId || "",
     turnosSummary: {
       totalProfesionales: turnosDb.profesionales.filter((p) => p.activo !== false).length,
-      totalEspecialidades: turnosDb.especialidades.filter((e) => e.activo !== false).length,
+      totalEspecialidades: turnosDb.especialidades.filter((e) => e.activa !== false).length,
       especialidades: turnosDb.especialidades
-        .filter((e) => e.activo !== false)
+        .filter((e) => e.activa !== false)
         .map((e) => ({ id: e.id, nombre: e.nombre, duracionMinutos: e.duracionMinutos })),
     },
   });

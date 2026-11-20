@@ -1115,7 +1115,7 @@
       function (ev) {
         var t = ev.target;
         if (!t || typeof t.closest !== 'function') return;
-        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card');
+        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card');
         if (navTrigger) {
           var m = document.getElementById('sec-menu-micontador');
           var w = document.getElementById('sec-micontador-workspace');

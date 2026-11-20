@@ -43,6 +43,7 @@ export interface InmoClientPortalModalProps {
   fantasyName: string;
   primaryHex: string;
   accentHex: string;
+  logo1x1Url?: string;
   googleClientId: string;
   defaultProvincia: string;
   defaultLocalidad: string;
@@ -214,10 +215,10 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
 
   if (!props.open) return null;
 
-  const primary = props.primaryHex || "#112D3A";
-  const accent = props.accentHex || "#56D7A1";
+  const primary = props.primaryHex || "#1F1F1F";
+  const accent = props.accentHex || "#FC8006";
   const inputCls =
-    "w-full rounded-xl border border-[#112D3A]/20 bg-[#FFFFFF] px-3 py-2 text-xs font-medium text-[#112D3A] focus:border-[#56D7A1] focus:outline-none";
+    "w-full rounded-xl border border-[#1F1F1F]/20 bg-[#FFFFFF] px-3 py-2 text-xs font-medium text-[#1F1F1F] focus:border-[#FC8006] focus:outline-none";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -477,7 +478,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#091820]/80 p-3 backdrop-blur-sm sm:p-5"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#141414]/80 p-3 backdrop-blur-sm sm:p-5"
       onClick={props.onClose}
     >
       <div
@@ -489,15 +490,24 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
           className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 px-6 py-4 text-[#FFFFFF]"
           style={{ backgroundColor: primary }}
         >
-          <div>
-            <div className="text-[11px] font-black uppercase tracking-wider" style={{ color: accent }}>
-              Portal de Arrendamientos · {props.fantasyName}
+          <div className="flex items-center gap-3">
+            {props.logo1x1Url && (
+              <img
+                src={props.logo1x1Url}
+                alt={props.fantasyName}
+                className="h-10 w-10 rounded-full object-contain shrink-0"
+              />
+            )}
+            <div>
+              <div className="text-[11px] font-black uppercase tracking-wider" style={{ color: accent }}>
+                Portal de Arrendamientos · {props.fantasyName}
+              </div>
+              <h2 className="text-lg font-black">
+                {props.loggedClient
+                  ? `Hola, ${props.loggedClient.nombres} ${props.loggedClient.apellidos}`
+                  : "Acceso a Clientes (Inquilinos y Propietarios)"}
+              </h2>
             </div>
-            <h2 className="text-lg font-black">
-              {props.loggedClient
-                ? `Hola, ${props.loggedClient.nombres} ${props.loggedClient.apellidos}`
-                : "Acceso a Clientes (Inquilinos y Propietarios)"}
-            </h2>
           </div>
           <div className="flex items-center gap-2">
             {props.loggedClient && (
@@ -537,7 +547,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
           {/* VISTA NO LOGUEADO: LOGIN (GOOGLE / EMAIL), REGISTRO COMPLETO Y RECUPERO */}
           {!props.loggedClient ? (
             <div className="space-y-5">
-              <div className="flex flex-wrap gap-2 border-b border-[#112D3A]/10 pb-3">
+              <div className="flex flex-wrap gap-2 border-b border-[#1F1F1F]/10 pb-3">
                 {[
                   { k: "login", l: "🔐 Iniciar Sesión" },
                   { k: "register", l: "📝 Crear Cuenta de Cliente" },
@@ -553,7 +563,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                     className="rounded-xl px-4 py-2 text-xs font-black transition"
                     style={{
                       backgroundColor: authTab === t.k ? primary : "#f1f5f9",
-                      color: authTab === t.k ? accent : "#112D3A",
+                      color: authTab === t.k ? accent : "#1F1F1F",
                     }}
                   >
                     {t.l}
@@ -563,10 +573,10 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
 
               {authTab === "login" && (
                 <div className="grid gap-6 md:grid-cols-2">
-                  <form onSubmit={handleLogin} className="space-y-3 rounded-2xl border border-[#112D3A]/12 p-5">
-                    <h3 className="text-sm font-black text-[#112D3A]">Ingreso con Correo Electrónico</h3>
+                  <form onSubmit={handleLogin} className="space-y-3 rounded-2xl border border-[#1F1F1F]/12 p-5">
+                    <h3 className="text-sm font-black text-[#1F1F1F]">Ingreso con Correo Electrónico</h3>
                     <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase text-[#112D3A]/70">
+                      <label className="mb-1 block text-[11px] font-bold uppercase text-[#1F1F1F]/70">
                         Correo Electrónico o DNI
                       </label>
                       <input
@@ -578,7 +588,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase text-[#112D3A]/70">
+                      <label className="mb-1 block text-[11px] font-bold uppercase text-[#1F1F1F]/70">
                         Contraseña
                       </label>
                       <input
@@ -601,18 +611,18 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                     <button
                       type="button"
                       onClick={() => setAuthTab("recover")}
-                      className="block w-full text-center text-xs font-bold text-[#112D3A]/75 underline"
+                      className="block w-full text-center text-xs font-bold text-[#1F1F1F]/75 underline"
                     >
                       ¿Olvidaste tu contraseña? Recuperala acá
                     </button>
                   </form>
 
-                  <div className="flex flex-col justify-between rounded-2xl border-2 border-[#56D7A1]/50 bg-[#f8fbfc] p-5 space-y-4">
+                  <div className="flex flex-col justify-between rounded-2xl border-2 border-[#FC8006]/50 bg-[#FAF8F6] p-5 space-y-4">
                     <div>
-                      <h3 className="text-sm font-black text-[#112D3A]">
+                      <h3 className="text-sm font-black text-[#1F1F1F]">
                         Ingreso Automático con Google
                       </h3>
-                      <p className="mt-1 text-xs text-[#112D3A]/75">
+                      <p className="mt-1 text-xs text-[#1F1F1F]/75">
                         Accedé en un clic con tu cuenta de Google para consultar contratos PDF, cuenta corriente y pagar tus alquileres con acreditación Split.
                       </p>
                     </div>
@@ -624,7 +634,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                         <button
                           type="button"
                           onClick={() => setShowGoogleFallback(true)}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#112D3A]/20 bg-[#FFFFFF] px-4 py-2.5 text-xs font-black text-[#112D3A] shadow-sm hover:border-[#56D7A1]"
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#1F1F1F]/20 bg-[#FFFFFF] px-4 py-2.5 text-xs font-black text-[#1F1F1F] shadow-sm hover:border-[#FC8006]"
                         >
                           <span>🌐</span>
                           <span>Continuar con Google</span>
@@ -652,7 +662,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                       </div>
                     )}
 
-                    <div className="rounded-xl bg-[#112D3A] p-3 text-[11px] text-[#FFFFFF]/85">
+                    <div className="rounded-xl bg-[#1F1F1F] p-3 text-[11px] text-[#FFFFFF]/85">
                       <strong style={{ color: accent }}>¿Qué podés hacer en el portal?</strong>
                       <ul className="mt-1 list-disc pl-4 space-y-0.5">
                         <li>Descargar PDFs de contratos vigentes, pasados y futuros.</li>
@@ -812,11 +822,11 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
               )}
 
               {authTab === "recover" && (
-                <div className="max-w-md rounded-2xl border border-[#112D3A]/12 p-5 space-y-3">
-                  <h3 className="text-sm font-black text-[#112D3A]">Recuperar Contraseña</h3>
+                <div className="max-w-md rounded-2xl border border-[#1F1F1F]/12 p-5 space-y-3">
+                  <h3 className="text-sm font-black text-[#1F1F1F]">Recuperar Contraseña</h3>
                   {recStep === 1 ? (
                     <form onSubmit={handleRecoverRequest} className="space-y-3">
-                      <p className="text-xs text-[#112D3A]/75">
+                      <p className="text-xs text-[#1F1F1F]/75">
                         Ingresá tu correo registrado y te enviaremos un código de 6 dígitos para crear una nueva contraseña.
                       </p>
                       <input
@@ -870,7 +880,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
           ) : (
             /* VISTA LOGUEADO: CONTRATOS VIGENTES / PASADOS / FUTUROS, PDF, CTA CTE Y PAGO SPLIT */
             <div className="space-y-5">
-              <div className="flex flex-wrap gap-2 border-b border-[#112D3A]/10 pb-3">
+              <div className="flex flex-wrap gap-2 border-b border-[#1F1F1F]/10 pb-3">
                 {[
                   {
                     k: "vigente",
@@ -893,7 +903,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                     className="rounded-xl px-4 py-2 text-xs font-black transition"
                     style={{
                       backgroundColor: dashTab === t.k ? primary : "#f1f5f9",
-                      color: dashTab === t.k ? accent : "#112D3A",
+                      color: dashTab === t.k ? accent : "#1F1F1F",
                     }}
                   >
                     {t.l}
@@ -947,7 +957,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                   </div>
                 </form>
               ) : filteredContracts.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#112D3A]/20 p-8 text-center text-sm text-[#112D3A]/70">
+                <div className="rounded-2xl border border-dashed border-[#1F1F1F]/20 p-8 text-center text-sm text-[#1F1F1F]/70">
                   No tenés contratos registrados en esta categoría ({dashTab}). Cuando la inmobiliaria cargue tu contrato con tu DNI o correo, aparecerá automáticamente acá.
                 </div>
               ) : (
@@ -963,7 +973,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                           style={{
                             borderColor: activeContract?.id === ctr.id ? accent : "#cbd5e1",
                             backgroundColor: activeContract?.id === ctr.id ? primary : "#fff",
-                            color: activeContract?.id === ctr.id ? "#fff" : "#112D3A",
+                            color: activeContract?.id === ctr.id ? "#fff" : "#1F1F1F",
                           }}
                         >
                           {ctr.codigo} · {ctr.propiedadTitulo}
@@ -1045,14 +1055,14 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                       </div>
 
                       {/* CUENTA CORRIENTE Y PAGOS CON SPLIT AUTOMÁTICO */}
-                      <div className="rounded-2xl border border-[#112D3A]/15 p-4">
-                        <h4 className="mb-3 text-sm font-black text-[#112D3A]">
+                      <div className="rounded-2xl border border-[#1F1F1F]/15 p-4">
+                        <h4 className="mb-3 text-sm font-black text-[#1F1F1F]">
                           💳 Cuenta Corriente y Pagos con Distribución Split Automática
                         </h4>
                         <div className="overflow-x-auto">
                           <table className="w-full border-collapse text-xs">
                             <thead>
-                              <tr className="border-b-2 border-[#56D7A1] text-left">
+                              <tr className="border-b-2 border-[#FC8006] text-left">
                                 <th className="p-2">Período</th>
                                 <th className="p-2">Vencimiento</th>
                                 <th className="p-2 text-right">Total</th>
@@ -1064,7 +1074,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                             </thead>
                             <tbody>
                               {activeContract.cuotas.map((q) => (
-                                <tr key={q.id} className="border-b border-[#112D3A]/10">
+                                <tr key={q.id} className="border-b border-[#1F1F1F]/10">
                                   <td className="p-2 font-bold">
                                     #{q.numeroCuota} · {q.concepto}
                                   </td>
@@ -1075,7 +1085,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                                   <td className="p-2 text-right text-[#0f5d3f] font-bold">
                                     {fmtMoney(q.montoPropietario, q.moneda)}
                                   </td>
-                                  <td className="p-2 text-right text-[#112D3A] font-bold">
+                                  <td className="p-2 text-right text-[#1F1F1F] font-bold">
                                     {fmtMoney(q.montoInmobiliaria, q.moneda)}
                                   </td>
                                   <td className="p-2">

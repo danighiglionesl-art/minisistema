@@ -30,9 +30,9 @@ export default async function PublicInmobiliariaPage() {
     !tenant.enabled_modules.includes("inmobiliaria")
   ) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#112D3A] p-8 text-center text-[#FFFFFF]">
+      <div className="flex min-h-screen items-center justify-center bg-[#1F1F1F] p-8 text-center text-[#FFFFFF]">
         <div>
-          <h1 className="text-2xl font-extrabold text-[#56D7A1]">
+          <h1 className="text-2xl font-extrabold text-[#FC8006]">
             Marketplace Inmobiliario no habilitado
           </h1>
           <p className="mt-2 text-sm text-[#FFFFFF]/80">

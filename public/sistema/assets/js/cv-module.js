@@ -59,12 +59,18 @@
       return true;
     }
     var brandMods = (window.ERP_BRAND && window.ERP_BRAND.enabledModules) || [];
-    if (Array.isArray(brandMods) && brandMods.length > 0 && brandMods.indexOf('cv') === -1) {
+    if (
+      Array.isArray(brandMods) &&
+      brandMods.length > 0 &&
+      brandMods.indexOf('cv') === -1 &&
+      brandMods.indexOf('administracion_personal') === -1
+    ) {
       return false;
     }
     if (u.role === 'Administrador') return true;
     var uMods = Array.isArray(u.modules) ? u.modules : [];
     return (
+      uMods.indexOf('administracion_personal') !== -1 ||
       uMods.indexOf('cv') !== -1 ||
       uMods.indexOf('cv:recibidos') !== -1 ||
       uMods.indexOf('cv:previsualizados') !== -1
@@ -100,6 +106,7 @@
     var detailSec = document.getElementById('sec-cv-workspace');
 
     if (!menuSec) {
+      var ownedByPersonal = Boolean(window.__MS_PERSONAL_OWNS_CV__);
       menuSec = document.createElement('section');
       menuSec.id = 'sec-menu-cv';
       menuSec.className = 'erp-section';
@@ -107,8 +114,12 @@
       menuSec.innerHTML =
         '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
           '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
-            '<button type="button" class="btn-back-home" id="ms-cv-back-home-btn">← Volver a Pantalla Principal</button>' +
-            '<span class="module-breadcrumb">ERP en Línea · <strong>Curriculum Vitae</strong></span>' +
+            '<button type="button" class="btn-back-home" id="ms-cv-back-home-btn">' +
+              (ownedByPersonal ? '← Volver a Administración de Personal' : '← Volver a Pantalla Principal') +
+            '</button>' +
+            '<span class="module-breadcrumb">' +
+              (ownedByPersonal ? 'Administración de Personal' : 'ERP en Línea') +
+              ' · <strong>Curriculum Vitae</strong></span>' +
           '</div>' +
           '<a href="/cv" target="_blank" class="ms-sa-btn" style="padding:0.42rem 0.9rem;font-size:0.8rem;" id="ms-cv-open-public-top">🌐 Abrir Formulario Público /cv ↗</a>' +
         '</div>' +
@@ -216,6 +227,10 @@
   }
 
   function closeCvToHome() {
+    if (window.__MS_PERSONAL_OWNS_CV__ && typeof window.__MS_OPEN_PERSONAL_MENU__ === 'function') {
+      window.__MS_OPEN_PERSONAL_MENU__();
+      return;
+    }
     hideAllErpSections();
     var inicio = document.getElementById('sec-inicio');
     if (inicio) inicio.hidden = false;
@@ -246,9 +261,10 @@
     var topbarModInd = document.getElementById('topbar-caja-indicator');
     if (topbarModInd) {
       topbarModInd.hidden = false;
+      var cvPrefix = window.__MS_PERSONAL_OWNS_CV__ ? 'Administración de Personal · Curriculum Vitae' : 'Curriculum Vitae';
       topbarModInd.textContent =
         STATE_CV.activeView === 'menu'
-          ? 'Curriculum Vitae'
+          ? cvPrefix
           : 'Curriculum Vitae · ' + (titleMap[STATE_CV.activeView] || '');
     }
 
@@ -1121,7 +1137,7 @@
       function (ev) {
         var t = ev.target;
         if (!t || typeof t.closest !== 'function') return;
-        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card');
+        var navTrigger = t.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card, #ms-personal-home-card');
         if (navTrigger) {
           var m = document.getElementById('sec-menu-cv');
           var d = document.getElementById('sec-cv-workspace');
@@ -1130,6 +1146,7 @@
           if (navTrigger.id === 'btn-topbar-back-facturacion' && isCvActive) {
             ev.preventDefault();
             ev.stopPropagation();
+            if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
             if (d && !d.hidden) {
               if (STATE_CV.activeView === 'detail') {
                 openCvView(STATE_CV.previousListView || 'previsualizados');
@@ -1152,11 +1169,32 @@
 
   var initialBadgeLoaded = false;
 
+  window.__MS_OPEN_CV_MENU__ = function () {
+    openCvView('menu');
+  };
+
+  window.__MS_SYNC_CV_COUNTERS__ = function () {
+    syncCountersUi();
+  };
+
   function syncCvHomeCard() {
     bindGlobalCvNavReset();
     var allowed = isCvModuleAllowed();
+    var ownedByPersonal = Boolean(window.__MS_PERSONAL_OWNS_CV__);
     var inicioGrid = document.querySelector('#sec-inicio .modules-grid');
     var existingCard = document.getElementById('ms-cv-home-card');
+
+    if (ownedByPersonal) {
+      if (existingCard) {
+        existingCard.hidden = true;
+        existingCard.style.display = 'none';
+      }
+      if (allowed && !initialBadgeLoaded) {
+        initialBadgeLoaded = true;
+        reloadCvData(false);
+      }
+      return;
+    }
 
     if (allowed && inicioGrid && !existingCard) {
       var card = document.createElement('article');

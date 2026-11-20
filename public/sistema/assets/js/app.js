@@ -163,11 +163,12 @@ const ALL_SYSTEM_MODULES = [
     { key: 'verificador', label: 'Consulta de Precios', sections: ['sec-verificador-precios'], submodules: [] },
   {
     key: 'cv',
-    label: 'Curriculum Vitae',
-    sections: ['sec-menu-cv', 'sec-cv-workspace'],
+    label: 'Administración de Personal',
+    sections: ['sec-menu-personal', 'sec-menu-cv', 'sec-cv-workspace', 'sec-asistencias-workspace'],
     submodules: [
-      { key: 'cv:recibidos', label: 'CV recibidos', selector: '#sec-menu-cv [data-cv-sub="recibidos"]', sections: [] },
-      { key: 'cv:previsualizados', label: 'CV previsualizados', selector: '#sec-menu-cv [data-cv-sub="previsualizados"]', sections: [] }
+      { key: 'cv:recibidos', label: 'Curriculum Vitae · CV recibidos', selector: '#sec-menu-cv [data-cv-sub="recibidos"]', sections: [] },
+      { key: 'cv:previsualizados', label: 'Curriculum Vitae · CV previsualizados', selector: '#sec-menu-cv [data-cv-sub="previsualizados"]', sections: [] },
+      { key: 'personal:asistencias', label: 'Control de Asistencias', selector: '#sec-menu-personal [data-personal-sub="asistencias"]', sections: ['sec-asistencias-workspace'] }
     ]
   },
   {

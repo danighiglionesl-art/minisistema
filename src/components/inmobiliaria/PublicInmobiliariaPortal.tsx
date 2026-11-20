@@ -86,11 +86,11 @@ function construccionLabel(est: string): string {
 function ribbonBgColor(text: string, customBg?: string): string {
   if (customBg && /^#/.test(customBg)) return customBg;
   const low = text.toLowerCase();
-  if (low.includes("liquid")) return "#dc2626";
-  if (low.includes("oportunidad")) return "#f59e0b";
+  if (low.includes("liquid")) return "#D90202";
+  if (low.includes("oportunidad")) return "#FC8006";
   if (low.includes("oferta")) return "#0284c7";
   if (low.includes("reserv")) return "#7c3aed";
-  return "#56D7A1";
+  return "#D90202";
 }
 
 export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortalProps) {
@@ -231,8 +231,8 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
       const cardEl = document.getElementById(`prop-card-${prop.id}`);
       if (cardEl) {
         cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
-        cardEl.classList.add("ring-4", "ring-[#56D7A1]");
-        setTimeout(() => cardEl.classList.remove("ring-4", "ring-[#56D7A1]"), 2400);
+        cardEl.classList.add("ring-4", "ring-[#FC8006]");
+        setTimeout(() => cardEl.classList.remove("ring-4", "ring-[#FC8006]"), 2400);
       } else {
         const sec = document.getElementById("propiedades-tabs");
         if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -428,8 +428,8 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
   const officeFacebookLabel = config.facebookLabel || "Inmobiliaria Degiovanni";
   const officeEmail = config.emailContacto || "inmobiliariadegiovanni@hotmail.com";
 
-  const primary = props.primaryHex || "#112D3A";
-  const accent = props.accentHex || "#56D7A1";
+  const primary = props.primaryHex || "#1F1F1F";
+  const accent = props.accentHex || "#FC8006";
 
   const activeBanner = banners[bannerIdx] || null;
 
@@ -444,7 +444,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
   }, [selectedProp, calcAnticipoPct, calcAnios, calcTna]);
 
   return (
-    <div className="min-h-screen bg-[#f3f8fa] text-[#112D3A] flex flex-col">
+    <div className="min-h-screen bg-[#F6F5F3] text-[#1F1F1F] flex flex-col">
       {/* CABECERA INSTITUCIONAL CON ACCESO A CLIENTES Y WHATSAPP */}
       <header
         className="sticky top-0 z-40 border-b-4 shadow-md"
@@ -456,19 +456,21 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               src={props.logoHorizontalUrl}
               alt={props.fantasyName}
               className={
-                props.isMiniSistemaBrand
-                  ? "h-10 w-auto object-contain"
+                props.isMiniSistemaBrand ||
+                props.logoHorizontalUrl.includes("degiovanni-logo-horizontal")
+                  ? "h-11 w-auto object-contain sm:h-12"
                   : "h-11 w-auto rounded-lg bg-[#FFFFFF] px-2.5 py-1 object-contain"
               }
             />
-            {!props.isMiniSistemaBrand && (
-              <div className="hidden sm:block">
-                <div className="text-sm font-black text-[#FFFFFF]">{props.fantasyName}</div>
-                <div className="text-[11px] font-bold" style={{ color: accent }}>
-                  {config.matriculaCorredor || "Portal Inmobiliario"}
+            {!props.isMiniSistemaBrand &&
+              !props.logoHorizontalUrl.includes("degiovanni-logo-horizontal") && (
+                <div className="hidden sm:block">
+                  <div className="text-sm font-black text-[#FFFFFF]">{props.fantasyName}</div>
+                  <div className="text-[11px] font-bold" style={{ color: accent }}>
+                    {config.matriculaCorredor || "Portal Inmobiliario"}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </a>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -501,10 +503,15 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               type="button"
               id="acceso-clientes"
               onClick={() => setClientModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black shadow transition hover:brightness-95 sm:text-sm"
-              style={{ backgroundColor: accent, color: primary }}
+              className="inline-flex items-center gap-2 rounded-full border-2 px-4 py-2 text-xs font-black shadow transition hover:brightness-110 sm:text-sm"
+              style={{ backgroundColor: "#2A2A2A", borderColor: accent, color: "#FFFFFF" }}
             >
-              <span>🔑</span>
+              <img
+                src={props.logo1x1Url || "/inmobiliaria/degiovanni-logo-symbol.png"}
+                alt=""
+                aria-hidden="true"
+                className="h-6 w-6 rounded-full object-contain shrink-0"
+              />
               <span>
                 {loggedClient
                   ? `Mi Portal (${loggedClient.nombres})`
@@ -523,7 +530,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
             className="relative overflow-hidden rounded-3xl border-2 shadow-xl"
             style={{ borderColor: accent, backgroundColor: primary }}
           >
-            <div className="relative w-full aspect-[1530/370] min-h-[190px] max-h-[390px] overflow-hidden bg-[#112D3A]">
+            <div className="relative w-full aspect-[1530/370] min-h-[190px] max-h-[390px] overflow-hidden bg-[#1F1F1F]">
               <img
                 src={activeBanner.imageUrl}
                 alt={activeBanner.titulo}
@@ -533,7 +540,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                 className="absolute inset-0 flex flex-col justify-end p-5 sm:p-8"
                 style={{
                   background:
-                    "linear-gradient(90deg, rgba(17,45,58,0.88) 0%, rgba(17,45,58,0.52) 55%, rgba(17,45,58,0.12) 100%)",
+                    "linear-gradient(90deg, rgba(22,22,22,0.92) 0%, rgba(28,28,28,0.52) 55%, rgba(31,31,31,0.04) 100%)",
                 }}
               >
                 <div className="max-w-2xl">
@@ -579,7 +586,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     onClick={() =>
                       setBannerIdx((prev) => (prev - 1 + banners.length) % banners.length)
                     }
-                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-[#112D3A]/80 px-3 py-2 text-lg font-black text-[#FFFFFF] hover:bg-[#112D3A]"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-[#1F1F1F]/80 px-3 py-2 text-lg font-black text-[#FFFFFF] hover:bg-[#1F1F1F]"
                   >
                     ‹
                   </button>
@@ -587,7 +594,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     type="button"
                     aria-label="Banner siguiente"
                     onClick={() => setBannerIdx((prev) => (prev + 1) % banners.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-[#112D3A]/80 px-3 py-2 text-lg font-black text-[#FFFFFF] hover:bg-[#112D3A]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-[#1F1F1F]/80 px-3 py-2 text-lg font-black text-[#FFFFFF] hover:bg-[#1F1F1F]"
                   >
                     ›
                   </button>
@@ -623,11 +630,11 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                 >
                   ⭐ Selección Destacada
                 </span>
-                <h2 className="text-lg font-black text-[#112D3A] sm:text-xl">
+                <h2 className="text-lg font-black text-[#1F1F1F] sm:text-xl">
                   Propiedades Destacadas (clic para ir a la publicación)
                 </h2>
               </div>
-              <span className="text-xs font-bold text-[#112D3A]/60">
+              <span className="text-xs font-bold text-[#1F1F1F]/60">
                 Deslizá →
               </span>
             </div>
@@ -641,7 +648,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     type="button"
                     onClick={() => handleClickFeatured(prop)}
                     title={`Ir a ${prop.titulo} en ${opLabel(prop.operacion)}`}
-                    className="group relative h-44 w-72 flex-shrink-0 snap-start overflow-hidden rounded-2xl border-2 border-[#112D3A]/15 bg-[#112D3A] shadow-md transition hover:scale-[1.02] hover:border-[#56D7A1] sm:h-48 sm:w-80"
+                    className="group relative h-44 w-72 flex-shrink-0 snap-start overflow-hidden rounded-2xl border-2 border-[#1F1F1F]/15 bg-[#1F1F1F] shadow-md transition hover:scale-[1.02] hover:border-[#FC8006] sm:h-48 sm:w-80"
                   >
                     <img
                       src={cover}
@@ -654,15 +661,15 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                         style={{
                           backgroundColor: ribbonBgColor(prop.cartelCruzado, prop.cartelColorBg),
                           color:
-                            ribbonBgColor(prop.cartelCruzado, prop.cartelColorBg) === "#56D7A1"
-                              ? "#112D3A"
+                            ribbonBgColor(prop.cartelCruzado, prop.cartelColorBg) === "#FC8006"
+                              ? "#1F1F1F"
                               : "#FFFFFF",
                         }}
                       >
                         {prop.cartelCruzado}
                       </div>
                     )}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#112D3A]/95 via-[#112D3A]/60 to-transparent p-3 text-left">
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#1F1F1F]/95 via-[#1F1F1F]/60 to-transparent p-3 text-left">
                       <span
                         className="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase"
                         style={{ backgroundColor: accent, color: primary }}
@@ -724,7 +731,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   value={aiQuery}
                   onChange={(e) => setAiQuery(e.target.value)}
                   placeholder="Ej: Busco casa con pileta, quincho, 3 habitaciones y apta crédito en Río Cuarto..."
-                  className="w-full flex-1 rounded-2xl border-2 border-[#FFFFFF]/20 bg-[#FFFFFF] px-4 py-3 text-sm font-semibold text-[#112D3A] shadow-inner focus:border-[#56D7A1] focus:outline-none"
+                  className="w-full flex-1 rounded-2xl border-2 border-[#FFFFFF]/20 bg-[#FFFFFF] px-4 py-3 text-sm font-semibold text-[#1F1F1F] shadow-inner focus:border-[#FC8006] focus:outline-none"
                 />
                 <button
                   type="submit"
@@ -737,7 +744,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               </div>
 
               {aiResult && (
-                <div className="rounded-2xl border border-[#56D7A1]/50 bg-[#FFFFFF]/10 p-3.5 text-sm text-[#FFFFFF]">
+                <div className="rounded-2xl border border-[#FC8006]/50 bg-[#FFFFFF]/10 p-3.5 text-sm text-[#FFFFFF]">
                   <div className="font-bold" style={{ color: accent }}>
                     🤖 Recomendación IA ({aiResult.matchedIds.length} resultados):
                   </div>
@@ -752,7 +759,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
 
         {/* 4. PESTAÑAS ESTILO MERCADO PAGO (VENTAS / ALQUILERES / ALQUILERES TEMPORARIOS) */}
         <section id="propiedades-tabs" className="space-y-5">
-          <div className="rounded-3xl bg-[#FFFFFF] p-2 shadow-lg border border-[#112D3A]/10">
+          <div className="rounded-3xl bg-[#FFFFFF] p-2 shadow-lg border border-[#1F1F1F]/10">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {(
                 [
@@ -790,8 +797,8 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     }}
                     className="flex items-center justify-between rounded-2xl px-5 py-4 text-left transition-all"
                     style={{
-                      backgroundColor: isActive ? primary : "#f3f8fa",
-                      color: isActive ? "#FFFFFF" : "#112D3A",
+                      backgroundColor: isActive ? primary : "#F6F5F3",
+                      color: isActive ? "#FFFFFF" : "#1F1F1F",
                       border: isActive ? `2px solid ${accent}` : "2px solid transparent",
                       boxShadow: isActive ? "0 10px 25px rgba(17,45,58,0.18)" : "none",
                     }}
@@ -832,10 +839,10 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
           </div>
 
           {/* BARRA DE BÚSQUEDA RÁPIDA + FILTROS RÁPIDOS (URBANA/RURAL, PH, GARAGE, PILETA, QUINCHO...) */}
-          <div className="rounded-3xl border border-[#112D3A]/12 bg-[#FFFFFF] p-4 shadow-md sm:p-5 space-y-4">
+          <div className="rounded-3xl border border-[#1F1F1F]/12 bg-[#FFFFFF] p-4 shadow-md sm:p-5 space-y-4">
             <div className="grid gap-3 md:grid-cols-12">
               <div className="md:col-span-5">
-                <label className="mb-1 block text-[11px] font-extrabold uppercase text-[#112D3A]/70">
+                <label className="mb-1 block text-[11px] font-extrabold uppercase text-[#1F1F1F]/70">
                   🔎 Búsqueda Rápida
                 </label>
                 <input
@@ -843,17 +850,17 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   value={quickQuery}
                   onChange={(e) => setQuickQuery(e.target.value)}
                   placeholder="Barrio, localidad, calle, código o palabra clave..."
-                  className="w-full rounded-xl border border-[#112D3A]/20 px-3.5 py-2.5 text-sm font-medium focus:border-[#56D7A1] focus:outline-none"
+                  className="w-full rounded-xl border border-[#1F1F1F]/20 px-3.5 py-2.5 text-sm font-medium focus:border-[#FC8006] focus:outline-none"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="mb-1 block text-[11px] font-extrabold uppercase text-[#112D3A]/70">
+                <label className="mb-1 block text-[11px] font-extrabold uppercase text-[#1F1F1F]/70">
                   Ámbito
                 </label>
                 <select
                   value={filterAmbito}
                   onChange={(e) => setFilterAmbito(e.target.value as any)}
-                  className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2.5 text-sm font-semibold"
+                  className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2.5 text-sm font-semibold"
                 >
                   <option value="">Urbana y Rural</option>
                   <option value="urbana">Urbana</option>
@@ -861,13 +868,13 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="mb-1 block text-[11px] font-extrabold uppercase text-[#112D3A]/70">
+                <label className="mb-1 block text-[11px] font-extrabold uppercase text-[#1F1F1F]/70">
                   Tipo
                 </label>
                 <select
                   value={filterTipo}
                   onChange={(e) => setFilterTipo(e.target.value)}
-                  className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2.5 text-sm font-semibold"
+                  className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2.5 text-sm font-semibold"
                 >
                   <option value="">Todos los tipos</option>
                   {[
@@ -891,13 +898,13 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="mb-1 block text-[11px] font-extrabold uppercase text-[#112D3A]/70">
+                <label className="mb-1 block text-[11px] font-extrabold uppercase text-[#1F1F1F]/70">
                   Ordenar
                 </label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2.5 text-sm font-semibold"
+                  className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2.5 text-sm font-semibold"
                 >
                   <option value="recent">Más recientes</option>
                   <option value="price_asc">Menor precio</option>
@@ -908,7 +915,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                 <button
                   type="button"
                   onClick={() => setShowAdvancedFilters((v) => !v)}
-                  className="w-full rounded-xl border-2 border-[#112D3A] px-2 py-2.5 text-xs font-extrabold text-[#112D3A] hover:bg-[#112D3A] hover:text-[#FFFFFF]"
+                  className="w-full rounded-xl border-2 border-[#1F1F1F] px-2 py-2.5 text-xs font-extrabold text-[#1F1F1F] hover:bg-[#1F1F1F] hover:text-[#FFFFFF]"
                 >
                   {showAdvancedFilters ? "− Filtros" : "+ Filtros"}
                 </button>
@@ -933,7 +940,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   className="rounded-full px-3.5 py-1.5 text-xs font-extrabold transition"
                   style={{
                     backgroundColor: chip.active ? primary : "#f1f5f9",
-                    color: chip.active ? accent : "#112D3A",
+                    color: chip.active ? accent : "#1F1F1F",
                     border: chip.active ? `1.5px solid ${accent}` : "1.5px solid #cbd5e1",
                   }}
                 >
@@ -943,15 +950,15 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
             </div>
 
             {showAdvancedFilters && (
-              <div className="grid gap-3 border-t border-[#112D3A]/10 pt-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 border-t border-[#1F1F1F]/10 pt-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
-                  <label className="mb-1 block text-[11px] font-bold uppercase text-[#112D3A]/70">
+                  <label className="mb-1 block text-[11px] font-bold uppercase text-[#1F1F1F]/70">
                     Régimen de Propiedad
                   </label>
                   <select
                     value={filterRegimen}
                     onChange={(e) => setFilterRegimen(e.target.value)}
-                    className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2 text-xs font-semibold"
+                    className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2 text-xs font-semibold"
                   >
                     <option value="">Todos</option>
                     <option value="propiedad_individual">Propiedad Individual</option>
@@ -962,13 +969,13 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-bold uppercase text-[#112D3A]/70">
+                  <label className="mb-1 block text-[11px] font-bold uppercase text-[#1F1F1F]/70">
                     Construcción
                   </label>
                   <select
                     value={filterConstruccion}
                     onChange={(e) => setFilterConstruccion(e.target.value)}
-                    className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2 text-xs font-semibold"
+                    className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2 text-xs font-semibold"
                   >
                     <option value="">Con y Sin construcción</option>
                     <option value="con_construccion">Con construcción</option>
@@ -978,13 +985,13 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-bold uppercase text-[#112D3A]/70">
+                  <label className="mb-1 block text-[11px] font-bold uppercase text-[#1F1F1F]/70">
                     Habitaciones mínimas
                   </label>
                   <select
                     value={filterMinHab}
                     onChange={(e) => setFilterMinHab(Number(e.target.value))}
-                    className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2 text-xs font-semibold"
+                    className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2 text-xs font-semibold"
                   >
                     <option value={0}>Cualquiera</option>
                     <option value={1}>1+ dormitorios</option>
@@ -994,13 +1001,13 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-bold uppercase text-[#112D3A]/70">
+                  <label className="mb-1 block text-[11px] font-bold uppercase text-[#1F1F1F]/70">
                     Baños mínimos
                   </label>
                   <select
                     value={filterMinBanos}
                     onChange={(e) => setFilterMinBanos(Number(e.target.value))}
-                    className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2 text-xs font-semibold"
+                    className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2 text-xs font-semibold"
                   >
                     <option value={0}>Cualquiera</option>
                     <option value={1}>1+ baños</option>
@@ -1014,12 +1021,12 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
 
           {/* GRILLA DE PROPIEDADES PUBLICADAS */}
           {filteredPropiedades.length === 0 ? (
-            <div className="rounded-3xl border-2 border-dashed border-[#112D3A]/20 bg-[#FFFFFF] p-12 text-center">
+            <div className="rounded-3xl border-2 border-dashed border-[#1F1F1F]/20 bg-[#FFFFFF] p-12 text-center">
               <div className="text-4xl">🏘️</div>
-              <h3 className="mt-2 text-lg font-extrabold text-[#112D3A]">
+              <h3 className="mt-2 text-lg font-extrabold text-[#1F1F1F]">
                 No encontramos propiedades con esos filtros
               </h3>
-              <p className="mt-1 text-sm text-[#112D3A]/70">
+              <p className="mt-1 text-sm text-[#1F1F1F]/70">
                 Probá limpiar algún filtro o escribinos por WhatsApp para que te avisemos apenas ingrese una propiedad a tu medida.
               </p>
               <a
@@ -1047,12 +1054,12 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   <article
                     key={prop.id}
                     id={`prop-card-${prop.id}`}
-                    className="group flex flex-col overflow-hidden rounded-3xl border border-[#112D3A]/12 bg-[#FFFFFF] shadow-md transition hover:-translate-y-1 hover:shadow-xl"
+                    className="group flex flex-col overflow-hidden rounded-3xl border border-[#1F1F1F]/12 bg-[#FFFFFF] shadow-md transition hover:-translate-y-1 hover:shadow-xl"
                   >
                     {/* 1RA FOTOGRAFÍA CON CARTEL CRUZADO DIAGONAL */}
                     <div
                       onClick={() => openPropertyDetail(prop)}
-                      className="relative h-60 w-full cursor-pointer overflow-hidden bg-[#112D3A]"
+                      className="relative h-60 w-full cursor-pointer overflow-hidden bg-[#1F1F1F]"
                     >
                       <img
                         src={cover}
@@ -1065,7 +1072,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           className="pointer-events-none absolute -left-11 top-6 z-10 w-48 -rotate-45 py-1.5 text-center text-[11px] font-black uppercase tracking-wider shadow-lg"
                           style={{
                             backgroundColor: rColor,
-                            color: rColor === "#56D7A1" ? "#112D3A" : "#FFFFFF",
+                            color: rColor === "#FC8006" ? "#1F1F1F" : "#FFFFFF",
                           }}
                         >
                           {prop.cartelCruzado}
@@ -1111,7 +1118,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           {prop.tipoPropiedad} · {prop.ambito === "rural" ? "Rural" : "Urbana"}
                         </span>
                         {prop.fotos.length > 1 && (
-                          <span className="rounded-lg bg-[#112D3A]/85 px-2 py-1 text-[11px] font-bold text-[#FFFFFF]">
+                          <span className="rounded-lg bg-[#1F1F1F]/85 px-2 py-1 text-[11px] font-bold text-[#FFFFFF]">
                             📷 {prop.fotos.length}
                           </span>
                         )}
@@ -1127,33 +1134,33 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                               ? fmtMoney(prop.precio, prop.moneda)
                               : prop.textoConsulta || "Consultar"}
                             {prop.mostrarPrecio && prop.precio > 0 && prop.operacion === "alquiler" && (
-                              <span className="text-xs font-bold text-[#112D3A]/60"> / mes</span>
+                              <span className="text-xs font-bold text-[#1F1F1F]/60"> / mes</span>
                             )}
                             {prop.mostrarPrecio &&
                               prop.precio > 0 &&
                               prop.operacion === "alquiler_temporario" && (
-                                <span className="text-xs font-bold text-[#112D3A]/60"> / estadía</span>
+                                <span className="text-xs font-bold text-[#1F1F1F]/60"> / estadía</span>
                               )}
                           </div>
-                          <span className="rounded-md bg-[#112D3A]/8 px-2 py-0.5 text-[11px] font-extrabold text-[#112D3A]/70">
+                          <span className="rounded-md bg-[#1F1F1F]/8 px-2 py-0.5 text-[11px] font-extrabold text-[#1F1F1F]/70">
                             {prop.codigo}
                           </span>
                         </div>
 
                         {c.expensasMensualesArs && c.expensasMensualesArs > 0 && (
-                          <div className="text-xs font-semibold text-[#112D3A]/65">
+                          <div className="text-xs font-semibold text-[#1F1F1F]/65">
                             + Expensas aprox. {fmtMoney(c.expensasMensualesArs, "ARS")}
                           </div>
                         )}
 
                         <h3
                           onClick={() => openPropertyDetail(prop)}
-                          className="mt-2 cursor-pointer text-base font-extrabold leading-snug text-[#112D3A] hover:underline"
+                          className="mt-2 cursor-pointer text-base font-extrabold leading-snug text-[#1F1F1F] hover:underline"
                         >
                           {prop.titulo}
                         </h3>
 
-                        <div className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-[#112D3A]/70">
+                        <div className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-[#1F1F1F]/70">
                           <span>📍</span>
                           <span>
                             {prop.mostrarDireccionExacta && prop.direccion ? `${prop.direccion}, ` : ""}
@@ -1163,7 +1170,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                         </div>
 
                         {/* Badges rápidos de características */}
-                        <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-bold text-[#112D3A]">
+                        <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-bold text-[#1F1F1F]">
                           {c.superficieHectareas ? (
                             <span className="rounded-lg bg-[#f1f5f9] px-2 py-1">
                               🌾 {c.superficieHectareas} ha
@@ -1207,7 +1214,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                         </div>
                       </div>
 
-                      <div className="mt-4 flex items-center gap-2 border-t border-[#112D3A]/10 pt-3.5">
+                      <div className="mt-4 flex items-center gap-2 border-t border-[#1F1F1F]/10 pt-3.5">
                         <button
                           type="button"
                           onClick={() => openPropertyDetail(prop)}
@@ -1244,7 +1251,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid gap-8 md:grid-cols-3">
-            {/* Dirección y Google Maps */}
+            {/* Dirección y Google Maps (rectángulo alineado con Horarios, dirección debajo) */}
             <div className="space-y-3">
               <div
                 className="text-xs font-black uppercase tracking-wider"
@@ -1252,11 +1259,8 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               >
                 📍 Dirección y Ubicación
               </div>
-              <p className="text-base font-extrabold text-[#FFFFFF] leading-snug">
-                {officeAddress}
-              </p>
               <div
-                className="relative h-40 w-full overflow-hidden rounded-2xl border-2 shadow-lg bg-[#0d222c]"
+                className="relative h-40 w-full overflow-hidden rounded-2xl border-2 shadow-lg bg-[#171717]"
                 style={{ borderColor: accent }}
               >
                 <iframe
@@ -1279,6 +1283,9 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   <span aria-hidden="true">↗</span>
                 </a>
               </div>
+              <p className="text-sm font-extrabold text-[#FFFFFF] leading-snug">
+                {officeAddress}
+              </p>
             </div>
 
             {/* Horarios de Atención */}
@@ -1289,7 +1296,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               >
                 🕒 Horarios de Atención
               </div>
-              <div className="rounded-2xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/5 p-4 text-sm font-bold text-[#FFFFFF]/95 leading-relaxed">
+              <div className="flex min-h-40 flex-col justify-center gap-1 rounded-2xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/5 p-5 text-sm font-bold text-[#FFFFFF]/95 leading-relaxed">
                 {officeHours.split("·").map((segment, idx) => (
                   <div
                     key={idx}
@@ -1319,10 +1326,10 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   rel="noopener noreferrer"
                   title={`WhatsApp · ${waDisplay}`}
                   aria-label={`Contactar por WhatsApp (${waDisplay})`}
-                  className="group relative flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#56D7A1]"
+                  className="group relative flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#FC8006]"
                 >
                   <WhatsAppIcon size={24} className="shrink-0" />
-                  <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#091820] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                  <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#141414] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
                     WhatsApp · {waDisplay}
                   </span>
                 </a>
@@ -1338,10 +1345,10 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                       background:
                         "linear-gradient(135deg, #f9ce34 0%, #ee2a7b 50%, #6228d7 100%)",
                     }}
-                    className="group relative flex h-12 w-12 items-center justify-center rounded-full text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#56D7A1]"
+                    className="group relative flex h-12 w-12 items-center justify-center rounded-full text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#FC8006]"
                   >
                     <InstagramIcon size={23} className="shrink-0" />
-                    <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#091820] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                    <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#141414] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
                       Instagram · {officeInstagramLabel}
                     </span>
                   </a>
@@ -1354,10 +1361,10 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     rel="noopener noreferrer"
                     title={`Facebook · ${officeFacebookLabel}`}
                     aria-label={`Facebook ${officeFacebookLabel}`}
-                    className="group relative flex h-12 w-12 items-center justify-center rounded-full bg-[#1877F2] text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#56D7A1]"
+                    className="group relative flex h-12 w-12 items-center justify-center rounded-full bg-[#1877F2] text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#FC8006]"
                   >
                     <FacebookIcon size={23} className="shrink-0" />
-                    <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#091820] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                    <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#141414] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
                       Facebook · {officeFacebookLabel}
                     </span>
                   </a>
@@ -1368,7 +1375,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     href={`mailto:${officeEmail}`}
                     title={`Email · ${officeEmail}`}
                     aria-label={`Enviar correo a ${officeEmail}`}
-                    className="group relative flex h-12 w-12 items-center justify-center rounded-full bg-[#EA4335] text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#56D7A1]"
+                    className="group relative flex h-12 w-12 items-center justify-center rounded-full bg-[#EA4335] text-[#FFFFFF] shadow-lg transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#FC8006]"
                   >
                     <svg
                       width="22"
@@ -1382,7 +1389,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                       <rect x="2" y="4" width="20" height="16" rx="2" />
                       <path d="m22 7-10 6L2 7" />
                     </svg>
-                    <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#091820] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                    <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#141414] px-2.5 py-1 text-[11px] font-bold text-[#FFFFFF] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
                       {officeEmail}
                     </span>
                   </a>
@@ -1401,7 +1408,12 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
           className="inline-flex h-12 items-center gap-2 rounded-full border-2 px-4 text-xs font-black shadow-xl transition hover:scale-105"
           style={{ backgroundColor: primary, borderColor: accent, color: "#FFFFFF" }}
         >
-          <span>🔑</span>
+          <img
+            src={props.logo1x1Url || "/inmobiliaria/degiovanni-logo-symbol.png"}
+            alt=""
+            aria-hidden="true"
+            className="h-6 w-6 rounded-full object-contain shrink-0"
+          />
           <span>Acceso a Clientes</span>
         </button>
         <a
@@ -1422,7 +1434,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
       {/* MODAL DETALLE COMPLETO DE PROPIEDAD + GOOGLE MAPS GEOSATELITAL + CONSULTA + CALCULADORA */}
       {selectedProp && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#091820]/80 p-3 backdrop-blur-sm sm:p-5"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#141414]/80 p-3 backdrop-blur-sm sm:p-5"
           onClick={() => setSelectedProp(null)}
         >
           <div
@@ -1456,7 +1468,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
             <div className="p-5 sm:p-7 space-y-6">
               {/* Galería fotográfica con cartel cruzado en foto 0 */}
               <div className="space-y-2.5">
-                <div className="relative h-72 w-full overflow-hidden rounded-2xl bg-[#112D3A] sm:h-96">
+                <div className="relative h-72 w-full overflow-hidden rounded-2xl bg-[#1F1F1F] sm:h-96">
                   <img
                     src={selectedProp.fotos?.[selectedPhotoIdx] || selectedProp.fotos?.[0] || "/photos/ref-01.png"}
                     alt={selectedProp.titulo}
@@ -1474,8 +1486,8 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           ribbonBgColor(
                             selectedProp.cartelCruzado,
                             selectedProp.cartelColorBg
-                          ) === "#56D7A1"
-                            ? "#112D3A"
+                          ) === "#FC8006"
+                            ? "#1F1F1F"
                             : "#FFFFFF",
                       }}
                     >
@@ -1505,9 +1517,9 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               {/* Precio + Clasificación + Descripción */}
               <div className="grid gap-6 lg:grid-cols-3">
                 <div className="lg:col-span-2 space-y-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#f3f8fa] p-4 border border-[#112D3A]/10">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#F6F5F3] p-4 border border-[#1F1F1F]/10">
                     <div>
-                      <div className="text-xs font-extrabold uppercase text-[#112D3A]/65">
+                      <div className="text-xs font-extrabold uppercase text-[#1F1F1F]/65">
                         Valor de {opLabel(selectedProp.operacion)}
                       </div>
                       <div className="text-3xl font-black" style={{ color: primary }}>
@@ -1517,32 +1529,32 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1.5 text-xs font-extrabold">
-                      <span className="rounded-lg bg-[#112D3A] px-2.5 py-1 text-[#56D7A1]">
+                      <span className="rounded-lg bg-[#1F1F1F] px-2.5 py-1 text-[#FC8006]">
                         {selectedProp.ambito === "rural" ? "🌾 Rural" : "🏙️ Urbana"}
                       </span>
-                      <span className="rounded-lg bg-[#FFFFFF] border border-[#112D3A]/20 px-2.5 py-1">
+                      <span className="rounded-lg bg-[#FFFFFF] border border-[#1F1F1F]/20 px-2.5 py-1">
                         {regimenLabel(selectedProp.regimen)}
                       </span>
-                      <span className="rounded-lg bg-[#FFFFFF] border border-[#112D3A]/20 px-2.5 py-1">
+                      <span className="rounded-lg bg-[#FFFFFF] border border-[#1F1F1F]/20 px-2.5 py-1">
                         {construccionLabel(selectedProp.estadoConstruccion)}
                       </span>
                     </div>
                   </div>
 
                   <div>
-                    <h3 className="text-base font-black text-[#112D3A]">Descripción</h3>
-                    <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-[#112D3A]/85">
+                    <h3 className="text-base font-black text-[#1F1F1F]">Descripción</h3>
+                    <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-[#1F1F1F]/85">
                       {selectedProp.descripcion || "Consultanos para recibir la ficha completa."}
                     </p>
                   </div>
 
                   {/* Ficha completa de ambientes y características solicitadas */}
-                  <div className="rounded-2xl border border-[#112D3A]/12 p-4 space-y-3">
-                    <h3 className="text-base font-black text-[#112D3A]">
+                  <div className="rounded-2xl border border-[#1F1F1F]/12 p-4 space-y-3">
+                    <h3 className="text-base font-black text-[#1F1F1F]">
                       📋 Características, Ambientes y Comodidades
                     </h3>
                     <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Garage:</strong>{" "}
                         {selectedProp.caracteristicas.tieneGarage
                           ? `Sí (${selectedProp.caracteristicas.cantidadVehiculosGarage || 1} vehículo/s · ${
@@ -1550,25 +1562,25 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                             })`
                           : "No"}
                       </div>
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Habitaciones:</strong> {selectedProp.caracteristicas.cantidadHabitaciones}
                       </div>
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Baños / Toilettes:</strong> {selectedProp.caracteristicas.cantidadBanos}
                         {selectedProp.caracteristicas.cantidadToilettes > 0
                           ? ` (+ ${selectedProp.caracteristicas.cantidadToilettes} toil.)`
                           : ""}
                       </div>
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Pileta:</strong> {selectedProp.caracteristicas.tienePileta ? "✅ Sí" : "No"}
                       </div>
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Quincho:</strong> {selectedProp.caracteristicas.tieneQuincho ? "✅ Sí" : "No"}
                       </div>
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Placares:</strong> {selectedProp.caracteristicas.tienePlacares ? "✅ Con placares" : "Sin placares"}
                       </div>
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Cocina:</strong>{" "}
                         {selectedProp.caracteristicas.tieneCocinaComedor
                           ? "Cocina-Comedor"
@@ -1576,7 +1588,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                             ? "Cocina separada"
                             : "No"}
                       </div>
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Living:</strong>{" "}
                         {selectedProp.caracteristicas.tieneLivingComedor
                           ? "Living-Comedor"
@@ -1584,7 +1596,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                             ? "Living separado"
                             : "No"}
                       </div>
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Lavadero / Dependencias:</strong>{" "}
                         {[
                           selectedProp.caracteristicas.tieneLavadero ? "Lavadero" : "",
@@ -1593,10 +1605,10 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           .filter(Boolean)
                           .join(" · ") || "No"}
                       </div>
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Calefacción:</strong> {selectedProp.caracteristicas.tipoCalefaccion || "Sin especificar"}
                       </div>
-                      <div className="rounded-xl bg-[#f8fbfc] p-2.5">
+                      <div className="rounded-xl bg-[#FAF8F6] p-2.5">
                         <strong>Refrigeración:</strong> {selectedProp.caracteristicas.tipoRefrigeracion || "Sin especificar"}
                       </div>
                       {selectedProp.caracteristicas.esDepartamento && (
@@ -1615,8 +1627,8 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     {(selectedProp.operacion !== "venta" ||
                       selectedProp.caracteristicas.garantiasSolicitadas ||
                       selectedProp.caracteristicas.mesDeposito) && (
-                      <div className="mt-3 rounded-xl border border-[#56D7A1]/50 bg-[#56D7A1]/10 p-3 text-xs space-y-1">
-                        <div className="font-black text-[#112D3A]">📄 Condiciones de Locación:</div>
+                      <div className="mt-3 rounded-xl border border-[#FC8006]/50 bg-[#FC8006]/10 p-3 text-xs space-y-1">
+                        <div className="font-black text-[#1F1F1F]">📄 Condiciones de Locación:</div>
                         {selectedProp.caracteristicas.garantiasSolicitadas && (
                           <div>
                             <strong>Garantías solicitadas:</strong>{" "}
@@ -1644,13 +1656,13 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   </div>
 
                   {/* UBICACIÓN GEOSATELITAL GOOGLE MAPS */}
-                  <div className="rounded-2xl border border-[#112D3A]/12 p-4 space-y-3">
+                  <div className="rounded-2xl border border-[#1F1F1F]/12 p-4 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <h3 className="text-base font-black text-[#112D3A]">
+                        <h3 className="text-base font-black text-[#1F1F1F]">
                           🛰️ Ubicación Geosatelital (Google Maps)
                         </h3>
-                        <p className="text-xs text-[#112D3A]/70">
+                        <p className="text-xs text-[#1F1F1F]/70">
                           {selectedProp.mostrarDireccionExacta && selectedProp.direccion
                             ? `${selectedProp.direccion}, `
                             : ""}
@@ -1665,7 +1677,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           className="rounded-lg px-3 py-1.5 text-xs font-extrabold"
                           style={{
                             backgroundColor: mapMode === "satellite" ? primary : "#e2e8f0",
-                            color: mapMode === "satellite" ? accent : "#112D3A",
+                            color: mapMode === "satellite" ? accent : "#1F1F1F",
                           }}
                         >
                           🛰️ Satelital
@@ -1676,7 +1688,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           className="rounded-lg px-3 py-1.5 text-xs font-extrabold"
                           style={{
                             backgroundColor: mapMode === "roadmap" ? primary : "#e2e8f0",
-                            color: mapMode === "roadmap" ? accent : "#112D3A",
+                            color: mapMode === "roadmap" ? accent : "#1F1F1F",
                           }}
                         >
                           🗺️ Mapa
@@ -1684,7 +1696,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                       </div>
                     </div>
 
-                    <div className="overflow-hidden rounded-2xl border border-[#112D3A]/15 h-64">
+                    <div className="overflow-hidden rounded-2xl border border-[#1F1F1F]/15 h-64">
                       <iframe
                         title="Ubicación Google Maps"
                         className="h-full w-full border-0"
@@ -1715,8 +1727,8 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                     selectedProp.operacion === "venta" &&
                     selectedProp.mostrarPrecio &&
                     selectedProp.precio > 0 && (
-                      <div className="rounded-2xl border border-[#112D3A]/12 bg-[#f8fbfc] p-4 space-y-3">
-                        <h3 className="text-sm font-black text-[#112D3A]">
+                      <div className="rounded-2xl border border-[#1F1F1F]/12 bg-[#FAF8F6] p-4 space-y-3">
+                        <h3 className="text-sm font-black text-[#1F1F1F]">
                           🏦 Simulador Estimativo de Crédito / Financiación
                         </h3>
                         <div className="grid gap-3 sm:grid-cols-3 text-xs">
@@ -1729,7 +1741,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                               step={5}
                               value={calcAnticipoPct}
                               onChange={(e) => setCalcAnticipoPct(Number(e.target.value))}
-                              className="w-full accent-[#56D7A1]"
+                              className="w-full accent-[#FC8006]"
                             />
                           </div>
                           <div>
@@ -1741,7 +1753,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                               step={5}
                               value={calcAnios}
                               onChange={(e) => setCalcAnios(Number(e.target.value))}
-                              className="w-full accent-[#56D7A1]"
+                              className="w-full accent-[#FC8006]"
                             />
                           </div>
                           <div>
@@ -1753,11 +1765,11 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                               step={0.5}
                               value={calcTna}
                               onChange={(e) => setCalcTna(Number(e.target.value))}
-                              className="w-full accent-[#56D7A1]"
+                              className="w-full accent-[#FC8006]"
                             />
                           </div>
                         </div>
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#112D3A] p-3 text-[#FFFFFF]">
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#1F1F1F] p-3 text-[#FFFFFF]">
                           <span className="text-xs">Cuota mensual referencial:</span>
                           <span className="text-lg font-black" style={{ color: accent }}>
                             {fmtMoney(Math.round(calcEstimatedQuota), selectedProp.moneda)} / mes
@@ -1770,7 +1782,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                 {/* COLUMNA DERECHA: CONSULTA + AGENDAR VISITA + WHATSAPP */}
                 <div className="space-y-4">
                   <div className="rounded-2xl border-2 p-4 space-y-3" style={{ borderColor: accent }}>
-                    <h3 className="text-base font-black text-[#112D3A]">
+                    <h3 className="text-base font-black text-[#1F1F1F]">
                       📅 Consultar o Agendar Visita
                     </h3>
                     <a
@@ -1784,44 +1796,44 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                       💬 Consultar por WhatsApp
                     </a>
 
-                    <form onSubmit={handleSendLead} className="space-y-2.5 pt-2 border-t border-[#112D3A]/10">
+                    <form onSubmit={handleSendLead} className="space-y-2.5 pt-2 border-t border-[#1F1F1F]/10">
                       <input
                         required
                         value={leadNombre}
                         onChange={(e) => setLeadNombre(e.target.value)}
                         placeholder="Tu Nombre y Apellido *"
-                        className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2 text-xs font-medium"
+                        className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2 text-xs font-medium"
                       />
                       <input
                         required
                         value={leadWhatsapp}
                         onChange={(e) => setLeadWhatsapp(e.target.value)}
                         placeholder="Tu WhatsApp (ej: 3585095475) *"
-                        className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2 text-xs font-medium"
+                        className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2 text-xs font-medium"
                       />
                       <input
                         type="email"
                         value={leadEmail}
                         onChange={(e) => setLeadEmail(e.target.value)}
                         placeholder="Correo electrónico"
-                        className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2 text-xs font-medium"
+                        className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2 text-xs font-medium"
                       />
                       <div>
-                        <label className="mb-0.5 block text-[11px] font-bold text-[#112D3A]/70">
+                        <label className="mb-0.5 block text-[11px] font-bold text-[#1F1F1F]/70">
                           Día deseado para visita (opcional)
                         </label>
                         <input
                           type="date"
                           value={leadFechaVisita}
                           onChange={(e) => setLeadFechaVisita(e.target.value)}
-                          className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2 text-xs font-medium"
+                          className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2 text-xs font-medium"
                         />
                       </div>
                       <textarea
                         rows={3}
                         value={leadMensaje}
                         onChange={(e) => setLeadMensaje(e.target.value)}
-                        className="w-full rounded-xl border border-[#112D3A]/20 px-3 py-2 text-xs font-medium"
+                        className="w-full rounded-xl border border-[#1F1F1F]/20 px-3 py-2 text-xs font-medium"
                       />
                       <button
                         type="submit"
@@ -1848,7 +1860,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
       {/* MODAL COMPARADOR DE PROPIEDADES */}
       {showCompareModal && compareProps.length >= 2 && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#091820]/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#141414]/80 p-4 backdrop-blur-sm"
           onClick={() => setShowCompareModal(false)}
         >
           <div
@@ -1857,20 +1869,20 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
             style={{ borderColor: accent }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-black text-[#112D3A]">
+              <h3 className="text-lg font-black text-[#1F1F1F]">
                 ⚖️ Comparador Lado a Lado ({compareProps.length} propiedades)
               </h3>
               <button
                 type="button"
                 onClick={() => setShowCompareModal(false)}
-                className="rounded-xl bg-[#112D3A] px-3.5 py-1.5 text-xs font-black text-[#FFFFFF]"
+                className="rounded-xl bg-[#1F1F1F] px-3.5 py-1.5 text-xs font-black text-[#FFFFFF]"
               >
                 ✕ Cerrar
               </button>
             </div>
             <table className="w-full border-collapse text-xs">
               <thead>
-                <tr className="border-b-2 border-[#56D7A1]">
+                <tr className="border-b-2 border-[#FC8006]">
                   <th className="p-2 text-left">Atributo</th>
                   {compareProps.map((p) => (
                     <th key={p.id} className="p-2 text-left font-black">
@@ -1894,8 +1906,8 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                   { lbl: "Pileta / Quincho", val: (p: InmoPropiedadRecord) => `${p.caracteristicas.tienePileta ? "Pileta Sí" : "Pileta No"} · ${p.caracteristicas.tieneQuincho ? "Quincho Sí" : "Quincho No"}` },
                   { lbl: "Calefacción / Refrig.", val: (p: InmoPropiedadRecord) => `${p.caracteristicas.tipoCalefaccion} / ${p.caracteristicas.tipoRefrigeracion}` },
                 ].map((row) => (
-                  <tr key={row.lbl} className="border-b border-[#112D3A]/10">
-                    <td className="p-2 font-extrabold text-[#112D3A]">{row.lbl}</td>
+                  <tr key={row.lbl} className="border-b border-[#1F1F1F]/10">
+                    <td className="p-2 font-extrabold text-[#1F1F1F]">{row.lbl}</td>
                     {compareProps.map((p) => (
                       <td key={p.id} className="p-2">
                         {row.val(p)}
@@ -1917,6 +1929,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
         fantasyName={props.fantasyName}
         primaryHex={primary}
         accentHex={accent}
+        logo1x1Url={props.logo1x1Url}
         googleClientId={config.googleClientId || ""}
         defaultProvincia={props.defaultProvincia}
         defaultLocalidad={props.defaultLocalidad}
