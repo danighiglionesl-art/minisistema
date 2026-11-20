@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Clock,
   HeartPulse,
-  Instagram,
   MapPin,
   Phone,
   Plus,
@@ -21,6 +20,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
+import { InstagramIcon } from "@/components/icons/SocialIcons";
 import PublicTurnosPortal from "@/components/turnos/PublicTurnosPortal";
 import type { CemepWebContentConfig } from "@/lib/erp/consultorios-types";
 import { CemepFloatingControls } from "./CemepFloatingControls";
@@ -524,7 +524,7 @@ export function CemepPublicPortal({
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#1B335D] hover:text-[#0099D8]"
                   >
-                    <Instagram className="h-4 w-4 text-[#0099D8]" />
+                    <InstagramIcon className="h-4 w-4 text-[#0099D8]" />
                     Seguinos en @centromedicopaulucci
                   </a>
                 </div>
@@ -765,7 +765,7 @@ export function CemepPublicPortal({
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#1B335D] hover:text-[#009EE3]"
                   >
-                    <Instagram className="h-4 w-4 text-[#009EE3]" />
+                    <InstagramIcon className="h-4 w-4 text-[#009EE3]" />
                     Seguinos en @cemepplus
                   </a>
                 </div>

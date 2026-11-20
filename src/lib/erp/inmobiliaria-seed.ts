@@ -109,7 +109,7 @@ export function buildSeedPropiedades(nowIso: string): InmoPropiedadRecord[] {
       moneda: "USD",
       textoConsulta: "Consultar precio",
       cartelCruzado: "Nuevo Ingreso",
-      cartelColorBg: "#56D7A1",
+      cartelColorBg: "#D90202",
       destacada: true,
       fechaCaducidad: null,
       pais: "ARGENTINA",
@@ -450,12 +450,14 @@ export function buildInitialInmobiliariaDb(tenant: ErpTenantRecord): InmoDbDoc {
     lastPropSeq: 4,
     lastContratoSeq: 0,
     portalConfig: {
-      tituloPortal: `${tenant.fantasy_name || "MiniSistema"} · Inmobiliaria`,
+      tituloPortal: tenant.is_base
+        ? "Inmobiliaria Degiovanni"
+        : `${tenant.fantasy_name || "Inmobiliaria Degiovanni"} · Inmobiliaria`,
       subtituloPortal:
         "Propiedades urbanas y rurales en Venta, Alquiler y Alquiler Temporario. Portal inteligente con búsqueda por IA y autogestión de arrendamientos.",
-      matriculaCorredor: "CPI Mat. Prof. N° 04-0000",
+      matriculaCorredor: "Inmobiliaria Degiovanni · Alcira Gigena",
       whatsappNumero: "5493585615820",
-      whatsappMensajeDefault: `¡Hola ${tenant.fantasy_name || "MiniSistema"} Inmobiliaria! Quiero consultar por una propiedad.`,
+      whatsappMensajeDefault: `¡Hola ${tenant.is_base ? "Inmobiliaria Degiovanni" : tenant.fantasy_name || "Inmobiliaria Degiovanni"}! Quiero consultar por una propiedad.`,
       emailContacto: "inmobiliariadegiovanni@hotmail.com",
       direccionOficina: "Rivadavia 476, Alcira Gigena, Córdoba",
       googleMapsUrl:
@@ -485,11 +487,10 @@ export function buildInitialInmobiliariaDb(tenant: ErpTenantRecord): InmoDbDoc {
     banners: [
       {
         id: "inmo_banner_1",
-        titulo: `${tenant.fantasy_name || "MiniSistema"} · Tu Próxima Propiedad Te Espera`,
+        titulo: `${tenant.is_base ? "Inmobiliaria Degiovanni" : tenant.fantasy_name || "Inmobiliaria Degiovanni"} · Tu Próxima Propiedad Te Espera`,
         subtitulo:
-          "Ventas, Alquileres y Alquileres Temporarios con asesoramiento integral y administración online de contratos.",
-        imageUrl:
-          "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=1530&h=370&q=85",
+          "Ventas, Alquileres y Alquileres Temporarios en Alcira Gigena y la región con asesoramiento integral.",
+        imageUrl: "/inmobiliaria/banner-degiovanni-1.png",
         linkUrl: "#propiedades-tabs",
         ctaLabel: "Explorar Propiedades",
         orden: 1,
@@ -499,11 +500,10 @@ export function buildInitialInmobiliariaDb(tenant: ErpTenantRecord): InmoDbDoc {
       },
       {
         id: "inmo_banner_2",
-        titulo: "Administración de Alquileres con Pago Split Automático",
+        titulo: "Administración de Alquileres y Portal de Clientes 24 hs",
         subtitulo:
-          "Inquilinos y propietarios con acceso 24 hs a contratos en PDF, cuenta corriente y pagos con acreditación directa.",
-        imageUrl:
-          "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1530&h=370&q=85",
+          "Inquilinos y propietarios con acceso online a contratos en PDF, cuenta corriente y pagos.",
+        imageUrl: "/inmobiliaria/banner-degiovanni-2.png",
         linkUrl: "#acceso-clientes",
         ctaLabel: "Ir al Portal de Clientes",
         orden: 2,

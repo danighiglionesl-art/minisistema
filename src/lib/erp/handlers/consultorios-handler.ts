@@ -18,7 +18,7 @@ import {
   type RecetaEstado,
 } from "../consultorios-types";
 import { extractErpSessionFromRequest } from "../erp-session";
-import { getTenantDoc, putTenantDoc, getTenantUsers } from "../supabase-server";
+import { getTenantDoc, putTenantDoc, listTenantUsersFromDb } from "../supabase-server";
 import { loadTurnosDb, TURNOS_DOC_KEY } from "./turnos-handler";
 import { normalizeDni, type TurnoEstado, type TurnosDbDoc } from "../turnos-types";
 import { type ErpTenantRecord, GENERAL_ADMIN_USERNAME } from "../types";
@@ -1587,7 +1587,7 @@ export async function handlePublicCemepPost(
       };
     } else {
       // 2. Compatibilidad con usuarios ERP de MiniSistema (Administrador / Profesionales con usuario ERP)
-      const erpUsers = await getTenantUsers(tenant);
+      const erpUsers = await listTenantUsersFromDb(tenant);
       const erpMatch = erpUsers.find(
         (u) => u.active !== false && u.username.toLowerCase() === cleanIdLower
       );

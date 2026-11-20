@@ -13,9 +13,9 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Marketplace Inmobiliario | MiniSistema",
+  title: "Inmobiliaria Degiovanni | Propiedades en Venta, Alquiler y Temporarios",
   description:
-    "Propiedades urbanas y rurales en Venta, Alquiler y Alquiler Temporario con ubicación satelital, buscador con IA y Portal de Clientes.",
+    "Inmobiliaria Degiovanni — Alcira Gigena, Córdoba. Propiedades urbanas y rurales en Venta, Alquiler y Alquiler Temporario con ubicación satelital, buscador con IA y Portal de Clientes.",
 };
 
 export default async function PublicInmobiliariaPage() {
@@ -56,10 +56,25 @@ export default async function PublicInmobiliariaPage() {
     (p) => p.activa !== false && !isPropertyExpired(p)
   );
 
-  const isMiniSistemaBrand =
+  const isDegiovanniDefault =
     tenant.is_base ||
     tenant.option_type !== 1 ||
     /^minisistema\.?$/i.test((tenant.fantasy_name || "").trim());
+
+  const resolvedFantasyName = isDegiovanniDefault
+    ? "Inmobiliaria Degiovanni"
+    : tenant.fantasy_name;
+  const resolvedBusinessName = isDegiovanniDefault
+    ? "Inmobiliaria Degiovanni"
+    : tenant.business_name;
+  const resolvedPrimaryHex = isDegiovanniDefault ? "#1F1F1F" : brand.primaryHex;
+  const resolvedAccentHex = isDegiovanniDefault ? "#FC8006" : brand.accentHex;
+  const resolvedLogoHoriz = isDegiovanniDefault
+    ? "/inmobiliaria/degiovanni-logo-horizontal.png"
+    : brand.logoHorizontalUrl;
+  const resolvedLogoSymbol = isDegiovanniDefault
+    ? "/inmobiliaria/degiovanni-logo-symbol.png"
+    : brand.logo1x1Url;
 
   const cats = referenceCatalogs.catalogs as {
     paises?: Array<{ id: number; nombre: string }>;
@@ -70,16 +85,16 @@ export default async function PublicInmobiliariaPage() {
   return (
     <PublicInmobiliariaPortal
       tenantSlug={tenant.slug}
-      fantasyName={tenant.fantasy_name}
-      businessName={tenant.business_name}
-      primaryHex={brand.primaryHex}
-      accentHex={brand.accentHex}
-      logoHorizontalUrl={brand.logoHorizontalUrl}
-      logo1x1Url={brand.logo1x1Url}
-      isMiniSistemaBrand={isMiniSistemaBrand}
+      fantasyName={resolvedFantasyName}
+      businessName={resolvedBusinessName}
+      primaryHex={resolvedPrimaryHex}
+      accentHex={resolvedAccentHex}
+      logoHorizontalUrl={resolvedLogoHoriz}
+      logo1x1Url={resolvedLogoSymbol}
+      isMiniSistemaBrand={false}
       defaultProvincia={brand.provincia || "CÓRDOBA"}
-      defaultLocalidad={brand.localidad || "RÍO CUARTO"}
-      defaultCp={brand.cp || "5800"}
+      defaultLocalidad={isDegiovanniDefault ? "ALCIRA GIGENA" : brand.localidad || "RÍO CUARTO"}
+      defaultCp={isDegiovanniDefault ? "5813" : brand.cp || "5800"}
       initialConfig={db.portalConfig}
       initialBanners={activeBanners}
       initialPropiedades={activeProps}
