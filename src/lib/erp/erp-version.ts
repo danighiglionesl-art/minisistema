@@ -1,5 +1,5 @@
-export const ERP_ASSET_MAJOR = "320";
-export const ERP_ASSET_MINOR = "6";
+export const ERP_ASSET_MAJOR = "321";
+export const ERP_ASSET_MINOR = "2";
 
 export function getErpDeploySha(): string {
   return (
