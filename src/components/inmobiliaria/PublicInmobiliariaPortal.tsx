@@ -810,89 +810,162 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
           </section>
         )}
 
-        {/* 4. PESTAÑAS ESTILO MERCADO PAGO (VENTAS / ALQUILERES / ALQUILERES TEMPORARIOS) */}
-        <section id="propiedades-tabs" className="space-y-5">
-          <div className="rounded-3xl bg-[#FFFFFF] p-2 shadow-lg border border-[#1F1F1F]/10">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {(
-                [
-                  {
-                    key: "venta" as OperacionInmobiliaria,
-                    label: "Ventas",
-                    sub: "Casas, Deptos, Lotes y Campos",
-                    icon: "🏡",
-                    count: tabCounts.venta,
-                  },
-                  {
-                    key: "alquiler" as OperacionInmobiliaria,
-                    label: "Alquileres",
-                    sub: "Vivienda y Comerciales",
-                    icon: "🔑",
-                    count: tabCounts.alquiler,
-                  },
-                  {
-                    key: "alquiler_temporario" as OperacionInmobiliaria,
-                    label: "Alquileres Temporarios",
-                    sub: "Por día, semana o quincena",
-                    icon: "🏖️",
-                    count: tabCounts.alquiler_temporario,
-                  },
-                ] as const
-              ).map((tab) => {
-                const isActive = !aiResult && activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(tab.key);
-                      setAiResult(null);
-                    }}
-                    className="flex items-center justify-between rounded-2xl px-5 py-4 text-left transition-all"
-                    style={{
-                      backgroundColor: isActive ? primary : "#F6F5F3",
-                      color: isActive ? "#FFFFFF" : "#1F1F1F",
-                      border: isActive ? `2px solid ${accent}` : "2px solid transparent",
-                      boxShadow: isActive ? "0 10px 25px rgba(17,45,58,0.18)" : "none",
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="flex h-11 w-11 items-center justify-center rounded-2xl text-xl"
-                        style={{
-                          backgroundColor: isActive ? accent : "rgba(17,45,58,0.08)",
-                          color: primary,
-                        }}
-                      >
-                        {tab.icon}
-                      </span>
-                      <div>
-                        <div className="text-base font-black">{tab.label}</div>
-                        <div
-                          className="text-[11px] font-semibold"
-                          style={{ color: isActive ? "rgba(255,255,255,0.78)" : "rgba(17,45,58,0.65)" }}
-                        >
-                          {tab.sub}
-                        </div>
-                      </div>
-                    </div>
-                    <span
-                      className="rounded-full px-3 py-1 text-xs font-black"
-                      style={{
-                        backgroundColor: isActive ? accent : "#FFFFFF",
-                        color: primary,
-                      }}
-                    >
-                      {tab.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        {/* 4. PESTAÑAS ESTILO MERCADO PAGO / CEMEP (VENTAS / ALQUILERES / ALQUILERES TEMPORARIOS) */}
+        {(() => {
+          const opTabs = [
+            {
+              key: "venta" as OperacionInmobiliaria,
+              label: "Ventas",
+              shortLabel: "Ventas",
+              sub: "Casas, Deptos, Lotes y Campos",
+              icon: "🏡",
+              count: tabCounts.venta,
+            },
+            {
+              key: "alquiler" as OperacionInmobiliaria,
+              label: "Alquileres",
+              shortLabel: "Alquileres",
+              sub: "Vivienda y Comerciales",
+              icon: "🔑",
+              count: tabCounts.alquiler,
+            },
+            {
+              key: "alquiler_temporario" as OperacionInmobiliaria,
+              label: "Alquileres Temporarios",
+              shortLabel: "Temporarios",
+              sub: "Por día, semana o quincena",
+              icon: "🏖️",
+              count: tabCounts.alquiler_temporario,
+            },
+          ] as const;
 
-          {/* BARRA DE BÚSQUEDA RÁPIDA + FILTROS RÁPIDOS (URBANA/RURAL, PH, GARAGE, PILETA, QUINCHO...) */}
-          <div className="rounded-3xl border border-[#1F1F1F]/12 bg-[#FFFFFF] p-4 shadow-md sm:p-5 space-y-4">
+          const currentVisualTab: OperacionInmobiliaria = activeTab;
+          const isVentaActive = !aiResult && currentVisualTab === "venta";
+
+          const tabsHeaderBg =
+            currentVisualTab === "venta"
+              ? `linear-gradient(90deg, ${primary} 0%, color-mix(in srgb, ${primary} 74%, ${accent}) 62%, ${accent} 100%)`
+              : currentVisualTab === "alquiler"
+              ? `linear-gradient(90deg, ${primary} 0%, color-mix(in srgb, ${primary} 58%, ${accent}) 55%, color-mix(in srgb, ${accent} 86%, ${primary}) 100%)`
+              : `linear-gradient(90deg, color-mix(in srgb, ${primary} 88%, #000000) 0%, color-mix(in srgb, ${primary} 48%, ${accent}) 55%, ${accent} 100%)`;
+
+          return (
+            <section id="propiedades-tabs" className="w-full overflow-hidden rounded-[28px] shadow-xl">
+              {/* Franja superior donde descansan las 3 pestañas estilo carpeta / CEMEP */}
+              <div
+                className="w-full pt-4 transition-all duration-300 sm:pt-6"
+                style={{ background: tabsHeaderBg }}
+              >
+                <div className="px-3 sm:px-6">
+                  <div
+                    role="tablist"
+                    aria-label="Operaciones inmobiliarias: Ventas, Alquileres y Alquileres Temporarios"
+                    className="relative flex items-end gap-1 sm:gap-2"
+                  >
+                    {opTabs.map((tab, idx) => {
+                      const isActive = !aiResult && activeTab === tab.key;
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          role="tab"
+                          id={`tab-inmo-${tab.key}`}
+                          aria-selected={isActive}
+                          aria-controls={`panel-inmo-${tab.key}`}
+                          onClick={() => {
+                            setActiveTab(tab.key);
+                            setAiResult(null);
+                          }}
+                          style={{
+                            backgroundColor: isActive ? "#FFFFFF" : "transparent",
+                            color: isActive ? primary : "#FFFFFF",
+                          }}
+                          className={`relative flex shrink-0 cursor-pointer items-center gap-2 px-3.5 py-3 text-xs font-black tracking-tight transition-all duration-200 focus:outline-none sm:gap-2.5 sm:px-6 sm:py-4 sm:text-base ${
+                            isActive
+                              ? "z-20 rounded-t-[22px]"
+                              : "z-10 rounded-t-[20px] hover:bg-[#FFFFFF]/15"
+                          }`}
+                        >
+                          {/* Curva cóncava invertida inferior izquierda cuando la pestaña activa no es la primera */}
+                          {isActive && idx > 0 && (
+                            <svg
+                              aria-hidden="true"
+                              width="22"
+                              height="22"
+                              viewBox="0 0 22 22"
+                              className="pointer-events-none absolute -left-[22px] bottom-0 block h-[22px] w-[22px]"
+                            >
+                              <path d="M22 0 L22 22 L0 22 A22 22 0 0 0 22 0 Z" fill="#FFFFFF" />
+                            </svg>
+                          )}
+
+                          <span
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm sm:h-8 sm:w-8 sm:text-base"
+                            style={{
+                              backgroundColor: "#FFFFFF",
+                              borderColor: isActive
+                                ? `color-mix(in srgb, ${primary} 18%, transparent)`
+                                : "rgba(255,255,255,0.55)",
+                            }}
+                          >
+                            {tab.icon}
+                          </span>
+
+                          <span className="whitespace-nowrap">
+                            <span className="sm:hidden">{tab.shortLabel}</span>
+                            <span className="hidden sm:inline">{tab.label}</span>
+                          </span>
+
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider sm:px-2.5 sm:text-[11px]"
+                            style={{
+                              backgroundColor: isActive ? accent : "rgba(255,255,255,0.22)",
+                              color: isActive ? primary : "#FFFFFF",
+                            }}
+                          >
+                            {tab.count}
+                          </span>
+
+                          {/* Curva cóncava invertida inferior derecha cuando la pestaña está activa */}
+                          {isActive && (
+                            <svg
+                              aria-hidden="true"
+                              width="22"
+                              height="22"
+                              viewBox="0 0 22 22"
+                              className="pointer-events-none absolute -right-[22px] bottom-0 block h-[22px] w-[22px]"
+                            >
+                              <path d="M0 0 L0 22 L22 22 A22 22 0 0 1 0 0 Z" fill="#FFFFFF" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Cuerpo principal blanco que se funde sin corte con la pestaña activa */}
+              <div className="relative w-full bg-[#F6F5F3]">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 top-0 h-14 transition-all duration-300"
+                  style={{ background: tabsHeaderBg }}
+                />
+                <div className="relative px-3 pb-3 sm:px-6 sm:pb-6">
+                  <div
+                    role="tabpanel"
+                    id={`panel-inmo-${activeTab}`}
+                    aria-labelledby={`tab-inmo-${activeTab}`}
+                    style={{ backgroundColor: "#FFFFFF" }}
+                    className={`relative z-10 bg-[#FFFFFF] p-4 sm:p-6 space-y-6 shadow-xl transition-all duration-200 ${
+                      isVentaActive
+                        ? "rounded-tr-[26px] rounded-b-[26px] rounded-tl-none"
+                        : "rounded-[26px]"
+                    }`}
+                  >
+                    {/* BARRA DE BÚSQUEDA RÁPIDA + FILTROS RÁPIDOS (URBANA/RURAL, PH, GARAGE, PILETA, QUINCHO...) */}
+                    <div className="rounded-2xl border border-[#1F1F1F]/10 bg-[#FAF8F6] p-4 sm:p-5 space-y-4">
             <div className="grid gap-3 md:grid-cols-12">
               <div className="md:col-span-5">
                 <label className="mb-1 block text-[11px] font-extrabold uppercase text-[#1F1F1F]/70">
@@ -1294,7 +1367,12 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               })}
             </div>
           )}
-        </section>
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        })()}
       </main>
 
       {/* PIE INSTITUCIONAL: DIRECCIÓN + GOOGLE MAPS, HORARIOS DE ATENCIÓN, REDES Y CONTACTO */}
