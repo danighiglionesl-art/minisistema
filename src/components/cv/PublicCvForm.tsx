@@ -1186,7 +1186,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </h2>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {isEnabled("pais") && (
           <div>
             <label className={labelCls}>{fldLabel("pais", "País de Residencia")}</label>
@@ -1478,7 +1478,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </h2>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {isEnabled("puestoPrincipal") && (
           <div>
             <label className={labelCls}>{fldLabel("puestoPrincipal", "Puesto / Área Principal")}</label>
@@ -2130,7 +2130,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                   )}
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
                     <label className={labelCls}>Empresa / Comercio *</label>
                     <input

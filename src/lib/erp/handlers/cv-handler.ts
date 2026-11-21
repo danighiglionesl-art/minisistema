@@ -122,6 +122,51 @@ export interface CvRecord {
     pdfUrl: string;
     pdfNombreOriginal: string;
   };
+  interview?: CvInterviewEvaluation | null;
+}
+
+export interface CvInterviewScores {
+  experiencia_laboral: number; // 1..5 (15%)
+  competencias_tecnicas: number; // 1..5 (15%)
+  comunicacion_interpersonal: number; // 1..5 (15%)
+  inteligencia_emocional: number; // 1..5 (10%)
+  actitud_motivacion: number; // 1..5 (15%)
+  responsabilidad: number; // 1..5 (10%)
+  trabajo_en_equipo: number; // 1..5 (10%)
+  adaptabilidad: number; // 1..5 (10%)
+}
+
+export interface CvInterviewEvaluation {
+  evaluatedAt: string;
+  evaluatedBy: string;
+  interviewDate: string;
+  weightedScore: number; // 0..100 (1 decimal)
+  review: string;
+  scores: CvInterviewScores;
+}
+
+const INTERVIEW_WEIGHTS: ReadonlyArray<{
+  key: keyof CvInterviewScores;
+  weight: number;
+}> = [
+  { key: "experiencia_laboral", weight: 15 },
+  { key: "competencias_tecnicas", weight: 15 },
+  { key: "comunicacion_interpersonal", weight: 15 },
+  { key: "inteligencia_emocional", weight: 10 },
+  { key: "actitud_motivacion", weight: 15 },
+  { key: "responsabilidad", weight: 10 },
+  { key: "trabajo_en_equipo", weight: 10 },
+  { key: "adaptabilidad", weight: 10 },
+];
+
+function computeInterviewWeightedScore(scores: CvInterviewScores): number {
+  let total = 0;
+  for (const item of INTERVIEW_WEIGHTS) {
+    const raw = Number(scores[item.key] || 0);
+    const clamped = Math.min(5, Math.max(1, Math.round(raw)));
+    total += (clamped / 5) * item.weight;
+  }
+  return Math.round(total * 10) / 10;
 }
 
 interface CvDbDoc {
@@ -797,6 +842,7 @@ export async function handlePublicCvSubmission(
       pdfUrl,
       pdfNombreOriginal,
     },
+    interview: existingRecord?.interview || null,
   };
 
   if (existingIdx >= 0) {
@@ -859,6 +905,17 @@ export async function handleErpCurriculum(
     const recibidos = activeItems.filter((x) => !x.viewed);
     const actualizadosSinVer = recibidos.filter((x) => Boolean(x.hasCandidateUpdate));
     const previsualizados = activeItems.filter((x) => Boolean(x.viewed));
+    const entrevistados = activeItems
+      .filter((x) => Boolean(x.interview && typeof x.interview.weightedScore === "number"))
+      .sort((a, b) => {
+        const diff =
+          Number(b.interview?.weightedScore || 0) -
+          Number(a.interview?.weightedScore || 0);
+        if (diff !== 0) return diff;
+        return String(b.interview?.evaluatedAt || "").localeCompare(
+          String(a.interview?.evaluatedAt || "")
+        );
+      });
     const rated = previsualizados.filter(
       (x) => typeof x.rating === "number" && x.rating >= 1 && x.rating <= 10
     );
@@ -889,10 +946,12 @@ export async function handleErpCurriculum(
         recibidosSinVer: recibidos.length,
         actualizadosSinVerCount: actualizadosSinVer.length,
         previsualizadosCount: previsualizados.length,
+        entrevistadosCount: entrevistados.length,
         promedioValoracion: avgRating,
       },
       recibidos,
       previsualizados,
+      entrevistados,
     });
   }
 
@@ -997,6 +1056,67 @@ export async function handleErpCurriculum(
         message: item.rating
           ? `Valoración ${item.rating}/10 guardada para ${item.personal.nombreCompleto}.`
           : "Datos de evaluación actualizados.",
+        cv: item,
+      });
+    }
+
+    if (action === "save_interview") {
+      const rawScores = (body.scores || {}) as AnyObj;
+      const clamp = (v: unknown, def = 3) => {
+        const n = Math.round(Number(v));
+        if (!Number.isFinite(n)) return def;
+        return Math.min(5, Math.max(1, n));
+      };
+      const scores: CvInterviewScores = {
+        experiencia_laboral: clamp(rawScores.experiencia_laboral, 3),
+        competencias_tecnicas: clamp(rawScores.competencias_tecnicas, 3),
+        comunicacion_interpersonal: clamp(rawScores.comunicacion_interpersonal, 3),
+        inteligencia_emocional: clamp(rawScores.inteligencia_emocional, 3),
+        actitud_motivacion: clamp(rawScores.actitud_motivacion, 3),
+        responsabilidad: clamp(rawScores.responsabilidad, 3),
+        trabajo_en_equipo: clamp(rawScores.trabajo_en_equipo, 3),
+        adaptabilidad: clamp(rawScores.adaptabilidad, 3),
+      };
+      const weightedScore = computeInterviewWeightedScore(scores);
+      const review = String(body.review || "").trim();
+      const interviewDate =
+        String(body.interviewDate || "").trim() || nowIso.slice(0, 10);
+
+      item.interview = {
+        evaluatedAt: nowIso,
+        evaluatedBy: actor || "admin",
+        interviewDate,
+        weightedScore,
+        review,
+        scores,
+      };
+      if (!item.viewed) {
+        item.viewed = true;
+        item.viewedAt = nowIso;
+        item.viewedBy = actor || "admin";
+      }
+      item.stage = "entrevistado";
+      item.updatedAt = nowIso;
+      db.updatedAt = nowIso;
+      await putTenantDoc(tenant, "cv_db", db, actor || "admin", "save_cv_interview");
+      return NextResponse.json({
+        ok: true,
+        message: `Entrevista guardada para ${item.personal.nombreCompleto} (${weightedScore.toFixed(1)}%).`,
+        cv: item,
+      });
+    }
+
+    if (action === "delete_interview") {
+      item.interview = null;
+      if (item.stage === "entrevistado") {
+        item.stage = "previsualizado";
+      }
+      item.updatedAt = nowIso;
+      db.updatedAt = nowIso;
+      await putTenantDoc(tenant, "cv_db", db, actor || "admin", "delete_cv_interview");
+      return NextResponse.json({
+        ok: true,
+        message: `Evaluación de entrevista eliminada para ${item.personal.nombreCompleto}.`,
         cv: item,
       });
     }
