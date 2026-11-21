@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  buildDefaultCvFormConfig,
+  type CvFormConfig,
+  getCvFieldMap,
+  mergeCvFormConfig,
+} from "../cv-form-config";
 import { extractErpSessionFromRequest } from "../erp-session";
 import referenceCatalogs from "../reference-catalogs.json";
 import {
@@ -104,6 +110,12 @@ export interface CvRecord {
     cursosAdicionales: string;
   };
   experiencias: CvExperienceItem[];
+  customFields?: Array<{
+    key: string;
+    label: string;
+    section: string;
+    value: string;
+  }>;
   archivos: {
     fotoUrl: string;
     pdfUrl: string;
@@ -115,6 +127,14 @@ interface CvDbDoc {
   updatedAt: string;
   lastSeq: number;
   items: CvRecord[];
+  formConfig?: CvFormConfig;
+}
+
+export async function getTenantCvFormConfig(
+  tenant: ErpTenantRecord
+): Promise<CvFormConfig> {
+  const { payload: db } = await getTenantDoc<CvDbDoc>(tenant, "cv_db", emptyCvDb());
+  return mergeCvFormConfig(db.formConfig);
 }
 
 function emptyCvDb(): CvDbDoc {
@@ -213,6 +233,7 @@ export async function handlePublicCvCatalogs(
         postulacion: existing.postulacion,
         formacionHabilidades: existing.formacionHabilidades,
         experiencias: existing.experiencias,
+        customFields: existing.customFields || [],
         archivos: existing.archivos,
       },
     });
@@ -222,6 +243,11 @@ export async function handlePublicCvCatalogs(
     tenant.option_type,
     tenant.is_base,
     tenant.branding
+  );
+  const { payload: dbForCfg } = await getTenantDoc<CvDbDoc>(
+    tenant,
+    "cv_db",
+    emptyCvDb()
   );
   return NextResponse.json({
     ok: true,
@@ -237,6 +263,7 @@ export async function handlePublicCvCatalogs(
       defaultLocalidad: brand.localidad || "RÍO CUARTO",
       defaultCp: brand.cp || "5800",
     },
+    formConfig: mergeCvFormConfig(dbForCfg.formConfig),
     catalogs: {
       paises: (referenceCatalogs.catalogs as AnyObj).paises || [],
       provincias: (referenceCatalogs.catalogs as AnyObj).provincias || [],
@@ -258,27 +285,28 @@ export async function handlePublicCvSubmission(
     );
   }
 
-  const nombres = String(body.nombres || "").trim();
-  const apellidos = String(body.apellidos || "").trim();
-  const nroDoc = String(body.nroDoc || "").trim();
+  const up = (v: unknown) => String(v || "").trim().toUpperCase();
+  const nombres = up(body.nombres);
+  const apellidos = up(body.apellidos);
+  const nroDoc = up(body.nroDoc);
   const fechaNacimiento = String(body.fechaNacimiento || "").trim();
   const genero = String(body.genero || "").trim();
   const estadoCivil = String(body.estadoCivil || "").trim();
   const hijosACargo = String(body.hijosACargo || "").trim();
-  const nacionalidad = String(body.nacionalidad || "").trim();
-  const cp = String(body.cp || "").trim();
-  const domicilioCalle = String(body.domicilioCalle || "").trim();
-  const domicilioNumero = String(body.domicilioNumero || "").trim();
-  const domicilioPiso = String(body.domicilioPiso || "").trim();
-  const domicilioDpto = String(body.domicilioDpto || "").trim();
-  const domicilioEdificio = String(body.domicilioEdificio || "").trim();
-  const domicilioTorre = String(body.domicilioTorre || "").trim();
-  const domicilioBarrio = String(body.domicilioBarrio || "").trim();
+  const nacionalidad = up(body.nacionalidad);
+  const cp = up(body.cp);
+  const domicilioCalle = up(body.domicilioCalle);
+  const domicilioNumero = up(body.domicilioNumero);
+  const domicilioPiso = up(body.domicilioPiso);
+  const domicilioDpto = up(body.domicilioDpto);
+  const domicilioEdificio = up(body.domicilioEdificio);
+  const domicilioTorre = up(body.domicilioTorre);
+  const domicilioBarrio = up(body.domicilioBarrio);
   const whatsappNumero = String(body.whatsappNumero || "").replace(/[^\d]/g, "");
   const whatsappPrefijo = String(body.whatsappPrefijo || "+549").trim();
-  const email = String(body.email || "").trim().toLowerCase();
-  const facebookUrl = String(body.facebookUrl || "").trim();
-  const instagramUrl = String(body.instagramUrl || "").trim();
+  const email = up(body.email);
+  const facebookUrl = up(body.facebookUrl);
+  const instagramUrl = up(body.instagramUrl);
   const puestoPrincipal = String(body.puestoPrincipal || "").trim();
   const experienciaTotal = String(body.experienciaTotal || "").trim();
   const disponibilidadHoraria = String(body.disponibilidadHoraria || "").trim();
@@ -287,10 +315,18 @@ export async function handlePublicCvSubmission(
   const pretensionSalarial = String(body.pretensionSalarial || "").trim();
   const nivelEstudios = String(body.nivelEstudios || "").trim();
   const estadoEstudios = String(body.estadoEstudios || "").trim();
+  const tituloCarrera = up(body.tituloCarrera);
+  const institucion = up(body.institucion);
   const nivelPosFacturacion = String(body.nivelPosFacturacion || "").trim();
   const nivelExcel = String(body.nivelExcel || "").trim();
   const nivelAtencionDigital = String(body.nivelAtencionDigital || "").trim();
   const idiomaPrincipal = String(body.idiomaPrincipal || "").trim();
+
+  const { payload: db } = await getTenantDoc<CvDbDoc>(tenant, "cv_db", emptyCvDb());
+  if (!Array.isArray(db.items)) db.items = [];
+  const formConfig = mergeCvFormConfig(db.formConfig);
+  const fmap = getCvFieldMap(formConfig);
+  const isReq = (key: string) => Boolean(fmap[key]?.enabled && fmap[key]?.required);
 
   if (!nombres || !apellidos) {
     return NextResponse.json(
@@ -304,109 +340,119 @@ export async function handlePublicCvSubmission(
       { status: 400 }
     );
   }
-  if (!fechaNacimiento) {
+  if (isReq("fechaNacimiento") && !fechaNacimiento) {
     return NextResponse.json(
       { ok: false, message: "Por favor indicá tu Fecha de Nacimiento." },
       { status: 400 }
     );
   }
-  if (!genero) {
+  if (isReq("genero") && !genero) {
     return NextResponse.json(
       { ok: false, message: "Por favor seleccioná tu Género." },
       { status: 400 }
     );
   }
-  if (!estadoCivil) {
+  if (isReq("estadoCivil") && !estadoCivil) {
     return NextResponse.json(
       { ok: false, message: "Por favor seleccioná tu Estado Civil." },
       { status: 400 }
     );
   }
-  if (!hijosACargo) {
+  if (isReq("hijosACargo") && !hijosACargo) {
     return NextResponse.json(
       { ok: false, message: "Por favor indicá tus Cargas de Familia." },
       { status: 400 }
     );
   }
-  if (!nacionalidad) {
+  if (isReq("nacionalidad") && !nacionalidad) {
     return NextResponse.json(
       { ok: false, message: "Por favor seleccioná tu Nacionalidad." },
       { status: 400 }
     );
   }
-  if (!cp) {
+  if (isReq("cp") && !cp) {
     return NextResponse.json(
       { ok: false, message: "Por favor ingresá tu Código Postal." },
       { status: 400 }
     );
   }
-  if (!domicilioCalle || !domicilioNumero || !domicilioBarrio) {
+  if (
+    (isReq("domicilioCalle") && !domicilioCalle) ||
+    (isReq("domicilioNumero") && !domicilioNumero) ||
+    (isReq("domicilioBarrio") && !domicilioBarrio)
+  ) {
     return NextResponse.json(
       {
         ok: false,
-        message: "Por favor completá Calle, Número y Barrio de tu domicilio.",
+        message: "Por favor completá los datos obligatorios de tu domicilio.",
       },
       { status: 400 }
     );
   }
-  if (!whatsappNumero || whatsappNumero.length < 6) {
+  if (isReq("whatsapp") && (!whatsappNumero || whatsappNumero.length < 6)) {
     return NextResponse.json(
       { ok: false, message: "Por favor ingresá tu número de WhatsApp." },
       { status: 400 }
     );
   }
-  if (!email || !email.includes("@")) {
+  if (isReq("email") && (!email || !email.includes("@"))) {
     return NextResponse.json(
       { ok: false, message: "Por favor ingresá un correo electrónico válido." },
       { status: 400 }
     );
   }
-  if (!facebookUrl || !instagramUrl) {
+  if (
+    (isReq("facebookUrl") && !facebookUrl) ||
+    (isReq("instagramUrl") && !instagramUrl)
+  ) {
     return NextResponse.json(
       {
         ok: false,
-        message: "Por favor completá Facebook e Instagram (o indicá 'No tengo').",
+        message: "Por favor completá los campos obligatorios de redes sociales (o indicá 'No tengo').",
       },
       { status: 400 }
     );
   }
-  if (!puestoPrincipal) {
+  if (isReq("puestoPrincipal") && !puestoPrincipal) {
     return NextResponse.json(
       { ok: false, message: "Seleccioná el puesto o área principal al que te postulás." },
       { status: 400 }
     );
   }
-  if (!experienciaTotal) {
+  if (isReq("experienciaTotal") && !experienciaTotal) {
     return NextResponse.json(
       { ok: false, message: "Por favor seleccioná tu Experiencia Laboral." },
       { status: 400 }
     );
   }
-  if (!disponibilidadHoraria) {
+  if (isReq("disponibilidadHoraria") && !disponibilidadHoraria) {
     return NextResponse.json(
       { ok: false, message: "Por favor seleccioná tu Disponibilidad Horaria." },
       { status: 400 }
     );
   }
-  if (!modalidad) {
+  if (isReq("modalidad") && !modalidad) {
     return NextResponse.json(
       { ok: false, message: "Por favor seleccioná tu Modalidad Preferida." },
       { status: 400 }
     );
   }
-  if (!licenciaConducir) {
+  if (isReq("licenciaConducir") && !licenciaConducir) {
     return NextResponse.json(
       { ok: false, message: "Por favor indicá tu Licencia de Conducir." },
       { status: 400 }
     );
   }
-  if (!pretensionSalarial) {
+  if (isReq("pretensionSalarial") && !pretensionSalarial) {
     return NextResponse.json(
       { ok: false, message: "Por favor seleccioná tu Pretensión Salarial." },
       { status: 400 }
     );
   }
-  if (!nivelEstudios || !estadoEstudios) {
+  if (
+    (isReq("nivelEstudios") && !nivelEstudios) ||
+    (isReq("estadoEstudios") && !estadoEstudios)
+  ) {
     return NextResponse.json(
       {
         ok: false,
@@ -415,25 +461,73 @@ export async function handlePublicCvSubmission(
       { status: 400 }
     );
   }
-  if (!nivelPosFacturacion || !nivelExcel || !nivelAtencionDigital) {
+  if (
+    (isReq("tituloCarrera") && !tituloCarrera) ||
+    (isReq("institucion") && !institucion)
+  ) {
     return NextResponse.json(
       {
         ok: false,
         message:
-          "Por favor completá tu nivel de Sistemas de Caja POS, Excel y WhatsApp Comercial.",
+          "Por favor completá los datos obligatorios de Título / Carrera e Institución Educativa.",
       },
       { status: 400 }
     );
   }
-  if (!idiomaPrincipal) {
+  if (
+    (isReq("nivelPosFacturacion") && !nivelPosFacturacion) ||
+    (isReq("nivelExcel") && !nivelExcel) ||
+    (isReq("nivelAtencionDigital") && !nivelAtencionDigital)
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message:
+          "Por favor completá los campos obligatorios de manejo de sistemas.",
+      },
+      { status: 400 }
+    );
+  }
+  if (isReq("idiomaPrincipal") && !idiomaPrincipal) {
     return NextResponse.json(
       { ok: false, message: "Por favor seleccioná una opción en Idioma Extra." },
       { status: 400 }
     );
   }
 
-  const { payload: db } = await getTenantDoc<CvDbDoc>(tenant, "cv_db", emptyCvDb());
-  if (!Array.isArray(db.items)) db.items = [];
+  // Validar y recolectar campos personalizados habilitados
+  const rawCustomObj: Record<string, unknown> =
+    body.customFields && typeof body.customFields === "object" && !Array.isArray(body.customFields)
+      ? (body.customFields as Record<string, unknown>)
+      : {};
+  const customFields: Array<{
+    key: string;
+    label: string;
+    section: string;
+    value: string;
+  }> = [];
+  for (const cf of formConfig.fields) {
+    if (!cf.isCustom || !cf.enabled) continue;
+    const rawVal = rawCustomObj[cf.key];
+    const strVal =
+      cf.type === "select" || cf.type === "date" || cf.type === "number"
+        ? String(rawVal ?? "").trim()
+        : up(rawVal);
+    if (cf.required && !strVal) {
+      return NextResponse.json(
+        { ok: false, message: `Por favor completá el campo obligatorio: ${cf.label}.` },
+        { status: 400 }
+      );
+    }
+    if (strVal) {
+      customFields.push({
+        key: cf.key,
+        label: cf.label,
+        section: cf.section,
+        value: strVal,
+      });
+    }
+  }
 
   const targetDocNorm = normalizeDocDigits(nroDoc);
   const existingIdx = db.items.findIndex(
@@ -509,24 +603,26 @@ export async function handlePublicCvSubmission(
 
   const domicilioParts = [
     `${domicilioCalle} ${domicilioNumero}`.trim(),
-    domicilioPiso ? `Piso ${domicilioPiso}` : "",
-    domicilioDpto ? `Dpto. ${domicilioDpto}` : "",
-    domicilioEdificio ? `Edificio ${domicilioEdificio}` : "",
-    domicilioTorre ? `Torre ${domicilioTorre}` : "",
+    domicilioPiso ? `PISO ${domicilioPiso}` : "",
+    domicilioDpto ? `DPTO. ${domicilioDpto}` : "",
+    domicilioEdificio ? `EDIFICIO ${domicilioEdificio}` : "",
+    domicilioTorre ? `TORRE ${domicilioTorre}` : "",
     domicilioBarrio ? `B° ${domicilioBarrio}` : "",
   ].filter(Boolean);
-  const domicilioComposed = domicilioParts.join(", ") || String(body.domicilio || "").trim();
+  const domicilioComposed = domicilioParts.join(", ") || up(body.domicilio);
 
   const cleanPrefDigits = whatsappPrefijo.replace(/[^\d+]/g, "");
   const whatsappCompleto = `${cleanPrefDigits}${whatsappNumero}`;
   const nowIso = new Date().toISOString();
 
+  const expEnabled = fmap.experiencias ? fmap.experiencias.enabled : true;
   const sinExpPrevia =
+    !expEnabled ||
     Boolean(body.sinExperienciaPrevia) ||
     experienciaTotal === "Sin experiencia / Primer empleo";
   const rawExps = Array.isArray(body.experiencias) ? body.experiencias : [];
 
-  if (!sinExpPrevia) {
+  if (!sinExpPrevia && isReq("experiencias")) {
     if (rawExps.length === 0) {
       return NextResponse.json(
         {
@@ -541,12 +637,12 @@ export async function handlePublicCvSubmission(
       const e = (rawExps[i] || {}) as AnyObj;
       if (
         !String(e.empresa || "").trim() ||
-        !String(e.rubroEmpresa || "").trim() ||
+        (isReq("expRubroEmpresa") && !String(e.rubroEmpresa || "").trim()) ||
         !String(e.puesto || "").trim() ||
         !String(e.desdeAnio || "").trim() ||
         !String(e.hastaAnio || "").trim() ||
-        !String(e.antiguedad || "").trim() ||
-        !String(e.motivoEgreso || "").trim() ||
+        (isReq("expAntiguedad") && !String(e.antiguedad || "").trim()) ||
+        (isReq("expMotivoEgreso") && !String(e.motivoEgreso || "").trim()) ||
         !String(e.referenciaNombre || "").trim() ||
         !String(e.referenciaTelefono || "").trim() ||
         !String(e.tareas || "").trim()
@@ -554,7 +650,7 @@ export async function handlePublicCvSubmission(
         return NextResponse.json(
           {
             ok: false,
-            message: `Por favor completá todos los campos obligatorios de la Experiencia Laboral #${i + 1} (Empresa, Rubro, Puesto, Desde/Hasta, Antigüedad, Motivo, Contacto y Teléfono de referencia, y Tareas).`,
+            message: `Por favor completá todos los campos obligatorios de la Experiencia Laboral #${i + 1}.`,
           },
           { status: 400 }
         );
@@ -568,16 +664,16 @@ export async function handlePublicCvSubmission(
         .filter((e: AnyObj) => e && (String(e.empresa || "").trim() || String(e.puesto || "").trim()))
         .slice(0, 10)
         .map((e: AnyObj) => ({
-          empresa: String(e.empresa || "").trim(),
+          empresa: up(e.empresa),
           rubroEmpresa: String(e.rubroEmpresa || "").trim(),
-          puesto: String(e.puesto || "").trim(),
+          puesto: up(e.puesto),
           antiguedad: String(e.antiguedad || "").trim(),
           desdeAnio: String(e.desdeAnio || "").trim(),
           hastaAnio: String(e.hastaAnio || "").trim(),
           motivoEgreso: String(e.motivoEgreso || "").trim(),
-          referenciaNombre: String(e.referenciaNombre || "").trim(),
-          referenciaTelefono: String(e.referenciaTelefono || "").trim(),
-          tareas: String(e.tareas || "").trim(),
+          referenciaNombre: up(e.referenciaNombre),
+          referenciaTelefono: up(e.referenciaTelefono),
+          tareas: up(e.tareas),
         }));
 
   const record: CvRecord = {
@@ -613,9 +709,9 @@ export async function handlePublicCvSubmission(
       nacionalidad,
     },
     ubicacionContacto: {
-      pais: String(body.pais || "ARGENTINA").trim(),
-      provincia: String(body.provincia || "").trim(),
-      localidad: String(body.localidad || "").trim(),
+      pais: up(body.pais || "ARGENTINA"),
+      provincia: up(body.provincia),
+      localidad: up(body.localidad),
       cp,
       domicilio: domicilioComposed,
       domicilioCalle,
@@ -629,11 +725,11 @@ export async function handlePublicCvSubmission(
       whatsappPrefijo: cleanPrefDigits,
       whatsappNumero,
       whatsappCompleto,
-      telefonoAlternativo: String(body.telefonoAlternativo || "").trim(),
+      telefonoAlternativo: up(body.telefonoAlternativo),
       email,
       facebookUrl,
       instagramUrl,
-      linkedinUrl: String(body.linkedinUrl || "").trim(),
+      linkedinUrl: up(body.linkedinUrl),
     },
     postulacion: {
       puestoPrincipal,
@@ -646,21 +742,22 @@ export async function handlePublicCvSubmission(
       movilidadPropia: String(body.movilidadPropia || "No posee").trim(),
       disponibilidadViajarRotar: String(body.disponibilidadViajarRotar || "Sí").trim(),
       pretensionSalarial,
-      presentacion: String(body.presentacion || "").trim(),
+      presentacion: up(body.presentacion),
     },
     formacionHabilidades: {
       nivelEstudios,
       estadoEstudios,
-      tituloCarrera: String(body.tituloCarrera || "").trim(),
-      institucion: String(body.institucion || "").trim(),
+      tituloCarrera,
+      institucion,
       nivelPosFacturacion,
       nivelExcel,
       nivelAtencionDigital,
       idiomaPrincipal,
       nivelIdioma: idiomaPrincipal === "Ninguno" ? "" : String(body.nivelIdioma || "").trim(),
-      cursosAdicionales: String(body.cursosAdicionales || "").trim(),
+      cursosAdicionales: up(body.cursosAdicionales),
     },
     experiencias,
+    customFields,
     archivos: {
       fotoUrl,
       pdfUrl,
@@ -682,7 +779,7 @@ export async function handlePublicCvSubmission(
   );
 
   const emailSent = await trySendCandidateConfirmationEmail({
-    candidateEmail: email,
+    candidateEmail: email.toLowerCase(),
     candidateName: `${nombres} ${apellidos}`,
     code: codigo,
     fantasyName: tenant.fantasy_name || "MiniSistema",
@@ -752,6 +849,7 @@ export async function handleErpCurriculum(
     return NextResponse.json({
       ok: true,
       publicCvUrl,
+      formConfig: mergeCvFormConfig(db.formConfig),
       stats: {
         totalActivos: activeItems.length,
         recibidosSinVer: recibidos.length,
@@ -767,6 +865,34 @@ export async function handleErpCurriculum(
   if (req.method === "POST") {
     const body = ((await req.json().catch(() => ({}))) || {}) as AnyObj;
     const action = String(body.action || "").trim();
+
+    if (action === "save_form_config") {
+      const merged = mergeCvFormConfig(body.formConfig || body);
+      merged.updatedAt = new Date().toISOString();
+      merged.updatedBy = actor || "admin";
+      db.formConfig = merged;
+      db.updatedAt = merged.updatedAt;
+      await putTenantDoc(tenant, "cv_db", db, actor || "admin", "save_cv_form_config");
+      return NextResponse.json({
+        ok: true,
+        message: "Configuración de tablas guardada y aplicada en vivo al formulario /cv.",
+        formConfig: merged,
+      });
+    }
+
+    if (action === "reset_form_config") {
+      const fresh = buildDefaultCvFormConfig();
+      fresh.updatedBy = actor || "admin";
+      db.formConfig = fresh;
+      db.updatedAt = fresh.updatedAt;
+      await putTenantDoc(tenant, "cv_db", db, actor || "admin", "reset_cv_form_config");
+      return NextResponse.json({
+        ok: true,
+        message: "Configuración restablecida a los valores predeterminados.",
+        formConfig: fresh,
+      });
+    }
+
     const targetId = String(body.id || "").trim();
     const item = db.items.find((x) => x.id === targetId && !x.deleted);
 

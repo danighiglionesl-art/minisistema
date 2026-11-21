@@ -1,7 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BrandWordmark } from "@/components/brand/BrandWordmark";
+import {
+  type CvFieldSection,
+  type CvFormConfig,
+  getCvFieldMap,
+  mergeCvFormConfig,
+} from "@/lib/erp/cv-form-config";
 
 interface PaisItem {
   id: number;
@@ -27,6 +33,7 @@ export interface PublicCvFormProps {
   paises: PaisItem[];
   provincias: string[];
   localidadesPorProvincia: Record<string, LocalidadItem[]>;
+  formConfig?: CvFormConfig;
 }
 
 interface ExperienceRow {
@@ -163,9 +170,49 @@ function readPdfAsDataUrl(file: File): Promise<string> {
 }
 
 export default function PublicCvForm(props: PublicCvFormProps) {
+  const resolvedConfig = useMemo(
+    () => mergeCvFormConfig(props.formConfig),
+    [props.formConfig]
+  );
+  const fieldMap = useMemo(
+    () => getCvFieldMap(resolvedConfig),
+    [resolvedConfig]
+  );
+
+  const isEnabled = (key: string) =>
+    fieldMap[key] ? fieldMap[key].enabled : true;
+  const isReq = (key: string) =>
+    Boolean(fieldMap[key]?.enabled && fieldMap[key]?.required);
+  const fldLabel = (key: string, fallback: string) => {
+    const lbl = fieldMap[key]?.label || fallback;
+    return isReq(key) ? `${lbl} *` : lbl;
+  };
+  const fldPlaceholder = (key: string, fallback: string) =>
+    fieldMap[key]?.placeholder ?? fallback;
+  const fldOptions = (
+    key: string,
+    fallback: string[],
+    currentVal?: string
+  ) => {
+    const cfgOpts = fieldMap[key]?.options;
+    const base =
+      Array.isArray(cfgOpts) && cfgOpts.length > 0 ? cfgOpts : fallback;
+    if (
+      currentVal &&
+      currentVal !== "Sin segundo puesto" &&
+      !base.includes(currentVal)
+    ) {
+      return [...base, currentVal];
+    }
+    return base;
+  };
+
   const [nombres, setNombres] = useState("");
   const [apellidos, setApellidos] = useState("");
-  const [tipoDoc, setTipoDoc] = useState("DNI");
+  const [tipoDoc, setTipoDoc] = useState(
+    () =>
+      (fieldMap.tipoDoc?.options && fieldMap.tipoDoc.options[0]) || "DNI"
+  );
   const [nroDoc, setNroDoc] = useState("");
   const [fechaNacimiento, setFechaNacimiento] = useState("");
   const [genero, setGenero] = useState("");
@@ -193,15 +240,34 @@ export default function PublicCvForm(props: PublicCvFormProps) {
   const [instagramUrl, setInstagramUrl] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
 
-  const [puestoPrincipal, setPuestoPrincipal] = useState(PUESTOS_OPTIONS[0]);
+  const [puestoPrincipal, setPuestoPrincipal] = useState(
+    () =>
+      (fieldMap.puestoPrincipal?.options &&
+        fieldMap.puestoPrincipal.options[0]) ||
+      PUESTOS_OPTIONS[0]
+  );
   const [puestoSecundario, setPuestoSecundario] = useState("Sin segundo puesto");
   const [disponibilidadHoraria, setDisponibilidadHoraria] = useState("");
-  const [incorporacion, setIncorporacion] = useState("Inmediata");
+  const [incorporacion, setIncorporacion] = useState(
+    () =>
+      (fieldMap.incorporacion?.options && fieldMap.incorporacion.options[0]) ||
+      "Inmediata"
+  );
   const [modalidad, setModalidad] = useState("");
   const [experienciaTotal, setExperienciaTotal] = useState("");
   const [licenciaConducir, setLicenciaConducir] = useState("");
-  const [movilidadPropia, setMovilidadPropia] = useState("No posee / Transporte público");
-  const [disponibilidadViajarRotar, setDisponibilidadViajarRotar] = useState("Sí");
+  const [movilidadPropia, setMovilidadPropia] = useState(
+    () =>
+      (fieldMap.movilidadPropia?.options &&
+        fieldMap.movilidadPropia.options[0]) ||
+      "No posee / Transporte público"
+  );
+  const [disponibilidadViajarRotar, setDisponibilidadViajarRotar] = useState(
+    () =>
+      (fieldMap.disponibilidadViajarRotar?.options &&
+        fieldMap.disponibilidadViajarRotar.options[0]) ||
+      "Sí"
+  );
   const [pretensionSalarial, setPretensionSalarial] = useState("");
   const [presentacion, setPresentacion] = useState("");
 
@@ -213,8 +279,14 @@ export default function PublicCvForm(props: PublicCvFormProps) {
   const [nivelExcel, setNivelExcel] = useState("");
   const [nivelAtencionDigital, setNivelAtencionDigital] = useState("");
   const [idiomaPrincipal, setIdiomaPrincipal] = useState("");
-  const [nivelIdioma, setNivelIdioma] = useState("Básico");
+  const [nivelIdioma, setNivelIdioma] = useState(
+    () =>
+      (fieldMap.nivelIdioma?.options && fieldMap.nivelIdioma.options[0]) ||
+      "Básico"
+  );
   const [cursosAdicionales, setCursosAdicionales] = useState("");
+
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
 
   const [sinExperienciaPrevia, setSinExperienciaPrevia] = useState(false);
   const [experiencias, setExperiencias] = useState<ExperienceRow[]>([emptyExperience()]);
@@ -229,8 +301,46 @@ export default function PublicCvForm(props: PublicCvFormProps) {
 
   const [lookupLoading, setLookupLoading] = useState(false);
   const [existingCvCode, setExistingCvCode] = useState("");
-  const [existingCvUpdatedAt, setExistingCvUpdatedAt] = useState("");
   const [lastLookedUpDoc, setLastLookedUpDoc] = useState("");
+  const [dniFoundToast, setDniFoundToast] = useState(false);
+  const dniToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (dniToastTimerRef.current) clearTimeout(dniToastTimerRef.current);
+    };
+  }, []);
+
+  const toUpperText = (val: unknown) => String(val || "").toUpperCase();
+
+  const handleUpperChange =
+    (setter: (val: string) => void) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const target = e.target;
+      const upper = target.value.toUpperCase();
+      let start: number | null = null;
+      let end: number | null = null;
+      try {
+        if (target.tagName === "TEXTAREA" || target.type === "text" || target.type === "tel") {
+          start = target.selectionStart;
+          end = target.selectionEnd;
+        }
+      } catch {
+        // ignore selection API errors on unsupported input types
+      }
+      setter(upper);
+      if (start !== null && end !== null) {
+        const s = start;
+        const en = end;
+        requestAnimationFrame(() => {
+          try {
+            target.setSelectionRange(s, en);
+          } catch {
+            // ignore
+          }
+        });
+      }
+    };
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -280,12 +390,11 @@ export default function PublicCvForm(props: PublicCvFormProps) {
     const exps = Array.isArray(cv.experiencias) ? cv.experiencias : [];
 
     setExistingCvCode(String(cv.codigo || ""));
-    setExistingCvUpdatedAt(String(cv.updatedAt || cv.createdAt || ""));
 
-    if (p.nombres) setNombres(String(p.nombres));
-    if (p.apellidos) setApellidos(String(p.apellidos));
+    if (p.nombres) setNombres(toUpperText(p.nombres));
+    if (p.apellidos) setApellidos(toUpperText(p.apellidos));
     if (p.tipoDoc) setTipoDoc(String(p.tipoDoc));
-    if (p.nroDoc) setNroDoc(String(p.nroDoc));
+    if (p.nroDoc) setNroDoc(toUpperText(p.nroDoc));
     if (p.fechaNacimiento) setFechaNacimiento(String(p.fechaNacimiento));
     if (p.genero) setGenero(String(p.genero));
     if (p.estadoCivil) setEstadoCivil(String(p.estadoCivil));
@@ -293,16 +402,16 @@ export default function PublicCvForm(props: PublicCvFormProps) {
     if (p.nacionalidad) setNacionalidad(String(p.nacionalidad));
 
     if (u.pais) setPais(String(u.pais));
-    if (u.provincia) setProvincia(String(u.provincia));
-    if (u.localidad) setLocalidad(String(u.localidad));
-    if (u.cp) setCp(String(u.cp));
-    setDomicilioCalle(String(u.domicilioCalle || u.domicilio || ""));
-    setDomicilioNumero(String(u.domicilioNumero || ""));
-    setDomicilioPiso(String(u.domicilioPiso || ""));
-    setDomicilioDpto(String(u.domicilioDpto || ""));
-    setDomicilioEdificio(String(u.domicilioEdificio || ""));
-    setDomicilioTorre(String(u.domicilioTorre || ""));
-    setDomicilioBarrio(String(u.domicilioBarrio || ""));
+    if (u.provincia) setProvincia(toUpperText(u.provincia));
+    if (u.localidad) setLocalidad(toUpperText(u.localidad));
+    if (u.cp) setCp(toUpperText(u.cp));
+    setDomicilioCalle(toUpperText(u.domicilioCalle || u.domicilio || ""));
+    setDomicilioNumero(toUpperText(u.domicilioNumero || ""));
+    setDomicilioPiso(toUpperText(u.domicilioPiso || ""));
+    setDomicilioDpto(toUpperText(u.domicilioDpto || ""));
+    setDomicilioEdificio(toUpperText(u.domicilioEdificio || ""));
+    setDomicilioTorre(toUpperText(u.domicilioTorre || ""));
+    setDomicilioBarrio(toUpperText(u.domicilioBarrio || ""));
 
     if (u.whatsappPrefijo || u.whatsappPais) {
       const idx = WHATSAPP_COUNTRIES.findIndex(
@@ -312,12 +421,12 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       );
       if (idx >= 0) setWaCountryIdx(idx);
     }
-    setWhatsappNumero(String(u.whatsappNumero || ""));
-    setTelefonoAlternativo(String(u.telefonoAlternativo || ""));
-    setEmail(String(u.email || ""));
-    setFacebookUrl(String(u.facebookUrl || ""));
-    setInstagramUrl(String(u.instagramUrl || ""));
-    setLinkedinUrl(String(u.linkedinUrl || ""));
+    setWhatsappNumero(toUpperText(u.whatsappNumero || ""));
+    setTelefonoAlternativo(toUpperText(u.telefonoAlternativo || ""));
+    setEmail(toUpperText(u.email || ""));
+    setFacebookUrl(toUpperText(u.facebookUrl || ""));
+    setInstagramUrl(toUpperText(u.instagramUrl || ""));
+    setLinkedinUrl(toUpperText(u.linkedinUrl || ""));
 
     if (post.puestoPrincipal) setPuestoPrincipal(String(post.puestoPrincipal));
     setPuestoSecundario(
@@ -338,33 +447,33 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       setDisponibilidadViajarRotar(String(post.disponibilidadViajarRotar));
     }
     if (post.pretensionSalarial) setPretensionSalarial(String(post.pretensionSalarial));
-    setPresentacion(String(post.presentacion || ""));
+    setPresentacion(toUpperText(post.presentacion || ""));
 
     if (fh.nivelEstudios) setNivelEstudios(String(fh.nivelEstudios));
     if (fh.estadoEstudios) setEstadoEstudios(String(fh.estadoEstudios));
-    setTituloCarrera(String(fh.tituloCarrera || ""));
-    setInstitucion(String(fh.institucion || ""));
+    setTituloCarrera(toUpperText(fh.tituloCarrera || ""));
+    setInstitucion(toUpperText(fh.institucion || ""));
     if (fh.nivelPosFacturacion) setNivelPosFacturacion(String(fh.nivelPosFacturacion));
     if (fh.nivelExcel) setNivelExcel(String(fh.nivelExcel));
     if (fh.nivelAtencionDigital) setNivelAtencionDigital(String(fh.nivelAtencionDigital));
     if (fh.idiomaPrincipal) setIdiomaPrincipal(String(fh.idiomaPrincipal));
     if (fh.nivelIdioma) setNivelIdioma(String(fh.nivelIdioma));
-    setCursosAdicionales(String(fh.cursosAdicionales || ""));
+    setCursosAdicionales(toUpperText(fh.cursosAdicionales || ""));
 
     if (exps.length > 0) {
       setSinExperienciaPrevia(false);
       setExperiencias(
         exps.map((e: Record<string, any>) => ({
-          empresa: String(e.empresa || ""),
+          empresa: toUpperText(e.empresa || ""),
           rubroEmpresa: String(e.rubroEmpresa || "Comercio Minorista / Tienda"),
-          puesto: String(e.puesto || ""),
+          puesto: toUpperText(e.puesto || ""),
           antiguedad: String(e.antiguedad || "1 a 2 años"),
           desdeAnio: String(e.desdeAnio || String(new Date().getFullYear() - 2)),
           hastaAnio: String(e.hastaAnio || "Actualidad"),
           motivoEgreso: String(e.motivoEgreso || "Búsqueda de crecimiento profesional"),
-          referenciaNombre: String(e.referenciaNombre || ""),
-          referenciaTelefono: String(e.referenciaTelefono || ""),
-          tareas: String(e.tareas || ""),
+          referenciaNombre: toUpperText(e.referenciaNombre || ""),
+          referenciaTelefono: toUpperText(e.referenciaTelefono || ""),
+          tareas: toUpperText(e.tareas || ""),
         }))
       );
     } else {
@@ -382,53 +491,51 @@ export default function PublicCvForm(props: PublicCvFormProps) {
       setPdfBase64("");
       setClearPdf(false);
     }
+    if (Array.isArray(cv.customFields)) {
+      const nextCustom: Record<string, string> = {};
+      for (const cf of cv.customFields as Array<{ key?: string; value?: string }>) {
+        if (cf && cf.key) nextCustom[String(cf.key)] = String(cf.value || "");
+      }
+      setCustomValues(nextCustom);
+    }
   };
 
-  const lookupCvByDni = async (rawDocValue: string, forceLookup = false) => {
+  const lookupCvByDni = async (rawDocValue: string) => {
     const cleanDigits = String(rawDocValue || "").replace(/\D/g, "");
-    const lookupKey = cleanDigits.length >= 6 ? cleanDigits : String(rawDocValue || "").trim();
+    const lookupKey = cleanDigits.length >= 6 ? cleanDigits : String(rawDocValue || "").trim().toUpperCase();
     if (!lookupKey || lookupKey.length < 6) {
       setExistingCvCode("");
-      setExistingCvUpdatedAt("");
+      setLastLookedUpDoc("");
       return;
     }
-    if (!forceLookup && lookupKey === lastLookedUpDoc) return;
+    if (lookupKey === lastLookedUpDoc) return;
     setLastLookedUpDoc(lookupKey);
     setLookupLoading(true);
     try {
-      const res = await fetch(
-        `/api/cv?tenant=${encodeURIComponent(props.tenantSlug)}&nroDoc=${encodeURIComponent(lookupKey)}`,
-        { cache: "no-store" }
-      );
+      const [res] = await Promise.all([
+        fetch(
+          `/api/cv?tenant=${encodeURIComponent(props.tenantSlug)}&nroDoc=${encodeURIComponent(lookupKey)}`,
+          { cache: "no-store" }
+        ),
+        new Promise((resolve) => setTimeout(resolve, 1600)),
+      ]);
       const data = await res.json();
       if (res.ok && data && data.ok && data.found && data.cv) {
         applyExistingCvData(data.cv);
+        setDniFoundToast(true);
+        if (dniToastTimerRef.current) clearTimeout(dniToastTimerRef.current);
+        dniToastTimerRef.current = setTimeout(() => {
+          setDniFoundToast(false);
+        }, 6500);
       } else {
         setExistingCvCode("");
-        setExistingCvUpdatedAt("");
       }
     } catch {
-      // ignore network error on background lookup
+      // ignore network error on automatic lookup
     } finally {
       setLookupLoading(false);
     }
   };
-
-  useEffect(() => {
-    const cleanDigits = String(nroDoc || "").replace(/\D/g, "");
-    if (cleanDigits.length < 7) {
-      if (cleanDigits.length < 6) {
-        setExistingCvCode("");
-        setExistingCvUpdatedAt("");
-      }
-      return;
-    }
-    const timer = setTimeout(() => {
-      void lookupCvByDni(nroDoc, false);
-    }, 450);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nroDoc]);
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -471,9 +578,18 @@ export default function PublicCvForm(props: PublicCvFormProps) {
     }
   };
 
+  const EXP_UPPER_KEYS: Array<keyof ExperienceRow> = [
+    "empresa",
+    "puesto",
+    "referenciaNombre",
+    "referenciaTelefono",
+    "tareas",
+  ];
+
   const updateExpField = (idx: number, key: keyof ExperienceRow, val: string) => {
+    const nextVal = EXP_UPPER_KEYS.includes(key) ? val.toUpperCase() : val;
     setExperiencias((prev) =>
-      prev.map((row, i) => (i === idx ? { ...row, [key]: val } : row))
+      prev.map((row, i) => (i === idx ? { ...row, [key]: nextVal } : row))
     );
   };
 
@@ -553,6 +669,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             cursosAdicionales,
             sinExperienciaPrevia,
             experiencias: sinExperienciaPrevia ? [] : experiencias,
+            customFields: customValues,
             fotoBase64,
             clearPhoto,
             pdfBase64,
@@ -587,8 +704,78 @@ export default function PublicCvForm(props: PublicCvFormProps) {
   };
 
   const inputCls =
-    "w-full rounded-xl border border-[#112D3A]/20 bg-[#FFFFFF] px-3.5 py-2.5 text-sm text-[#112D3A] shadow-sm focus:border-[#56D7A1] focus:outline-none focus:ring-2 focus:ring-[#56D7A1]/40";
+    "w-full rounded-xl border border-[#112D3A]/20 bg-[#FFFFFF] px-3.5 py-2.5 text-sm uppercase text-[#112D3A] shadow-sm focus:border-[#56D7A1] focus:outline-none focus:ring-2 focus:ring-[#56D7A1]/40";
   const labelCls = "mb-1.5 block text-xs font-bold uppercase tracking-wide text-[#112D3A]/80";
+
+  const renderCustomFieldsForSection = (section: CvFieldSection) => {
+    const customList = resolvedConfig.fields.filter(
+      (f) => f.isCustom && f.enabled && f.section === section
+    );
+    if (customList.length === 0) return null;
+    return customList.map((cf) => {
+      const val = customValues[cf.key] || "";
+      const setVal = (next: string) =>
+        setCustomValues((prev) => ({ ...prev, [cf.key]: next }));
+      const lbl = cf.required ? `${cf.label} *` : cf.label;
+      if (cf.type === "select") {
+        const opts = fldOptions(cf.key, [], val);
+        return (
+          <div key={cf.key}>
+            <label className={labelCls}>{lbl}</label>
+            <select
+              className={inputCls}
+              required={cf.required}
+              value={val}
+              onChange={(e) => setVal(e.target.value)}
+            >
+              <option value="" disabled={cf.required}>
+                Seleccionar...
+              </option>
+              {opts.map((opt) => (
+                <option key={`${cf.key}-${opt}`} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      }
+      if (cf.type === "textarea") {
+        return (
+          <div key={cf.key} className="sm:col-span-2">
+            <label className={labelCls}>{lbl}</label>
+            <textarea
+              rows={2}
+              className={inputCls}
+              required={cf.required}
+              value={val}
+              onChange={(e) => setVal(e.target.value.toUpperCase())}
+              placeholder={cf.placeholder || ""}
+            />
+          </div>
+        );
+      }
+      return (
+        <div key={cf.key}>
+          <label className={labelCls}>{lbl}</label>
+          <input
+            type={cf.type}
+            className={inputCls}
+            required={cf.required}
+            value={val}
+            onChange={(e) =>
+              setVal(
+                cf.type === "date" || cf.type === "number"
+                  ? e.target.value
+                  : e.target.value.toUpperCase()
+              )
+            }
+            placeholder={cf.placeholder || ""}
+          />
+        </div>
+      );
+    });
+  };
 
   if (submittedReceipt) {
     return (
@@ -662,6 +849,34 @@ export default function PublicCvForm(props: PublicCvFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {dniFoundToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed inset-x-0 top-5 z-50 flex justify-center px-4"
+        >
+          <div className="pointer-events-auto flex w-full max-w-lg items-start gap-3 rounded-2xl border-2 border-[#56D7A1] bg-[#112D3A] px-5 py-4 text-[#FFFFFF] shadow-2xl">
+            <span
+              className="mt-0.5 inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#56D7A1] text-sm font-black text-[#112D3A]"
+              aria-hidden="true"
+            >
+              ✓
+            </span>
+            <p className="flex-1 text-sm font-semibold leading-snug text-[#FFFFFF]">
+              Tu CV ya está cargado, te mostramos los datos que informaste. Si necesitas actualizar algún dato puedes hacerlo.
+            </p>
+            <button
+              type="button"
+              onClick={() => setDniFoundToast(false)}
+              aria-label="Cerrar aviso"
+              className="flex-shrink-0 rounded-lg px-2 py-0.5 text-xs font-extrabold text-[#FFFFFF]/70 transition hover:bg-[#FFFFFF]/10 hover:text-[#FFFFFF]"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {errorMsg && (
         <div
           role="alert"
@@ -726,50 +941,6 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
         </div>
 
-        {/* BUSCADOR / VERIFICADOR POR DNI PARA EVITAR DUPLICACIÓN Y RECUPERAR DATOS */}
-        <div className="mb-5 rounded-2xl border-2 border-[#56D7A1] bg-[#112D3A]/[0.03] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-extrabold uppercase tracking-wider text-[#112D3A]">
-                🔎 Verificación de DNI · Control Anti-Duplicación de CV
-              </div>
-              <p className="mt-0.5 text-xs text-[#112D3A]/75">
-                Ingresá primero tu <strong>DNI / Documento</strong>. Si ya cargaste tu CV anteriormente, el sistema recupera automáticamente todos tus datos para que puedas revisarlos o actualizarlos sin duplicar tu postulación.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void lookupCvByDni(nroDoc, true)}
-              disabled={lookupLoading || String(nroDoc || "").replace(/\D/g, "").length < 6}
-              className="rounded-xl bg-[#112D3A] px-4 py-2 text-xs font-extrabold text-[#56D7A1] shadow hover:brightness-110 disabled:opacity-50"
-            >
-              {lookupLoading ? "Buscando DNI..." : "🔍 Verificar DNI / Traer mis datos"}
-            </button>
-          </div>
-
-          {existingCvCode && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="mt-3 rounded-xl border border-[#56D7A1] bg-[#112D3A] p-3.5 text-xs text-[#FFFFFF]"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#56D7A1] px-2.5 py-0.5 text-[11px] font-black text-[#112D3A]">
-                  ✓ CV YA REGISTRADO ({existingCvCode})
-                </span>
-                {existingCvUpdatedAt && (
-                  <span className="text-[11px] text-[#56D7A1]">
-                    Última carga: {new Date(existingCvUpdatedAt).toLocaleString("es-AR")}
-                  </span>
-                )}
-              </div>
-              <p className="mt-2 leading-relaxed text-[#FFFFFF]/90">
-                Encontramos tu Curriculum Vitae asociado al documento <strong>{nroDoc}</strong> y cargamos todos tus datos en el formulario. Podés modificar cualquier dato, foto o archivo PDF y presionar <strong>&ldquo;Actualizar mi Curriculum Vitae&rdquo;</strong> al final (el administrador recibirá un alerta con tus nuevos datos).
-              </p>
-            </div>
-          )}
-        </div>
-
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="grid grid-cols-5 gap-2">
             <div className="col-span-2">
@@ -789,14 +960,22 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             </div>
             <div className="col-span-3">
               <label className={labelCls}>Número (DNI) *</label>
-              <input
-                className={inputCls}
-                required
-                value={nroDoc}
-                onChange={(e) => setNroDoc(e.target.value)}
-                onBlur={() => void lookupCvByDni(nroDoc, true)}
-                placeholder="Ej: 38123456"
-              />
+              <div className="relative">
+                <input
+                  className={lookupLoading ? `${inputCls} pr-9` : inputCls}
+                  required
+                  value={nroDoc}
+                  onChange={handleUpperChange(setNroDoc)}
+                  onBlur={() => void lookupCvByDni(nroDoc)}
+                  placeholder="Ej: 38123456"
+                />
+                {lookupLoading && (
+                  <span
+                    aria-label="Buscando..."
+                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-[#56D7A1] border-t-transparent"
+                  />
+                )}
+              </div>
             </div>
           </div>
           <div>
@@ -805,7 +984,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               className={inputCls}
               required
               value={nombres}
-              onChange={(e) => setNombres(e.target.value)}
+              onChange={handleUpperChange(setNombres)}
               placeholder="Ej: María Florencia"
             />
           </div>
@@ -815,7 +994,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               className={inputCls}
               required
               value={apellidos}
-              onChange={(e) => setApellidos(e.target.value)}
+              onChange={handleUpperChange(setApellidos)}
               placeholder="Ej: González"
             />
           </div>
@@ -952,7 +1131,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                 className={inputCls}
                 required
                 value={provincia}
-                onChange={(e) => setProvincia(e.target.value)}
+                onChange={handleUpperChange(setProvincia)}
                 placeholder="Estado / Región"
               />
             )}
@@ -978,7 +1157,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                 className={inputCls}
                 required
                 value={localidad}
-                onChange={(e) => setLocalidad(e.target.value)}
+                onChange={handleUpperChange(setLocalidad)}
                 placeholder="Ciudad / Localidad"
               />
             )}
@@ -990,7 +1169,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               className={inputCls}
               required
               value={cp}
-              onChange={(e) => setCp(e.target.value)}
+              onChange={handleUpperChange(setCp)}
               placeholder="Ej: 5800"
             />
           </div>
@@ -1002,7 +1181,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               className={inputCls}
               required
               value={domicilioCalle}
-              onChange={(e) => setDomicilioCalle(e.target.value)}
+              onChange={handleUpperChange(setDomicilioCalle)}
               placeholder="Ej: Av. San Martín"
             />
           </div>
@@ -1013,7 +1192,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               className={inputCls}
               required
               value={domicilioNumero}
-              onChange={(e) => setDomicilioNumero(e.target.value)}
+              onChange={handleUpperChange(setDomicilioNumero)}
               placeholder="Ej: 450 (o S/N)"
             />
           </div>
@@ -1024,7 +1203,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               className={inputCls}
               required
               value={domicilioBarrio}
-              onChange={(e) => setDomicilioBarrio(e.target.value)}
+              onChange={handleUpperChange(setDomicilioBarrio)}
               placeholder="Ej: Centro"
             />
           </div>
@@ -1034,7 +1213,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <input
               className={inputCls}
               value={domicilioPiso}
-              onChange={(e) => setDomicilioPiso(e.target.value)}
+              onChange={handleUpperChange(setDomicilioPiso)}
               placeholder="Opcional"
             />
           </div>
@@ -1044,7 +1223,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <input
               className={inputCls}
               value={domicilioDpto}
-              onChange={(e) => setDomicilioDpto(e.target.value)}
+              onChange={handleUpperChange(setDomicilioDpto)}
               placeholder="Opcional"
             />
           </div>
@@ -1054,7 +1233,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <input
               className={inputCls}
               value={domicilioEdificio}
-              onChange={(e) => setDomicilioEdificio(e.target.value)}
+              onChange={handleUpperChange(setDomicilioEdificio)}
               placeholder="Opcional"
             />
           </div>
@@ -1064,7 +1243,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <input
               className={inputCls}
               value={domicilioTorre}
-              onChange={(e) => setDomicilioTorre(e.target.value)}
+              onChange={handleUpperChange(setDomicilioTorre)}
               placeholder="Opcional"
             />
           </div>
@@ -1092,7 +1271,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               required
               type="tel"
               value={whatsappNumero}
-              onChange={(e) => setWhatsappNumero(e.target.value)}
+              onChange={handleUpperChange(setWhatsappNumero)}
               placeholder="Ej: 3585095475 (sin 0 ni 15)"
             />
           </div>
@@ -1104,7 +1283,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               required
               className={inputCls}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleUpperChange(setEmail)}
               placeholder="nombre@correo.com"
             />
           </div>
@@ -1115,7 +1294,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               className={inputCls}
               required
               value={facebookUrl}
-              onChange={(e) => setFacebookUrl(e.target.value)}
+              onChange={handleUpperChange(setFacebookUrl)}
               placeholder="Usuario o enlace (o 'No tengo')"
             />
           </div>
@@ -1126,7 +1305,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               className={inputCls}
               required
               value={instagramUrl}
-              onChange={(e) => setInstagramUrl(e.target.value)}
+              onChange={handleUpperChange(setInstagramUrl)}
               placeholder="@usuario (o 'No tengo')"
             />
           </div>
@@ -1136,7 +1315,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <input
               className={inputCls}
               value={telefonoAlternativo}
-              onChange={(e) => setTelefonoAlternativo(e.target.value)}
+              onChange={handleUpperChange(setTelefonoAlternativo)}
               placeholder="Opcional (familiar / fijo)"
             />
           </div>
@@ -1146,7 +1325,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <input
               className={inputCls}
               value={linkedinUrl}
-              onChange={(e) => setLinkedinUrl(e.target.value)}
+              onChange={handleUpperChange(setLinkedinUrl)}
               placeholder="https://linkedin.com/in/..."
             />
           </div>
@@ -1377,7 +1556,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               rows={2}
               className={inputCls}
               value={presentacion}
-              onChange={(e) => setPresentacion(e.target.value)}
+              onChange={handleUpperChange(setPresentacion)}
               placeholder="Contanos brevemente sobre tu perfil, fortalezas y motivación para sumarte al equipo..."
             />
           </div>
@@ -1435,21 +1614,23 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Título / Orientación / Carrera</label>
+            <label className={labelCls}>Título / Orientación / Carrera *</label>
             <input
               className={inputCls}
+              required
               value={tituloCarrera}
-              onChange={(e) => setTituloCarrera(e.target.value)}
+              onChange={handleUpperChange(setTituloCarrera)}
               placeholder="Ej: Bachiller en Economía / Contador"
             />
           </div>
 
           <div>
-            <label className={labelCls}>Institución Educativa</label>
+            <label className={labelCls}>Institución Educativa *</label>
             <input
               className={inputCls}
+              required
               value={institucion}
-              onChange={(e) => setInstitucion(e.target.value)}
+              onChange={handleUpperChange(setInstitucion)}
               placeholder="Ej: UNRC / Instituto..."
             />
           </div>
@@ -1548,7 +1729,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             <input
               className={inputCls}
               value={cursosAdicionales}
-              onChange={(e) => setCursosAdicionales(e.target.value)}
+              onChange={handleUpperChange(setCursosAdicionales)}
               placeholder="Ej: Carnet de Manipulación de Alimentos vigente, Curso Atención al Cliente, Liquidación..."
             />
           </div>
