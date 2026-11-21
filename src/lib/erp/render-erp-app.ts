@@ -156,10 +156,8 @@ export function renderErpHtmlResponse(params: {
       ? `/${tenant.slug}/inmobiliaria`
       : "/inmobiliaria";
 
-  const verMatch = html.match(/assets\/(?:js\/app|css\/styles)\.(?:js|css)\?v=(\d+)/i);
-  const templateMajor = verMatch ? verMatch[1] : undefined;
-  const assetVer = getErpAssetVersion(templateMajor);
-  const appVersion = getErpAppVersion(templateMajor);
+  const assetVer = getErpAssetVersion();
+  const appVersion = getErpAppVersion();
 
   const bootPayload = {
     slug: tenant.slug,

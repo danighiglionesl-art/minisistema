@@ -1,5 +1,5 @@
 export const ERP_ASSET_MAJOR = "320";
-export const ERP_ASSET_MINOR = "4";
+export const ERP_ASSET_MINOR = "5";
 
 export function getErpDeploySha(): string {
   return (
@@ -11,12 +11,13 @@ export function getErpDeploySha(): string {
     .slice(0, 7);
 }
 
-export function getErpAssetVersion(templateMajor?: string): string {
-  const major = String(templateMajor || ERP_ASSET_MAJOR).trim() || ERP_ASSET_MAJOR;
+export function getErpAssetVersion(_templateMajor?: string): string {
   const sha = getErpDeploySha();
-  return sha ? `${major}.${ERP_ASSET_MINOR}-${sha}` : `${major}.${ERP_ASSET_MINOR}`;
+  return sha
+    ? `${ERP_ASSET_MAJOR}.${ERP_ASSET_MINOR}-${sha}`
+    : `${ERP_ASSET_MAJOR}.${ERP_ASSET_MINOR}`;
 }
 
-export function getErpAppVersion(templateMajor?: string): string {
-  return `minisistema-erp-v${getErpAssetVersion(templateMajor)}`;
+export function getErpAppVersion(_templateMajor?: string): string {
+  return `minisistema-erp-v${getErpAssetVersion()}`;
 }
