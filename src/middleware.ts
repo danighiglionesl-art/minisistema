@@ -35,6 +35,7 @@ export const config = {
     "/carrito/:path*",
     "/verificador/:path*",
     "/cv/:path*",
+    "/asistencia/:path*",
     "/turnos/:path*",
     "/cemep/:path*",
     "/inmobiliaria/:path*",

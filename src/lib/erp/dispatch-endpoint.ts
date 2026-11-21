@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { handleErpAsistencia } from "@/lib/erp/handlers/asistencia-handler";
 import { handleErpAuth } from "@/lib/erp/handlers/auth-handler";
 import { handleErpCatalog } from "@/lib/erp/handlers/catalog-handler";
 import { handleErpClientes } from "@/lib/erp/handlers/clientes-handler";
@@ -85,6 +86,10 @@ export async function dispatchErpEndpoint(
       case "curriculum":
       case "cv":
         res = await handleErpCurriculum(req, tenant);
+        break;
+      case "asistencia":
+      case "asistencias":
+        res = await handleErpAsistencia(req, tenant);
         break;
       case "turnos":
         res = await handleErpTurnos(req, tenant);

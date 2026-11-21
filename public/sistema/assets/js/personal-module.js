@@ -258,6 +258,9 @@
     hideAllErpSections();
     mounted.asistSec.hidden = false;
     updateTopbarState(true, 'Administración de Personal · Control de Asistencias');
+    if (typeof window.__MS_MOUNT_ASISTENCIAS__ === 'function') {
+      window.__MS_MOUNT_ASISTENCIAS__();
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -285,6 +288,9 @@
             ev.stopPropagation();
             if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
             if (a && !a.hidden) {
+              if (typeof window.__MS_ASISTENCIAS_BACK__ === 'function' && window.__MS_ASISTENCIAS_BACK__()) {
+                return;
+              }
               openPersonalMenu();
             } else {
               closePersonalToHome();

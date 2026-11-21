@@ -28,27 +28,44 @@ for (const [relSrc, relDst] of copyPairs) {
   }
 }
 
-// 2. Detect current version number stamped in sistema/index.html
+// 2. Detect current version number stamped in sistema/index.html and sync src/lib/erp/erp-version.ts
 const sisHtml = fs.readFileSync(
   path.join(msRoot, "src/lib/erp/templates/sistema.html"),
   "utf8"
 );
 const verMatch = sisHtml.match(/assets\/js\/app\.js\?v=(\d+)/);
-const currentVer = verMatch ? Number(verMatch[1]) : 268;
+const currentVer = verMatch ? Number(verMatch[1]) : 320;
+
+const erpVerPath = path.join(msRoot, "src/lib/erp/erp-version.ts");
+let erpVerRaw = fs.readFileSync(erpVerPath, "utf8");
+const prevMajorMatch = erpVerRaw.match(/export const ERP_ASSET_MAJOR = "(\d+)";/);
+const prevMinorMatch = erpVerRaw.match(/export const ERP_ASSET_MINOR = "(\d+)";/);
+const prevMajor = prevMajorMatch ? Number(prevMajorMatch[1]) : 0;
+const prevMinor = prevMinorMatch ? Number(prevMinorMatch[1]) : 0;
+const nextMinor = prevMajor === currentVer ? prevMinor + 1 : 1;
+
+erpVerRaw = erpVerRaw
+  .replace(/export const ERP_ASSET_MAJOR = "[^"]+";/, `export const ERP_ASSET_MAJOR = "${currentVer}";`)
+  .replace(/export const ERP_ASSET_MINOR = "[^"]+";/, `export const ERP_ASSET_MINOR = "${nextMinor}";`);
+fs.writeFileSync(erpVerPath, erpVerRaw, "utf8");
+console.log(`[SYNC] Updated src/lib/erp/erp-version.ts to v${currentVer}.${nextMinor}`);
+
+const fullSyncVer = `${currentVer}.${nextMinor}`;
 
 // 3. Write clean MiniSistema Service Worker (public/sistema/sw.js) with matching version
-const swContent = `const CACHE_NAME = 'minisistema-erp-v${currentVer}';
+const swContent = `const CACHE_NAME = 'minisistema-erp-v${fullSyncVer}';
 const ASSETS_TO_CACHE = [
-  '/sistema/assets/js/brand.js?v=${currentVer}',
-  '/sistema/assets/css/styles.css?v=${currentVer}',
-  '/sistema/assets/css/brand-minisistema.css?v=${currentVer}',
-  '/sistema/assets/js/zxing.min.js?v=${currentVer}',
-  '/sistema/assets/js/app.js?v=${currentVer}',
-  '/sistema/assets/js/superadmin-panel.js?v=${currentVer}',
-  '/sistema/assets/js/cv-module.js?v=${currentVer}',
-  '/sistema/assets/js/personal-module.js?v=${currentVer}',
-  '/sistema/assets/js/turnos-module.js?v=${currentVer}',
-  '/sistema/assets/js/mi-contador-module.js?v=${currentVer}',
+  '/sistema/assets/js/brand.js?v=${fullSyncVer}',
+  '/sistema/assets/css/styles.css?v=${fullSyncVer}',
+  '/sistema/assets/css/brand-minisistema.css?v=${fullSyncVer}',
+  '/sistema/assets/js/zxing.min.js?v=${fullSyncVer}',
+  '/sistema/assets/js/app.js?v=${fullSyncVer}',
+  '/sistema/assets/js/superadmin-panel.js?v=${fullSyncVer}',
+  '/sistema/assets/js/cv-module.js?v=${fullSyncVer}',
+  '/sistema/assets/js/asistencia-module.js?v=${fullSyncVer}',
+  '/sistema/assets/js/personal-module.js?v=${fullSyncVer}',
+  '/sistema/assets/js/turnos-module.js?v=${fullSyncVer}',
+  '/sistema/assets/js/mi-contador-module.js?v=${fullSyncVer}',
   '/sistema/assets/img/minisistema/logo-1x1.png',
   '/sistema/assets/img/minisistema/logo-horizontal.png',
   '/sistema/assets/img/minisistema/logo-symbol.png',

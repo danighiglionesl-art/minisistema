@@ -155,6 +155,10 @@ export function renderErpHtmlResponse(params: {
     tenant.option_type === 2 && !tenant.is_base
       ? `/${tenant.slug}/inmobiliaria`
       : "/inmobiliaria";
+  const asistenciaPath =
+    tenant.option_type === 2 && !tenant.is_base
+      ? `/${tenant.slug}/asistencia`
+      : "/asistencia";
 
   const assetVer = getErpAssetVersion();
   const appVersion = getErpAppVersion();
@@ -189,6 +193,7 @@ export function renderErpHtmlResponse(params: {
     turnosUrl: `${siteOrigin}${turnosPath}`,
     cemepUrl: `${siteOrigin}${cemepPath}`,
     inmobiliariaUrl: `${siteOrigin}${inmobiliariaPath}`,
+    asistenciaUrl: `${siteOrigin}${asistenciaPath}`,
     enabledModules: tenant.enabled_modules,
     appVersion,
   };
@@ -292,7 +297,7 @@ export function renderErpHtmlResponse(params: {
     );
     html = html.replace(
       "</body>",
-      `  <script src="/sistema/assets/js/superadmin-panel.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/cv-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/personal-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/turnos-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-consultorios-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-web-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/inmobiliaria-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/mi-contador-module.js?v=${assetVer}"></script>\n</body>`
+      `  <script src="/sistema/assets/js/superadmin-panel.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/cv-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/asistencia-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/personal-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/turnos-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-consultorios-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-web-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/inmobiliaria-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/mi-contador-module.js?v=${assetVer}"></script>\n</body>`
     );
   }
 

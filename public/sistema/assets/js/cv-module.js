@@ -987,9 +987,9 @@
           '</p></div>'
         : '') +
 
-      (Array.isArray(cv.customFields) && cv.customFields.length > 0
+      (Array.isArray(c.customFields) && c.customFields.length > 0
         ? '<div class="ms-sa-card"><h4 style="margin-top:0;">📋 Campos Adicionales del Formulario</h4><div style="display:grid;gap:0.35rem;font-size:0.84rem;">' +
-          cv.customFields.map(function (cf) {
+          c.customFields.map(function (cf) {
             return '<div><strong>' + esc(cf.label || cf.key) + ':</strong> ' + esc(cf.value || '') + '</div>';
           }).join('') +
           '</div></div>'
@@ -1013,17 +1013,17 @@
           '</div>'
         : '') +
 
-      (cv.interview
+      (c.interview
         ? '<div class="ms-sa-card" style="border-left:4px solid #56D7A1;">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;">' +
             '<div>' +
-              '<h4 style="margin:0;">Entrevista Realizada · Puntaje Ponderado: ' + Number(cv.interview.weightedScore || 0).toFixed(1) + '%</h4>' +
-              '<div style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">Fecha: ' + esc(cv.interview.interviewDate || '—') + ' · Evaluado por: ' + esc(cv.interview.evaluatedBy || 'admin') + '</div>' +
+              '<h4 style="margin:0;">Entrevista Realizada · Puntaje Ponderado: ' + Number(c.interview.weightedScore || 0).toFixed(1) + '%</h4>' +
+              '<div style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">Fecha: ' + esc(c.interview.interviewDate || '—') + ' · Evaluado por: ' + esc(c.interview.evaluatedBy || 'admin') + '</div>' +
             '</div>' +
             '<button type="button" class="ms-sa-btn" id="ms-cv-open-interview-from-detail">Editar Evaluación de Entrevista</button>' +
           '</div>' +
-          (cv.interview.review
-            ? '<p style="margin:0.7rem 0 0;font-size:0.86rem;line-height:1.5;white-space:pre-wrap;">' + esc(cv.interview.review) + '</p>'
+          (c.interview.review
+            ? '<p style="margin:0.7rem 0 0;font-size:0.86rem;line-height:1.5;white-space:pre-wrap;">' + esc(c.interview.review) + '</p>'
             : '') +
           '</div>'
         : '<div class="ms-sa-card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;">' +
