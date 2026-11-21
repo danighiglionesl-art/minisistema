@@ -52,7 +52,11 @@ export function CemepFloatingControls({
         type="button"
         onClick={onOpenPatientPortal}
         aria-label="Acceso a Pacientes"
-        title="Acceso a Pacientes — Turnos, Estudios y Recetas"
+        title={
+          loggedPatientName
+            ? `Acceso a Pacientes (${loggedPatientName})`
+            : "Acceso a Pacientes"
+        }
         style={{
           backgroundColor: "#1B335D",
           color: "#FFFFFF",
@@ -71,19 +75,11 @@ export function CemepFloatingControls({
           <UserRound className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
         </span>
 
-        <span className="flex flex-col text-left leading-tight">
-          <span
-            className="whitespace-nowrap text-xs font-extrabold tracking-wide sm:text-sm"
-            style={{ color: "#FFFFFF" }}
-          >
-            Acceso a Pacientes
-          </span>
-          <span
-            className="hidden max-w-[140px] truncate text-[10px] font-semibold sm:inline"
-            style={{ color: loggedPatientName ? "#C9F03A" : "#D4ECFA" }}
-          >
-            {loggedPatientName ? `● ${loggedPatientName}` : "Estudios · Recetas"}
-          </span>
+        <span
+          className="whitespace-nowrap text-xs font-extrabold tracking-wide sm:text-sm"
+          style={{ color: "#FFFFFF" }}
+        >
+          Acceso a Pacientes
         </span>
 
         <span
@@ -99,7 +95,11 @@ export function CemepFloatingControls({
         type="button"
         onClick={onOpenProfPortal}
         aria-label="Acceso a Profesionales"
-        title="Acceso a Profesionales — Agenda, Historia Clínica y Carga de Estudios"
+        title={
+          loggedProfName
+            ? `Acceso a Profesionales (${loggedProfName})`
+            : "Acceso a Profesionales"
+        }
         style={{
           backgroundColor: "#0099D8",
           color: "#FFFFFF",
@@ -118,19 +118,11 @@ export function CemepFloatingControls({
           <Stethoscope className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
         </span>
 
-        <span className="flex flex-col text-left leading-tight">
-          <span
-            className="whitespace-nowrap text-xs font-extrabold tracking-wide sm:text-sm"
-            style={{ color: "#FFFFFF" }}
-          >
-            Acceso a Profesionales
-          </span>
-          <span
-            className="hidden max-w-[140px] truncate text-[10px] font-semibold sm:inline"
-            style={{ color: loggedProfName ? "#E8FF99" : "#E8F7FF" }}
-          >
-            {loggedProfName ? `● ${loggedProfName}` : "Turnos · Historia Clínica"}
-          </span>
+        <span
+          className="whitespace-nowrap text-xs font-extrabold tracking-wide sm:text-sm"
+          style={{ color: "#FFFFFF" }}
+        >
+          Acceso a Profesionales
         </span>
 
         <span
