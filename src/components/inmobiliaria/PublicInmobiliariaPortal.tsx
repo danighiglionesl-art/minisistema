@@ -217,7 +217,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
 
   const destacadasTrack = useMemo(() => {
     if (destacadas.length === 0) return [];
-    const repeatCount = Math.max(1, Math.ceil(6 / destacadas.length));
+    const repeatCount = Math.max(1, Math.ceil(8 / destacadas.length));
     const out: InmoPropiedadRecord[] = [];
     for (let r = 0; r < repeatCount; r++) {
       for (const p of destacadas) out.push(p);
@@ -225,7 +225,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
     return out;
   }, [destacadas]);
 
-  const featuredMarqueeSeconds = Math.max(28, Math.round(destacadasTrack.length * 6.5));
+  const featuredMarqueeSeconds = Math.max(24, Math.round(destacadasTrack.length * 4.5));
 
   const tabCounts = useMemo(() => {
     return {

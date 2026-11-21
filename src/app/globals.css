@@ -339,23 +339,19 @@ details > summary::-webkit-details-marker {
   }
 }
 
+.inmo-marquee-viewport {
+  overflow: hidden !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.inmo-marquee-viewport::-webkit-scrollbar {
+  display: none;
+}
+
 .inmo-marquee-track {
   display: flex;
   width: max-content;
-  animation: inmoMarquee var(--inmo-marquee-duration, 38s) linear infinite;
+  animation: inmoMarquee var(--inmo-marquee-duration, 32s) linear infinite;
   will-change: transform;
-}
-
-.inmo-marquee-viewport:hover .inmo-marquee-track,
-.inmo-marquee-viewport:focus-within .inmo-marquee-track {
-  animation-play-state: paused;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .inmo-marquee-viewport {
-    overflow-x: auto;
-  }
-  .inmo-marquee-track {
-    animation: none;
-  }
 }
