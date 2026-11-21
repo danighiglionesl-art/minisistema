@@ -150,16 +150,6 @@
   }
 
   function syncCounters() {
-    var uEl = document.getElementById('ms-gw-cnt-users');
-    var eEl = document.getElementById('ms-gw-cnt-editor');
-    var rEl = document.getElementById('ms-gw-cnt-recetas');
-    var pEl = document.getElementById('ms-gw-cnt-profs');
-    var hEl = document.getElementById('ms-gw-home-pill');
-    if (uEl) uEl.textContent = (STATE.gestionWeb.webUsers || []).length + ' usuarios';
-    if (eEl) eEl.textContent = STATE.gestionWeb.hasUnpublishedChanges ? 'Sin publicar' : 'Publicado ✓';
-    if (rEl) rEl.textContent = (STATE.stats.recetasPendientes || 0) + ' pendientes';
-    if (pEl) pEl.textContent = (STATE.gestionWeb.profesionalAccounts || []).length + ' accesos';
-    if (hEl) hEl.textContent = STATE.gestionWeb.hasUnpublishedChanges ? 'CAMBIOS SIN PUBLICAR' : 'PORTAL /CEMEP';
     var lnk = document.getElementById('ms-gw-open-public');
     if (lnk && STATE.publicCemepUrl) lnk.href = STATE.publicCemepUrl;
   }
@@ -168,7 +158,7 @@
     return (
       '<article class="module-card" data-gw-sub="' + key + '" role="button" tabindex="0" style="cursor:pointer;">' +
         '<div class="module-icon" aria-hidden="true">' +
-          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + svgInner + '</svg>' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + svgInner + '</svg>' +
         '</div>' +
         '<h3>' + esc(title) + '</h3>' +
       '</article>'
@@ -193,13 +183,29 @@
             '<button type="button" class="btn-back-home" id="ms-gw-back-home">← Volver a Gestión Consultorios</button>' +
             '<span class="module-breadcrumb">Gestión Consultorios · <strong>Gestión Web</strong></span>' +
           '</div>' +
-          '<a href="/cemep" target="_blank" class="ms-sa-btn" id="ms-gw-open-public" style="padding:0.42rem 0.9rem;font-size:0.8rem;">🌐 Abrir Página Web /cemep ↗</a>' +
+          '<a href="/cemep" target="_blank" class="ms-sa-btn" id="ms-gw-open-public" style="padding:0.42rem 0.9rem;font-size:0.8rem;">Abrir Página Web /cemep ↗</a>' +
         '</div>' +
         '<div class="modules-grid" aria-label="Submódulos de Gestión Web">' +
-          subCard('usuarios', 'Usuarios Registrados', '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>') +
-          subCard('editor', 'Editor Web y Publicación', '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>') +
-          subCard('recetas', 'Recetas Digitales (Admin)', '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line>') +
-          subCard('profesionales', 'Accesos de Profesionales', '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline>') +
+          subCard(
+            'usuarios',
+            'Usuarios Registrados',
+            '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>'
+          ) +
+          subCard(
+            'editor',
+            'Editor Web y Publicación',
+            '<rect x="2" y="3" width="20" height="18" rx="2.5"></rect><line x1="2" y1="8.5" x2="22" y2="8.5"></line><circle cx="5.5" cy="5.75" r="0.85" fill="currentColor" stroke="none"></circle><circle cx="8" cy="5.75" r="0.85" fill="currentColor" stroke="none"></circle><path d="M12 17.5v-5.5"></path><polyline points="9.25 14.5 12 11.75 14.75 14.5"></polyline>'
+          ) +
+          subCard(
+            'recetas',
+            'Recetas Digitales (Admin)',
+            '<rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="M12 11v6"></path><path d="M9 14h6"></path>'
+          ) +
+          subCard(
+            'profesionales',
+            'Accesos de Profesionales',
+            '<rect x="2" y="5" width="20" height="14" rx="2.5"></rect><circle cx="8.5" cy="10.5" r="2"></circle><path d="M5.5 16a3 3 0 0 1 6 0"></path><line x1="14.5" y1="10" x2="19" y2="10"></line><line x1="14.5" y1="14" x2="18" y2="14"></line>'
+          ) +
         '</div>';
 
       erpMain.appendChild(menuSec);

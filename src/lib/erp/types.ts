@@ -204,7 +204,6 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "estadisticas:art_generico",
   "tema",
   "verificador",
-  "administracion_personal",
   "cv",
   "cv:recibidos",
   "cv:previsualizados",

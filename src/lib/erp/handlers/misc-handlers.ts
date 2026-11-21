@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getErpAppVersion } from "../erp-version";
+import { lookupExternalArgentinePersonByDni } from "../external-dni-lookup";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
   getTenantDbStatusMap,
@@ -579,11 +580,36 @@ export async function handleErpPadronArca(
     });
   }
 
+  // Respaldo externo (CUITOnline / BCRA Oficial / Motores de búsqueda públicos)
+  try {
+    const ext = await lookupExternalArgentinePersonByDni(doc);
+    if (ext && ext.razonSocial) {
+      return NextResponse.json({
+        ok: true,
+        source: ext.source,
+        sourceLabel: ext.sourceLabel,
+        contribuyente: {
+          cuit: ext.formattedCuit || ext.cuit,
+          razonSocial: ext.razonSocial,
+          nombre: ext.nombreCompleto || ext.razonSocial,
+          condicionIva: "CONSUMIDOR FINAL",
+          idRespIva: 1,
+          domicilio: ext.domicilio || "",
+          localidad: ext.localidad || tenant.branding.localidad,
+          provincia: ext.provincia || tenant.branding.provincia,
+          cp: tenant.branding.cp,
+        },
+      });
+    }
+  } catch {
+    // Continuar con respuesta notFound si falla red externa
+  }
+
   return NextResponse.json({
     ok: false,
     notFound: true,
     message:
-      "Sin datos previos en padrón local. Podés completar los datos manualmente.",
+      "Sin datos previos en padrón local ni en buscadores públicos. Podés completar los datos manualmente.",
   });
 }
 

@@ -5293,6 +5293,48 @@ async function loadClientesDatabase(forceReload = false) {
         movsMap[k] = (arr || []).map((m) => normalizeMovimientoRecord(m));
       }
     }
+
+    // Desduplicar comprobantes idénticos por cliente/proveedor (mismo origen, dh, número de comprobante NNNN-NNNNNNNN, fecha e importe)
+    for (const [cidKey, arr] of Object.entries(movsMap)) {
+      if (!Array.isArray(arr) || arr.length <= 1) continue;
+      const seenVoucherSigs = new Set();
+      const deduped = [];
+      let removedAnyDup = false;
+      for (const m of arr) {
+        const compStr = String(m.comprobante || '').trim().toUpperCase();
+        const impVal = round2(Math.max(Number(m.debe) || 0, Number(m.haber) || 0, Number(m.importe) || 0));
+        if (/\d{4}-\d{6,8}/.test(compStr) && impVal > 0.009) {
+          const sig = `${String(m.origen || 'VENTA').toUpperCase()}|${Number(m.dh) || 1}|${compStr}|${String(m.fecha || '').trim()}|${impVal.toFixed(2)}`;
+          if (seenVoucherSigs.has(sig)) {
+            removedAnyDup = true;
+            continue;
+          }
+          seenVoucherSigs.add(sig);
+        }
+        deduped.push(m);
+      }
+      if (removedAnyDup) {
+        movsMap[cidKey] = deduped;
+        const targetCli = STATE.clientes.find((c) => String(c.id) === cidKey);
+        if (targetCli) {
+          let sD = 0;
+          let sH = 0;
+          let runS = 0;
+          deduped.forEach((m) => {
+            const dVal = round2(Number(m.debe) || 0);
+            const hVal = round2(Number(m.haber) || 0);
+            sD = round2(sD + dVal);
+            sH = round2(sH + hVal);
+            runS = round2(runS + dVal - hVal);
+            m.saldo = runS;
+          });
+          targetCli.totalDebe = sD;
+          targetCli.totalHaber = sH;
+          targetCli.saldoActual = round2(sD - sH);
+          targetCli.cantMovs = deduped.length;
+        }
+      }
+    }
     // Conciliación preventiva para clientes con ajustes por crédito históricos ya imputados (ej. #194 TALANO, cId=196)
     if (Array.isArray(movsMap['196'])) {
       movsMap['196'] = movsMap['196'].filter(
@@ -13141,10 +13183,15 @@ function initApp() {
       existing.cantidad = allowFrac
         ? Math.round((existing.cantidad + qty) * 1000) / 1000
         : Math.max(1, Math.round(existing.cantidad + qty));
+      const existingIdx = STATE.factItems.indexOf(existing);
+      if (existingIdx > 0) {
+        STATE.factItems.splice(existingIdx, 1);
+        STATE.factItems.unshift(existing);
+      }
     } else {
       const newUid = Date.now() + Math.random();
       if (isGeneric) addedGenericUid = newUid;
-      STATE.factItems.push({
+      STATE.factItems.unshift({
         uid: newUid,
         artId: art.id,
         codigo: art.c || '00020',
@@ -16423,7 +16470,20 @@ function initApp() {
       return String(rawF || '—');
     };
 
-    const enriched = rawMovs.map((m, idx) => {
+    const seenPendingSigs = new Set();
+    const dedupedRawMovs = [];
+    for (const m of rawMovs) {
+      const compStr = String(m?.comprobante || '').trim().toUpperCase();
+      const impVal = round2(Math.max(Number(m?.debe) || 0, Number(m?.haber) || 0, Number(m?.importe) || 0));
+      if (/\d{4}-\d{6,8}/.test(compStr) && impVal > 0.009) {
+        const sig = `${String(m?.origen || 'VENTA').toUpperCase()}|${Number(m?.dh) || 1}|${compStr}|${parseToIso(m?.fecha)}|${impVal.toFixed(2)}`;
+        if (seenPendingSigs.has(sig)) continue;
+        seenPendingSigs.add(sig);
+      }
+      dedupedRawMovs.push(m);
+    }
+
+    const enriched = dedupedRawMovs.map((m, idx) => {
       const debe = round2(Number(m.debe) || 0);
       const haber = round2(Number(m.haber) || 0);
       let pendiente = round2(Math.max(0, Number(m.pendiente) || 0));
@@ -52697,7 +52757,8 @@ function initApp() {
     ventas_db: null,
     users_custom: null,
     arca_comprobantes_db: null,
-    ofertas_db: null
+    ofertas_db: null,
+    crm_reportes_db: null
   };
   let dbStatusPollInFlight = false;
 
@@ -52708,8 +52769,11 @@ function initApp() {
       const res = await origFetch(`api/db_status.php?_t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) return;
       const payload = await res.json();
-      if (payload && payload.appVersion && typeof window.__notifyServerAppVersion === 'function') {
-        window.__notifyServerAppVersion(String(payload.appVersion));
+      if (payload && payload.appVersion) {
+        window.__LAST_DETECTED_SERVER_APP_VERSION__ = String(payload.appVersion);
+        if (typeof window.__notifyServerAppVersion === 'function') {
+          window.__notifyServerAppVersion(String(payload.appVersion));
+        }
       }
       const dbs = payload && payload.databases;
       if (!dbs || typeof dbs !== 'object') return;
@@ -52765,6 +52829,27 @@ function initApp() {
           window.initOrRefreshOfertasModule();
         }
         dbRevisionsKnown.ofertas_db = rev;
+      }
+
+      // 6. CRM · Reporte de Mejoras
+      const crmDbStat = dbs.crm_reportes_db || dbs.crm_reportes;
+      if (crmDbStat) {
+        const rev = `${crmDbStat.rev}:${crmDbStat.mtime}:${crmDbStat.size}`;
+        if (dbRevisionsKnown.crm_reportes_db !== null && dbRevisionsKnown.crm_reportes_db !== rev) {
+          if (typeof window.refreshCrmPendingBadge === 'function') {
+            window.refreshCrmPendingBadge();
+          }
+          if (!document.getElementById('sec-crm')?.hidden && typeof window.initOrRefreshCrmSection === 'function') {
+            window.initOrRefreshCrmSection();
+          }
+          if (!document.getElementById('sec-reporte-mejoras')?.hidden && typeof window.initOrRefreshReporteMejorasSection === 'function') {
+            window.initOrRefreshReporteMejorasSection();
+          }
+          if (typeof window.__SUPERADMIN_REFRESH_CRM_BADGE__ === 'function') {
+            window.__SUPERADMIN_REFRESH_CRM_BADGE__();
+          }
+        }
+        dbRevisionsKnown.crm_reportes_db = rev;
       }
     } catch {
       // Ignorar fallos transitorios de red
@@ -52826,7 +52911,20 @@ function initApp() {
       ? STATE.movimientosPorCliente[String(client.id)]
       : [];
 
-    const rawMovs = rawMovsUnsorted
+    const seenCompSigs = new Set();
+    const dedupedUnsorted = [];
+    for (const m of rawMovsUnsorted) {
+      const compStr = String(m?.comprobante || '').trim().toUpperCase();
+      const impVal = round2(Math.max(Number(m?.debe) || 0, Number(m?.haber) || 0, Number(m?.importe) || 0));
+      if (/\d{4}-\d{6,8}/.test(compStr) && impVal > 0.009) {
+        const sig = `${String(m?.origen || 'VENTA').toUpperCase()}|${Number(m?.dh) || 1}|${compStr}|${parseMovDateToIso(m?.fecha || m?.fechaIso || '')}|${impVal.toFixed(2)}`;
+        if (seenCompSigs.has(sig)) continue;
+        seenCompSigs.add(sig);
+      }
+      dedupedUnsorted.push(m);
+    }
+
+    const rawMovs = dedupedUnsorted
       .map((m, origIdx) => ({
         m,
         origIdx,
@@ -54760,12 +54858,9 @@ function initApp() {
       const scriptEl = document.querySelector('script[src*="assets/js/app.js"]');
       const src = scriptEl ? scriptEl.getAttribute('src') || '' : '';
       const m = src.match(/[?&]v=([^&]+)/);
-      if (m && m[1]) {
-        const prefix = window.__ERP_TENANT_BOOT__ ? 'minisistema-erp-v' : 'casa-nueva-erp-v';
-        return `${prefix}${m[1]}`;
-      }
+      if (m && m[1]) return `casa-nueva-erp-v${m[1]}`;
     } catch {}
-    return 'minisistema-erp-v318.1';
+    return 'casa-nueva-erp-v126';
   })();
   const ACK_VERSION_STORAGE_KEY = 'cn_erp_ack_version_v1';
   const DISMISSED_VERSION_SESSION_KEY = 'cn_erp_dismissed_version_v1';
@@ -54783,33 +54878,22 @@ function initApp() {
     sessionStorage.setItem(DISMISSED_VERSION_SESSION_KEY, CLIENT_APP_VERSION);
   } catch {}
 
-  function parseErpVersionParts(ver) {
-    const m = String(ver || '').match(/v(\d+)(?:\.(\d+))?(?:-([a-z0-9]+))?/i);
-    return {
-      major: m && m[1] ? parseInt(m[1], 10) : 0,
-      minor: m && m[2] ? parseInt(m[2], 10) : 0,
-      sha: m && m[3] ? m[3].toLowerCase() : ''
-    };
-  }
-
-  function isTargetStrictlyOlderVersion(targetVer, baseVer) {
-    const t = parseErpVersionParts(targetVer);
-    const b = parseErpVersionParts(baseVer);
-    if (t.major <= 0 || b.major <= 0) return false;
-    if (t.major !== b.major) return t.major < b.major;
-    if (t.minor !== b.minor) return t.minor < b.minor;
-    // Misma major.minor: solo considerar igual/antigua si tampoco cambió el SHA de deploy
-    return !t.sha && !b.sha;
+  function extractErpVersionNumber(ver) {
+    const m = String(ver || '').match(/v(\d+(?:\.\d+)?)/i);
+    return m ? parseFloat(m[1]) : 0;
   }
 
   function isVersionAlreadyAcknowledged(ver) {
     if (!ver) return true;
     if (ver === CLIENT_APP_VERSION) return true;
-    if (isTargetStrictlyOlderVersion(ver, CLIENT_APP_VERSION)) return true;
+    const clientNum = extractErpVersionNumber(CLIENT_APP_VERSION);
+    const targetNum = extractErpVersionNumber(ver);
+    if (clientNum > 0 && targetNum > 0 && targetNum <= clientNum) return true;
     try {
       const ackVer = localStorage.getItem(ACK_VERSION_STORAGE_KEY);
       if (ackVer === ver) return true;
-      if (ackVer && isTargetStrictlyOlderVersion(ver, ackVer)) return true;
+      const ackNum = extractErpVersionNumber(ackVer);
+      if (ackNum > 0 && targetNum > 0 && targetNum <= ackNum) return true;
       if (sessionStorage.getItem(DISMISSED_VERSION_SESSION_KEY) === ver) return true;
     } catch {}
     return false;
@@ -54836,6 +54920,10 @@ function initApp() {
       showPwaUpdateToast(srvVersion);
     }
   };
+
+  if (window.__LAST_DETECTED_SERVER_APP_VERSION__) {
+    window.__notifyServerAppVersion(window.__LAST_DETECTED_SERVER_APP_VERSION__);
+  }
 
   if (pwaDismissUpdateBtn) {
     pwaDismissUpdateBtn.addEventListener('click', () => {
@@ -66168,6 +66256,7 @@ function initApp() {
           restoredItems.push(itemObj);
         });
       } else {
+        // Reconstrucción automática para facturas de Carga Rápida históricas previas al guardado de fcrItems
         const movFecha = String(mov.fecha || mov.f || '').trim();
         const obsUpper = String(mov.obs || '').toUpperCase();
         const countMatches = Array.from(obsUpper.matchAll(/STOCK\s+ACTUALIZADO:\s*(\d+)\s*ART/gi));
@@ -66194,6 +66283,7 @@ function initApp() {
 
         let selectedCandidates = sameDateCandidates.length > 0 ? sameDateCandidates : allProvCandidates;
 
+        // Si en la misma fecha hubo más de una factura de Carga Rápida de este proveedor, particionar por orden de comprobante
         if (sameDateCandidates.length > 0 && expectedArtCount > 0 && sameDateCandidates.length > expectedArtCount) {
           const allCliMovs = (STATE.movimientosPorCliente[String(provItem.clientId)] || [])
             .filter((m) => {
@@ -69175,306 +69265,15 @@ function initApp() {
   // Títulos reales automáticos en vista móvil para todas las tablas .catalog-table del ERP
   installCatalogTablesMobileLabelsObserver();
 
-  // Columnas estilo Excel (mover / ampliar / reducir + persistencia) en todos los listados del ERP
+  // Divisor de columnas estilo Excel (achicar / agrandar) en la línea de títulos de todos los listados
   (function installUniversalExcelColumnResizers() {
-    const EXCEL_TABLE_SELECTOR = [
-      '.catalog-table',
-      '.erp-table',
-      '.cierre-classic-table',
-      '.ms-sa-table',
-      '.mc-table',
-      '.erp-section table'
-    ].join(', ');
-    const EXCLUDED_TABLE_SELECTOR =
-      '.a4-items-table, .a4-totals-table, .pdf-toc-table, .no-excel-cols, [data-no-excel-cols="1"]';
-    const STORAGE_PREFIX = 'ms_excel_cols_v1:';
-    const INTERACTIVE_CHILD_SELECTOR = 'input, button, select, textarea, label, a, .col-resizer-handle';
-
-    let activeDragTable = null;
-    let activeDragTh = null;
-
-    function getHeaderRow(table) {
-      if (!table || !table.tHead || !table.tHead.rows || table.tHead.rows.length !== 1) return null;
-      const row = table.tHead.rows[0];
-      const cells = Array.from(row.children).filter((el) => el.tagName === 'TH');
-      if (cells.length < 2) return null;
-      const hasComplexSpan = cells.some((th) => th.colSpan > 1 || th.rowSpan > 1);
-      if (hasComplexSpan) return null;
-      return row;
-    }
-
-    function getTableStorageKey(table, headerCells) {
-      if (table.dataset.excelStorageKey) return table.dataset.excelStorageKey;
-      const explicit = table.getAttribute('data-excel-table-key') || table.id;
-      if (explicit) {
-        table.dataset.excelStorageKey = STORAGE_PREFIX + explicit;
-        return table.dataset.excelStorageKey;
-      }
-      const sec = table.closest('.erp-section');
-      const secId = sec && sec.id ? sec.id : 'global';
-      const sig = headerCells
-        .map((th) => String(th.textContent || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 20))
-        .join('|');
-      table.dataset.excelStorageKey = STORAGE_PREFIX + secId + ':' + sig;
-      return table.dataset.excelStorageKey;
-    }
-
-    function loadSavedState(key) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        return parsed && typeof parsed === 'object' ? parsed : null;
-      } catch (_e) {
-        return null;
-      }
-    }
-
-    function saveTableState(table) {
-      const headerRow = getHeaderRow(table);
-      if (!headerRow) return;
-      const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
-      const key = getTableStorageKey(table, ths);
-      const order = ths.map((th, i) => th.dataset.excelColId || String(i));
-      const widths = {};
-      if (table.classList.contains('is-col-resized')) {
-        ths.forEach((th, i) => {
-          const cid = th.dataset.excelColId || String(i);
-          const w = parseInt(th.style.width, 10) || Math.round(th.getBoundingClientRect().width);
-          if (w >= 28) widths[cid] = w;
-        });
-      }
-      try {
-        localStorage.setItem(key, JSON.stringify({ order, widths }));
-      } catch (_e) {}
-    }
-
-    function clearDragIndicators(table) {
-      if (!table) return;
-      table.querySelectorAll('thead th.is-col-drag-over-left, thead th.is-col-drag-over-right, thead th.is-col-dragging').forEach((el) => {
-        el.classList.remove('is-col-drag-over-left', 'is-col-drag-over-right', 'is-col-dragging');
-      });
-    }
-
-    function getHeaderOrderSig(headerRow) {
-      return Array.from(headerRow.children)
-        .filter((el) => el.tagName === 'TH')
-        .map((th, i) => th.dataset.excelColId || String(i))
-        .join(',');
-    }
-
-    function applyOrderToRowFromDefault(tr, orderIds, orderSig) {
-      const cells = Array.from(tr.children);
-      if (cells.length !== orderIds.length) return;
-      if (cells.some((c) => c.colSpan > 1 || c.rowSpan > 1)) return;
-      const frag = document.createDocumentFragment();
-      orderIds.forEach((origId) => {
-        const origIdx = Number(origId);
-        if (cells[origIdx]) frag.appendChild(cells[origIdx]);
-      });
-      tr.appendChild(frag);
-      tr.dataset.excelRowOrder = orderSig;
-    }
-
-    function syncBodyRowsToHeaderOrder(table) {
-      const headerRow = getHeaderRow(table);
-      if (!headerRow) return;
-      const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
-      const orderIds = ths.map((th, i) => th.dataset.excelColId || String(i));
-      const orderSig = orderIds.join(',');
-      const defaultSig = ths.map((_, i) => String(i)).join(',');
-      if (orderSig === defaultSig) return;
-
-      const sections = [
-        ...Array.from(table.tBodies || []),
-        ...(table.tFoot ? [table.tFoot] : [])
-      ];
-      sections.forEach((sec) => {
-        Array.from(sec.rows || []).forEach((tr) => {
-          if (tr.dataset.excelRowOrder === orderSig) return;
-          if (!tr.dataset.excelRowOrder) {
-            applyOrderToRowFromDefault(tr, orderIds, orderSig);
-          }
-        });
-      });
-    }
-
-    function moveColumnVisual(table, fromIdx, toIdx) {
-      const headerRow = getHeaderRow(table);
-      if (!headerRow || fromIdx === toIdx) return;
-      const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
-      const colCount = ths.length;
-      if (fromIdx < 0 || toIdx < 0 || fromIdx >= colCount || toIdx >= colCount) return;
-
-      function moveChildInParent(parent, fIdx, tIdx) {
-        const children = Array.from(parent.children);
-        if (children.length !== colCount) return;
-        if (children.some((c) => c.colSpan > 1 || c.rowSpan > 1)) return;
-        const moving = children[fIdx];
-        if (!moving) return;
-        if (fIdx < tIdx) {
-          const afterNode = children[tIdx] ? children[tIdx].nextSibling : null;
-          parent.insertBefore(moving, afterNode);
-        } else {
-          parent.insertBefore(moving, children[tIdx] || null);
-        }
-      }
-
-      moveChildInParent(headerRow, fromIdx, toIdx);
-
-      const newSig = getHeaderOrderSig(headerRow);
-      const colgroup = table.querySelector('colgroup');
-      if (colgroup && colgroup.children.length === colCount) {
-        moveChildInParent(colgroup, fromIdx, toIdx);
-      }
-
-      const sections = [
-        ...Array.from(table.tBodies || []),
-        ...(table.tFoot ? [table.tFoot] : [])
-      ];
-      sections.forEach((sec) => {
-        Array.from(sec.rows || []).forEach((tr) => {
-          if (tr.children.length !== colCount) return;
-          if (Array.from(tr.children).some((c) => c.colSpan > 1 || c.rowSpan > 1)) return;
-          moveChildInParent(tr, fromIdx, toIdx);
-          tr.dataset.excelRowOrder = newSig;
-        });
-      });
-
-      saveTableState(table);
-    }
-
-    function applySavedWidths(table, widthsMap) {
-      if (!widthsMap || typeof widthsMap !== 'object' || Object.keys(widthsMap).length === 0) return;
-      const headerRow = getHeaderRow(table);
-      if (!headerRow) return;
-      const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
-      const visibleThs = ths.filter((cell) => !cell.hidden && cell.offsetParent !== null);
-      if (visibleThs.length < 2) return;
-
-      let totalW = 0;
-      const resolved = visibleThs.map((cell, idx) => {
-        const cid = cell.dataset.excelColId || String(idx);
-        const savedW = Number(widthsMap[cid]);
-        const w = Number.isFinite(savedW) && savedW >= 28 ? Math.round(savedW) : Math.max(28, Math.round(cell.getBoundingClientRect().width));
-        totalW += w;
-        return w;
-      });
-      if (totalW <= 0) return;
-
-      table.classList.add('is-col-resized');
-      table.style.setProperty('table-layout', 'fixed', 'important');
-      table.style.setProperty('width', `${totalW}px`, 'important');
-      table.style.setProperty('min-width', `${totalW}px`, 'important');
-      table.style.setProperty('max-width', `${totalW}px`, 'important');
-      visibleThs.forEach((cell, idx) => {
-        const w = resolved[idx];
-        cell.style.setProperty('width', `${w}px`, 'important');
-        cell.style.setProperty('min-width', `${w}px`, 'important');
-        cell.style.setProperty('max-width', `${w}px`, 'important');
-      });
-    }
-
-    function resetTableWidths(table) {
-      const headerRow = getHeaderRow(table);
-      if (!headerRow) return;
-      table.classList.remove('is-col-resized');
-      table.style.removeProperty('table-layout');
-      table.style.removeProperty('width');
-      table.style.removeProperty('min-width');
-      table.style.removeProperty('max-width');
-      Array.from(headerRow.children).forEach((cell) => {
-        cell.style.removeProperty('width');
-        cell.style.removeProperty('min-width');
-        cell.style.removeProperty('max-width');
-      });
-      saveTableState(table);
-    }
-
-    function attachDragReorderToTh(th, table) {
-      if (!th || th.dataset.excelDragBound === '1') return;
-      th.dataset.excelDragBound = '1';
-      th.classList.add('ms-excel-col-movable');
-      th.setAttribute('draggable', 'true');
-      if (!th.getAttribute('title')) {
-        th.setAttribute('title', 'Arrastrá para mover columna · Borde derecho para ampliar o reducir');
-      }
-
-      let suppressNextDrag = false;
-      th.addEventListener('pointerdown', (e) => {
-        suppressNextDrag = Boolean(e.target && e.target.closest && e.target.closest(INTERACTIVE_CHILD_SELECTOR));
-      });
-
-      th.addEventListener('dragstart', (e) => {
-        if (suppressNextDrag || document.body.classList.contains('is-col-resizing-active')) {
-          e.preventDefault();
-          return;
-        }
-        activeDragTable = table;
-        activeDragTh = th;
-        th.classList.add('is-col-dragging');
-        if (e.dataTransfer) {
-          e.dataTransfer.effectAllowed = 'move';
-          try {
-            e.dataTransfer.setData('text/plain', th.dataset.excelColId || '');
-          } catch (_e) {}
-        }
-      });
-
-      th.addEventListener('dragover', (e) => {
-        if (!activeDragTable || activeDragTable !== table || !activeDragTh || activeDragTh === th) return;
-        e.preventDefault();
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-        const rect = th.getBoundingClientRect();
-        const isLeft = e.clientX < rect.left + rect.width / 2;
-        th.classList.toggle('is-col-drag-over-left', isLeft);
-        th.classList.toggle('is-col-drag-over-right', !isLeft);
-      });
-
-      th.addEventListener('dragleave', () => {
-        th.classList.remove('is-col-drag-over-left', 'is-col-drag-over-right');
-      });
-
-      th.addEventListener('drop', (e) => {
-        if (!activeDragTable || activeDragTable !== table || !activeDragTh || activeDragTh === th) return;
-        e.preventDefault();
-        const headerRow = getHeaderRow(table);
-        if (!headerRow) return;
-        const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
-        const fromIdx = ths.indexOf(activeDragTh);
-        const targetIdx = ths.indexOf(th);
-        const rect = th.getBoundingClientRect();
-        const isLeft = e.clientX < rect.left + rect.width / 2;
-        clearDragIndicators(table);
-        if (fromIdx < 0 || targetIdx < 0) return;
-
-        let nextIdx = isLeft ? targetIdx : targetIdx + 1;
-        if (fromIdx < nextIdx) nextIdx -= 1;
-        if (nextIdx !== fromIdx) {
-          moveColumnVisual(table, fromIdx, nextIdx);
-        }
-      });
-
-      th.addEventListener('dragend', () => {
-        clearDragIndicators(activeDragTable || table);
-        activeDragTable = null;
-        activeDragTh = null;
-        suppressNextDrag = false;
-      });
-    }
+    const TABLE_TH_SELECTOR = '.catalog-table thead th, .erp-table thead th, .cierre-classic-table thead th';
 
     function attachResizerToTh(th) {
       if (!th || th.querySelector(':scope > .col-resizer-handle')) return;
       const handle = document.createElement('span');
       handle.className = 'col-resizer-handle';
       handle.setAttribute('aria-hidden', 'true');
-      handle.setAttribute('title', 'Arrastrá para ampliar o reducir · Doble clic para restablecer ancho');
-      handle.setAttribute('draggable', 'false');
-
-      handle.addEventListener('dragstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
 
       handle.addEventListener('click', (e) => {
         e.preventDefault();
@@ -69484,14 +69283,9 @@ function initApp() {
       handle.addEventListener('dblclick', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const table = th.closest('table');
-        if (table) {
-          resetTableWidths(table);
-        } else {
-          th.style.width = '';
-          th.style.minWidth = '';
-          th.style.maxWidth = '';
-        }
+        th.style.width = '';
+        th.style.minWidth = '';
+        th.style.maxWidth = '';
       });
 
       handle.addEventListener('pointerdown', (e) => {
@@ -69502,9 +69296,6 @@ function initApp() {
         const table = th.closest('table');
         const headerRow = th.parentElement;
         if (!table || !headerRow) return;
-
-        const prevDraggable = th.getAttribute('draggable');
-        th.setAttribute('draggable', 'false');
 
         const visibleThs = Array.from(headerRow.children).filter(
           (cell) => !cell.hidden && cell.offsetParent !== null
@@ -69553,12 +69344,9 @@ function initApp() {
         const onPointerUp = () => {
           handle.classList.remove('is-resizing');
           document.body.classList.remove('is-col-resizing-active');
-          if (prevDraggable !== null) th.setAttribute('draggable', prevDraggable);
-          else th.setAttribute('draggable', 'true');
           window.removeEventListener('pointermove', onPointerMove);
           window.removeEventListener('pointerup', onPointerUp);
           window.removeEventListener('pointercancel', onPointerUp);
-          saveTableState(table);
         };
 
         window.addEventListener('pointermove', onPointerMove);
@@ -69569,79 +69357,8 @@ function initApp() {
       th.appendChild(handle);
     }
 
-    function enhanceExcelTable(table) {
-      if (!table || table.matches(EXCLUDED_TABLE_SELECTOR)) return;
-      const headerRow = getHeaderRow(table);
-      if (!headerRow) return;
-
-      const ths = Array.from(headerRow.children).filter((el) => el.tagName === 'TH');
-      table.classList.add('ms-excel-table');
-
-      if (table.dataset.excelColsReady !== '1') {
-        table.dataset.excelColsReady = '1';
-        ths.forEach((th, idx) => {
-          if (!th.dataset.excelColId) th.dataset.excelColId = String(idx);
-        });
-
-        const key = getTableStorageKey(table, ths);
-        const saved = loadSavedState(key);
-
-        if (saved && Array.isArray(saved.order) && saved.order.length === ths.length) {
-          const validSet = new Set(ths.map((th) => th.dataset.excelColId));
-          const allMatch =
-            saved.order.every((id) => validSet.has(String(id))) &&
-            new Set(saved.order.map(String)).size === ths.length;
-          if (allMatch) {
-            const byId = {};
-            ths.forEach((th) => {
-              byId[th.dataset.excelColId] = th;
-            });
-            const frag = document.createDocumentFragment();
-            saved.order.forEach((id) => {
-              if (byId[String(id)]) frag.appendChild(byId[String(id)]);
-            });
-            headerRow.appendChild(frag);
-
-            const colgroup = table.querySelector('colgroup');
-            if (colgroup && colgroup.children.length === ths.length) {
-              const cols = Array.from(colgroup.children);
-              const cFrag = document.createDocumentFragment();
-              saved.order.forEach((id) => {
-                const c = cols[Number(id)];
-                if (c) cFrag.appendChild(c);
-              });
-              colgroup.appendChild(cFrag);
-            }
-          }
-        }
-
-        syncBodyRowsToHeaderOrder(table);
-
-        if (saved && saved.widths && Object.keys(saved.widths).length > 0) {
-          table.dataset.excelPendingWidths = JSON.stringify(saved.widths);
-          applySavedWidths(table, saved.widths);
-        }
-      } else {
-        syncBodyRowsToHeaderOrder(table);
-        if (table.dataset.excelPendingWidths && !table.classList.contains('is-col-resized') && table.offsetParent !== null) {
-          try {
-            const wMap = JSON.parse(table.dataset.excelPendingWidths);
-            applySavedWidths(table, wMap);
-            delete table.dataset.excelPendingWidths;
-          } catch (_e) {}
-        }
-      }
-
-      Array.from(headerRow.children)
-        .filter((el) => el.tagName === 'TH')
-        .forEach((th) => {
-          attachResizerToTh(th);
-          attachDragReorderToTh(th, table);
-        });
-    }
-
     function scanAndAttachAllTableResizers(root = document) {
-      root.querySelectorAll(EXCEL_TABLE_SELECTOR).forEach(enhanceExcelTable);
+      root.querySelectorAll(TABLE_TH_SELECTOR).forEach(attachResizerToTh);
     }
 
     scanAndAttachAllTableResizers(document);
@@ -69671,20 +69388,6 @@ function initApp() {
     // Bitácora viva de actualizaciones incorporadas al ERP y Carrito Web
     // (Se sincroniza automáticamente con la vista del Manual, el Asistente IA y el PDF descargable)
     const BUILTIN_MANUAL_UPDATES = [
-      {
-        id: 'UPD-EXCEL-COLS-FCR-EDIT-Y-NOTIF-VERSION',
-        fecha: '20/11/2026',
-        moduloKey: 'general',
-        moduloLabel: 'Todos los Listados · Factura Carga Rápida · Actualizaciones',
-        titulo: 'Columnas estilo Excel (mover, ampliar y reducir), Edición de ítems con Stock Diferencial en Carga Rápida y Aviso Automático de Nueva Versión',
-        descripcion:
-          'Todas las tablas del sistema (incluyendo Administrador General, Mi Contador, Inmobiliaria, Turnero y CV) permiten mover columnas arrastrando su encabezado y ampliar/reducir anchos con persistencia automática. En Factura Carga Rápida ahora se guardan y recargan los ítems al editar una factura aplicando solo la diferencia de stock real. Además, el aviso emergente de "Nueva versión disponible" detecta automáticamente cada nuevo despliegue en producción.',
-        pasos: [
-          'Arrastrar el encabezado de cualquier columna hacia izquierda o derecha para cambiar su orden, o el borde derecho para ajustar el ancho (doble clic para restablecer).',
-          'Al editar una Factura de Carga Rápida existente, revisar la columna "Base s/FC" y el ajuste diferencial de stock antes de guardar.',
-          'Cuando se publique una nueva actualización, hacer clic en "Actualizar" en el aviso emergente para aplicar la versión nueva sin perder la sesión.'
-        ]
-      },
       {
         id: 'UPD-FCR-GUARDADO-PARCIAL-Y-SYNC-VENTANAS',
         fecha: '17/11/2026',
@@ -72208,14 +71911,37 @@ function initApp() {
     }
 
     function loadLocalCrmReports() {
+      const combined = [];
       try {
-        const raw = localStorage.getItem(CRM_LOCAL_STORAGE_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
+        const candidateKeys = [
+          CRM_LOCAL_STORAGE_KEY,
+          `${ACTIVE_BRAND?.storagePrefix || ''}cn_erp_crm_reports_v1`,
+          'pa_cn_erp_crm_reports_v1',
+          'ms_minisistema_cn_erp_crm_reports_v1'
+        ];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.toLowerCase().includes('crm_reports') && !candidateKeys.includes(k)) {
+            candidateKeys.push(k);
+          }
+        }
+        candidateKeys.forEach((k) => {
+          if (!k) return;
+          try {
+            const raw = localStorage.getItem(k);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((it) => {
+                if (it && typeof it === 'object' && (it.titulo || it.descripcion)) {
+                  combined.push(it);
+                }
+              });
+            }
+          } catch {}
+        });
+      } catch {}
+      return mergeCrmReportsLists(combined, []);
     }
 
     function saveLocalCrmReports(list) {
@@ -72224,23 +71950,190 @@ function initApp() {
       } catch {}
     }
 
-    async function fetchCrmReportsFromServer() {
+    const MINISISTEMA_CRM_HUB_URL = 'https://www.minisistema.com.ar/sistema/api/manual_ai.php';
+    const CN_CRM_TOP_BRIDGE_SESSION_KEY = 'ms_cn_crm_top_bridged_v2';
+
+    try {
+      if (window.location.search.includes('_crm_bridged=1')) {
+        sessionStorage.setItem(CN_CRM_TOP_BRIDGE_SESSION_KEY, '1');
+        const cleanUrl = window.location.href
+          .replace(/([?&])_crm_bridged=1(&|$)/, '$1')
+          .replace(/[?&]$/, '');
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    } catch {}
+
+    window.addEventListener('message', async (ev) => {
+      const data = ev && ev.data;
+      if (!data || data.type !== 'CN_ERP_CRM_BRIDGE_REPORTS' || !Array.isArray(data.reports) || data.reports.length === 0) {
+        return;
+      }
+      crmReportsList = mergeCrmReportsLists(data.reports, crmReportsList);
+      saveLocalCrmReports(crmReportsList);
+      updateCrmPendingBadgeUI();
+      try {
+        const syncRes = await fetch('api/manual_ai.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'sync_crm_reports_batch',
+            reports: data.reports
+          })
+        });
+        if (syncRes.ok) {
+          const syncData = await syncRes.json().catch(() => null);
+          if (syncData && syncData.ok && Array.isArray(syncData.reports)) {
+            crmReportsList = mergeCrmReportsLists(syncData.reports, crmReportsList);
+            saveLocalCrmReports(crmReportsList);
+          }
+        }
+      } catch {}
+      updateCrmPendingBadgeUI();
+      if (!document.getElementById('sec-crm')?.hidden) {
+        renderCrmAdminSection();
+      }
+      if (!document.getElementById('sec-reporte-mejoras')?.hidden) {
+        renderMyReportsTable();
+      }
+      if (typeof window.__SUPERADMIN_REFRESH_CRM_BADGE__ === 'function') {
+        window.__SUPERADMIN_REFRESH_CRM_BADGE__();
+      }
+    });
+
+    function mountCasaNuevaCrmLocalBridgeIframes() {
+      if (!window.location.hostname.includes('minisistema')) return;
+      ['https://www.cn.com.ar', 'https://cn.com.ar'].forEach((originUrl, idx) => {
+        const frameId = `cn-crm-local-bridge-frame-${idx}`;
+        if (document.getElementById(frameId)) return;
+        const ifr = document.createElement('iframe');
+        ifr.id = frameId;
+        ifr.hidden = true;
+        ifr.style.display = 'none';
+        ifr.src = `${originUrl}/sistema/api/manual_ai.php?action=crm_local_bridge&t=${Date.now()}`;
+        document.body.appendChild(ifr);
+      });
+    }
+
+    function mergeCrmReportsLists(primaryList, secondaryList) {
+      const merged = [];
+      const seenKeys = new Set();
+      const addOne = (item) => {
+        if (!item || typeof item !== 'object') return;
+        const idStr = String(item.id || '').trim();
+        const sig = `${String(item.username || '').toLowerCase()}::${String(item.titulo || '').trim()}::${String(item.descripcion || '').trim()}`;
+        if ((idStr && seenKeys.has(`id:${idStr}`)) || (sig !== '::::' && seenKeys.has(`sig:${sig}`))) {
+          return;
+        }
+        if (idStr) seenKeys.add(`id:${idStr}`);
+        if (sig !== '::::') seenKeys.add(`sig:${sig}`);
+        merged.push(item);
+      };
+      (Array.isArray(primaryList) ? primaryList : []).forEach(addOne);
+      (Array.isArray(secondaryList) ? secondaryList : []).forEach(addOne);
+      return merged;
+    }
+
+    async function fetchCrmReportsFromServer(allowTopBridgeRedirect = true) {
+      const localCached = loadLocalCrmReports();
+      let serverList = null;
+
+      mountCasaNuevaCrmLocalBridgeIframes();
+
       try {
         const res = await fetch(`api/manual_ai.php?action=crm_reports&t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           if (data && data.ok && Array.isArray(data.reports)) {
-            crmReportsList = data.reports;
-            saveLocalCrmReports(crmReportsList);
-            updateCrmPendingBadgeUI();
-            return crmReportsList;
+            serverList = data.reports;
           }
         }
       } catch {}
-      if (crmReportsList.length === 0) {
-        crmReportsList = loadLocalCrmReports();
+
+      if (window.location.hostname.includes('minisistema')) {
+        try {
+          const cnRes = await fetch(`https://www.cn.com.ar/sistema/api/manual_ai.php?action=crm_reports&_direct_cn=1&t=${Date.now()}`, { cache: 'no-store' });
+          if (cnRes.ok) {
+            const cnData = await cnRes.json().catch(() => null);
+            if (cnData && cnData.ok && Array.isArray(cnData.reports) && cnData.reports.length > 0) {
+              serverList = mergeCrmReportsLists(serverList || [], cnData.reports);
+            }
+          }
+        } catch {}
       }
+
+      // Si el servidor aún no tenía algún reporte que había quedado guardado en localStorage (ej: reporte previo de antoniog), subirlo y sincronizarlo con el servidor y con MiniSistema
+      if (Array.isArray(localCached) && localCached.length > 0) {
+        const currentBase = Array.isArray(serverList) ? serverList : [];
+        const unsyncedLocal = localCached.filter((loc) => {
+          if (!loc || (!loc.titulo && !loc.descripcion)) return false;
+          return !currentBase.some(
+            (srv) =>
+              String(srv.id || '') === String(loc.id || '') ||
+              (String(srv.username || '').toLowerCase() === String(loc.username || '').toLowerCase() &&
+                String(srv.titulo || '').trim() === String(loc.titulo || '').trim() &&
+                String(srv.descripcion || '').trim() === String(loc.descripcion || '').trim())
+          );
+        });
+
+        if (unsyncedLocal.length > 0) {
+          try {
+            const syncRes = await fetch('api/manual_ai.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'sync_crm_reports_batch',
+                reports: unsyncedLocal
+              })
+            });
+            if (syncRes.ok) {
+              const syncData = await syncRes.json().catch(() => null);
+              if (syncData && syncData.ok && Array.isArray(syncData.reports)) {
+                serverList = syncData.reports;
+              }
+            }
+          } catch {}
+          // También reenviar directo al Hub central de MiniSistema para la cuenta danielg Administrador General
+          try {
+            fetch(MINISISTEMA_CRM_HUB_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'sync_crm_reports_batch',
+                reports: unsyncedLocal
+              })
+            }).catch(() => {});
+          } catch {}
+        }
+      }
+
+      if (Array.isArray(serverList)) {
+        crmReportsList = mergeCrmReportsLists(serverList, localCached);
+        saveLocalCrmReports(crmReportsList);
+      } else if (crmReportsList.length === 0) {
+        crmReportsList = localCached;
+      }
+
+      // En MiniSistema: si aún no hay reportes sincronizados desde el navegador local de www.cn.com.ar, ejecutar puente top-level una vez por sesión para rescatar reportes guardados en localStorage de cn.com.ar
+      if (
+        allowTopBridgeRedirect &&
+        window.location.hostname.includes('minisistema') &&
+        crmReportsList.length === 0
+      ) {
+        try {
+          if (!sessionStorage.getItem(CN_CRM_TOP_BRIDGE_SESSION_KEY)) {
+            sessionStorage.setItem(CN_CRM_TOP_BRIDGE_SESSION_KEY, '1');
+            window.location.replace(
+              `https://www.cn.com.ar/sistema/api/manual_ai.php?action=crm_top_bridge&return_to=${encodeURIComponent(window.location.href)}`
+            );
+            return crmReportsList;
+          }
+        } catch {}
+      }
+
       updateCrmPendingBadgeUI();
+      if (typeof window.__SUPERADMIN_REFRESH_CRM_BADGE__ === 'function') {
+        window.__SUPERADMIN_REFRESH_CRM_BADGE__();
+      }
       return crmReportsList;
     }
 
@@ -72796,13 +72689,15 @@ function initApp() {
       });
 
       btnRefreshRep?.addEventListener('click', async () => {
-        await fetchCrmReportsFromServer();
+        try { sessionStorage.removeItem(CN_CRM_TOP_BRIDGE_SESSION_KEY); } catch {}
+        await fetchCrmReportsFromServer(true);
         renderMyReportsTable();
         if (typeof showToast === 'function') showToast('🔄 Estado de reportes actualizado');
       });
 
       btnRefreshAdmin?.addEventListener('click', async () => {
-        await fetchCrmReportsFromServer();
+        try { sessionStorage.removeItem(CN_CRM_TOP_BRIDGE_SESSION_KEY); } catch {}
+        await fetchCrmReportsFromServer(true);
         renderCrmAdminSection();
         if (typeof showToast === 'function') showToast('🔄 Bandeja CRM sincronizada');
       });
@@ -72859,6 +72754,17 @@ function initApp() {
         };
 
         try {
+          // Enviar también en simultáneo a la bandeja central CRM del Administrador General (@danielg) en MiniSistema
+          try {
+            if (!window.location.hostname.includes('minisistema')) {
+              fetch(MINISISTEMA_CRM_HUB_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              }).catch(() => {});
+            }
+          } catch {}
+
           const res = await fetch('api/manual_ai.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

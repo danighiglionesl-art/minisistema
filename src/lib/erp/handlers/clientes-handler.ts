@@ -328,25 +328,53 @@ export async function handleErpClientes(
         payload.tipoMov === "DEBE" ||
         Number(movIn.dh ?? payload.dh) === 1 ||
         Number(movIn.d ?? payload.d ?? 0) > 0;
+      const fStr = String(movIn.f || movIn.fecha || payload.fecha || new Date().toLocaleDateString("es-AR"));
+      const letraStr = String(movIn.l || movIn.letra || payload.letra || "B").trim().toUpperCase();
+      const nroStr = String(movIn.n || movIn.numero || payload.numero || String(maxMovId + 1).padStart(8, "0")).trim().toUpperCase();
+      const origenStr = String(movIn.origen || payload.origen || (ent.esProveedor && !ent.esCliente ? "COMPRA" : "VENTA")).trim().toUpperCase();
+      const dhVal = isDebe ? 1 : -1;
+
+      if (/\d{4}-\d{6,8}/.test(nroStr) && imp > 0.009) {
+        const existingDup = db.movimientosCtaCte.find(
+          (m: AnyObj) =>
+            Number(m.cId) === cId &&
+            Number(m.dh) === dhVal &&
+            String(m.origen || "VENTA").trim().toUpperCase() === origenStr &&
+            String(m.l || "B").trim().toUpperCase() === letraStr &&
+            String(m.n || "").trim().toUpperCase() === nroStr &&
+            Math.abs(Number(m.imp || 0) - imp) < 0.01
+        );
+        if (existingDup) {
+          const clientMovs = db.movimientosCtaCte.filter((m: AnyObj) => Number(m.cId) === cId);
+          return NextResponse.json({
+            ok: true,
+            movimiento: existingDup,
+            movement: existingDup,
+            client: ent,
+            movimientos: clientMovs,
+          });
+        }
+      }
+
       const mov: AnyObj = {
         id: maxMovId + 1,
         cId,
-        f: String(movIn.f || movIn.fecha || payload.fecha || new Date().toLocaleDateString("es-AR")),
+        f: fStr,
         fi: String(movIn.fi || movIn.fechaIso || payload.fechaIso || new Date().toISOString().slice(0, 10)),
         v: String(movIn.v || payload.v || ""),
         tc: Number(movIn.tc ?? payload.tc ?? (isDebe ? 20 : 21)),
         tcn: String(movIn.tcn || movIn.tipoComprobante || payload.tipoComprobante || (isDebe ? "FACTURA" : "RECIBO")),
         tca: String(movIn.tca || payload.tca || (isDebe ? "FC" : "RC")),
-        l: String(movIn.l || movIn.letra || payload.letra || "B"),
-        n: String(movIn.n || movIn.numero || payload.numero || String(maxMovId + 1).padStart(8, "0")),
-        dh: isDebe ? 1 : -1,
+        l: letraStr,
+        n: nroStr,
+        dh: dhVal,
         imp,
         d: isDebe ? imp : 0,
         h: isDebe ? 0 : imp,
         canc: 0,
         pend: imp,
         obs: String(movIn.obs || movIn.observacion || payload.observacion || ""),
-        origen: String(movIn.origen || payload.origen || (ent.esProveedor && !ent.esCliente ? "COMPRA" : "VENTA")),
+        origen: origenStr,
         ...(Array.isArray(movIn.items) ? { items: movIn.items } : {}),
         ...(Array.isArray(movIn.fcrItems) ? { fcrItems: movIn.fcrItems } : {}),
         ...(movIn.fcrModoIva === "neto" || movIn.fcrModoIva === "final"

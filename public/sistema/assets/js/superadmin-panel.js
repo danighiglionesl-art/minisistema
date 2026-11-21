@@ -202,6 +202,14 @@
             '</div>' +
             '<h3>Usuarios</h3>' +
           '</article>' +
+          '<article class="module-card" role="button" tabindex="0" data-sa-open-view="crm">' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>' +
+              '</svg>' +
+            '</div>' +
+            '<h3>CRM · Reporte de Mejoras</h3>' +
+          '</article>' +
         '</div>';
 
       erpMain.appendChild(menuSec);
@@ -268,6 +276,26 @@
   }
 
   async function openSuperAdminView(viewKey) {
+    if (viewKey === 'crm') {
+      var menuSec0 = document.getElementById('sec-menu-superadmin');
+      var detailSec0 = document.getElementById('sec-superadmin-detail');
+      if (menuSec0) menuSec0.hidden = true;
+      if (detailSec0) detailSec0.hidden = true;
+      var crmCard = document.getElementById('card-inicio-crm');
+      if (crmCard) {
+        crmCard.click();
+      } else {
+        document.querySelectorAll('.erp-main > .erp-section').forEach(function (sec) {
+          sec.hidden = true;
+        });
+        var crmSec = document.getElementById('sec-crm');
+        if (crmSec) crmSec.hidden = false;
+        if (typeof window.initOrRefreshCrmSection === 'function') {
+          window.initOrRefreshCrmSection();
+        }
+      }
+      return;
+    }
     var secs = ensureSectionsMounted();
     if (!secs) return;
     STATE_SA.activeView = viewKey || 'menu';
@@ -736,7 +764,7 @@
       ';">' +
       '<div class="module-icon" aria-hidden="true" style="' +
       (STATE_SA.newOptionType === 1 ? 'background:#56D7A1;color:#112D3A;' : '') +
-      '">🌐</div>' +
+      '"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></div>' +
       '<h3 style="' +
       (STATE_SA.newOptionType === 1 ? 'color:#FFFFFF;' : '') +
       '">Opción 1 · Dominio y Marca Propia</h3>' +
@@ -750,7 +778,7 @@
       ';">' +
       '<div class="module-icon" aria-hidden="true" style="' +
       (STATE_SA.newOptionType === 2 ? 'background:#56D7A1;color:#112D3A;' : '') +
-      '">⚡</div>' +
+      '"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>' +
       '<h3 style="' +
       (STATE_SA.newOptionType === 2 ? 'color:#FFFFFF;' : '') +
       '">Opción 2 · Subruta MiniSistema</h3>' +
