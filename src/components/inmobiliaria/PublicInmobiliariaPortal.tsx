@@ -2061,7 +2061,11 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
         primaryHex={primary}
         accentHex={accent}
         logo1x1Url={props.logo1x1Url}
-        googleClientId={config.googleClientId || ""}
+        googleClientId={
+          config.googleClientId ||
+          process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+          "384115038053-ktejh22ce4f9hkun4nba8qajnf3g0euh.apps.googleusercontent.com"
+        }
         defaultProvincia={props.defaultProvincia}
         defaultLocalidad={props.defaultLocalidad}
         defaultCp={props.defaultCp}

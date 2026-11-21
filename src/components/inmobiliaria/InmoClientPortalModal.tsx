@@ -139,15 +139,20 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
     setTelefonoAlternativo(c.telefonoAlternativo || "");
   }, [props.loggedClient, props.defaultProvincia, props.defaultLocalidad, props.defaultCp]);
 
-  // Inicializar botón oficial Google Identity Services si existe GOOGLE_CLIENT_ID
+  const resolvedGoogleClientId =
+    props.googleClientId ||
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    "384115038053-ktejh22ce4f9hkun4nba8qajnf3g0euh.apps.googleusercontent.com";
+
+  // Precargar script oficial de Google Identity Services al abrir el modal
   useEffect(() => {
-    if (!props.open || props.loggedClient || !props.googleClientId) return;
+    if (!props.open || props.loggedClient || !resolvedGoogleClientId) return;
     const scriptId = "google-gsi-client";
     const initGsi = () => {
       const g = (window as any).google;
       if (!g?.accounts?.id) return;
       g.accounts.id.initialize({
-        client_id: props.googleClientId,
+        client_id: resolvedGoogleClientId,
         callback: async (resp: { credential?: string }) => {
           if (!resp?.credential) return;
           setBusy(true);
@@ -175,16 +180,6 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
           }
         },
       });
-      const container = document.getElementById("inmo-google-btn-slot");
-      if (container) {
-        container.innerHTML = "";
-        g.accounts.id.renderButton(container, {
-          theme: "outline",
-          size: "large",
-          width: 320,
-          text: "continue_with",
-        });
-      }
     };
 
     if (!document.getElementById(scriptId)) {
@@ -192,12 +187,106 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
       s.id = scriptId;
       s.src = "https://accounts.google.com/gsi/client";
       s.async = true;
+      s.defer = true;
       s.onload = initGsi;
       document.head.appendChild(s);
     } else {
       setTimeout(initGsi, 120);
     }
-  }, [props.open, props.loggedClient, props.googleClientId, props.tenantSlug, props.onSessionUpdate]);
+  }, [props.open, props.loggedClient, resolvedGoogleClientId, props.tenantSlug, props.onSessionUpdate]);
+
+  // Flujo OAuth 2.0 oficial (igual que Campo Directo): abre selector de cuenta Google del navegador
+  const handleGoogleOAuthPopup = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        if ((window as any).google?.accounts?.oauth2) {
+          resolve();
+          return;
+        }
+        const existing = document.getElementById("google-gsi-client");
+        if (existing) {
+          existing.addEventListener("load", () => resolve(), { once: true });
+          existing.addEventListener("error", () => reject(new Error("No se pudo cargar Google Sign-In")), { once: true });
+          setTimeout(() => {
+            if ((window as any).google?.accounts?.oauth2) resolve();
+            else reject(new Error("Google Identity Services no terminó de cargar."));
+          }, 3000);
+          return;
+        }
+        const s = document.createElement("script");
+        s.id = "google-gsi-client";
+        s.src = "https://accounts.google.com/gsi/client";
+        s.async = true;
+        s.defer = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error("No se pudo cargar la librería de Google Sign-In."));
+        document.head.appendChild(s);
+      });
+
+      const g = (window as any).google;
+      if (!g?.accounts?.oauth2) {
+        throw new Error("La librería de autenticación de Google no está disponible.");
+      }
+
+      const tokenClient = g.accounts.oauth2.initTokenClient({
+        client_id: resolvedGoogleClientId,
+        scope: "email profile openid",
+        callback: async (tokenResponse: { access_token?: string; error?: string; error_description?: string }) => {
+          if (tokenResponse?.error || !tokenResponse?.access_token) {
+            setMsg({
+              text:
+                tokenResponse?.error_description ||
+                "No se completó el inicio de sesión con Google.",
+              isErr: true,
+            });
+            setBusy(false);
+            return;
+          }
+          try {
+            const res = await fetch(
+              `/api/inmobiliaria?tenant=${encodeURIComponent(props.tenantSlug)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "client_google_login",
+                  accessToken: tokenResponse.access_token,
+                }),
+              }
+            );
+            const data = await res.json();
+            if (res.ok && data.ok) {
+              props.onSessionUpdate(data.client, data.contratos || []);
+            } else {
+              setMsg({ text: data.message || "Error al validar tu cuenta de Google.", isErr: true });
+            }
+          } catch {
+            setMsg({ text: "Error de conexión al validar tu cuenta de Google.", isErr: true });
+          } finally {
+            setBusy(false);
+          }
+        },
+        error_callback: () => {
+          setShowGoogleFallback(true);
+          setMsg({
+            text: "La ventana de Google fue cerrada o este dominio aún no está autorizado en Google Cloud Console (verificá https://www.minisistema.com.ar en Orígenes de JavaScript autorizados).",
+            isErr: true,
+          });
+          setBusy(false);
+        },
+      });
+
+      tokenClient.requestAccessToken({ prompt: "select_account" });
+    } catch (err: any) {
+      setMsg({
+        text: err?.message || "No se pudo abrir el selector de cuentas de Google.",
+        isErr: true,
+      });
+      setBusy(false);
+    }
+  };
 
   const localidadesDisponibles = useMemo(() => {
     if (pais !== "ARGENTINA") return [];
@@ -627,40 +716,54 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                       </p>
                     </div>
 
-                    {props.googleClientId ? (
-                      <div id="inmo-google-btn-slot" className="flex justify-center py-2" />
-                    ) : (
-                      <div className="space-y-2.5">
-                        <button
-                          type="button"
-                          onClick={() => setShowGoogleFallback(true)}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#1F1F1F]/20 bg-[#FFFFFF] px-4 py-2.5 text-xs font-black text-[#1F1F1F] shadow-sm hover:border-[#FC8006]"
-                        >
-                          <span>🌐</span>
-                          <span>Continuar con Google</span>
-                        </button>
-                        {showGoogleFallback && (
-                          <form onSubmit={handleGoogleQuickSubmit} className="space-y-2 pt-1">
-                            <input
-                              type="email"
-                              required
-                              value={googleEmailQuick}
-                              onChange={(e) => setGoogleEmailQuick(e.target.value)}
-                              placeholder="Ingresá tu cuenta @gmail.com"
-                              className={inputCls}
-                            />
-                            <button
-                              type="submit"
-                              disabled={busy}
-                              className="w-full rounded-xl py-2 text-xs font-black"
-                              style={{ backgroundColor: primary, color: accent }}
-                            >
-                              Acceder con mi correo Google
-                            </button>
-                          </form>
-                        )}
-                      </div>
-                    )}
+                    <div className="space-y-2.5">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={handleGoogleOAuthPopup}
+                        className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border-2 border-[#1F1F1F]/15 bg-[#FFFFFF] px-4 py-3 text-xs font-black text-[#1F1F1F] shadow-sm transition hover:border-[#FC8006] hover:bg-[#FAF8F6] disabled:opacity-60"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            fill="#4285F4"
+                            d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.565 24 12.255 24z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.69 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"
+                          />
+                        </svg>
+                        <span>{busy ? "Conectando con Google..." : "Continuar con Google"}</span>
+                      </button>
+                      {showGoogleFallback && (
+                        <form onSubmit={handleGoogleQuickSubmit} className="space-y-2 pt-1">
+                          <input
+                            type="email"
+                            required
+                            value={googleEmailQuick}
+                            onChange={(e) => setGoogleEmailQuick(e.target.value)}
+                            placeholder="Ingresá tu cuenta @gmail.com"
+                            className={inputCls}
+                          />
+                          <button
+                            type="submit"
+                            disabled={busy}
+                            className="w-full rounded-xl py-2 text-xs font-black"
+                            style={{ backgroundColor: primary, color: accent }}
+                          >
+                            Acceder con mi correo Google
+                          </button>
+                        </form>
+                      )}
+                    </div>
 
                     <div className="rounded-xl bg-[#1F1F1F] p-3 text-[11px] text-[#FFFFFF]/85">
                       <strong style={{ color: accent }}>¿Qué podés hacer en el portal?</strong>

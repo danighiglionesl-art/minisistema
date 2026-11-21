@@ -770,7 +770,9 @@ export function buildInitialInmobiliariaDb(tenant: ErpTenantRecord): InmoDbDoc {
       instagramLabel: "inmobiliariadegiovanni",
       facebookUrl: "https://www.facebook.com/search/top?q=Inmobiliaria%20Degiovanni",
       facebookLabel: "Inmobiliaria Degiovanni",
-      googleClientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
+      googleClientId:
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+        "384115038053-ktejh22ce4f9hkun4nba8qajnf3g0euh.apps.googleusercontent.com",
       defaultPropietarioPct: 90,
       defaultInmobiliariaPct: 10,
       etiquetasPersonalizadas: [

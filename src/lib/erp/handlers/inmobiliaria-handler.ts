@@ -1048,11 +1048,14 @@ export async function handlePublicInmobiliariaPost(
     return res;
   }
 
-  // 6. Login automático con Google (ID Token verificado contra Google tokeninfo o acceso directo con correo Google verificado)
+  // 6. Login automático con Google (ID Token verificado contra Google tokeninfo o OAuth Access Token verificado contra Google UserInfo)
   if (action === "client_google_login") {
     const idToken = String(body.credential || "").trim();
+    const accessToken = String(body.accessToken || "").trim();
     let googleEmail = "";
     let googleName = "";
+    let googleGivenName = "";
+    let googleFamilyName = "";
 
     if (idToken) {
       try {
@@ -1069,9 +1072,34 @@ export async function handlePublicInmobiliariaPost(
         const gData = (await gRes.json()) as AnyObj;
         googleEmail = String(gData.email || "").trim().toLowerCase();
         googleName = String(gData.name || "").trim();
+        googleGivenName = String(gData.given_name || "").trim();
+        googleFamilyName = String(gData.family_name || "").trim();
       } catch {
         return NextResponse.json(
           { ok: false, message: "Error al contactar con Google Identity." },
+          { status: 502 }
+        );
+      }
+    } else if (accessToken) {
+      try {
+        const uRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!uRes.ok) {
+          return NextResponse.json(
+            { ok: false, message: "No se pudo verificar tu cuenta de Google. Intentá nuevamente." },
+            { status: 401 }
+          );
+        }
+        const uData = (await uRes.json()) as AnyObj;
+        googleEmail = String(uData.email || "").trim().toLowerCase();
+        googleName = String(uData.name || "").trim();
+        googleGivenName = String(uData.given_name || "").trim();
+        googleFamilyName = String(uData.family_name || "").trim();
+      } catch {
+        return NextResponse.json(
+          { ok: false, message: "Error al obtener tu perfil de Google." },
           { status: 502 }
         );
       }
@@ -1097,8 +1125,13 @@ export async function handlePublicInmobiliariaPost(
 
     if (!client) {
       const parts = googleName.split(/\s+/).filter(Boolean);
-      const nombres = parts.slice(0, Math.max(1, parts.length - 1)).join(" ") || "Cliente";
-      const apellidos = parts.length > 1 ? parts[parts.length - 1] : "Google";
+      const nombres =
+        googleGivenName ||
+        parts.slice(0, Math.max(1, parts.length - 1)).join(" ") ||
+        "Cliente";
+      const apellidos =
+        googleFamilyName ||
+        (parts.length > 1 ? parts[parts.length - 1] : "Google");
       client = {
         id: `inmocli_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         rol: "inquilino",
