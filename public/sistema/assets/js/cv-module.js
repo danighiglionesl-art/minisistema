@@ -8,8 +8,65 @@
 (function () {
   'use strict';
 
+  var INTERVIEW_CRITERIA = [
+    { key: 'experiencia_laboral', label: 'Experiencia laboral', weight: 15 },
+    { key: 'competencias_tecnicas', label: 'Competencias técnicas', weight: 15 },
+    { key: 'comunicacion_interpersonal', label: 'Comunicación interpersonal', weight: 15 },
+    { key: 'inteligencia_emocional', label: 'Inteligencia emocional', weight: 10 },
+    { key: 'actitud_motivacion', label: 'Actitud y motivación', weight: 15 },
+    { key: 'responsabilidad', label: 'Responsabilidad', weight: 10 },
+    { key: 'trabajo_en_equipo', label: 'Trabajo en equipo', weight: 10 },
+    { key: 'adaptabilidad', label: 'Adaptabilidad', weight: 10 }
+  ];
+
+  function defaultInterviewScores() {
+    return {
+      experiencia_laboral: 3,
+      competencias_tecnicas: 3,
+      comunicacion_interpersonal: 3,
+      inteligencia_emocional: 3,
+      actitud_motivacion: 3,
+      responsabilidad: 3,
+      trabajo_en_equipo: 3,
+      adaptabilidad: 3
+    };
+  }
+
+  function calcInterviewWeighted(scores) {
+    var total = 0;
+    INTERVIEW_CRITERIA.forEach(function (c) {
+      var v = Math.min(5, Math.max(1, Math.round(Number((scores && scores[c.key]) || 3))));
+      total += (v / 5) * c.weight;
+    });
+    return Math.round(total * 10) / 10;
+  }
+
+  function todayIsoLocal() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+
+  function ensureInterviewStyles() {
+    if (document.getElementById('ms-cv-interview-styles')) return;
+    var st = document.createElement('style');
+    st.id = 'ms-cv-interview-styles';
+    st.textContent =
+      '.ms-cv-matrix-card{background:#111417;color:#f8fafc;border:1px solid rgba(255,255,255,0.12);border-radius:18px;padding:1.4rem 1.5rem;box-shadow:0 12px 30px rgba(17,45,58,0.22);}' +
+      '.ms-cv-matrix-progress-bg{height:10px;width:100%;border-radius:999px;background:rgba(255,255,255,0.14);overflow:hidden;margin:0.85rem 0 1.25rem;}' +
+      '.ms-cv-matrix-progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#56D7A1,#ffffff);transition:width 180ms ease;}' +
+      '.ms-cv-matrix-range{-webkit-appearance:none;appearance:none;width:100%;height:22px;border-radius:999px;background:rgba(255,255,255,0.1);outline:none;cursor:pointer;padding:0 3px;}' +
+      '.ms-cv-matrix-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:#ffffff;border:2px solid #56D7A1;box-shadow:0 2px 8px rgba(0,0,0,0.45);cursor:pointer;transition:transform 120ms ease;}' +
+      '.ms-cv-matrix-range::-webkit-slider-thumb:hover{transform:scale(1.12);}' +
+      '.ms-cv-matrix-range::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#ffffff;border:2px solid #56D7A1;box-shadow:0 2px 8px rgba(0,0,0,0.45);cursor:pointer;}' +
+      '.ms-cv-matrix-reset{background:transparent;color:#f8fafc;border:1px solid rgba(255,255,255,0.28);border-radius:10px;padding:0.42rem 0.95rem;font-size:0.8rem;font-weight:700;cursor:pointer;}' +
+      '.ms-cv-matrix-reset:hover{background:rgba(255,255,255,0.1);}';
+    document.head.appendChild(st);
+  }
+
   var STATE_CV = {
-    activeView: 'menu', // 'menu' | 'recibidos' | 'previsualizados' | 'portal' | 'tablas' | 'detail'
+    activeView: 'menu', // 'menu' | 'recibidos' | 'previsualizados' | 'entrevistas' | 'portal' | 'tablas' | 'detail'
     previousListView: 'recibidos',
     publicCvUrl: '/cv',
     stats: {
@@ -17,16 +74,24 @@
       recibidosSinVer: 0,
       actualizadosSinVerCount: 0,
       previsualizadosCount: 0,
+      entrevistadosCount: 0,
       promedioValoracion: null
     },
     recibidos: [],
     previsualizados: [],
+    entrevistados: [],
     selectedCv: null,
     filterPuesto: '',
     filterMinRating: 0,
     filterSearch: '',
     filterDni: '',
     sortBy: 'recent', // 'recent' | 'rating_desc'
+    interviewSelectedId: '',
+    interviewScores: defaultInterviewScores(),
+    interviewReview: '',
+    interviewDate: todayIsoLocal(),
+    interviewFilterPuesto: '',
+    interviewSearch: '',
     formConfig: null,
     configDirty: false,
     configSectionFilter: 'all',
@@ -129,7 +194,7 @@
               (ownedByPersonal ? 'Administración de Personal' : 'ERP en Línea') +
               ' · <strong>Curriculum Vitae</strong></span>' +
           '</div>' +
-          '<a href="/cv" target="_blank" class="ms-sa-btn" style="padding:0.42rem 0.9rem;font-size:0.8rem;" id="ms-cv-open-public-top">🌐 Abrir Formulario Público /cv ↗</a>' +
+          '<a href="/cv" target="_blank" class="ms-sa-btn" style="padding:0.42rem 0.9rem;font-size:0.8rem;" id="ms-cv-open-public-top">Abrir Formulario Público ↗</a>' +
         '</div>' +
         '<div class="modules-grid" aria-label="Submódulos de Curriculum Vitae">' +
           '<article class="module-card" role="button" tabindex="0" data-cv-sub="recibidos">' +
@@ -149,6 +214,15 @@
             '</div>' +
             '<h3>CV previsualizados</h3>' +
           '</article>' +
+          '<article class="module-card" role="button" tabindex="0" data-cv-sub="entrevistas">' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M9 11l3 3L22 4"></path>' +
+                '<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>' +
+              '</svg>' +
+            '</div>' +
+            '<h3>Entrevistas Realizadas</h3>' +
+          '</article>' +
           '<article class="module-card" role="button" tabindex="0" data-cv-sub="portal">' +
             '<div class="module-icon" aria-hidden="true">' +
               '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
@@ -156,7 +230,7 @@
                 '<rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>' +
               '</svg>' +
             '</div>' +
-            '<h3>Enlace y Código QR (/cv)</h3>' +
+            '<h3>Enlace y Código QR</h3>' +
           '</article>' +
           '<article class="module-card" role="button" tabindex="0" data-cv-sub="tablas">' +
             '<div class="module-icon" aria-hidden="true">' +
@@ -260,7 +334,8 @@
     var titleMap = {
       recibidos: 'CV recibidos (sin previsualizar)',
       previsualizados: 'CV previsualizados (Valoración 1 a 10)',
-      portal: 'Enlace Público y Código QR (/cv)',
+      entrevistas: 'Entrevistas Realizadas',
+      portal: 'Enlace Público y Código QR',
       tablas: 'Configuración de Tablas',
       detail: 'Ficha Completa del Postulante'
     };
@@ -304,6 +379,7 @@
         STATE_CV.stats = res.stats || STATE_CV.stats;
         STATE_CV.recibidos = Array.isArray(res.recibidos) ? res.recibidos : [];
         STATE_CV.previsualizados = Array.isArray(res.previsualizados) ? res.previsualizados : [];
+        STATE_CV.entrevistados = Array.isArray(res.entrevistados) ? res.entrevistados : [];
         if (res.formConfig && Array.isArray(res.formConfig.fields) && !STATE_CV.configDirty) {
           STATE_CV.formConfig = res.formConfig;
         }
@@ -937,6 +1013,24 @@
           '</div>'
         : '') +
 
+      (cv.interview
+        ? '<div class="ms-sa-card" style="border-left:4px solid #56D7A1;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;">' +
+            '<div>' +
+              '<h4 style="margin:0;">Entrevista Realizada · Puntaje Ponderado: ' + Number(cv.interview.weightedScore || 0).toFixed(1) + '%</h4>' +
+              '<div style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">Fecha: ' + esc(cv.interview.interviewDate || '—') + ' · Evaluado por: ' + esc(cv.interview.evaluatedBy || 'admin') + '</div>' +
+            '</div>' +
+            '<button type="button" class="ms-sa-btn" id="ms-cv-open-interview-from-detail">Editar Evaluación de Entrevista</button>' +
+          '</div>' +
+          (cv.interview.review
+            ? '<p style="margin:0.7rem 0 0;font-size:0.86rem;line-height:1.5;white-space:pre-wrap;">' + esc(cv.interview.review) + '</p>'
+            : '') +
+          '</div>'
+        : '<div class="ms-sa-card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;">' +
+            '<div><strong>Entrevista pendiente</strong><div style="font-size:0.78rem;color:#64748b;">Podés cargar la matriz de evaluación y reseña de este candidato.</div></div>' +
+            '<button type="button" class="ms-sa-btn" id="ms-cv-open-interview-from-detail">Cargar Entrevista</button>' +
+          '</div>') +
+
       '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">' +
       '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-cv-mark-unread-btn">↩ Devolver a "CV recibidos" (sin previsualizar)</button>' +
       '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="border-color:#dc2626;color:#dc2626;" id="ms-cv-delete-btn">🗑 Eliminar CV</button>' +
@@ -964,7 +1058,7 @@
       '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">' +
       '<a href="' +
       esc(fullUrl) +
-      '" target="_blank" class="ms-sa-btn">Abrir Formulario /cv ↗</a>' +
+      '" target="_blank" class="ms-sa-btn">Abrir Formulario ↗</a>' +
       '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-cv-copy-link-btn" data-url="' +
       esc(fullUrl) +
       '">📋 Copiar Enlace</button>' +
@@ -1188,40 +1282,42 @@
 
     return (
       '<div style="display:grid;gap:1rem;">' +
-        '<div class="ms-sa-card">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.7rem;margin-bottom:0.85rem;">' +
-            '<div>' +
-              '<h4 style="margin:0;">⚙️ Configuración de Tablas y Campos del Formulario (/cv)</h4>' +
-              '<div style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">Habilitá o deshabilitá campos, agregá nuevos campos y actualizá las opciones desplegables (como pretensión salarial, puestos o rubros).</div>' +
+        '<div id="ms-cv-cfg-card" class="ms-sa-card ms-cv-cfg-card">' +
+          '<div id="ms-cv-cfg-sticky-panel" class="ms-cv-cfg-sticky-panel">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.7rem;margin-bottom:0.85rem;">' +
+              '<div>' +
+                '<h4 style="margin:0;">Configuración de Tablas y Campos del Formulario</h4>' +
+                '<div style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">Habilitá o deshabilitá campos, agregá nuevos campos y actualizá las opciones desplegables (como pretensión salarial, puestos o rubros).</div>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-cv-cfg-new-btn">➕ Nuevo Campo</button>' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-cv-cfg-reset-btn">↺ Restablecer</button>' +
+                '<button type="button" class="ms-sa-btn" id="ms-cv-cfg-save-btn" style="' + (STATE_CV.configDirty ? 'background:#56D7A1;color:#112D3A;' : '') + '">💾 ' + (STATE_CV.configDirty ? 'Guardar Cambios *' : 'Guardar Cambios') + '</button>' +
+              '</div>' +
             '</div>' +
-            '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">' +
-              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-cv-cfg-new-btn">➕ Nuevo Campo</button>' +
-              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-cv-cfg-reset-btn">↺ Restablecer</button>' +
-              '<button type="button" class="ms-sa-btn" id="ms-cv-cfg-save-btn" style="' + (STATE_CV.configDirty ? 'background:#56D7A1;color:#112D3A;' : '') + '">💾 ' + (STATE_CV.configDirty ? 'Guardar Cambios *' : 'Guardar Cambios') + '</button>' +
+
+            '<div style="display:flex;flex-wrap:wrap;gap:0.6rem;">' +
+              '<select class="ms-sa-select" id="ms-cv-cfg-filter-sec" style="max-width:300px;">' +
+                '<option value="all" ' + (secFilter === 'all' ? 'selected' : '') + '>Todos los campos (' + fields.length + ')</option>' +
+                '<option value="selects" ' + (secFilter === 'selects' ? 'selected' : '') + '>📋 Solo Desplegables (Pretensión salarial, Puestos...)</option>' +
+                '<option value="custom" ' + (secFilter === 'custom' ? 'selected' : '') + '>✨ Solo Campos Personalizados</option>' +
+                Object.keys(CV_SECTION_NAMES).map(function (sk) {
+                  return '<option value="' + sk + '" ' + (secFilter === sk ? 'selected' : '') + '>' + esc(CV_SECTION_NAMES[sk]) + '</option>';
+                }).join('') +
+              '</select>' +
+              '<input class="ms-sa-input" id="ms-cv-cfg-search" style="max-width:280px;" value="' + esc(STATE_CV.configSearch) + '" placeholder="Buscar campo u opción (ej: salarial)...">' +
             '</div>' +
           '</div>' +
 
-          '<div style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-bottom:0.85rem;">' +
-            '<select class="ms-sa-select" id="ms-cv-cfg-filter-sec" style="max-width:300px;">' +
-              '<option value="all" ' + (secFilter === 'all' ? 'selected' : '') + '>Todos los campos (' + fields.length + ')</option>' +
-              '<option value="selects" ' + (secFilter === 'selects' ? 'selected' : '') + '>📋 Solo Desplegables (Pretensión salarial, Puestos...)</option>' +
-              '<option value="custom" ' + (secFilter === 'custom' ? 'selected' : '') + '>✨ Solo Campos Personalizados</option>' +
-              Object.keys(CV_SECTION_NAMES).map(function (sk) {
-                return '<option value="' + sk + '" ' + (secFilter === sk ? 'selected' : '') + '>' + esc(CV_SECTION_NAMES[sk]) + '</option>';
-              }).join('') +
-            '</select>' +
-            '<input class="ms-sa-input" id="ms-cv-cfg-search" style="max-width:280px;" value="' + esc(STATE_CV.configSearch) + '" placeholder="Buscar campo u opción (ej: salarial)...">' +
-          '</div>' +
-
-          '<div style="overflow-x:auto;">' +
-            '<table style="width:100%;border-collapse:collapse;">' +
-              '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;font-size:0.78rem;">' +
-                '<th style="padding:0.5rem;">Sección</th>' +
-                '<th style="padding:0.5rem;">Campo / Etiqueta</th>' +
-                '<th style="padding:0.5rem;">Tipo</th>' +
-                '<th style="padding:0.5rem;text-align:center;">Habilitado</th>' +
-                '<th style="padding:0.5rem;text-align:center;">Obligatorio</th>' +
-                '<th style="padding:0.5rem;text-align:right;">Acciones</th>' +
+          '<div class="ms-cv-cfg-table-wrap">' +
+            '<table class="ms-cv-cfg-table" data-excel-table-key="cv-form-config" style="width:100%;border-collapse:separate;border-spacing:0;">' +
+              '<thead><tr style="text-align:left;font-size:0.78rem;">' +
+                '<th style="padding:0.55rem 0.5rem;">Sección</th>' +
+                '<th style="padding:0.55rem 0.5rem;">Campo / Etiqueta</th>' +
+                '<th style="padding:0.55rem 0.5rem;">Tipo</th>' +
+                '<th style="padding:0.55rem 0.5rem;text-align:center;">Habilitado</th>' +
+                '<th style="padding:0.55rem 0.5rem;text-align:center;">Obligatorio</th>' +
+                '<th style="padding:0.55rem 0.5rem;text-align:right;">Acciones</th>' +
               '</tr></thead>' +
               '<tbody>' + rowsHtml + '</tbody>' +
             '</table>' +
@@ -1229,6 +1325,261 @@
         '</div>' +
       '</div>' +
       modalHtml
+    );
+  }
+
+  function getAllActiveCvs() {
+    var byId = {};
+    var out = [];
+    STATE_CV.previsualizados.concat(STATE_CV.recibidos).forEach(function (cv) {
+      if (cv && cv.id && !byId[cv.id]) {
+        byId[cv.id] = true;
+        out.push(cv);
+      }
+    });
+    out.sort(function (a, b) {
+      var na = String((a.personal && a.personal.nombreCompleto) || '');
+      var nb = String((b.personal && b.personal.nombreCompleto) || '');
+      return na.localeCompare(nb, 'es');
+    });
+    return out;
+  }
+
+  function loadCandidateIntoInterviewForm(cvId) {
+    STATE_CV.interviewSelectedId = cvId || '';
+    var cv = cvId ? findCvById(cvId) : null;
+    if (cv && cv.interview && cv.interview.scores) {
+      var s = defaultInterviewScores();
+      INTERVIEW_CRITERIA.forEach(function (c) {
+        var v = Number(cv.interview.scores[c.key]);
+        if (v >= 1 && v <= 5) s[c.key] = Math.round(v);
+      });
+      STATE_CV.interviewScores = s;
+      STATE_CV.interviewReview = String(cv.interview.review || '');
+      STATE_CV.interviewDate = String(cv.interview.interviewDate || todayIsoLocal());
+    } else {
+      STATE_CV.interviewScores = defaultInterviewScores();
+      STATE_CV.interviewReview = '';
+      STATE_CV.interviewDate = todayIsoLocal();
+    }
+  }
+
+  function scoreBadgeStyle(pct) {
+    var n = Number(pct || 0);
+    if (n >= 80) return { bg: '#dcfce7', fg: '#065f46' };
+    if (n >= 60) return { bg: '#fef3c7', fg: '#92400e' };
+    return { bg: '#fee2e2', fg: '#991b1b' };
+  }
+
+  function renderEntrevistasView() {
+    ensureInterviewStyles();
+    var allCvs = getAllActiveCvs();
+    var selectedCv = STATE_CV.interviewSelectedId
+      ? findCvById(STATE_CV.interviewSelectedId)
+      : null;
+
+    var scores = STATE_CV.interviewScores || defaultInterviewScores();
+    var weighted = calcInterviewWeighted(scores);
+
+    var puestosMap = {};
+    STATE_CV.entrevistados.forEach(function (cv) {
+      var p = cv.postulacion && cv.postulacion.puestoPrincipal;
+      if (p) puestosMap[p] = true;
+    });
+    var puestosList = Object.keys(puestosMap).sort();
+
+    var q = String(STATE_CV.interviewSearch || '').trim().toLowerCase();
+    var ranked = STATE_CV.entrevistados
+      .slice()
+      .sort(function (a, b) {
+        var diff =
+          Number((b.interview && b.interview.weightedScore) || 0) -
+          Number((a.interview && a.interview.weightedScore) || 0);
+        if (diff !== 0) return diff;
+        return String((b.interview && b.interview.evaluatedAt) || '').localeCompare(
+          String((a.interview && a.interview.evaluatedAt) || '')
+        );
+      })
+      .filter(function (cv) {
+        if (
+          STATE_CV.interviewFilterPuesto &&
+          (!cv.postulacion || cv.postulacion.puestoPrincipal !== STATE_CV.interviewFilterPuesto)
+        ) {
+          return false;
+        }
+        if (q) {
+          var hay = (
+            String((cv.personal && cv.personal.nombreCompleto) || '') + ' ' +
+            String((cv.personal && cv.personal.nroDoc) || '') + ' ' +
+            String((cv.postulacion && cv.postulacion.puestoPrincipal) || '') + ' ' +
+            String((cv.interview && cv.interview.review) || '')
+          ).toLowerCase();
+          if (hay.indexOf(q) === -1) return false;
+        }
+        return true;
+      });
+
+    var candidateOpts =
+      '<option value="">— Seleccioná un perfil para evaluar —</option>' +
+      allCvs.map(function (cv) {
+        var nm = (cv.personal && cv.personal.nombreCompleto) || 'Sin nombre';
+        var dni = (cv.personal && cv.personal.nroDoc) || '';
+        var puesto = (cv.postulacion && cv.postulacion.puestoPrincipal) || '';
+        var tag =
+          cv.interview && typeof cv.interview.weightedScore === 'number'
+            ? ' [Evaluado: ' + Number(cv.interview.weightedScore).toFixed(1) + '%]'
+            : '';
+        return (
+          '<option value="' + esc(cv.id) + '"' + (STATE_CV.interviewSelectedId === cv.id ? ' selected' : '') + '>' +
+            esc(nm) + (dni ? ' · DNI ' + esc(dni) : '') + (puesto ? ' · ' + esc(puesto) : '') + tag +
+          '</option>'
+        );
+      }).join('');
+
+    var selectedSubtitle = selectedCv
+      ? esc((selectedCv.personal && selectedCv.personal.nombreCompleto) || '') +
+        ' · ' +
+        esc((selectedCv.postulacion && selectedCv.postulacion.puestoPrincipal) || 'Sin puesto especificado')
+      : 'Elegí un perfil arriba para cargar su evaluación';
+
+    var matrixRowsHtml = INTERVIEW_CRITERIA.map(function (c) {
+      var val = Math.min(5, Math.max(1, Math.round(Number(scores[c.key] || 3))));
+      return (
+        '<div style="display:grid;grid-template-columns:minmax(170px,1.5fr) 62px minmax(160px,1.7fr) 44px;align-items:center;gap:0.8rem;padding:0.62rem 0;border-top:1px solid rgba(255,255,255,0.08);">' +
+          '<div style="font-size:0.9rem;font-weight:500;color:#f1f5f9;">' + esc(c.label) + '</div>' +
+          '<div style="font-size:0.84rem;color:#94a3b8;font-weight:600;">' + c.weight + '%</div>' +
+          '<div>' +
+            '<input type="range" min="1" max="5" step="1" value="' + val + '" class="ms-cv-matrix-range" data-interview-score="' + esc(c.key) + '" aria-label="' + esc(c.label) + '">' +
+          '</div>' +
+          '<div style="text-align:right;font-size:0.88rem;font-weight:800;color:#ffffff;font-variant-numeric:tabular-nums;" id="ms-iv-val-' + esc(c.key) + '">' + val + '/5</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    var rankingHtml = ranked.length === 0
+      ? '<div style="text-align:center;padding:2rem 1rem;color:#64748b;font-size:0.88rem;border:1px dashed #cbd5e1;border-radius:14px;">Todavía no hay entrevistas cargadas. Seleccioná un perfil arriba, completá la matriz de evaluación y la reseña para armar el ranking ordenado de mayor a menor.</div>'
+      : ranked.map(function (cv, idx) {
+          var iv = cv.interview || {};
+          var pct = Number(iv.weightedScore || 0);
+          var badge = scoreBadgeStyle(pct);
+          var p = cv.personal || {};
+          var post = cv.postulacion || {};
+          var arch = cv.archivos || {};
+          var miniScores = INTERVIEW_CRITERIA.map(function (c) {
+            var sv = (iv.scores && iv.scores[c.key]) || 0;
+            return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#334155;font-size:0.72rem;font-weight:600;">' + esc(c.label) + ': <strong>' + sv + '/5</strong></span>';
+          }).join(' ');
+
+          return (
+            '<div style="background:#fff;border:1px solid rgba(17,45,58,0.12);border-radius:16px;padding:1.05rem 1.15rem;display:grid;gap:0.75rem;">' +
+              '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
+                '<div style="display:flex;align-items:center;gap:0.85rem;min-width:220px;">' +
+                  '<div style="width:36px;height:36px;border-radius:10px;background:#112D3A;color:#56D7A1;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.9rem;flex-shrink:0;">#' + (idx + 1) + '</div>' +
+                  (arch.fotoUrl
+                    ? '<img src="' + esc(arch.fotoUrl) + '" alt="' + esc(p.nombreCompleto) + '" style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:1px solid #cbd5e1;flex-shrink:0;">'
+                    : '') +
+                  '<div>' +
+                    '<div style="font-weight:800;font-size:0.98rem;color:#112D3A;">' + esc(p.nombreCompleto || 'Sin nombre') + '</div>' +
+                    '<div style="font-size:0.76rem;color:#64748b;">DNI ' + esc(p.nroDoc || '—') + ' · ' + esc(post.puestoPrincipal || 'Sin puesto') + ' · Entrevista: ' + esc(iv.interviewDate || '—') + '</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:0.65rem;flex-wrap:wrap;">' +
+                  '<div style="padding:0.35rem 0.85rem;border-radius:999px;background:' + badge.bg + ';color:' + badge.fg + ';font-size:0.95rem;font-weight:900;font-variant-numeric:tabular-nums;">' + pct.toFixed(1) + '%</div>' +
+                  '<button type="button" class="ms-sa-btn" data-iv-edit="' + esc(cv.id) + '" style="padding:0.38rem 0.75rem;font-size:0.76rem;">Editar</button>' +
+                  '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-iv-open-cv="' + esc(cv.id) + '" style="padding:0.38rem 0.75rem;font-size:0.76rem;">Ver CV</button>' +
+                  '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-iv-delete="' + esc(cv.id) + '" style="padding:0.38rem 0.65rem;font-size:0.76rem;border-color:#fca5a5;color:#b91c1c;">Quitar</button>' +
+                '</div>' +
+              '</div>' +
+
+              '<div style="height:7px;width:100%;border-radius:999px;background:#e2e8f0;overflow:hidden;">' +
+                '<div style="height:100%;width:' + Math.min(100, Math.max(0, pct)) + '%;background:#112D3A;border-radius:999px;"></div>' +
+              '</div>' +
+
+              '<div style="display:flex;flex-wrap:wrap;gap:0.35rem;">' + miniScores + '</div>' +
+
+              (iv.review
+                ? '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:11px;padding:0.7rem 0.85rem;font-size:0.83rem;color:#1e293b;line-height:1.5;white-space:pre-wrap;"><strong style="color:#112D3A;display:block;font-size:0.74rem;text-transform:uppercase;margin-bottom:3px;">Reseña de la entrevista</strong>' + esc(iv.review) + '</div>'
+                : '') +
+            '</div>'
+          );
+        }).join('');
+
+    return (
+      '<div style="display:grid;gap:1.25rem;max-width:1100px;margin:0 auto;">' +
+
+        '<div class="ms-sa-card" style="display:grid;gap:1rem;">' +
+          '<div style="display:grid;grid-template-columns:1fr 190px;gap:0.75rem;align-items:end;">' +
+            '<div>' +
+              '<label style="display:block;font-size:0.78rem;font-weight:800;color:#112D3A;margin-bottom:4px;">Perfil / Candidato Seleccionado</label>' +
+              '<select id="ms-iv-candidate-select" class="ms-sa-select" style="width:100%;">' + candidateOpts + '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label style="display:block;font-size:0.78rem;font-weight:800;color:#112D3A;margin-bottom:4px;">Fecha de Entrevista</label>' +
+              '<input type="date" id="ms-iv-date" class="ms-sa-input" value="' + esc(STATE_CV.interviewDate || todayIsoLocal()) + '">' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="ms-cv-matrix-card">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;">' +
+              '<div>' +
+                '<div style="font-size:1.2rem;font-weight:800;color:#ffffff;letter-spacing:-0.01em;">Matriz de evaluación del candidato</div>' +
+                '<div style="font-size:0.84rem;color:#94a3b8;margin-top:2px;">' + selectedSubtitle + '</div>' +
+              '</div>' +
+              '<div style="text-align:right;">' +
+                '<div id="ms-iv-weighted-display" style="font-size:1.9rem;font-weight:900;color:#ffffff;line-height:1;font-variant-numeric:tabular-nums;">' + weighted.toFixed(1) + '%</div>' +
+                '<div style="font-size:0.78rem;color:#94a3b8;margin-top:3px;">Puntaje ponderado</div>' +
+              '</div>' +
+            '</div>' +
+
+            '<div class="ms-cv-matrix-progress-bg">' +
+              '<div id="ms-iv-progress-fill" class="ms-cv-matrix-progress-fill" style="width:' + Math.min(100, Math.max(0, weighted)) + '%;"></div>' +
+            '</div>' +
+
+            '<div style="display:grid;grid-template-columns:minmax(170px,1.5fr) 62px minmax(160px,1.7fr) 44px;gap:0.8rem;padding-bottom:0.45rem;font-size:0.76rem;font-weight:700;color:#94a3b8;">' +
+              '<div>Competencia</div>' +
+              '<div>Peso</div>' +
+              '<div>Calificación</div>' +
+              '<div></div>' +
+            '</div>' +
+
+            matrixRowsHtml +
+
+            '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-top:1rem;padding-top:0.85rem;border-top:1px solid rgba(255,255,255,0.08);">' +
+              '<span style="font-size:0.8rem;color:#94a3b8;">Modificá las calificaciones del 1 al 5 para calcular el puntaje ponderado.</span>' +
+              '<button type="button" id="ms-iv-reset-btn" class="ms-cv-matrix-reset">Restablecer</button>' +
+            '</div>' +
+          '</div>' +
+
+          '<div>' +
+            '<label style="display:block;font-size:0.8rem;font-weight:800;color:#112D3A;margin-bottom:5px;">Reseña de la entrevista</label>' +
+            '<textarea id="ms-iv-review-inp" rows="4" class="ms-sa-input" style="width:100%;resize:vertical;" placeholder="Escribí las conclusiones de la entrevista, fortalezas observadas, disponibilidad acordada y recomendación...">' + esc(STATE_CV.interviewReview || '') + '</textarea>' +
+          '</div>' +
+
+          '<div style="display:flex;justify-content:flex-end;gap:0.6rem;flex-wrap:wrap;">' +
+            '<button type="button" id="ms-iv-save-btn" class="ms-sa-btn" style="padding:0.65rem 1.35rem;font-weight:800;">Guardar Entrevista en el Perfil</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="ms-sa-card" style="display:grid;gap:0.9rem;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">' +
+            '<div>' +
+              '<h4 style="margin:0;color:#112D3A;">Ranking de Perfiles Entrevistados (de mayor a menor)</h4>' +
+              '<div style="font-size:0.78rem;color:#64748b;margin-top:2px;">Total evaluados: <strong>' + ranked.length + '</strong></div>' +
+            '</div>' +
+            '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+              '<select id="ms-iv-filter-puesto" class="ms-sa-select" style="max-width:240px;">' +
+                '<option value="">Todos los puestos</option>' +
+                puestosList.map(function (pu) {
+                  return '<option value="' + esc(pu) + '"' + (STATE_CV.interviewFilterPuesto === pu ? ' selected' : '') + '>' + esc(pu) + '</option>';
+                }).join('') +
+              '</select>' +
+              '<input id="ms-iv-search" class="ms-sa-input" style="max-width:230px;" value="' + esc(STATE_CV.interviewSearch || '') + '" placeholder="Buscar candidato o reseña...">' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:grid;gap:0.8rem;">' + rankingHtml + '</div>' +
+        '</div>' +
+
+      '</div>'
     );
   }
 
@@ -1240,6 +1591,8 @@
       bodyEl.innerHTML = renderCvListView(false);
     } else if (STATE_CV.activeView === 'previsualizados') {
       bodyEl.innerHTML = renderCvListView(true);
+    } else if (STATE_CV.activeView === 'entrevistas') {
+      bodyEl.innerHTML = renderEntrevistasView();
     } else if (STATE_CV.activeView === 'detail') {
       bodyEl.innerHTML = renderCvDetailView();
     } else if (STATE_CV.activeView === 'portal') {
@@ -1403,6 +1756,143 @@
       });
     }
 
+    var openIvFromDetail = bodyEl.querySelector('#ms-cv-open-interview-from-detail');
+    if (openIvFromDetail) {
+      openIvFromDetail.addEventListener('click', function () {
+        if (!STATE_CV.selectedCv) return;
+        loadCandidateIntoInterviewForm(STATE_CV.selectedCv.id);
+        openCvView('entrevistas');
+      });
+    }
+
+    // --- Submódulo: Entrevistas Realizadas ---
+    var ivSel = bodyEl.querySelector('#ms-iv-candidate-select');
+    if (ivSel) {
+      ivSel.addEventListener('change', function () {
+        loadCandidateIntoInterviewForm(ivSel.value);
+        renderCvWorkspace();
+      });
+    }
+
+    var ivDateEl = bodyEl.querySelector('#ms-iv-date');
+    if (ivDateEl) {
+      ivDateEl.addEventListener('change', function () {
+        STATE_CV.interviewDate = ivDateEl.value;
+      });
+    }
+
+    var ivReviewEl = bodyEl.querySelector('#ms-iv-review-inp');
+    if (ivReviewEl) {
+      ivReviewEl.addEventListener('input', function () {
+        STATE_CV.interviewReview = ivReviewEl.value;
+      });
+    }
+
+    bodyEl.querySelectorAll('[data-interview-score]').forEach(function (rng) {
+      rng.addEventListener('input', function () {
+        var key = rng.getAttribute('data-interview-score');
+        var val = Math.min(5, Math.max(1, Math.round(Number(rng.value || 3))));
+        STATE_CV.interviewScores[key] = val;
+        var lbl = document.getElementById('ms-iv-val-' + key);
+        if (lbl) lbl.textContent = val + '/5';
+        var pct = calcInterviewWeighted(STATE_CV.interviewScores);
+        var pctEl = document.getElementById('ms-iv-weighted-display');
+        if (pctEl) pctEl.textContent = pct.toFixed(1) + '%';
+        var fillEl = document.getElementById('ms-iv-progress-fill');
+        if (fillEl) fillEl.style.width = Math.min(100, Math.max(0, pct)) + '%';
+      });
+    });
+
+    var ivResetBtn = bodyEl.querySelector('#ms-iv-reset-btn');
+    if (ivResetBtn) {
+      ivResetBtn.addEventListener('click', function () {
+        STATE_CV.interviewScores = defaultInterviewScores();
+        renderCvWorkspace();
+      });
+    }
+
+    var ivSaveBtn = bodyEl.querySelector('#ms-iv-save-btn');
+    if (ivSaveBtn) {
+      ivSaveBtn.addEventListener('click', async function () {
+        if (!STATE_CV.interviewSelectedId) {
+          showCvToast('Seleccioná primero un perfil / candidato para guardar su entrevista.', true);
+          return;
+        }
+        var reviewVal = ivReviewEl ? ivReviewEl.value : STATE_CV.interviewReview;
+        var dateVal = ivDateEl ? ivDateEl.value : STATE_CV.interviewDate;
+        var res = await apiCv('POST', {
+          action: 'save_interview',
+          id: STATE_CV.interviewSelectedId,
+          scores: STATE_CV.interviewScores,
+          review: reviewVal,
+          interviewDate: dateVal
+        });
+        if (res && res.ok) {
+          showCvToast(res.message || 'Entrevista guardada correctamente.', false);
+          await reloadCvData(true);
+        } else {
+          showCvToast((res && res.message) || 'No se pudo guardar la entrevista.', true);
+        }
+      });
+    }
+
+    bodyEl.querySelectorAll('[data-iv-edit]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-iv-edit');
+        loadCandidateIntoInterviewForm(id);
+        renderCvWorkspace();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-iv-open-cv]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-iv-open-cv');
+        var found = findCvById(id);
+        if (!found) return;
+        STATE_CV.previousListView = 'entrevistas';
+        STATE_CV.selectedCv = found;
+        openCvView('detail');
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-iv-delete]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var id = btn.getAttribute('data-iv-delete');
+        if (!window.confirm('¿Quitar la evaluación de entrevista de este perfil? (El CV seguirá guardado).')) return;
+        var res = await apiCv('POST', { action: 'delete_interview', id: id });
+        if (res && res.ok) {
+          if (STATE_CV.interviewSelectedId === id) {
+            STATE_CV.interviewScores = defaultInterviewScores();
+            STATE_CV.interviewReview = '';
+          }
+          showCvToast(res.message || 'Evaluación quitada.', false);
+          await reloadCvData(true);
+        }
+      });
+    });
+
+    var ivFilterPuesto = bodyEl.querySelector('#ms-iv-filter-puesto');
+    if (ivFilterPuesto) {
+      ivFilterPuesto.addEventListener('change', function () {
+        STATE_CV.interviewFilterPuesto = ivFilterPuesto.value;
+        renderCvWorkspace();
+      });
+    }
+
+    var ivSearch = bodyEl.querySelector('#ms-iv-search');
+    if (ivSearch) {
+      ivSearch.addEventListener('input', function () {
+        STATE_CV.interviewSearch = ivSearch.value;
+        renderCvWorkspace();
+        var next = document.getElementById('ms-iv-search');
+        if (next) {
+          next.focus();
+          next.setSelectionRange(next.value.length, next.value.length);
+        }
+      });
+    }
+
     var copyBtn = bodyEl.querySelector('#ms-cv-copy-link-btn');
     if (copyBtn) {
       copyBtn.addEventListener('click', function () {
@@ -1457,6 +1947,31 @@
 
     var cfgSecSel = bodyEl.querySelector('#ms-cv-cfg-filter-sec');
     if (cfgSecSel) {
+      var syncCvCfgStickyMetrics = function () {
+        var cardEl = document.getElementById('ms-cv-cfg-card');
+        var panelEl = document.getElementById('ms-cv-cfg-sticky-panel');
+        if (!cardEl || !panelEl) return;
+        var topbarEl = document.querySelector('.erp-topbar');
+        var topbarH = topbarEl ? Math.round(topbarEl.getBoundingClientRect().height) : 64;
+        var panelH = Math.round(panelEl.getBoundingClientRect().height);
+        cardEl.style.setProperty('--ms-topbar-h', topbarH + 'px');
+        cardEl.style.setProperty('--ms-cv-cfg-panel-h', panelH + 'px');
+      };
+      requestAnimationFrame(syncCvCfgStickyMetrics);
+      if (!window.__msCvCfgStickyResizeBound) {
+        window.__msCvCfgStickyResizeBound = true;
+        window.addEventListener('resize', function () {
+          var cardEl = document.getElementById('ms-cv-cfg-card');
+          var panelEl = document.getElementById('ms-cv-cfg-sticky-panel');
+          if (!cardEl || !panelEl) return;
+          var topbarEl = document.querySelector('.erp-topbar');
+          var topbarH = topbarEl ? Math.round(topbarEl.getBoundingClientRect().height) : 64;
+          var panelH = Math.round(panelEl.getBoundingClientRect().height);
+          cardEl.style.setProperty('--ms-topbar-h', topbarH + 'px');
+          cardEl.style.setProperty('--ms-cv-cfg-panel-h', panelH + 'px');
+        });
+      }
+
       cfgSecSel.addEventListener('change', function () {
         STATE_CV.configSectionFilter = cfgSecSel.value;
         renderCvWorkspace();

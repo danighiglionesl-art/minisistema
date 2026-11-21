@@ -602,3 +602,67 @@ html[data-brand="minisistema"] .brand-confirm-summary-card {
 html[data-brand="minisistema"] .brand-confirm-dot {
   color: var(--ms-primary) !important;
 }
+
+/* Panel fijo (sticky) para Configuración de Tablas y Campos del Formulario (/cv) */
+.ms-cv-cfg-card {
+  overflow: visible !important;
+}
+
+.ms-cv-cfg-sticky-panel {
+  position: sticky;
+  top: var(--ms-topbar-h, 64px);
+  z-index: 18;
+  background: #FFFFFF;
+  margin: -1.1rem -1.1rem 0;
+  padding: 1.1rem 1.1rem 0.85rem;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  box-shadow: 0 2px 0 rgba(17, 45, 58, 0.04);
+}
+
+html[data-theme="dark"] .ms-cv-cfg-sticky-panel {
+  background: #132f3d;
+  box-shadow: 0 2px 0 rgba(255, 255, 255, 0.06);
+}
+
+.ms-cv-cfg-table-wrap {
+  overflow-x: clip;
+  margin: 0 -1.1rem;
+  padding: 0 1.1rem;
+}
+
+.ms-cv-cfg-table thead th {
+  position: sticky !important;
+  top: calc(var(--ms-topbar-h, 64px) + var(--ms-cv-cfg-panel-h, 128px));
+  z-index: 16;
+  background: #FFFFFF;
+  box-shadow: inset 0 -2px 0 #56D7A1, 0 4px 10px -4px rgba(17, 45, 58, 0.14);
+}
+
+html[data-theme="dark"] .ms-cv-cfg-table thead th {
+  background: #132f3d;
+  box-shadow: inset 0 -2px 0 #56D7A1, 0 4px 12px -4px rgba(0, 0, 0, 0.45);
+}
+
+.ms-cv-cfg-table tbody td {
+  border-bottom: 1px solid rgba(17, 45, 58, 0.1);
+}
+
+html[data-theme="dark"] .ms-cv-cfg-table tbody td {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 768px) {
+  .ms-cv-cfg-sticky-panel {
+    position: sticky;
+    top: var(--ms-topbar-h, 58px);
+  }
+  .ms-cv-cfg-table-wrap {
+    overflow-x: auto;
+    max-height: 65vh;
+    overflow-y: auto;
+  }
+  .ms-cv-cfg-table thead th {
+    top: 0;
+  }
+}
