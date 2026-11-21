@@ -54754,12 +54754,18 @@ function initApp() {
   // =========================================================================
   const CLIENT_APP_VERSION = (() => {
     try {
+      if (window.__ERP_TENANT_BOOT__ && window.__ERP_TENANT_BOOT__.appVersion) {
+        return String(window.__ERP_TENANT_BOOT__.appVersion);
+      }
       const scriptEl = document.querySelector('script[src*="assets/js/app.js"]');
       const src = scriptEl ? scriptEl.getAttribute('src') || '' : '';
       const m = src.match(/[?&]v=([^&]+)/);
-      if (m && m[1]) return `casa-nueva-erp-v${m[1]}`;
+      if (m && m[1]) {
+        const prefix = window.__ERP_TENANT_BOOT__ ? 'minisistema-erp-v' : 'casa-nueva-erp-v';
+        return `${prefix}${m[1]}`;
+      }
     } catch {}
-    return 'casa-nueva-erp-v126';
+    return 'minisistema-erp-v318.1';
   })();
   const ACK_VERSION_STORAGE_KEY = 'cn_erp_ack_version_v1';
   const DISMISSED_VERSION_SESSION_KEY = 'cn_erp_dismissed_version_v1';
@@ -54777,22 +54783,33 @@ function initApp() {
     sessionStorage.setItem(DISMISSED_VERSION_SESSION_KEY, CLIENT_APP_VERSION);
   } catch {}
 
-  function extractErpVersionNumber(ver) {
-    const m = String(ver || '').match(/v(\d+)/i);
-    return m ? parseInt(m[1], 10) : 0;
+  function parseErpVersionParts(ver) {
+    const m = String(ver || '').match(/v(\d+)(?:\.(\d+))?(?:-([a-z0-9]+))?/i);
+    return {
+      major: m && m[1] ? parseInt(m[1], 10) : 0,
+      minor: m && m[2] ? parseInt(m[2], 10) : 0,
+      sha: m && m[3] ? m[3].toLowerCase() : ''
+    };
+  }
+
+  function isTargetStrictlyOlderVersion(targetVer, baseVer) {
+    const t = parseErpVersionParts(targetVer);
+    const b = parseErpVersionParts(baseVer);
+    if (t.major <= 0 || b.major <= 0) return false;
+    if (t.major !== b.major) return t.major < b.major;
+    if (t.minor !== b.minor) return t.minor < b.minor;
+    // Misma major.minor: solo considerar igual/antigua si tampoco cambió el SHA de deploy
+    return !t.sha && !b.sha;
   }
 
   function isVersionAlreadyAcknowledged(ver) {
     if (!ver) return true;
     if (ver === CLIENT_APP_VERSION) return true;
-    const clientNum = extractErpVersionNumber(CLIENT_APP_VERSION);
-    const targetNum = extractErpVersionNumber(ver);
-    if (clientNum > 0 && targetNum > 0 && targetNum <= clientNum) return true;
+    if (isTargetStrictlyOlderVersion(ver, CLIENT_APP_VERSION)) return true;
     try {
       const ackVer = localStorage.getItem(ACK_VERSION_STORAGE_KEY);
       if (ackVer === ver) return true;
-      const ackNum = extractErpVersionNumber(ackVer);
-      if (ackNum > 0 && targetNum > 0 && targetNum <= ackNum) return true;
+      if (ackVer && isTargetStrictlyOlderVersion(ver, ackVer)) return true;
       if (sessionStorage.getItem(DISMISSED_VERSION_SESSION_KEY) === ver) return true;
     } catch {}
     return false;
@@ -69654,6 +69671,20 @@ function initApp() {
     // Bitácora viva de actualizaciones incorporadas al ERP y Carrito Web
     // (Se sincroniza automáticamente con la vista del Manual, el Asistente IA y el PDF descargable)
     const BUILTIN_MANUAL_UPDATES = [
+      {
+        id: 'UPD-EXCEL-COLS-FCR-EDIT-Y-NOTIF-VERSION',
+        fecha: '20/11/2026',
+        moduloKey: 'general',
+        moduloLabel: 'Todos los Listados · Factura Carga Rápida · Actualizaciones',
+        titulo: 'Columnas estilo Excel (mover, ampliar y reducir), Edición de ítems con Stock Diferencial en Carga Rápida y Aviso Automático de Nueva Versión',
+        descripcion:
+          'Todas las tablas del sistema (incluyendo Administrador General, Mi Contador, Inmobiliaria, Turnero y CV) permiten mover columnas arrastrando su encabezado y ampliar/reducir anchos con persistencia automática. En Factura Carga Rápida ahora se guardan y recargan los ítems al editar una factura aplicando solo la diferencia de stock real. Además, el aviso emergente de "Nueva versión disponible" detecta automáticamente cada nuevo despliegue en producción.',
+        pasos: [
+          'Arrastrar el encabezado de cualquier columna hacia izquierda o derecha para cambiar su orden, o el borde derecho para ajustar el ancho (doble clic para restablecer).',
+          'Al editar una Factura de Carga Rápida existente, revisar la columna "Base s/FC" y el ajuste diferencial de stock antes de guardar.',
+          'Cuando se publique una nueva actualización, hacer clic en "Actualizar" en el aviso emergente para aplicar la versión nueva sin perder la sesión.'
+        ]
+      },
       {
         id: 'UPD-FCR-GUARDADO-PARCIAL-Y-SYNC-VENTANAS',
         fecha: '17/11/2026',

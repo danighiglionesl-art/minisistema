@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getErpAppVersion } from "../erp-version";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
   getTenantDbStatusMap,
@@ -6,6 +7,7 @@ import {
   putTenantDoc,
   putTenantMediaInDb,
 } from "../supabase-server";
+import { ensureBaseMiniSistemaTenant } from "../tenant-service";
 import type { ErpTenantRecord } from "../types";
 
 type AnyObj = Record<string, any>;
@@ -15,15 +17,22 @@ export async function handleErpDbStatus(
   tenant: ErpTenantRecord
 ): Promise<NextResponse> {
   const statusMap = await getTenantDbStatusMap(tenant);
-  return NextResponse.json({
-    ok: true,
-    tenant: tenant.slug,
-    schema: tenant.db_schema,
-    appVersion: `minisistema-erp-${tenant.slug}-v1`,
-    serverTime: new Date().toISOString(),
-    databases: statusMap,
-    shield: req.nextUrl.searchParams.get("action") === "shield" ? { ok: true } : null,
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      tenant: tenant.slug,
+      schema: tenant.db_schema,
+      appVersion: getErpAppVersion(),
+      serverTime: new Date().toISOString(),
+      databases: statusMap,
+      shield: req.nextUrl.searchParams.get("action") === "shield" ? { ok: true } : null,
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      },
+    }
+  );
 }
 
 export async function handleErpOfertas(
@@ -737,10 +746,95 @@ export async function handleErpWhatsappCloud(
   return NextResponse.json({ ok: false }, { status: 405 });
 }
 
+const CENTRAL_CRM_DOC_KEY = "crm_reportes_db";
+
+function formatNowDateTimeArServer(): string {
+  const now = new Date();
+  return now.toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Cordoba",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+async function getCentralCrmReports(): Promise<{
+  baseTenant: ErpTenantRecord;
+  reports: AnyObj[];
+}> {
+  const baseTenant = await ensureBaseMiniSistemaTenant();
+  const { payload } = await getTenantDoc<AnyObj>(
+    baseTenant,
+    CENTRAL_CRM_DOC_KEY,
+    { reports: [] as AnyObj[] }
+  );
+  const reports: AnyObj[] = Array.isArray(payload?.reports)
+    ? payload.reports
+    : [];
+  return { baseTenant, reports };
+}
+
+async function saveCentralCrmReports(
+  baseTenant: ErpTenantRecord,
+  reports: AnyObj[],
+  actor: string,
+  action: string
+): Promise<void> {
+  await putTenantDoc(
+    baseTenant,
+    CENTRAL_CRM_DOC_KEY,
+    { updatedAt: new Date().toISOString(), reports: reports.slice(0, 500) },
+    actor,
+    action
+  );
+}
+
+async function mirrorCrmActionToCasaNuevaIfNeeded(
+  reportOrAction: AnyObj,
+  fromHub?: boolean
+): Promise<void> {
+  if (fromHub) return;
+  const marcaStr = String(reportOrAction.marca || "").toLowerCase();
+  const sucursalStr = String(reportOrAction.sucursal || "").toLowerCase();
+  if (
+    marcaStr &&
+    !marcaStr.includes("casa nueva") &&
+    !sucursalStr.includes("casa central")
+  ) {
+    return;
+  }
+  try {
+    await fetch("https://www.cn.com.ar/sistema/api/manual_ai.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...reportOrAction,
+        _fromMinisistemaHub: true,
+      }),
+    });
+  } catch {
+    // Non-blocking mirror
+  }
+}
+
 export async function handleErpManualAi(
   req: NextRequest,
   tenant: ErpTenantRecord
 ): Promise<NextResponse> {
+  const corsHeaders: Record<string, string> = {
+    "Access-Control-Allow-Origin": req.headers.get("origin") || "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "Content-Type, X-ERP-User, X-ERP-Tenant, X-ERP-Brand",
+  };
+
+  if (req.method === "OPTIONS") {
+    return new NextResponse(null, { status: 204, headers: corsHeaders });
+  }
+
   const fallback = { updates: [] as AnyObj[] };
   const { payload: db } = await getTenantDoc<AnyObj>(
     tenant,
@@ -750,10 +844,69 @@ export async function handleErpManualAi(
   if (!Array.isArray(db.updates)) db.updates = [];
 
   if (req.method === "GET") {
-    return NextResponse.json({
-      ok: true,
-      updates: db.updates,
-    });
+    const getAction = (req.nextUrl.searchParams.get("action") || "").trim();
+    const { baseTenant, reports: centralReports } = await getCentralCrmReports();
+
+    // Sincronizar también con Casa Nueva ERP si hubiera tickets recientes allí que aún no están en la central
+    let mergedReports = [...centralReports];
+    try {
+      const cnRes = await fetch(
+        `https://www.cn.com.ar/sistema/api/manual_ai.php?action=crm_reports&t=${Date.now()}`,
+        { cache: "no-store" }
+      );
+      if (cnRes.ok) {
+        const cnData = (await cnRes.json().catch(() => null)) as AnyObj | null;
+        if (cnData && cnData.ok && Array.isArray(cnData.reports)) {
+          let addedFromCn = false;
+          for (const cnRep of cnData.reports) {
+            if (!cnRep || typeof cnRep !== "object") continue;
+            const exists = mergedReports.some(
+              (r) =>
+                String(r.id || "") === String(cnRep.id || "") ||
+                (String(r.username || "").toLowerCase() ===
+                  String(cnRep.username || "").toLowerCase() &&
+                  String(r.titulo || "").trim() ===
+                    String(cnRep.titulo || "").trim() &&
+                  String(r.descripcion || "").trim() ===
+                    String(cnRep.descripcion || "").trim())
+            );
+            if (!exists) {
+              mergedReports.unshift(cnRep);
+              addedFromCn = true;
+            }
+          }
+          if (addedFromCn) {
+            await saveCentralCrmReports(
+              baseTenant,
+              mergedReports,
+              "danielg",
+              "sync_crm_from_casanueva"
+            );
+          }
+        }
+      }
+    } catch {
+      // Ignore if Casa Nueva is temporarily unreachable
+    }
+
+    if (getAction === "crm_reports") {
+      return NextResponse.json(
+        {
+          ok: true,
+          reports: mergedReports,
+        },
+        { headers: corsHeaders }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        ok: true,
+        updates: db.updates,
+        crmReports: mergedReports,
+      },
+      { headers: corsHeaders }
+    );
   }
 
   if (req.method === "POST") {
@@ -761,14 +914,317 @@ export async function handleErpManualAi(
     if (!payload || typeof payload !== "object") {
       return NextResponse.json(
         { ok: false, message: "Payload JSON inválido" },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
     const action = String(payload.action || "ask_ai").trim();
     const actor = String(
-      payload.autor || req.headers.get("x-erp-user") || "Administrador"
+      payload.autor ||
+        payload.username ||
+        req.headers.get("x-erp-user") ||
+        "Administrador"
     );
+
+    if (action === "save_crm_report") {
+      let titulo = String(payload.titulo || "").trim();
+      const descripcion = String(payload.descripcion || "").trim();
+      const tipo = String(payload.tipo || "MEJORA").trim().toUpperCase();
+      const prioridad = String(payload.prioridad || "NORMAL")
+        .trim()
+        .toUpperCase();
+      const moduloKey = String(payload.moduloKey || "general").trim();
+      const moduloLabel = String(payload.moduloLabel || "General").trim();
+      const usuario = String(payload.usuario || "Usuario").trim();
+      const username = String(payload.username || "").trim();
+      const rol = String(payload.rol || "Operador").trim();
+      const sucursal = String(
+        payload.sucursal || tenant.fantasy_name || "Casa Central"
+      ).trim();
+      const marca = String(
+        payload.marca || tenant.fantasy_name || "Casa Nueva"
+      ).trim();
+      const capturaBase64 = String(payload.capturaBase64 || "").trim();
+      const fechaCliente = String(payload.fechaHora || "").trim();
+
+      if (!titulo && !descripcion) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Completá la descripción del problema o mejora.",
+          },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+      if (!titulo) {
+        titulo = descripcion.slice(0, 80);
+      }
+
+      const { baseTenant, reports } = await getCentralCrmReports();
+      const maxNum = reports.reduce(
+        (mx, r) => Math.max(mx, Number(r?.numero || 0)),
+        0
+      );
+      const nextNum = maxNum + 1;
+      const code = payload.codigo
+        ? String(payload.codigo).trim()
+        : `CRM-${String(nextNum).padStart(4, "0")}`;
+      const nowFormatted = fechaCliente || formatNowDateTimeArServer();
+
+      const newReport: AnyObj = {
+        id: payload.id ? String(payload.id).trim() : `CRM-${Date.now()}`,
+        numero: nextNum,
+        codigo: code,
+        fechaHora: nowFormatted,
+        fechaIso: new Date().toISOString(),
+        usuario,
+        username,
+        rol,
+        sucursal,
+        marca,
+        tipo,
+        prioridad,
+        moduloKey,
+        moduloLabel,
+        titulo,
+        descripcion,
+        capturaBase64,
+        estado: payload.estado
+          ? String(payload.estado).trim().toUpperCase()
+          : "PENDIENTE",
+        respuestaAdmin: String(payload.respuestaAdmin || "").trim(),
+        resueltoPor: String(payload.resueltoPor || "").trim(),
+        resueltoFecha: String(payload.resueltoFecha || "").trim(),
+        updatedAt: formatNowDateTimeArServer(),
+      };
+
+      const existingIdx = reports.findIndex(
+        (ex) =>
+          String(ex?.id || "") === newReport.id ||
+          (String(ex?.username || "").toLowerCase() ===
+            username.toLowerCase() &&
+            String(ex?.titulo || "").trim() === titulo &&
+            String(ex?.descripcion || "").trim() === descripcion)
+      );
+
+      if (existingIdx >= 0) {
+        newReport.id = String(reports[existingIdx].id || newReport.id);
+        newReport.numero = Number(
+          reports[existingIdx].numero || newReport.numero
+        );
+        newReport.codigo = String(
+          reports[existingIdx].codigo || newReport.codigo
+        );
+        if (reports[existingIdx].estado && !payload.estado) {
+          newReport.estado = reports[existingIdx].estado;
+        }
+        if (reports[existingIdx].respuestaAdmin && !payload.respuestaAdmin) {
+          newReport.respuestaAdmin = reports[existingIdx].respuestaAdmin;
+        }
+        reports[existingIdx] = newReport;
+      } else {
+        reports.unshift(newReport);
+      }
+
+      await saveCentralCrmReports(
+        baseTenant,
+        reports,
+        username || actor,
+        "save_crm_report"
+      );
+
+      await mirrorCrmActionToCasaNuevaIfNeeded(
+        { action: "save_crm_report", ...newReport },
+        Boolean(payload._fromMinisistemaHub)
+      );
+
+      return NextResponse.json(
+        {
+          ok: true,
+          report: newReport,
+          reports,
+        },
+        { headers: corsHeaders }
+      );
+    }
+
+    if (action === "sync_crm_reports_batch") {
+      const batch = Array.isArray(payload.reports) ? payload.reports : [];
+      const { baseTenant, reports } = await getCentralCrmReports();
+      let changed = false;
+      for (const item of batch) {
+        if (!item || typeof item !== "object") continue;
+        const tTit = String(item.titulo || "").trim();
+        const tDesc = String(item.descripcion || "").trim();
+        if (!tTit && !tDesc) continue;
+        const tUser = String(item.username || "").trim();
+        const tId = String(item.id || "").trim();
+
+        const exists = reports.some(
+          (ex) =>
+            (tId && String(ex?.id || "") === tId) ||
+            (String(ex?.username || "").toLowerCase() === tUser.toLowerCase() &&
+              String(ex?.titulo || "").trim() === tTit &&
+              String(ex?.descripcion || "").trim() === tDesc)
+        );
+        if (!exists) {
+          const maxN = reports.reduce(
+            (mx, r) => Math.max(mx, Number(r?.numero || 0)),
+            0
+          );
+          const nNum = maxN + 1;
+          const newRep: AnyObj = {
+            id: tId || `CRM-${Date.now()}-${nNum}`,
+            numero: nNum,
+            codigo: item.codigo
+              ? String(item.codigo)
+              : `CRM-${String(nNum).padStart(4, "0")}`,
+            fechaHora: String(item.fechaHora || formatNowDateTimeArServer()),
+            fechaIso: String(item.fechaIso || new Date().toISOString()),
+            usuario: String(item.usuario || tUser || "Usuario"),
+            username: tUser,
+            rol: String(item.rol || "Usuario"),
+            sucursal: String(
+              item.sucursal || tenant.fantasy_name || "Casa Central"
+            ),
+            marca: String(item.marca || tenant.fantasy_name || "Casa Nueva"),
+            tipo: String(item.tipo || "MEJORA").toUpperCase(),
+            prioridad: String(item.prioridad || "NORMAL").toUpperCase(),
+            moduloKey: String(item.moduloKey || "general"),
+            moduloLabel: String(item.moduloLabel || "General"),
+            titulo: tTit || tDesc.slice(0, 80),
+            descripcion: tDesc,
+            capturaBase64: String(item.capturaBase64 || ""),
+            estado: String(item.estado || "PENDIENTE").toUpperCase(),
+            respuestaAdmin: String(item.respuestaAdmin || ""),
+            resueltoPor: String(item.resueltoPor || ""),
+            resueltoFecha: String(item.resueltoFecha || ""),
+            updatedAt: String(item.updatedAt || formatNowDateTimeArServer()),
+          };
+          reports.unshift(newRep);
+          changed = true;
+          await mirrorCrmActionToCasaNuevaIfNeeded(
+            { action: "save_crm_report", ...newRep },
+            Boolean(payload._fromMinisistemaHub)
+          );
+        }
+      }
+      if (changed) {
+        await saveCentralCrmReports(
+          baseTenant,
+          reports,
+          actor,
+          "sync_crm_reports_batch"
+        );
+      }
+      return NextResponse.json(
+        { ok: true, reports },
+        { headers: corsHeaders }
+      );
+    }
+
+    if (action === "update_crm_report") {
+      const id = String(payload.id || "").trim();
+      const codigo = String(payload.codigo || "").trim();
+      const matchUsername = String(payload.username || "").trim().toLowerCase();
+      const matchTitulo = String(payload.titulo || "").trim();
+      if (!id && !codigo) {
+        return NextResponse.json(
+          { ok: false, message: "ID de reporte inválido." },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+      const { baseTenant, reports } = await getCentralCrmReports();
+      let updatedItem: AnyObj | null = null;
+      for (const rep of reports) {
+        if (!rep || typeof rep !== "object") continue;
+        const isMatch =
+          String(rep.id || "") === id ||
+          String(rep.codigo || "") === id ||
+          (codigo && String(rep.codigo || "") === codigo) ||
+          (matchUsername &&
+            matchTitulo &&
+            String(rep.username || "").toLowerCase() === matchUsername &&
+            String(rep.titulo || "").trim() === matchTitulo);
+        if (isMatch) {
+          if (payload.estado !== undefined) {
+            rep.estado = String(payload.estado).trim().toUpperCase();
+          }
+          if (payload.prioridad !== undefined) {
+            rep.prioridad = String(payload.prioridad).trim().toUpperCase();
+          }
+          if (payload.respuestaAdmin !== undefined) {
+            rep.respuestaAdmin = String(payload.respuestaAdmin).trim();
+          }
+          if (payload.resueltoPor !== undefined) {
+            rep.resueltoPor = String(payload.resueltoPor).trim();
+          }
+          rep.updatedAt = formatNowDateTimeArServer();
+          if (rep.estado === "RESUELTO" && !rep.resueltoFecha) {
+            rep.resueltoFecha = formatNowDateTimeArServer();
+          }
+          updatedItem = rep;
+          break;
+        }
+      }
+      await saveCentralCrmReports(
+        baseTenant,
+        reports,
+        actor,
+        "update_crm_report"
+      );
+
+      if (updatedItem) {
+        await mirrorCrmActionToCasaNuevaIfNeeded(
+          {
+            action: "update_crm_report",
+            id: updatedItem.id,
+            codigo: updatedItem.codigo,
+            username: updatedItem.username,
+            titulo: updatedItem.titulo,
+            estado: updatedItem.estado,
+            prioridad: updatedItem.prioridad,
+            respuestaAdmin: updatedItem.respuestaAdmin,
+            resueltoPor: updatedItem.resueltoPor,
+          },
+          Boolean(payload._fromMinisistemaHub)
+        );
+      }
+
+      return NextResponse.json(
+        {
+          ok: true,
+          report: updatedItem,
+          reports,
+        },
+        { headers: corsHeaders }
+      );
+    }
+
+    if (action === "delete_crm_report") {
+      const id = String(payload.id || "").trim();
+      const { baseTenant, reports } = await getCentralCrmReports();
+      const filtered = reports.filter(
+        (r) => String(r?.id || "") !== id && String(r?.codigo || "") !== id
+      );
+      await saveCentralCrmReports(
+        baseTenant,
+        filtered,
+        actor,
+        "delete_crm_report"
+      );
+      await mirrorCrmActionToCasaNuevaIfNeeded(
+        { action: "delete_crm_report", id },
+        Boolean(payload._fromMinisistemaHub)
+      );
+      return NextResponse.json(
+        {
+          ok: true,
+          reports: filtered,
+        },
+        { headers: corsHeaders }
+      );
+    }
 
     if (action === "save_update") {
       const titulo = String(payload.titulo || "").trim();

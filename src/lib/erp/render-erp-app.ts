@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { getErpAppVersion, getErpAssetVersion } from "./erp-version";
 import { enforceOptionBranding } from "./tenant-service";
 import {
   type ErpTenantRecord,
@@ -155,6 +156,11 @@ export function renderErpHtmlResponse(params: {
       ? `/${tenant.slug}/inmobiliaria`
       : "/inmobiliaria";
 
+  const verMatch = html.match(/assets\/(?:js\/app|css\/styles)\.(?:js|css)\?v=(\d+)/i);
+  const templateMajor = verMatch ? verMatch[1] : undefined;
+  const assetVer = getErpAssetVersion(templateMajor);
+  const appVersion = getErpAppVersion(templateMajor);
+
   const bootPayload = {
     slug: tenant.slug,
     isBase: tenant.is_base,
@@ -186,10 +192,8 @@ export function renderErpHtmlResponse(params: {
     cemepUrl: `${siteOrigin}${cemepPath}`,
     inmobiliariaUrl: `${siteOrigin}${inmobiliariaPath}`,
     enabledModules: tenant.enabled_modules,
+    appVersion,
   };
-
-  const verMatch = html.match(/assets\/(?:js\/app|css\/styles)\.(?:js|css)\?v=(\d+)/i);
-  const assetVer = `${verMatch ? verMatch[1] : "271"}.31`;
 
   const headBootInjection = `
   <base href="${baseHref}">
