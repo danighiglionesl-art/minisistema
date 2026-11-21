@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   title: "CEMEP · Centro Médico Paulucci & CEMEP Plus",
   description:
     "Portal institucional, Turnero Web, Historia Clínica, Portal de Pacientes y CEMEP Plus.",
+  icons: {
+    icon: [{ url: "/cemep/cemep-favicon.png?v=2", type: "image/png" }],
+    shortcut: ["/cemep/cemep-favicon.png?v=2"],
+    apple: [{ url: "/cemep/cemep-favicon.png?v=2", type: "image/png" }],
+  },
 };
 
 export default async function TenantCemepPage(props: {

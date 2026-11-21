@@ -21,12 +21,12 @@ import {
   Users,
 } from "lucide-react";
 import { InstagramIcon } from "@/components/icons/SocialIcons";
-import PublicTurnosPortal from "@/components/turnos/PublicTurnosPortal";
 import type { CemepWebContentConfig } from "@/lib/erp/consultorios-types";
 import { CemepFloatingControls } from "./CemepFloatingControls";
 import { type CemepSectionTab, MercadoPagoTabs } from "./MercadoPagoTabs";
 import { type PatientBundleData, PatientPortalModal } from "./PatientPortalModal";
 import { type ProfBundleData, ProfessionalPortalModal } from "./ProfessionalPortalModal";
+import { TurneroOnlineModal } from "./TurneroOnlineModal";
 
 interface CemepPublicPortalProps {
   tenantSlug: string;
@@ -173,10 +173,27 @@ export function CemepPublicPortal({
 
   const [patientModalOpen, setPatientModalOpen] = useState(false);
   const [profModalOpen, setProfModalOpen] = useState(false);
+  const [turneroModalOpen, setTurneroModalOpen] = useState(false);
   const [patientBundle, setPatientBundle] = useState<PatientBundleData | null>(null);
   const [profBundle, setProfBundle] = useState<ProfBundleData | null>(null);
 
   const isPlus = activeTab === "cemep_plus";
+
+  // Asegurar que Chrome muestre el isotipo de CEMEP en la pestaña (sobreescribiendo el /icon.png heredado de MiniSistema)
+  useEffect(() => {
+    const href = "/cemep/cemep-favicon.png?v=2";
+    document.querySelectorAll("link[rel*='icon']").forEach((el) => el.remove());
+    const link = document.createElement("link");
+    link.rel = "icon";
+    link.type = "image/png";
+    link.href = href;
+    document.head.appendChild(link);
+    const shortcut = document.createElement("link");
+    shortcut.rel = "shortcut icon";
+    shortcut.type = "image/png";
+    shortcut.href = href;
+    document.head.appendChild(shortcut);
+  }, []);
 
   // Restaurar sesiones activas si existen
   useEffect(() => {
@@ -215,12 +232,17 @@ export function CemepPublicPortal({
       .catch(() => {});
   }, [tenantSlug]);
 
-  function scrollToTurnero() {
-    setActiveTab("cemep");
-    setTimeout(() => {
-      const el = document.getElementById("turnero-cemep");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 90);
+  // Abrir el Turnero Online si llega un enlace directo con #turnero-cemep o ?turnero=1
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (window.location.hash === "#turnero-cemep" || params.get("turnero") === "1") {
+      setTurneroModalOpen(true);
+    }
+  }, []);
+
+  function openTurneroModal() {
+    setTurneroModalOpen(true);
   }
 
   const plusWaHref = `https://wa.me/${content.cemepPlus.whatsappDigits.replace(/\D/g, "")}?text=${encodeURIComponent(
@@ -281,12 +303,13 @@ export function CemepPublicPortal({
           <nav aria-label="Navegación CEMEP" className="hidden items-center gap-1 lg:flex">
             {!isPlus ? (
               <>
-                <a
-                  href="#turnero-cemep"
-                  className="rounded-xl px-3 py-2 text-xs font-extrabold text-[#1B335D] hover:bg-[#F1F5F9]"
+                <button
+                  type="button"
+                  onClick={openTurneroModal}
+                  className="cursor-pointer rounded-xl px-3 py-2 text-xs font-extrabold text-[#1B335D] hover:bg-[#F1F5F9]"
                 >
                   Turnos Online
-                </a>
+                </button>
                 <a
                   href="#profesionales-cemep"
                   className="rounded-xl px-3 py-2 text-xs font-extrabold text-[#1B335D] hover:bg-[#F1F5F9]"
@@ -333,7 +356,7 @@ export function CemepPublicPortal({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={scrollToTurnero}
+              onClick={openTurneroModal}
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#0099D8] px-3.5 py-2 text-xs font-extrabold text-[#FFFFFF] shadow-sm transition hover:bg-[#0A74A6]"
             >
               <Calendar className="h-3.5 w-3.5" />
@@ -369,7 +392,7 @@ export function CemepPublicPortal({
                     <div className="mt-6 flex flex-wrap gap-3">
                       <button
                         type="button"
-                        onClick={scrollToTurnero}
+                        onClick={openTurneroModal}
                         className="inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-[#1B335D] px-6 py-3.5 text-sm font-extrabold text-[#FFFFFF] shadow-lg shadow-[#1B335D]/20 transition hover:bg-[#0A74A6]"
                       >
                         <Calendar className="h-4 w-4 text-[#A6CA0E]" />
@@ -521,45 +544,6 @@ export function CemepPublicPortal({
                 </div>
               </section>
 
-              {/* TURNERO WEB INTEGRADO EN VIVO */}
-              <section id="turnero-cemep" className="mt-10 scroll-mt-24">
-                <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0099D8]/12 px-3 py-1 text-xs font-extrabold text-[#0A74A6]">
-                      <Calendar className="h-3.5 w-3.5" />
-                      Turnero Web Online · 24 hs
-                    </span>
-                    <h2 className="mt-2 text-2xl font-black tracking-tight text-[#1B335D] sm:text-3xl">
-                      Reservá tu turno en CEMEP
-                    </h2>
-                    <p className="mt-1 text-sm text-[#475569]">
-                      Elegí especialidad, profesional, día y horario disponible en tiempo real. Si
-                      preferís, también podés escribirnos al{" "}
-                      <a
-                        href={cemepWaHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-extrabold text-[#0099D8] underline"
-                      >
-                        {content.cemep.whatsappDisplay}
-                      </a>
-                      .
-                    </p>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-[#E2E8F0] bg-[#F7FBFD] p-3 sm:p-5">
-                  <PublicTurnosPortal
-                    tenantSlug={tenantSlug}
-                    fantasyName="CEMEP · Centro Médico Paulucci"
-                    primaryHex="#1B335D"
-                    accentHex="#57B7B8"
-                    logoHorizontalUrl="/cemep/cemep-logo-horizontal.png"
-                    logoSymbolUrl="/cemep/cemep-logo-horizontal.png"
-                  />
-                </div>
-              </section>
-
               {/* GRILLA DE ESPECIALIDADES Y PROFESIONALES DESTACADOS */}
               <section id="profesionales-cemep" className="mt-12 scroll-mt-24">
                 <div className="flex flex-wrap items-end justify-between gap-3">
@@ -574,7 +558,7 @@ export function CemepPublicPortal({
                   </div>
                   <button
                     type="button"
-                    onClick={scrollToTurnero}
+                    onClick={openTurneroModal}
                     className="cursor-pointer text-xs font-extrabold text-[#0099D8] hover:underline sm:text-sm"
                   >
                     Conocé la grilla y solicitá tu cita →
@@ -650,7 +634,7 @@ export function CemepPublicPortal({
                           </span>
                           <button
                             type="button"
-                            onClick={scrollToTurnero}
+                            onClick={openTurneroModal}
                             className="cursor-pointer text-xs font-extrabold text-[#1B335D] hover:text-[#0099D8]"
                           >
                             Pedir turno →
@@ -669,7 +653,7 @@ export function CemepPublicPortal({
                     </span>
                     <button
                       type="button"
-                      onClick={scrollToTurnero}
+                      onClick={openTurneroModal}
                       className="cursor-pointer text-xs font-extrabold text-[#1B335D] hover:text-[#0099D8]"
                     >
                       Ver agenda completa →
@@ -680,7 +664,7 @@ export function CemepPublicPortal({
                       <button
                         key={item.id}
                         type="button"
-                        onClick={scrollToTurnero}
+                        onClick={openTurneroModal}
                         className="group flex cursor-pointer items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#FFFFFF] p-2.5 text-left transition hover:border-[#0099D8] hover:shadow-sm"
                       >
                         <img
@@ -810,7 +794,7 @@ export function CemepPublicPortal({
                     <div className="mt-6 flex flex-wrap gap-2.5">
                       <button
                         type="button"
-                        onClick={scrollToTurnero}
+                        onClick={openTurneroModal}
                         className="cursor-pointer rounded-xl bg-[#1B335D] px-4 py-2.5 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#0A74A6]"
                       >
                         Reservar turno EMMAC
@@ -913,7 +897,7 @@ export function CemepPublicPortal({
                           </span>
                           <button
                             type="button"
-                            onClick={scrollToTurnero}
+                            onClick={openTurneroModal}
                             className="cursor-pointer text-xs font-black text-[#0099D8] hover:underline"
                           >
                             Solicitar turno →
@@ -1044,7 +1028,7 @@ export function CemepPublicPortal({
                       </a>
                       <button
                         type="button"
-                        onClick={scrollToTurnero}
+                        onClick={openTurneroModal}
                         className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border-2 border-[#1B335D] bg-[#FFFFFF] px-5 py-3 text-sm font-extrabold text-[#1B335D] transition hover:bg-[#F8FAFC]"
                       >
                         <Calendar className="h-4 w-4 text-[#009EE3]" />
@@ -1487,6 +1471,15 @@ export function CemepPublicPortal({
         onOpenProfPortal={() => setProfModalOpen(true)}
       />
 
+      {/* MODAL TURNERO ONLINE */}
+      <TurneroOnlineModal
+        open={turneroModalOpen}
+        onClose={() => setTurneroModalOpen(false)}
+        tenantSlug={tenantSlug}
+        whatsappHref={cemepWaHref}
+        whatsappDisplay={content.cemep.whatsappDisplay}
+      />
+
       {/* MODAL PORTAL PACIENTES */}
       <PatientPortalModal
         open={patientModalOpen}
@@ -1495,7 +1488,7 @@ export function CemepPublicPortal({
         googleClientId={googleClientId}
         bundle={patientBundle}
         onBundleChange={setPatientBundle}
-        onJumpToTurnero={scrollToTurnero}
+        onJumpToTurnero={openTurneroModal}
       />
 
       {/* MODAL PORTAL PROFESIONALES */}

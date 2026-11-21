@@ -13,6 +13,11 @@ export const metadata: Metadata = {
   title: "CEMEP · Centro Médico Paulucci & CEMEP Plus | Alcira Gigena",
   description:
     "Salud y bienestar para toda la familia. Turnos online 24 hs, Portal de Pacientes con estudios y recetas digitales, Portal de Profesionales y cobertura CEMEP Plus en Alcira Gigena, Córdoba.",
+  icons: {
+    icon: [{ url: "/cemep/cemep-favicon.png?v=2", type: "image/png" }],
+    shortcut: ["/cemep/cemep-favicon.png?v=2"],
+    apple: [{ url: "/cemep/cemep-favicon.png?v=2", type: "image/png" }],
+  },
 };
 
 export default async function CemepPublicPage(props: {
