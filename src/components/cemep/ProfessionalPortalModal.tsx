@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
   CalendarCheck2,
   ClipboardList,
   Download,
+  Eye,
+  EyeOff,
   FilePlus2,
   FileUp,
   LogOut,
@@ -100,6 +102,7 @@ export function ProfessionalPortalModal({
   // Login profesional
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Filtros de turnos
   const [turnoFilter, setTurnoFilter] = useState<"hoy" | "proximos" | "todos">("proximos");
@@ -199,6 +202,16 @@ export function ProfessionalPortalModal({
         (selectedPacId && e.pacienteId === selectedPacId)
     );
   }, [bundle, selectedPacDni, selectedPacId]);
+
+  // Cerrar con tecla Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -323,33 +336,72 @@ export function ProfessionalPortalModal({
       role="dialog"
       aria-modal="true"
       aria-label="Portal de Profesionales CEMEP"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#1B335D]/75 p-2 backdrop-blur-sm sm:p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#1B335D]/70 p-3 backdrop-blur-sm sm:p-5"
     >
-      <div className="relative flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-[#FFFFFF] shadow-2xl">
-        {/* Header */}
-        <div
-          className="flex items-center justify-between gap-4 px-5 py-4 text-[#FFFFFF] sm:px-7"
-          style={{
-            background: "linear-gradient(135deg, #1B335D 0%, #0A5E8A 55%, #57B7B8 100%)",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFFFFF]/15">
-              <Stethoscope className="h-5 w-5 text-[#A6CA0E]" />
-            </span>
-            <div>
-              <h2 className="text-lg font-black tracking-tight sm:text-xl">
-                Portal de Profesionales · Gestión Consultorios
-              </h2>
-              <p className="text-xs text-[#FFFFFF]/85">
-                {bundle
-                  ? `${bundle.profesional.titulo ? `${bundle.profesional.titulo} ` : ""}${bundle.profesional.nombre}${bundle.profesional.isAdminAllView ? " · Vista Completa del Centro" : ""}`
-                  : "Accedé a tus turnos dados, Historia Clínica integral y carga de estudios a pacientes"}
-              </p>
+      <div
+        className={`relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-3xl border border-[#0099D8]/25 bg-[#FFFFFF] text-[#1B335D] shadow-2xl ${
+          bundle ? "max-w-6xl" : "max-w-2xl"
+        }`}
+      >
+        {/* Encabezado: formato limpio estilo ReikiOnline en modo acceso, cabecera institucional completa en sesión iniciada */}
+        {!bundle ? (
+          <div className="flex items-center justify-between gap-3 border-b border-[#1B335D]/12 bg-[#FFFFFF] px-6 py-4 sm:px-8 sm:py-5">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#0099D8]/30 bg-[#FFFFFF] p-1 shadow-sm">
+                <img
+                  src="/cemep/cemep-favicon.png"
+                  alt="CEMEP"
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 object-contain"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-bold tracking-tight text-[#1B335D] sm:text-xl">
+                  Ingresar
+                </h2>
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#0099D8]/12 px-2.5 py-0.5 text-[11px] font-bold text-[#0A74A6]">
+                  <Stethoscope className="h-3 w-3" />
+                  Profesionales
+                </span>
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar Portal de Profesionales"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-[#F1F5F9] text-[#1B335D] transition-colors hover:bg-[#E2E8F0]"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            {bundle && (
+        ) : (
+          <div
+            className="flex items-center justify-between gap-4 px-5 py-4 text-[#FFFFFF] sm:px-7"
+            style={{
+              background: "linear-gradient(135deg, #1B335D 0%, #0A5E8A 55%, #57B7B8 100%)",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFFFFF]/15">
+                <Stethoscope className="h-5 w-5 text-[#A6CA0E]" />
+              </span>
+              <div>
+                <h2 className="text-lg font-black tracking-tight sm:text-xl">
+                  Portal de Profesionales · Gestión Consultorios
+                </h2>
+                <p className="text-xs text-[#FFFFFF]/85">
+                  {bundle.profesional.titulo ? `${bundle.profesional.titulo} ` : ""}
+                  {bundle.profesional.nombre}
+                  {bundle.profesional.isAdminAllView ? " · Vista Completa del Centro" : ""}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={async () => {
@@ -362,26 +414,31 @@ export function ProfessionalPortalModal({
                 <LogOut className="h-3.5 w-3.5" />
                 Salir
               </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Cerrar Portal de Profesionales"
-              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-[#FFFFFF]/15 text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
-            >
-              <X className="h-5 w-5" />
-            </button>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Cerrar Portal de Profesionales"
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-[#FFFFFF]/15 text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div
+          className={`flex-1 overflow-y-auto overscroll-contain ${
+            bundle ? "p-4 sm:p-6" : "px-6 py-5 sm:px-8 sm:py-6"
+          }`}
+        >
           {msg && (
             <div
-              className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+              role="alert"
+              className={`mb-4 rounded-xl border px-4 py-3 text-xs font-semibold sm:text-sm ${
                 msg.isErr
                   ? "border-[#FECDD3] bg-[#FFF1F2] text-[#9F1239]"
-                  : "border-[#A7F3D0] bg-[#ECFDF5] text-[#065F46]"
+                  : "border-[#57B7B8]/40 bg-[#EFFCF9] text-[#0A5E63]"
               }`}
             >
               {msg.text}
@@ -389,57 +446,92 @@ export function ProfessionalPortalModal({
           )}
 
           {!bundle ? (
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                await postAction({
-                  action: "prof_login",
-                  identifier,
-                  password,
-                });
-              }}
-              className="mx-auto my-4 max-w-md space-y-4 rounded-3xl border border-[#E2E8F0] bg-[#F8FAFC]/70 p-6"
-            >
-              <div className="text-center">
-                <h3 className="text-lg font-black text-[#1B335D]">
-                  Ingreso de Profesionales de la Salud
-                </h3>
-                <p className="mt-1 text-xs text-[#475569]">
-                  Ingresá con tu <strong>DNI o Correo</strong> habilitado en Gestión Web, o con tu{" "}
-                  <strong>usuario de MiniSistema ERP</strong>.
-                </p>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-bold text-[#334155]">
-                  DNI, Correo o Usuario ERP
-                </label>
-                <input
-                  required
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="Ej: 32456789 / medico@cemep.com / danielg"
-                  className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3.5 py-2.5 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-bold text-[#334155]">Contraseña</label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3.5 py-2.5 text-sm"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={busy}
-                className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-3 text-sm font-extrabold text-[#FFFFFF] shadow-md hover:bg-[#0A74A6]"
+            <div>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await postAction({
+                    action: "prof_login",
+                    identifier,
+                    password,
+                  });
+                }}
+                className="space-y-4"
               >
-                {busy ? "Ingresando..." : "Acceder al Panel Profesional"}
-              </button>
-            </form>
+                <div>
+                  <label
+                    htmlFor="cemep-prof-login-id"
+                    className="block text-xs font-semibold text-[#1B335D] sm:text-sm"
+                  >
+                    DNI, Correo o Usuario ERP
+                  </label>
+                  <input
+                    id="cemep-prof-login-id"
+                    type="text"
+                    required
+                    autoComplete="username"
+                    spellCheck={false}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="Ej: 32456789 / medico@cemep.com"
+                    className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-3 text-base text-[#1B335D] placeholder:text-[#1B335D]/40 transition-colors focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none sm:text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cemep-prof-login-pass"
+                    className="block text-xs font-semibold text-[#1B335D] sm:text-sm"
+                  >
+                    Contraseña
+                  </label>
+                  <div className="relative mt-1.5">
+                    <input
+                      id="cemep-prof-login-pass"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] py-3 pr-24 pl-4 text-base text-[#1B335D] placeholder:text-[#1B335D]/40 transition-colors focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none sm:text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      aria-pressed={showPassword}
+                      aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      className="absolute top-1/2 right-2.5 inline-flex -translate-y-1/2 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#0099D8] transition-colors hover:bg-[#0099D8]/10"
+                    >
+                      {showPassword ? (
+                        <>
+                          <EyeOff className="h-3.5 w-3.5" />
+                          <span>Ocultar</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Mostrar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="w-full cursor-pointer rounded-xl bg-[#1B335D] px-5 py-3.5 text-sm font-bold text-[#FFFFFF] shadow-md shadow-[#1B335D]/20 transition-all hover:bg-[#0A74A6] disabled:opacity-60"
+                >
+                  {busy ? "Verificando..." : "Ingresar"}
+                </button>
+              </form>
+
+              <p className="mt-4 border-t border-[#1B335D]/12 pt-3.5 text-center text-xs text-[#1B335D]/65">
+                Ingresá con tu <strong>DNI o correo</strong> habilitado en Gestión Web, o con tu{" "}
+                <strong>usuario de MiniSistema ERP</strong>.
+              </p>
+            </div>
           ) : (
             <div>
               {/* KPIs rápidos */}
