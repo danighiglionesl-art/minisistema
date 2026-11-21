@@ -67,6 +67,7 @@ export interface PlanObraSocialRecord {
 export interface EspecialidadRecord {
   id: string;
   nombre: string;
+  categoria?: string;
   duracionMinutos: TurnoDurationMinutes;
   permiteVideollamada: boolean;
   valorConsultaParticularSugeridoArs: number;

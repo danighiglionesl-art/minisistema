@@ -6,6 +6,7 @@ import { enforceOptionBranding } from "../tenant-service";
 import {
   buildSeedEspecialidades,
   buildSeedObrasSocialesAndPlanes,
+  inferEspecialidadCategoria,
 } from "../turnos-catalogs";
 import { encryptProfesionalMpTokens } from "../turnos-mp-server";
 import {
@@ -131,10 +132,21 @@ export async function loadTurnosDb(tenant: ErpTenantRecord): Promise<TurnosDbDoc
       Array.isArray(payload?.planes) && payload.planes.length > 0
         ? payload.planes
         : initial.planes,
-    especialidades:
+    especialidades: (
       Array.isArray(payload?.especialidades) && payload.especialidades.length > 0
         ? payload.especialidades
-        : initial.especialidades,
+        : initial.especialidades
+    )
+      .map((e) => ({
+        ...e,
+        categoria:
+          String(e.categoria || "").trim() || inferEspecialidadCategoria(e.nombre),
+      }))
+      .sort((a, b) =>
+        String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", {
+          sensitivity: "base",
+        })
+      ),
     profesionales: Array.isArray(payload?.profesionales) ? payload.profesionales : [],
     bloqueos: Array.isArray(payload?.bloqueos) ? payload.bloqueos : [],
     pacientes: Array.isArray(payload?.pacientes) ? payload.pacientes : [],
@@ -1035,9 +1047,14 @@ export async function handleErpTurnos(
         : -1;
       const existing = existingIdx >= 0 ? db.especialidades[existingIdx] : null;
 
+      const categoria =
+        String(inp.categoria ?? existing?.categoria ?? "").trim() ||
+        inferEspecialidadCategoria(nombre);
+
       const record: EspecialidadRecord = {
         id: existing?.id || `esp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         nombre,
+        categoria,
         duracionMinutos: dur,
         permiteVideollamada:
           inp.permiteVideollamada !== undefined

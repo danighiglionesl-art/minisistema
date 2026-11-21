@@ -50,6 +50,9 @@
     selectedPlanOsId: '',
     editingPlanId: null,
     editingEspId: null,
+    espModalOpen: false,
+    espPage: 1,
+    filterEspCat: '',
     searchEsp: '',
     gestionProfId: '',
     gestionHorariosDraft: [],
@@ -668,67 +671,214 @@
   }
 
   // ==================== 4. ABM ESPECIALIDADES ====================
+  var DEFAULT_ESP_CATEGORIAS = [
+    'Clínica y Especialidades Médicas',
+    'Quirúrgicas y Traumatología',
+    'Salud Mental y Neurociencias',
+    'Materno-Infantil y Mujer',
+    'Diagnóstico y Laboratorio',
+    'Rehabilitación y Bienestar',
+    'Odontología',
+    'Enfermería y Trámites'
+  ];
+
+  function inferEspCategoriaJs(nombre) {
+    var n = String(nombre || '').toLowerCase();
+    if (/(psicol|psiquiat|psicopedag|terapia ocupacional|fonoaudiol|neurolog)/.test(n)) return 'Salud Mental y Neurociencias';
+    if (/(cirug|traumatolog|ortoped|neurocirug|proctolog|urolog|flebolog)/.test(n)) return 'Quirúrgicas y Traumatología';
+    if (/(pediatr|ginecolog|obstetric|mastolog)/.test(n)) return 'Materno-Infantil y Mujer';
+    if (/(ecograf|imágen|imagen|laboratorio)/.test(n)) return 'Diagnóstico y Laboratorio';
+    if (/(kinesiol|fisioterap|nutrici|deporte)/.test(n)) return 'Rehabilitación y Bienestar';
+    if (/(odontolog|ortodoncia)/.test(n)) return 'Odontología';
+    if (/(enfermer|vacunat|receta|certificado)/.test(n)) return 'Enfermería y Trámites';
+    return 'Clínica y Especialidades Médicas';
+  }
+
   function renderEspecialidadesView() {
-    var list = STATE.data.especialidades || [];
+    var rawList = (STATE.data.especialidades || []).map(function (e) {
+      return Object.assign({}, e, {
+        categoria: String(e.categoria || '').trim() || inferEspCategoriaJs(e.nombre)
+      });
+    });
+
+    // Orden alfabético A-Z estricto en español
+    rawList.sort(function (a, b) {
+      return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' });
+    });
+
+    var catSet = {};
+    DEFAULT_ESP_CATEGORIAS.forEach(function (c) { catSet[c] = true; });
+    rawList.forEach(function (e) { if (e.categoria) catSet[e.categoria] = true; });
+    var allCats = Object.keys(catSet).sort(function (a, b) {
+      return a.localeCompare(b, 'es', { sensitivity: 'base' });
+    });
+
     var editing = STATE.editingEspId
-      ? list.find(function (e) { return e.id === STATE.editingEspId; }) || null
+      ? rawList.find(function (e) { return e.id === STATE.editingEspId; }) || null
       : null;
 
-    var filtered = list.filter(function (e) {
-      if (!STATE.searchEsp) return true;
-      return String(e.nombre || '').toLowerCase().indexOf(STATE.searchEsp.toLowerCase()) !== -1;
+    var filtered = rawList.filter(function (e) {
+      if (STATE.filterEspCat && e.categoria !== STATE.filterEspCat) return false;
+      if (STATE.searchEsp) {
+        var q = STATE.searchEsp.toLowerCase();
+        var hay = (String(e.nombre || '') + ' ' + String(e.categoria || '') + ' ' + String(e.descripcion || '')).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
     });
+
+    var pageSize = 10;
+    var totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    var currentPage = Math.min(Math.max(1, Number(STATE.espPage || 1)), totalPages);
+    STATE.espPage = currentPage;
+    var startIdx = (currentPage - 1) * pageSize;
+    var pageItems = filtered.slice(startIdx, startIdx + pageSize);
 
     var durOpts = DURACIONES.map(function (d) {
       var sel = editing ? Number(editing.duracionMinutos) === d : d === 20;
       return '<option value="' + d + '" ' + (sel ? 'selected' : '') + '>' + d + ' minutos</option>';
     }).join('');
 
-    var rows = filtered.map(function (e) {
-      return (
-        '<tr style="border-bottom:1px solid #e2ecf0;opacity:' + (e.activa ? '1' : '0.5') + ';">' +
-          '<td style="padding:0.55rem;"><strong>' + esc(e.nombre) + '</strong>' +
-            (e.descripcion ? '<br><small style="color:#64748b;">' + esc(e.descripcion) + '</small>' : '') +
-          '</td>' +
-          '<td style="padding:0.55rem;"><span style="background:#dcfce7;color:#065f46;padding:0.22rem 0.6rem;border-radius:999px;font-weight:900;font-size:0.78rem;">⏱ ' + esc(e.duracionMinutos) + ' min</span></td>' +
-          '<td style="padding:0.55rem;font-size:0.8rem;">' + (e.permiteVideollamada ? '📹 Sí' : 'Solo Presencial') + '</td>' +
-          '<td style="padding:0.55rem;font-size:0.8rem;font-weight:700;">' + fmtArs(e.valorConsultaParticularSugeridoArs) + '</td>' +
-          '<td style="padding:0.55rem;text-align:right;white-space:nowrap;">' +
-            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.28rem 0.55rem;font-size:0.74rem;margin-right:0.25rem;" data-edit-esp="' + esc(e.id) + '">✏️</button>' +
-            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.28rem 0.55rem;font-size:0.74rem;" data-toggle-esp="' + esc(e.id) + '">' + (e.activa ? 'Desactivar' : 'Activar') + '</button>' +
-          '</td>' +
-        '</tr>'
-      );
-    }).join('');
+    var rows = pageItems.length === 0
+      ? '<tr><td colspan="6" style="padding:1.5rem;text-align:center;color:#64748b;">No se encontraron especialidades para ese criterio.</td></tr>'
+      : pageItems.map(function (e) {
+          return (
+            '<tr style="border-bottom:1px solid #e2ecf0;opacity:' + (e.activa ? '1' : '0.5') + ';">' +
+              '<td style="padding:0.65rem 0.55rem;"><strong>' + esc(e.nombre) + '</strong>' +
+                (e.descripcion ? '<br><small style="color:#64748b;">' + esc(e.descripcion) + '</small>' : '') +
+              '</td>' +
+              '<td style="padding:0.65rem 0.55rem;">' +
+                '<span style="display:inline-block;background:#f1f5f9;color:#112D3A;border:1px solid #cbd5e1;padding:0.2rem 0.55rem;border-radius:999px;font-weight:700;font-size:0.75rem;">' + esc(e.categoria) + '</span>' +
+              '</td>' +
+              '<td style="padding:0.65rem 0.55rem;"><span style="background:#dcfce7;color:#065f46;padding:0.22rem 0.6rem;border-radius:999px;font-weight:900;font-size:0.78rem;">⏱ ' + esc(e.duracionMinutos) + ' min</span></td>' +
+              '<td style="padding:0.65rem 0.55rem;font-size:0.8rem;">' + (e.permiteVideollamada ? '📹 Sí' : 'Solo Presencial') + '</td>' +
+              '<td style="padding:0.65rem 0.55rem;font-size:0.82rem;font-weight:700;">' + fmtArs(e.valorConsultaParticularSugeridoArs) + '</td>' +
+              '<td style="padding:0.65rem 0.55rem;text-align:right;white-space:nowrap;">' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" title="Editar especialidad y categoría" style="padding:0.3rem 0.6rem;font-size:0.76rem;margin-right:0.3rem;" data-edit-esp="' + esc(e.id) + '">✏️</button>' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.3rem 0.6rem;font-size:0.75rem;" data-toggle-esp="' + esc(e.id) + '">' + (e.activa ? 'Desactivar' : 'Activar') + '</button>' +
+              '</td>' +
+            '</tr>'
+          );
+        }).join('');
+
+    var pageBtns = '';
+    for (var p = 1; p <= totalPages; p++) {
+      var isCurr = p === currentPage;
+      pageBtns +=
+        '<button type="button" data-esp-page="' + p + '" style="min-width:34px;height:34px;padding:0 0.55rem;border-radius:8px;font-weight:800;font-size:0.8rem;cursor:pointer;border:1px solid ' +
+        (isCurr ? '#112D3A' : '#cbd5e1') +
+        ';background:' +
+        (isCurr ? '#112D3A' : '#ffffff') +
+        ';color:' +
+        (isCurr ? '#56D7A1' : '#112D3A') +
+        ';">' + p + '</button>';
+    }
+
+    var paginationHtml =
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.65rem;margin-top:0.9rem;padding-top:0.75rem;border-top:1px solid #e2ecf0;">' +
+        '<span style="font-size:0.8rem;color:#475569;font-weight:700;">' +
+          (filtered.length > 0
+            ? 'Mostrando <strong>' + (startIdx + 1) + '–' + Math.min(startIdx + pageSize, filtered.length) + '</strong> de <strong>' + filtered.length + '</strong> especialidades (Orden A–Z · de 10 en 10)'
+            : '0 resultados') +
+        '</span>' +
+        '<div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">' +
+          '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-esp-page="' + Math.max(1, currentPage - 1) + '" ' + (currentPage <= 1 ? 'disabled style="opacity:0.45;padding:0.32rem 0.65rem;font-size:0.76rem;"' : 'style="padding:0.32rem 0.65rem;font-size:0.76rem;"') + '>« Anterior</button>' +
+          pageBtns +
+          '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-esp-page="' + Math.min(totalPages, currentPage + 1) + '" ' + (currentPage >= totalPages ? 'disabled style="opacity:0.45;padding:0.32rem 0.65rem;font-size:0.76rem;"' : 'style="padding:0.32rem 0.65rem;font-size:0.76rem;"') + '>Siguiente »</button>' +
+        '</div>' +
+      '</div>';
+
+    var modalHtml = '';
+    if (STATE.espModalOpen) {
+      var edCat = editing ? editing.categoria : DEFAULT_ESP_CATEGORIAS[0];
+      var catOptionsDatalist = allCats.map(function (c) {
+        return '<option value="' + esc(c) + '"></option>';
+      }).join('');
+      var catQuickSelectOpts =
+        '<option value="">— Elegir categoría sugerida —</option>' +
+        allCats.map(function (c) {
+          return '<option value="' + esc(c) + '" ' + (edCat === c ? 'selected' : '') + '>' + esc(c) + '</option>';
+        }).join('');
+
+      modalHtml =
+        '<div id="trn-esp-modal-backdrop" role="dialog" aria-modal="true" style="position:fixed;inset:0;z-index:9999;background:rgba(17,45,58,0.68);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;">' +
+          '<div style="width:100%;max-width:620px;background:#ffffff;border-radius:18px;border:2px solid #56D7A1;box-shadow:0 24px 60px rgba(0,0,0,0.32);overflow:hidden;">' +
+            '<div style="background:#112D3A;color:#ffffff;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">' +
+              '<div>' +
+                '<div style="font-size:0.7rem;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;color:#56D7A1;">Turnero Web · ABM Especialidades</div>' +
+                '<h3 style="margin:0.15rem 0 0;font-size:1.1rem;color:#ffffff;">' + (editing ? '✏️ Editar Especialidad y Categoría' : '➕ Nueva Especialidad Médica') + '</h3>' +
+              '</div>' +
+              '<button type="button" id="trn-e-modal-close" style="background:rgba(255,255,255,0.12);border:none;color:#ffffff;width:34px;height:34px;border-radius:10px;cursor:pointer;font-size:1rem;font-weight:900;">✕</button>' +
+            '</div>' +
+            '<form id="ms-trn-esp-form" style="padding:1.25rem;display:grid;gap:0.85rem;">' +
+              '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0.75rem;">' +
+                '<div>' +
+                  '<label class="ms-sa-label">Especialidad *</label>' +
+                  '<input class="ms-sa-input" id="trn-e-nombre" required value="' + esc(editing ? editing.nombre : '') + '" placeholder="Ej: Cardiología, Psicología">' +
+                '</div>' +
+                '<div>' +
+                  '<label class="ms-sa-label">Categoría * (Editable)</label>' +
+                  '<input class="ms-sa-input" id="trn-e-cat" list="trn-e-cats-dl" required value="' + esc(edCat) + '" placeholder="Escribí o elegí la categoría">' +
+                  '<datalist id="trn-e-cats-dl">' + catOptionsDatalist + '</datalist>' +
+                  '<select class="ms-sa-select" id="trn-e-cat-pick" style="margin-top:0.35rem;font-size:0.76rem;padding:0.3rem 0.5rem;">' + catQuickSelectOpts + '</select>' +
+                '</div>' +
+                '<div>' +
+                  '<label class="ms-sa-label">Duración de Turno (5 a 60 min) *</label>' +
+                  '<select class="ms-sa-select" id="trn-e-dur">' + durOpts + '</select>' +
+                '</div>' +
+                '<div>' +
+                  '<label class="ms-sa-label">Valor Particular Sugerido (ARS)</label>' +
+                  '<input class="ms-sa-input" type="number" min="0" id="trn-e-val" value="' + esc(editing ? editing.valorConsultaParticularSugeridoArs : 25000) + '">' +
+                '</div>' +
+                '<div style="grid-column:1 / -1;">' +
+                  '<label class="ms-sa-label">Descripción breve</label>' +
+                  '<input class="ms-sa-input" id="trn-e-desc" value="' + esc(editing ? editing.descripcion : '') + '" placeholder="Atención médica, estudios o alcance de la especialidad">' +
+                '</div>' +
+              '</div>' +
+              '<div style="display:flex;flex-wrap:wrap;gap:1.25rem;padding:0.65rem 0.85rem;border-radius:10px;background:#f8fbfc;border:1px solid #dbe7ec;font-size:0.84rem;font-weight:700;">' +
+                '<label style="cursor:pointer;"><input type="checkbox" id="trn-e-vid" ' + (!editing || editing.permiteVideollamada ? 'checked' : '') + '> 📹 Permite Videollamada</label>' +
+                '<label style="cursor:pointer;"><input type="checkbox" id="trn-e-act" ' + (!editing || editing.activa !== false ? 'checked' : '') + '> ✅ Especialidad Activa</label>' +
+              '</div>' +
+              '<div style="display:flex;justify-content:flex-end;gap:0.55rem;padding-top:0.35rem;">' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="trn-e-cancel">Cancelar</button>' +
+                '<button type="submit" class="ms-sa-btn">💾 Guardar Cambios</button>' +
+              '</div>' +
+            '</form>' +
+          '</div>' +
+        '</div>';
+    }
+
+    var filterCatOpts =
+      '<option value="">Todas las categorías (' + allCats.length + ')</option>' +
+      allCats.map(function (c) {
+        return '<option value="' + esc(c) + '" ' + (STATE.filterEspCat === c ? 'selected' : '') + '>' + esc(c) + '</option>';
+      }).join('');
 
     return (
       '<div style="display:grid;gap:1rem;">' +
         '<div class="ms-sa-card">' +
-          '<h4 style="margin-top:0;">' + (editing ? '✏️ Editar Especialidad Médica' : '➕ Alta de Especialidad Médica (Lapso de Turno 5 a 60 min)') + '</h4>' +
-          '<form id="ms-trn-esp-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.65rem;align-items:end;">' +
-            '<div><label class="ms-sa-label">Especialidad *</label><input class="ms-sa-input" id="trn-e-nombre" required value="' + esc(editing ? editing.nombre : '') + '" placeholder="Ej: Cardiología, Psicología"></div>' +
-            '<div><label class="ms-sa-label">Lapso de Turno (5 a 60 min) *</label><select class="ms-sa-select" id="trn-e-dur">' + durOpts + '</select></div>' +
-            '<div><label class="ms-sa-label">Valor Particular Sugerido (ARS)</label><input class="ms-sa-input" type="number" min="0" id="trn-e-val" value="' + esc(editing ? editing.valorConsultaParticularSugeridoArs : 25000) + '"></div>' +
-            '<div><label class="ms-sa-label">Descripción breve</label><input class="ms-sa-input" id="trn-e-desc" value="' + esc(editing ? editing.descripcion : '') + '" placeholder="Opcional"></div>' +
-            '<div style="padding-bottom:0.4rem;"><label style="font-size:0.8rem;font-weight:700;"><input type="checkbox" id="trn-e-vid" ' + (!editing || editing.permiteVideollamada ? 'checked' : '') + '> 📹 Permite Videollamada</label></div>' +
-            '<div style="display:flex;gap:0.4rem;">' +
-              '<button type="submit" class="ms-sa-btn">💾 Guardar</button>' +
-              (editing ? '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="trn-e-cancel">Cancelar</button>' : '') +
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.65rem;margin-bottom:0.85rem;">' +
+            '<div style="display:flex;align-items:center;gap:0.65rem;flex-wrap:wrap;">' +
+              '<h4 style="margin:0;">🩺 Especialidades Médicas (' + filtered.length + ')</h4>' +
+              '<button type="button" class="ms-sa-btn" id="trn-e-open-new" style="padding:0.38rem 0.85rem;font-size:0.8rem;">➕ Nueva Especialidad</button>' +
             '</div>' +
-          '</form>' +
-        '</div>' +
-
-        '<div class="ms-sa-card">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;margin-bottom:0.8rem;">' +
-            '<h4 style="margin:0;">🩺 Especialidades Médicas (' + filtered.length + ')</h4>' +
-            '<input class="ms-sa-input" id="trn-e-search" style="max-width:260px;" value="' + esc(STATE.searchEsp) + '" placeholder="Buscar especialidad...">' +
+            '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">' +
+              '<select class="ms-sa-select" id="trn-e-filter-cat" style="width:auto;min-width:200px;">' + filterCatOpts + '</select>' +
+              '<input class="ms-sa-input" id="trn-e-search" style="width:240px;" value="' + esc(STATE.searchEsp) + '" placeholder="Buscar especialidad o categoría...">' +
+            '</div>' +
           '</div>' +
           '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">' +
             '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;font-size:0.78rem;">' +
-              '<th style="padding:0.5rem;">Especialidad</th><th style="padding:0.5rem;">Duración de Turno</th>' +
-              '<th style="padding:0.5rem;">Videollamada</th><th style="padding:0.5rem;">Valor Sugerido</th><th style="padding:0.5rem;text-align:right;">Acciones</th>' +
+              '<th style="padding:0.55rem;">Especialidad (A–Z)</th>' +
+              '<th style="padding:0.55rem;">Categoría</th>' +
+              '<th style="padding:0.55rem;">Duración de Turno</th>' +
+              '<th style="padding:0.55rem;">Videollamada</th>' +
+              '<th style="padding:0.55rem;">Valor Sugerido</th>' +
+              '<th style="padding:0.55rem;text-align:right;">Acciones</th>' +
             '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+          paginationHtml +
         '</div>' +
+        modalHtml +
       '</div>'
     );
   }
@@ -1537,41 +1687,101 @@
       });
     });
 
-    // --- ABM Especialidades ---
+    // --- ABM Especialidades (Ventana Emergente + Categoría + Paginación 10 en 10) ---
+    var closeEspModalFn = function () {
+      STATE.espModalOpen = false;
+      STATE.editingEspId = null;
+      renderWorkspace();
+    };
+    var openNewEspBtn = bodyEl.querySelector('#trn-e-open-new');
+    if (openNewEspBtn) {
+      openNewEspBtn.addEventListener('click', function () {
+        STATE.editingEspId = null;
+        STATE.espModalOpen = true;
+        renderWorkspace();
+        var nInp = document.getElementById('trn-e-nombre');
+        if (nInp) nInp.focus();
+      });
+    }
+    var eModalClose = bodyEl.querySelector('#trn-e-modal-close');
+    if (eModalClose) eModalClose.addEventListener('click', closeEspModalFn);
+    var eCancel = bodyEl.querySelector('#trn-e-cancel');
+    if (eCancel) eCancel.addEventListener('click', closeEspModalFn);
+    var eBackdrop = bodyEl.querySelector('#trn-esp-modal-backdrop');
+    if (eBackdrop) {
+      eBackdrop.addEventListener('click', function (ev) {
+        if (ev.target === eBackdrop) closeEspModalFn();
+      });
+    }
+    var eCatPick = bodyEl.querySelector('#trn-e-cat-pick');
+    if (eCatPick) {
+      eCatPick.addEventListener('change', function () {
+        if (eCatPick.value) {
+          var cInp = bodyEl.querySelector('#trn-e-cat');
+          if (cInp) cInp.value = eCatPick.value;
+        }
+      });
+    }
     var espForm = bodyEl.querySelector('#ms-trn-esp-form');
     if (espForm) {
       espForm.addEventListener('submit', async function (ev) {
         ev.preventDefault();
+        var actChk = bodyEl.querySelector('#trn-e-act');
         var res = await apiTurnos('POST', {
           action: 'save_especialidad',
           especialidad: {
             id: STATE.editingEspId || undefined,
             nombre: bodyEl.querySelector('#trn-e-nombre').value,
+            categoria: bodyEl.querySelector('#trn-e-cat').value,
             duracionMinutos: Number(bodyEl.querySelector('#trn-e-dur').value || 20),
             valorConsultaParticularSugeridoArs: Number(bodyEl.querySelector('#trn-e-val').value || 0),
             descripcion: bodyEl.querySelector('#trn-e-desc').value,
-            permiteVideollamada: bodyEl.querySelector('#trn-e-vid').checked
+            permiteVideollamada: bodyEl.querySelector('#trn-e-vid').checked,
+            activa: actChk ? actChk.checked : true
           }
         });
         if (res && res.ok) {
           STATE.editingEspId = null;
+          STATE.espModalOpen = false;
           applyApiResponse(res);
           showToast(res.message || 'Especialidad guardada.', false);
           renderWorkspace();
         } else showToast((res && res.message) || 'Error guardando especialidad.', true);
       });
     }
-    var eCancel = bodyEl.querySelector('#trn-e-cancel');
-    if (eCancel) eCancel.addEventListener('click', function () { STATE.editingEspId = null; renderWorkspace(); });
+    var eFilterCat = bodyEl.querySelector('#trn-e-filter-cat');
+    if (eFilterCat) {
+      eFilterCat.addEventListener('change', function () {
+        STATE.filterEspCat = eFilterCat.value;
+        STATE.espPage = 1;
+        renderWorkspace();
+      });
+    }
     var eSearch = bodyEl.querySelector('#trn-e-search');
     if (eSearch) eSearch.addEventListener('input', function () {
       STATE.searchEsp = eSearch.value;
+      STATE.espPage = 1;
       renderWorkspace();
       var el = document.getElementById('trn-e-search');
       if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
     });
+    bodyEl.querySelectorAll('[data-esp-page]').forEach(function (pb) {
+      pb.addEventListener('click', function () {
+        var nextP = Number(pb.getAttribute('data-esp-page') || 1);
+        if (nextP && nextP !== STATE.espPage) {
+          STATE.espPage = nextP;
+          renderWorkspace();
+        }
+      });
+    });
     bodyEl.querySelectorAll('[data-edit-esp]').forEach(function (b) {
-      b.addEventListener('click', function () { STATE.editingEspId = b.getAttribute('data-edit-esp'); renderWorkspace(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+      b.addEventListener('click', function () {
+        STATE.editingEspId = b.getAttribute('data-edit-esp');
+        STATE.espModalOpen = true;
+        renderWorkspace();
+        var nInp = document.getElementById('trn-e-nombre');
+        if (nInp) nInp.focus();
+      });
     });
     bodyEl.querySelectorAll('[data-toggle-esp]').forEach(function (b) {
       b.addEventListener('click', async function () {

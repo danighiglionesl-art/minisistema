@@ -640,10 +640,37 @@ export function buildSeedObrasSocialesAndPlanes(nowIso: string): {
   return { obrasSociales, planes };
 }
 
+export function inferEspecialidadCategoria(nombre: string): string {
+  const n = String(nombre || "").toLowerCase();
+  if (/(psicol|psiquiat|psicopedag|terapia ocupacional|fonoaudiol|neurolog)/.test(n)) {
+    return "Salud Mental y Neurociencias";
+  }
+  if (/(cirug|traumatolog|ortoped|neurocirug|proctolog|urolog|flebolog)/.test(n)) {
+    return "Quirúrgicas y Traumatología";
+  }
+  if (/(pediatr|ginecolog|obstetric|mastolog)/.test(n)) {
+    return "Materno-Infantil y Mujer";
+  }
+  if (/(ecograf|imágen|imagen|laboratorio)/.test(n)) {
+    return "Diagnóstico y Laboratorio";
+  }
+  if (/(kinesiol|fisioterap|nutrici|deporte)/.test(n)) {
+    return "Rehabilitación y Bienestar";
+  }
+  if (/(odontolog|ortodoncia)/.test(n)) {
+    return "Odontología";
+  }
+  if (/(enfermer|vacunat|receta|certificado)/.test(n)) {
+    return "Enfermería y Trámites";
+  }
+  return "Clínica y Especialidades Médicas";
+}
+
 export function buildSeedEspecialidades(nowIso: string): EspecialidadRecord[] {
   return ARGENTINA_ESPECIALIDADES_CATALOG.map((e) => ({
     id: e.id,
     nombre: e.nombre,
+    categoria: inferEspecialidadCategoria(e.nombre),
     duracionMinutos: e.duracionMinutos,
     permiteVideollamada: e.permiteVideollamada,
     valorConsultaParticularSugeridoArs: e.valorConsultaParticularSugeridoArs,
@@ -652,5 +679,5 @@ export function buildSeedEspecialidades(nowIso: string): EspecialidadRecord[] {
     activa: true,
     createdAt: nowIso,
     updatedAt: nowIso,
-  }));
+  })).sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
 }
