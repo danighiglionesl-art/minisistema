@@ -93,6 +93,218 @@ function ribbonBgColor(text: string, customBg?: string): string {
   return "#D90202";
 }
 
+type InmoIconName =
+  | "sparkle"
+  | "garage"
+  | "pool"
+  | "grill"
+  | "balcony"
+  | "bank"
+  | "pet"
+  | "price"
+  | "homeSearch"
+  | "heart"
+  | "heartFilled"
+  | "compare"
+  | "camera"
+  | "pin"
+  | "area"
+  | "field"
+  | "bed"
+  | "bath"
+  | "building"
+  | "clock"
+  | "phone";
+
+function InmoIcon({
+  name,
+  size = 15,
+  className = "shrink-0",
+}: {
+  name: InmoIconName;
+  size?: number;
+  className?: string;
+}) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    className,
+    "aria-hidden": true as const,
+  };
+  switch (name) {
+    case "sparkle":
+      return (
+        <svg {...common}>
+          <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
+          <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z" />
+        </svg>
+      );
+    case "garage":
+      return (
+        <svg {...common}>
+          <path d="M3 10l9-6 9 6v10H3V10z" />
+          <path d="M7 20v-7h10v7" />
+          <path d="M7 16h10" />
+        </svg>
+      );
+    case "pool":
+      return (
+        <svg {...common}>
+          <path d="M2 16c1.5 1.2 3.5 1.2 5 0s3.5-1.2 5 0 3.5 1.2 5 0 3.5-1.2 5 0" />
+          <path d="M2 20c1.5 1.2 3.5 1.2 5 0s3.5-1.2 5 0 3.5 1.2 5 0 3.5-1.2 5 0" />
+          <path d="M8 13V6a2 2 0 0 1 4 0" />
+          <path d="M16 13V6a2 2 0 0 1 4 0" />
+          <path d="M8 9h8" />
+        </svg>
+      );
+    case "grill":
+      return (
+        <svg {...common}>
+          <path d="M12 3c2.5 2.5 4 5.2 4 8a4 4 0 1 1-8 0c0-1.6.6-3.2 1.6-4.5.2 1.3.9 2 1.9 2.2C11.1 7 11.4 4.8 12 3z" />
+          <path d="M5 19h14" />
+        </svg>
+      );
+    case "balcony":
+      return (
+        <svg {...common}>
+          <rect x="4" y="4" width="16" height="9" rx="1" />
+          <path d="M12 4v9" />
+          <path d="M2 13h20" />
+          <path d="M4 13v7h16v-7" />
+          <path d="M8 13v7M12 13v7M16 13v7" />
+        </svg>
+      );
+    case "bank":
+      return (
+        <svg {...common}>
+          <path d="M3 10h18L12 4 3 10z" />
+          <path d="M5 10v8M10 10v8M14 10v8M19 10v8" />
+          <path d="M3 20h18" />
+        </svg>
+      );
+    case "pet":
+      return (
+        <svg {...common}>
+          <circle cx="7" cy="9" r="1.7" />
+          <circle cx="12" cy="7" r="1.7" />
+          <circle cx="17" cy="9" r="1.7" />
+          <path d="M12 12c-3 0-5.5 2.4-5.5 5 0 1.4 1.1 2.2 2.5 2.2 1.2 0 2-.5 3-.5s1.8.5 3 .5c1.4 0 2.5-.8 2.5-2.2 0-2.6-2.5-5-5.5-5z" />
+        </svg>
+      );
+    case "price":
+      return (
+        <svg {...common}>
+          <line x1="12" y1="2" x2="12" y2="22" />
+          <path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+        </svg>
+      );
+    case "homeSearch":
+      return (
+        <svg {...common} strokeWidth={1.7}>
+          <path d="M3 10.5L12 3l9 7.5" />
+          <path d="M5 9.5V19a2 2 0 0 0 2 2h4" />
+          <circle cx="16.5" cy="16.5" r="3.5" />
+          <path d="M19.2 19.2L22 22" />
+        </svg>
+      );
+    case "heart":
+      return (
+        <svg {...common}>
+          <path d="M19.5 12.6L12 20l-7.5-7.4a5 5 0 0 1 7.1-7.1L12 6l.4-.5a5 5 0 0 1 7.1 7.1z" />
+        </svg>
+      );
+    case "heartFilled":
+      return (
+        <svg {...common} fill="currentColor">
+          <path d="M19.5 12.6L12 20l-7.5-7.4a5 5 0 0 1 7.1-7.1L12 6l.4-.5a5 5 0 0 1 7.1 7.1z" />
+        </svg>
+      );
+    case "compare":
+      return (
+        <svg {...common}>
+          <path d="M16 3h5v5" />
+          <path d="M8 21H3v-5" />
+          <path d="M21 3l-7 7" />
+          <path d="M3 21l7-7" />
+        </svg>
+      );
+    case "camera":
+      return (
+        <svg {...common}>
+          <path d="M4 7h3l2-2h6l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z" />
+          <circle cx="12" cy="13" r="3.5" />
+        </svg>
+      );
+    case "pin":
+      return (
+        <svg {...common}>
+          <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
+          <circle cx="12" cy="10" r="2.5" />
+        </svg>
+      );
+    case "area":
+      return (
+        <svg {...common}>
+          <rect x="4" y="4" width="16" height="16" rx="1.5" />
+          <path d="M9 4v4M15 4v4M4 9h4M4 15h4" />
+        </svg>
+      );
+    case "field":
+      return (
+        <svg {...common}>
+          <path d="M3 19c4-3 14-3 18 0" />
+          <path d="M4 15c4-2.2 12-2.2 16 0" />
+          <path d="M12 13V4" />
+          <path d="M12 7c2-2 4.5-2 6-1-1 2-3.5 3-6 2" />
+          <path d="M12 10c-2-2-4.5-2-6-1 1 2 3.5 3 6 2" />
+        </svg>
+      );
+    case "bed":
+      return (
+        <svg {...common}>
+          <path d="M3 7v11" />
+          <path d="M3 14h18v4" />
+          <path d="M21 14v-3a2 2 0 0 0-2-2H8v5" />
+          <circle cx="6.5" cy="11" r="1.5" />
+        </svg>
+      );
+    case "bath":
+      return (
+        <svg {...common}>
+          <path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3z" />
+          <path d="M7 12V6a2 2 0 0 1 4 0" />
+          <path d="M7 19l-1 2M17 19l1 2" />
+        </svg>
+      );
+    case "building":
+      return (
+        <svg {...common}>
+          <rect x="4" y="3" width="16" height="18" rx="1.5" />
+          <path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1M10 21v-3h4v3" />
+        </svg>
+      );
+    case "clock":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <polyline points="12 7 12 12 15.5 14" />
+        </svg>
+      );
+    case "phone":
+      return (
+        <svg {...common}>
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+        </svg>
+      );
+  }
+}
+
 export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortalProps) {
   const [banners] = useState<InmoBannerRecord[]>(props.initialBanners);
   const [propiedades] = useState<InmoPropiedadRecord[]>(props.initialPropiedades);
@@ -490,14 +702,15 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               <button
                 type="button"
                 onClick={() => setOnlyFavorites((v) => !v)}
-                className="rounded-xl border px-3 py-2 text-xs font-extrabold transition"
+                className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-extrabold transition"
                 style={{
                   borderColor: accent,
                   backgroundColor: onlyFavorites ? accent : "rgba(255,255,255,0.08)",
                   color: onlyFavorites ? primary : "#FFFFFF",
                 }}
               >
-                ❤️ Favoritos ({favorites.length})
+                <InmoIcon name="heartFilled" size={14} />
+                <span>Favoritos ({favorites.length})</span>
               </button>
             )}
 
@@ -505,9 +718,10 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               <button
                 type="button"
                 onClick={() => setShowCompareModal(true)}
-                className="rounded-xl border border-[#FFFFFF]/30 bg-[#FFFFFF]/15 px-3 py-2 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#FFFFFF]/30 bg-[#FFFFFF]/15 px-3 py-2 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
               >
-                ⚖️ Comparar ({compareIds.length})
+                <InmoIcon name="compare" size={14} />
+                <span>Comparar ({compareIds.length})</span>
               </button>
             )}
 
@@ -748,12 +962,12 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
           >
             <form onSubmit={handleRunAiSearch} className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <span
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-base font-black"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl"
                     style={{ backgroundColor: accent, color: primary }}
                   >
-                    ✨
+                    <InmoIcon name="sparkle" size={17} />
                   </span>
                   <div>
                     <div className="text-xs font-black uppercase tracking-wider" style={{ color: accent }}>
@@ -789,17 +1003,19 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                 <button
                   type="submit"
                   disabled={aiLoading}
-                  className="rounded-2xl px-6 py-3 text-sm font-black shadow-lg transition hover:brightness-95 disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-black shadow-lg transition hover:brightness-95 disabled:opacity-60"
                   style={{ backgroundColor: accent, color: primary }}
                 >
-                  {aiLoading ? "Analizando con IA..." : "✨ Buscar con IA"}
+                  <InmoIcon name="sparkle" size={16} />
+                  <span>{aiLoading ? "Analizando con IA..." : "Buscar con IA"}</span>
                 </button>
               </div>
 
               {aiResult && (
                 <div className="rounded-2xl border border-[#FC8006]/50 bg-[#FFFFFF]/10 p-3.5 text-sm text-[#FFFFFF]">
-                  <div className="font-bold" style={{ color: accent }}>
-                    🤖 Recomendación IA ({aiResult.matchedIds.length} resultados):
+                  <div className="inline-flex items-center gap-1.5 font-bold" style={{ color: accent }}>
+                    <InmoIcon name="sparkle" size={15} />
+                    <span>Recomendación IA ({aiResult.matchedIds.length} resultados):</span>
                   </div>
                   <p className="mt-1 text-xs leading-relaxed text-[#FFFFFF]/95 sm:text-sm">
                     {aiResult.summary}
@@ -1117,27 +1333,28 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
 
             {/* Chips de filtros rápidos */}
             <div className="flex flex-wrap gap-2">
-              {[
-                { label: "🚗 Garage", active: filterGarage, toggle: () => setFilterGarage((v) => !v) },
-                { label: "🏊 Pileta", active: filterPileta, toggle: () => setFilterPileta((v) => !v) },
-                { label: "🍖 Quincho", active: filterQuincho, toggle: () => setFilterQuincho((v) => !v) },
-                { label: "🌇 Balcón", active: filterBalcon, toggle: () => setFilterBalcon((v) => !v) },
-                { label: "🏦 Apto Crédito", active: filterAptoCredito, toggle: () => setFilterAptoCredito((v) => !v) },
-                { label: "🐾 Mascotas", active: filterMascotas, toggle: () => setFilterMascotas((v) => !v) },
-                { label: "💲 Con Precio Visible", active: filterSoloPrecio, toggle: () => setFilterSoloPrecio((v) => !v) },
-              ].map((chip) => (
+              {([
+                { label: "Garage", icon: "garage" as InmoIconName, active: filterGarage, toggle: () => setFilterGarage((v) => !v) },
+                { label: "Pileta", icon: "pool" as InmoIconName, active: filterPileta, toggle: () => setFilterPileta((v) => !v) },
+                { label: "Quincho", icon: "grill" as InmoIconName, active: filterQuincho, toggle: () => setFilterQuincho((v) => !v) },
+                { label: "Balcón", icon: "balcony" as InmoIconName, active: filterBalcon, toggle: () => setFilterBalcon((v) => !v) },
+                { label: "Apto Crédito", icon: "bank" as InmoIconName, active: filterAptoCredito, toggle: () => setFilterAptoCredito((v) => !v) },
+                { label: "Mascotas", icon: "pet" as InmoIconName, active: filterMascotas, toggle: () => setFilterMascotas((v) => !v) },
+                { label: "Con Precio Visible", icon: "price" as InmoIconName, active: filterSoloPrecio, toggle: () => setFilterSoloPrecio((v) => !v) },
+              ]).map((chip) => (
                 <button
                   key={chip.label}
                   type="button"
                   onClick={chip.toggle}
-                  className="rounded-full px-3.5 py-1.5 text-xs font-extrabold transition"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-extrabold transition"
                   style={{
-                    backgroundColor: chip.active ? primary : "#f1f5f9",
+                    backgroundColor: chip.active ? primary : "#FFFFFF",
                     color: chip.active ? accent : "#1F1F1F",
                     border: chip.active ? `1.5px solid ${accent}` : "1.5px solid #cbd5e1",
                   }}
                 >
-                  {chip.label}
+                  <InmoIcon name={chip.icon} size={14} />
+                  <span>{chip.label}</span>
                 </button>
               ))}
             </div>
@@ -1214,9 +1431,18 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
 
           {/* GRILLA DE PROPIEDADES PUBLICADAS */}
           {filteredPropiedades.length === 0 ? (
-            <div className="rounded-3xl border-2 border-dashed border-[#1F1F1F]/20 bg-[#FFFFFF] p-12 text-center">
-              <div className="text-4xl">🏘️</div>
-              <h3 className="mt-2 text-lg font-extrabold text-[#1F1F1F]">
+            <div className="rounded-3xl border-2 border-dashed border-[#1F1F1F]/18 bg-[#FFFFFF] p-12 text-center">
+              <div
+                className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border shadow-sm"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${accent} 12%, #FFFFFF)`,
+                  borderColor: `color-mix(in srgb, ${accent} 38%, transparent)`,
+                  color: primary,
+                }}
+              >
+                <InmoIcon name="homeSearch" size={28} />
+              </div>
+              <h3 className="mt-3 text-lg font-extrabold text-[#1F1F1F]">
                 No encontramos propiedades con esos filtros
               </h3>
               <p className="mt-1 text-sm text-[#1F1F1F]/70">
@@ -1228,10 +1454,11 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-black shadow"
+                className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-black shadow transition hover:brightness-95"
                 style={{ backgroundColor: accent, color: primary }}
               >
-                📲 Consultar por WhatsApp
+                <WhatsAppIcon size={17} className="shrink-0" />
+                <span>Consultar por WhatsApp</span>
               </a>
             </div>
           ) : (
@@ -1280,9 +1507,10 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                             toggleFavorite(prop.id);
                           }}
                           title="Guardar en favoritos"
-                          className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFFFFF]/90 text-sm shadow hover:scale-110"
+                          className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFFFFF]/92 shadow transition hover:scale-110"
+                          style={{ color: isFav ? "#dc2626" : primary }}
                         >
-                          {isFav ? "❤️" : "🤍"}
+                          <InmoIcon name={isFav ? "heartFilled" : "heart"} size={16} />
                         </button>
                         {config.habilitarComparador !== false && (
                           <button
@@ -1292,13 +1520,13 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                               toggleCompare(prop.id);
                             }}
                             title="Comparar propiedad"
-                            className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-black shadow hover:scale-110"
+                            className="flex h-9 w-9 items-center justify-center rounded-full shadow transition hover:scale-110"
                             style={{
                               backgroundColor: isComp ? accent : "rgba(255,255,255,0.92)",
                               color: primary,
                             }}
                           >
-                            ⚖️
+                            <InmoIcon name="compare" size={16} />
                           </button>
                         )}
                       </div>
@@ -1311,8 +1539,9 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           {prop.tipoPropiedad} · {prop.ambito === "rural" ? "Rural" : "Urbana"}
                         </span>
                         {prop.fotos.length > 1 && (
-                          <span className="rounded-lg bg-[#1F1F1F]/85 px-2 py-1 text-[11px] font-bold text-[#FFFFFF]">
-                            📷 {prop.fotos.length}
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-[#1F1F1F]/85 px-2 py-1 text-[11px] font-bold text-[#FFFFFF]">
+                            <InmoIcon name="camera" size={12} />
+                            <span>{prop.fotos.length}</span>
                           </span>
                         )}
                       </div>
@@ -1353,8 +1582,8 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           {prop.titulo}
                         </h3>
 
-                        <div className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-[#1F1F1F]/70">
-                          <span>📍</span>
+                        <div className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#1F1F1F]/70">
+                          <InmoIcon name="pin" size={13} />
                           <span>
                             {prop.mostrarDireccionExacta && prop.direccion ? `${prop.direccion}, ` : ""}
                             {prop.barrio ? `${prop.barrio}, ` : ""}
@@ -1365,43 +1594,53 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                         {/* Badges rápidos de características */}
                         <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-bold text-[#1F1F1F]">
                           {c.superficieHectareas ? (
-                            <span className="rounded-lg bg-[#f1f5f9] px-2 py-1">
-                              🌾 {c.superficieHectareas} ha
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-[#f1f5f9] px-2 py-1">
+                              <InmoIcon name="field" size={12} />
+                              <span>{c.superficieHectareas} ha</span>
                             </span>
                           ) : c.superficieTotalM2 ? (
-                            <span className="rounded-lg bg-[#f1f5f9] px-2 py-1">
-                              📐 {c.superficieTotalM2} m²
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-[#f1f5f9] px-2 py-1">
+                              <InmoIcon name="area" size={12} />
+                              <span>{c.superficieTotalM2} m²</span>
                             </span>
                           ) : null}
                           {c.cantidadHabitaciones > 0 && (
-                            <span className="rounded-lg bg-[#f1f5f9] px-2 py-1">
-                              🛏️ {c.cantidadHabitaciones} dorm.
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-[#f1f5f9] px-2 py-1">
+                              <InmoIcon name="bed" size={12} />
+                              <span>{c.cantidadHabitaciones} dorm.</span>
                             </span>
                           )}
                           {c.cantidadBanos > 0 && (
-                            <span className="rounded-lg bg-[#f1f5f9] px-2 py-1">
-                              🚿 {c.cantidadBanos} baño{c.cantidadBanos > 1 ? "s" : ""}
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-[#f1f5f9] px-2 py-1">
+                              <InmoIcon name="bath" size={12} />
+                              <span>{c.cantidadBanos} baño{c.cantidadBanos > 1 ? "s" : ""}</span>
                             </span>
                           )}
                           {c.tieneGarage && (
-                            <span className="rounded-lg bg-[#f1f5f9] px-2 py-1">
-                              🚗 {c.cantidadVehiculosGarage || 1} veh.
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-[#f1f5f9] px-2 py-1">
+                              <InmoIcon name="garage" size={12} />
+                              <span>{c.cantidadVehiculosGarage || 1} veh.</span>
                             </span>
                           )}
                           {c.tienePileta && (
-                            <span className="rounded-lg bg-[#dcfce7] px-2 py-1 text-[#065f46]">
-                              🏊 Pileta
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-[#dcfce7] px-2 py-1 text-[#065f46]">
+                              <InmoIcon name="pool" size={12} />
+                              <span>Pileta</span>
                             </span>
                           )}
                           {c.tieneQuincho && (
-                            <span className="rounded-lg bg-[#fef3c7] px-2 py-1 text-[#92400e]">
-                              🍖 Quincho
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-[#fef3c7] px-2 py-1 text-[#92400e]">
+                              <InmoIcon name="grill" size={12} />
+                              <span>Quincho</span>
                             </span>
                           )}
                           {c.esDepartamento && (
-                            <span className="rounded-lg bg-[#e0f2fe] px-2 py-1 text-[#075985]">
-                              🏢 {c.esInterno ? "Interno" : "Externo"}
-                              {c.tieneBalcon ? " · Balcón" : ""}
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-[#e0f2fe] px-2 py-1 text-[#075985]">
+                              <InmoIcon name="building" size={12} />
+                              <span>
+                                {c.esInterno ? "Interno" : "Externo"}
+                                {c.tieneBalcon ? " · Balcón" : ""}
+                              </span>
                             </span>
                           )}
                         </div>
@@ -1422,10 +1661,11 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           )}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded-xl px-3.5 py-2.5 text-xs font-black shadow hover:brightness-95"
+                          className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-black shadow hover:brightness-95"
                           style={{ backgroundColor: accent, color: primary }}
                         >
-                          💬 WA
+                          <WhatsAppIcon size={14} className="shrink-0" />
+                          <span>WA</span>
                         </a>
                       </div>
                     </div>
@@ -1450,10 +1690,11 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
             {/* Dirección y Google Maps (rectángulo alineado con Horarios, dirección debajo) */}
             <div className="space-y-3">
               <div
-                className="text-xs font-black uppercase tracking-wider"
+                className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider"
                 style={{ color: accent }}
               >
-                📍 Dirección y Ubicación
+                <InmoIcon name="pin" size={14} />
+                <span>Dirección y Ubicación</span>
               </div>
               <div
                 className="relative h-40 w-full overflow-hidden rounded-2xl border-2 shadow-lg bg-[#171717]"
@@ -1487,10 +1728,11 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
             {/* Horarios de Atención */}
             <div className="space-y-3">
               <div
-                className="text-xs font-black uppercase tracking-wider"
+                className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider"
                 style={{ color: accent }}
               >
-                🕒 Horarios de Atención
+                <InmoIcon name="clock" size={14} />
+                <span>Horarios de Atención</span>
               </div>
               <div className="flex min-h-40 flex-col justify-center gap-1 rounded-2xl border border-[#FFFFFF]/15 bg-[#FFFFFF]/5 p-5 text-sm font-bold text-[#FFFFFF]/95 leading-relaxed">
                 {officeHours.split("·").map((segment, idx) => (
@@ -1507,10 +1749,11 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
             {/* Redes Sociales y Contacto Directo (solo botones con sus colores) */}
             <div className="space-y-3">
               <div
-                className="text-xs font-black uppercase tracking-wider"
+                className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider"
                 style={{ color: accent }}
               >
-                📲 Redes y Contacto
+                <InmoIcon name="phone" size={14} />
+                <span>Redes y Contacto</span>
               </div>
               <div className="flex flex-wrap items-center gap-3.5 pt-1">
                 <a
