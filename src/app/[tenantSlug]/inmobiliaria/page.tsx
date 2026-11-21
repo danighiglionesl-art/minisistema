@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PublicInmobiliariaPortal from "@/components/inmobiliaria/PublicInmobiliariaPortal";
 import { loadInmobiliariaDb } from "@/lib/erp/handlers/inmobiliaria-handler";
@@ -10,6 +11,42 @@ import {
 } from "@/lib/erp/tenant-service";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(context: {
+  params: Promise<{ tenantSlug: string }>;
+}): Promise<Metadata> {
+  const { tenantSlug } = await context.params;
+  const clean = tenantSlug.trim().toLowerCase();
+  if (isReservedAppSlug(clean)) return {};
+  const tenant = await getTenantBySlug(clean);
+  if (!tenant) return {};
+
+  const brand = enforceOptionBranding(
+    tenant.option_type,
+    tenant.is_base,
+    tenant.branding
+  );
+  const isDegiovanniDefault =
+    tenant.is_base ||
+    tenant.option_type !== 1 ||
+    /^minisistema\.?$/i.test((tenant.fantasy_name || "").trim());
+
+  const titleName = isDegiovanniDefault ? "Inmobiliaria Degiovanni" : tenant.fantasy_name;
+  const faviconUrl = isDegiovanniDefault
+    ? "/inmobiliaria/degiovanni-favicon.png?v=1"
+    : brand.logoSymbolUrl || brand.logo1x1Url || "/inmobiliaria/degiovanni-favicon.png?v=1";
+
+  return {
+    title: {
+      absolute: `${titleName} | Propiedades en Venta, Alquiler y Temporarios`,
+    },
+    icons: {
+      icon: [{ url: faviconUrl, type: "image/png" }],
+      shortcut: [faviconUrl],
+      apple: [{ url: faviconUrl, type: "image/png" }],
+    },
+  };
+}
 
 export default async function TenantPublicInmobiliariaPage(context: {
   params: Promise<{ tenantSlug: string }>;

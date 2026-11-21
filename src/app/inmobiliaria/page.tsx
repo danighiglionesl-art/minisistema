@@ -13,9 +13,16 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Inmobiliaria Degiovanni | Propiedades en Venta, Alquiler y Temporarios",
+  title: {
+    absolute: "Inmobiliaria Degiovanni | Propiedades en Venta, Alquiler y Temporarios",
+  },
   description:
     "Inmobiliaria Degiovanni — Alcira Gigena, Córdoba. Propiedades urbanas y rurales en Venta, Alquiler y Alquiler Temporario con ubicación satelital, buscador con IA y Portal de Clientes.",
+  icons: {
+    icon: [{ url: "/inmobiliaria/degiovanni-favicon.png?v=1", type: "image/png" }],
+    shortcut: ["/inmobiliaria/degiovanni-favicon.png?v=1"],
+    apple: [{ url: "/inmobiliaria/degiovanni-favicon.png?v=1", type: "image/png" }],
+  },
 };
 
 export default async function PublicInmobiliariaPage() {
