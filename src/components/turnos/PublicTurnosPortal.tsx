@@ -438,8 +438,14 @@ export default function PublicTurnosPortal(props: PublicTurnosPortalProps) {
         if (p.planId) setPlanId(p.planId);
         if (p.nroAfiliado) setNroAfiliado(p.nroAfiliado);
         setDniFoundSource(data.source || "sistema");
+        const isExternal =
+          data.source === "cuitonline" ||
+          data.source === "bcra_oficial" ||
+          data.source === "buscador_publico";
         setDniLookupMsg(
-          `✅ ¡Datos encontrados! Recuperamos automáticamente tu ficha (${p.apellidos}, ${p.nombres}) para que no tengas que volver a cargar todo.`
+          isExternal
+            ? `✅ ¡Datos encontrados en ${data.sourceLabel || "padrón externo"}! Trajimos tu nombre (${p.apellidos}, ${p.nombres}). Completá tu WhatsApp y correo para finalizar el registro.`
+            : `✅ ¡Datos encontrados! Recuperamos automáticamente tu ficha (${p.apellidos}, ${p.nombres}) para que no tengas que volver a cargar todo.`
         );
       } else {
         setDniLookupMsg(
@@ -966,14 +972,6 @@ export default function PublicTurnosPortal(props: PublicTurnosPortalProps) {
             </div>
           ) : (
             <form onSubmit={handleBookTurno} className="space-y-6">
-              {profesionales.length === 0 && (
-                <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 text-sm text-amber-950">
-                  <strong>Turnero en configuración inicial:</strong> Todavía no hay profesionales
-                  habilitados con agenda activa en el sistema. El administrador puede darlos de alta
-                  desde el ERP en <strong>Turnero Web → ABM Profesionales y Gestión de Profesionales</strong>.
-                </div>
-              )}
-
               {/* PASO 1: IDENTIFICACIÓN POR DNI */}
               <section className="rounded-3xl border-2 bg-white p-6 shadow-sm" style={{ borderColor: accentHex }}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
