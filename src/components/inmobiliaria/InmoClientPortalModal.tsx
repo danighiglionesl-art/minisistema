@@ -73,6 +73,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
   // Login form
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [googleEmailQuick, setGoogleEmailQuick] = useState("");
   const [showGoogleFallback, setShowGoogleFallback] = useState(false);
 
@@ -307,7 +308,9 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
   const primary = props.primaryHex || "#1F1F1F";
   const accent = props.accentHex || "#FC8006";
   const inputCls =
-    "w-full rounded-xl border border-[#1F1F1F]/20 bg-[#FFFFFF] px-3 py-2 text-xs font-medium text-[#1F1F1F] focus:border-[#FC8006] focus:outline-none";
+    "w-full rounded-xl border border-[#1F1F1F]/22 bg-[#FAF8F6] px-3.5 py-2.5 text-sm font-medium text-[#1F1F1F] placeholder:text-[#1F1F1F]/40 focus:border-[#FC8006] focus:bg-[#FFFFFF] focus:outline-none";
+  const authInputCls =
+    "mt-1.5 w-full rounded-xl border border-[#1F1F1F]/22 bg-[#FAF8F6] px-4 py-3 text-base sm:text-sm font-medium text-[#1F1F1F] placeholder:text-[#1F1F1F]/40 focus:border-[#FC8006] focus:bg-[#FFFFFF] focus:outline-none";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -565,455 +568,617 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
   const activeContract =
     filteredContracts.find((c) => c.id === selectedContractId) || filteredContracts[0] || null;
 
+  const modalWidthClass = props.loggedClient
+    ? "max-w-5xl"
+    : authTab === "register"
+      ? "max-w-3xl"
+      : "max-w-xl";
+
+  const EyeIcon = ({ off = false }: { off?: boolean }) =>
+    off ? (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+        <line x1="1" y1="1" x2="23" y2="23" />
+      </svg>
+    ) : (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+
+  const ArrowLeftIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="19" y1="12" x2="5" y2="12" />
+      <polyline points="12 19 5 12 12 5" />
+    </svg>
+  );
+
+  const GoogleGIcon = () => (
+    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z" />
+      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z" />
+      <path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z" />
+      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z" />
+    </svg>
+  );
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#141414]/80 p-3 backdrop-blur-sm sm:p-5"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#1F1F1F]/75 p-3 backdrop-blur-sm sm:p-5"
       onClick={props.onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border-2 bg-[#FFFFFF] shadow-2xl"
-        style={{ borderColor: accent }}
+        className={`relative max-h-[92dvh] w-full ${modalWidthClass} overflow-y-auto rounded-3xl border bg-[#FFFFFF] p-6 text-[#1F1F1F] shadow-2xl sm:p-8`}
+        style={{ borderColor: `color-mix(in srgb, ${accent} 38%, transparent)` }}
       >
+        {/* BORDE SUPERIOR FIJO Y LIMPIO (ESTILO REIKIONLINE CON COLORES DE LA INMOBILIARIA) */}
         <div
-          className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 px-6 py-4 text-[#FFFFFF]"
-          style={{ backgroundColor: primary }}
+          className="sticky top-0 z-20 -mx-6 -mt-6 rounded-t-3xl border-b bg-[#FFFFFF]/95 px-6 pt-5 pb-4 backdrop-blur-md shadow-xs sm:-mx-8 sm:-mt-8 sm:px-8 sm:pt-6 sm:pb-4"
+          style={{ borderColor: `color-mix(in srgb, ${primary} 12%, transparent)` }}
         >
-          <div className="flex items-center gap-3">
-            {props.logo1x1Url && (
-              <img
-                src={props.logo1x1Url}
-                alt={props.fantasyName}
-                className="h-10 w-10 rounded-full object-contain shrink-0"
-              />
-            )}
-            <div>
-              <div className="text-[11px] font-black uppercase tracking-wider" style={{ color: accent }}>
-                Portal de Arrendamientos · {props.fantasyName}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className="shrink-0 overflow-hidden rounded-2xl p-1.5 shadow-sm"
+                style={{ backgroundColor: primary }}
+              >
+                {props.logo1x1Url ? (
+                  <img
+                    src={props.logo1x1Url}
+                    alt={props.fantasyName}
+                    className="h-10 w-10 object-contain"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center text-sm font-black text-[#FFFFFF]">
+                    {(props.fantasyName || "I").slice(0, 1).toUpperCase()}
+                  </div>
+                )}
               </div>
-              <h2 className="text-lg font-black">
-                {props.loggedClient
-                  ? `Hola, ${props.loggedClient.nombres} ${props.loggedClient.apellidos}`
-                  : "Acceso a Clientes (Inquilinos y Propietarios)"}
-              </h2>
+              <div>
+                <h2 className="text-lg font-bold leading-tight sm:text-xl" style={{ color: primary }}>
+                  {props.loggedClient
+                    ? `Hola, ${props.loggedClient.nombres} ${props.loggedClient.apellidos}`
+                    : authTab === "register"
+                      ? "Registrarme"
+                      : authTab === "recover"
+                        ? "Recuperar contraseña"
+                        : "Ingresar"}
+                </h2>
+                <p className="text-xs font-semibold" style={{ color: accent }}>
+                  {props.fantasyName} · Portal de Clientes
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {props.loggedClient && (
+
+            <div className="flex items-center gap-2">
+              {props.loggedClient && (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  title="Salir"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors hover:bg-[#FAF8F6]"
+                  style={{ borderColor: `color-mix(in srgb, ${primary} 22%, transparent)`, color: primary }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                  <span>Salir</span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleLogout}
-                className="rounded-xl border border-[#FFFFFF]/30 px-3 py-1.5 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#FFFFFF]/15"
+                onClick={props.onClose}
+                aria-label="Cerrar ventana de acceso"
+                className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#FAF8F6] text-[#1F1F1F] shadow-xs transition-colors hover:bg-[#1F1F1F] hover:text-[#FFFFFF]"
               >
-                Cerrar sesión
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
-            )}
-            <button
-              type="button"
-              onClick={props.onClose}
-              className="rounded-xl bg-[#FFFFFF]/15 px-3.5 py-1.5 text-xs font-black text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
-            >
-              ✕ Cerrar
-            </button>
-          </div>
-        </div>
-
-        <div className="p-5 sm:p-7 space-y-5">
-          {msg && (
-            <div
-              className="rounded-2xl border p-3.5 text-xs font-bold"
-              style={{
-                backgroundColor: msg.isErr ? "#fee2e2" : "#dcfce7",
-                color: msg.isErr ? "#991b1b" : "#065f46",
-                borderColor: msg.isErr ? "#f87171" : "#34d399",
-              }}
-            >
-              {msg.isErr ? "⚠️ " : "✅ "}
-              {msg.text}
             </div>
-          )}
+          </div>
 
-          {/* VISTA NO LOGUEADO: LOGIN (GOOGLE / EMAIL), REGISTRO COMPLETO Y RECUPERO */}
-          {!props.loggedClient ? (
-            <div className="space-y-5">
-              <div className="flex flex-wrap gap-2 border-b border-[#1F1F1F]/10 pb-3">
-                {[
-                  { k: "login", l: "🔐 Iniciar Sesión" },
-                  { k: "register", l: "📝 Crear Cuenta de Cliente" },
-                  { k: "recover", l: "🔄 Recuperar Contraseña" },
-                ].map((t) => (
+          {/* BARRA DE NAVEGACIÓN SUPERIOR EN VISTA LOGUEADO (ESTILO REIKIONLINE) */}
+          {props.loggedClient && (
+            <nav
+              aria-label="Secciones del portal de clientes"
+              className="mt-3.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#FAF8F6] p-2 sm:grid-cols-4"
+            >
+              {(
+                [
+                  {
+                    k: "vigente" as const,
+                    l: `Vigentes (${props.loggedContracts.filter((c) => c.estado === "vigente").length})`,
+                  },
+                  {
+                    k: "pasado" as const,
+                    l: `Pasados (${props.loggedContracts.filter((c) => c.estado === "pasado" || c.estado === "rescindido").length})`,
+                  },
+                  {
+                    k: "futuro" as const,
+                    l: `Futuros (${props.loggedContracts.filter((c) => c.estado === "futuro").length})`,
+                  },
+                  { k: "perfil" as const, l: "Mi Perfil" },
+                ]
+              ).map((t) => {
+                const isActive = dashTab === t.k;
+                return (
                   <button
                     key={t.k}
                     type="button"
-                    onClick={() => {
-                      setAuthTab(t.k as any);
-                      setMsg(null);
-                    }}
-                    className="rounded-xl px-4 py-2 text-xs font-black transition"
+                    onClick={() => setDashTab(t.k)}
+                    className="inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all sm:text-sm"
                     style={{
-                      backgroundColor: authTab === t.k ? primary : "#f1f5f9",
-                      color: authTab === t.k ? accent : "#1F1F1F",
+                      backgroundColor: isActive ? primary : "#FFFFFF",
+                      color: isActive ? accent : primary,
+                      boxShadow: isActive ? "0 2px 6px rgba(31,31,31,0.14)" : "none",
                     }}
                   >
                     {t.l}
                   </button>
-                ))}
-              </div>
+                );
+              })}
+            </nav>
+          )}
+        </div>
 
+        <div className="mt-5 space-y-5">
+          {msg && (
+            <div
+              role="alert"
+              className="rounded-xl border px-3.5 py-2.5 text-xs font-semibold"
+              style={{
+                backgroundColor: msg.isErr ? "#fee2e2" : "#dcfce7",
+                color: msg.isErr ? "#991b1b" : "#065f46",
+                borderColor: msg.isErr ? "#fca5a5" : "#6ee7b7",
+              }}
+            >
+              {msg.text}
+            </div>
+          )}
+
+          {/* VISTA NO LOGUEADO: MISMA DISPOSICIÓN Y FORMATO QUE REIKIONLINE */}
+          {!props.loggedClient ? (
+            <div>
+              {/* 1. MODO LOGIN */}
               {authTab === "login" && (
-                <div className="grid gap-6 md:grid-cols-2">
-                  <form onSubmit={handleLogin} className="space-y-3 rounded-2xl border border-[#1F1F1F]/12 p-5">
-                    <h3 className="text-sm font-black text-[#1F1F1F]">Ingreso con Correo Electrónico</h3>
+                <div>
+                  <form onSubmit={handleLogin} className="space-y-4">
                     <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase text-[#1F1F1F]/70">
-                        Correo Electrónico o DNI
+                      <label
+                        htmlFor="inmo-login-email"
+                        className="block text-xs font-semibold sm:text-sm"
+                        style={{ color: primary }}
+                      >
+                        Correo electrónico o DNI
                       </label>
                       <input
+                        id="inmo-login-email"
+                        type="text"
                         required
+                        autoComplete="username"
+                        spellCheck={false}
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        placeholder="cliente@correo.com"
-                        className={inputCls}
+                        placeholder="tucorreo@ejemplo.com"
+                        className={authInputCls}
                       />
                     </div>
+
                     <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase text-[#1F1F1F]/70">
-                        Contraseña
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        placeholder="Tu contraseña"
-                        className={inputCls}
-                      />
+                      <div className="flex items-center justify-between gap-2">
+                        <label
+                          htmlFor="inmo-login-password"
+                          className="block text-xs font-semibold sm:text-sm"
+                          style={{ color: primary }}
+                        >
+                          Contraseña
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMsg(null);
+                            setRecStep(1);
+                            setAuthTab("recover");
+                          }}
+                          className="cursor-pointer text-xs font-semibold underline underline-offset-4 transition-opacity hover:opacity-80"
+                          style={{ color: accent }}
+                        >
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      </div>
+                      <div className="relative mt-1.5">
+                        <input
+                          id="inmo-login-password"
+                          type={showPassword ? "text" : "password"}
+                          required
+                          autoComplete="current-password"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full rounded-xl border border-[#1F1F1F]/22 bg-[#FAF8F6] py-3 pr-24 pl-4 text-base font-medium text-[#1F1F1F] placeholder:text-[#1F1F1F]/40 focus:border-[#FC8006] focus:bg-[#FFFFFF] focus:outline-none sm:text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          aria-pressed={showPassword}
+                          aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                          className="absolute top-1/2 right-2.5 inline-flex -translate-y-1/2 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-colors hover:bg-[#1F1F1F]/8"
+                          style={{ color: primary }}
+                        >
+                          <EyeIcon off={showPassword} />
+                          <span>{showPassword ? "Ocultar" : "Mostrar"}</span>
+                        </button>
+                      </div>
                     </div>
+
                     <button
                       type="submit"
                       disabled={busy}
-                      className="w-full rounded-xl py-2.5 text-sm font-black shadow"
-                      style={{ backgroundColor: accent, color: primary }}
+                      className="w-full cursor-pointer rounded-xl px-5 py-3.5 text-sm font-bold text-[#FFFFFF] shadow-md transition-all hover:brightness-110 disabled:opacity-60"
+                      style={{ backgroundColor: primary }}
                     >
-                      {busy ? "Ingresando..." : "Ingresar al Portal"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAuthTab("recover")}
-                      className="block w-full text-center text-xs font-bold text-[#1F1F1F]/75 underline"
-                    >
-                      ¿Olvidaste tu contraseña? Recuperala acá
+                      {busy ? "Ingresando..." : "Ingresar"}
                     </button>
                   </form>
 
-                  <div className="flex flex-col justify-between rounded-2xl border-2 border-[#FC8006]/50 bg-[#FAF8F6] p-5 space-y-4">
-                    <div>
-                      <h3 className="text-sm font-black text-[#1F1F1F]">
-                        Ingreso Automático con Google
-                      </h3>
-                      <p className="mt-1 text-xs text-[#1F1F1F]/75">
-                        Accedé en un clic con tu cuenta de Google para consultar contratos PDF, cuenta corriente y pagar tus alquileres con acreditación Split.
-                      </p>
-                    </div>
+                  <div className="my-4 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-[#1F1F1F]/15" />
+                    <span className="text-xs font-medium text-[#1F1F1F]/60">o</span>
+                    <div className="h-px flex-1 bg-[#1F1F1F]/15" />
+                  </div>
 
-                    <div className="space-y-2.5">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={handleGoogleOAuthPopup}
+                      className="inline-flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-[#1F1F1F]/22 bg-[#FFFFFF] px-4 py-3 text-xs font-semibold text-[#1F1F1F] transition-all hover:border-[#FC8006] hover:bg-[#FAF8F6] disabled:opacity-60 sm:text-sm"
+                    >
+                      <GoogleGIcon />
+                      <span>{busy ? "Conectando..." : "Google"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMsg(null);
+                        setAuthTab("register");
+                      }}
+                      className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-xs font-semibold transition-all hover:brightness-95 sm:text-sm"
+                      style={{
+                        borderColor: accent,
+                        backgroundColor: `color-mix(in srgb, ${accent} 18%, #FFFFFF)`,
+                        color: primary,
+                      }}
+                    >
+                      <span>Registrarme</span>
+                    </button>
+                  </div>
+
+                  {showGoogleFallback && (
+                    <form onSubmit={handleGoogleQuickSubmit} className="mt-4 space-y-2 rounded-2xl border border-[#1F1F1F]/12 bg-[#FAF8F6] p-3.5">
+                      <input
+                        type="email"
+                        required
+                        value={googleEmailQuick}
+                        onChange={(e) => setGoogleEmailQuick(e.target.value)}
+                        placeholder="Ingresá tu cuenta @gmail.com"
+                        className={inputCls}
+                      />
                       <button
-                        type="button"
+                        type="submit"
                         disabled={busy}
-                        onClick={handleGoogleOAuthPopup}
-                        className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border-2 border-[#1F1F1F]/15 bg-[#FFFFFF] px-4 py-3 text-xs font-black text-[#1F1F1F] shadow-sm transition hover:border-[#FC8006] hover:bg-[#FAF8F6] disabled:opacity-60"
+                        className="w-full cursor-pointer rounded-xl py-2.5 text-xs font-bold"
+                        style={{ backgroundColor: primary, color: accent }}
                       >
-                        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                          <path
-                            fill="#4285F4"
-                            d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
-                          />
-                          <path
-                            fill="#34A853"
-                            d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.565 24 12.255 24z"
-                          />
-                          <path
-                            fill="#FBBC05"
-                            d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"
-                          />
-                          <path
-                            fill="#EA4335"
-                            d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.69 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"
-                          />
-                        </svg>
-                        <span>{busy ? "Conectando con Google..." : "Continuar con Google"}</span>
+                        Acceder con mi correo Google
                       </button>
-                      {showGoogleFallback && (
-                        <form onSubmit={handleGoogleQuickSubmit} className="space-y-2 pt-1">
-                          <input
-                            type="email"
-                            required
-                            value={googleEmailQuick}
-                            onChange={(e) => setGoogleEmailQuick(e.target.value)}
-                            placeholder="Ingresá tu cuenta @gmail.com"
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {/* 2. MODO REGISTRO */}
+              {authTab === "register" && (
+                <div>
+                  <form onSubmit={handleRegister} className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Apellido(s) *</label>
+                        <input required value={apellidos} onChange={(e) => setApellidos(e.target.value)} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Nombre(s) *</label>
+                        <input required value={nombres} onChange={(e) => setNombres(e.target.value)} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Tipo Doc. *</label>
+                        <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value)} className={inputCls}>
+                          <option value="DNI">DNI</option>
+                          <option value="CUIT">CUIT</option>
+                          <option value="CUIL">CUIL</option>
+                          <option value="Pasaporte">Pasaporte</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">N° Documento *</label>
+                        <input required value={nroDoc} onChange={(e) => setNroDoc(e.target.value)} className={inputCls} placeholder="38123456" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">CUIT / CUIL</label>
+                        <input value={cuitCuil} onChange={(e) => setCuitCuil(e.target.value)} className={inputCls} placeholder="20-38123456-7" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Fecha de Nacimiento</label>
+                        <input type="date" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Estado Civil</label>
+                        <select value={estadoCivil} onChange={(e) => setEstadoCivil(e.target.value)} className={inputCls}>
+                          <option>Soltero/a</option>
+                          <option>Casado/a</option>
+                          <option>Unión convivencial</option>
+                          <option>Divorciado/a</option>
+                          <option>Viudo/a</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Nacionalidad</label>
+                        <select value={nacionalidad} onChange={(e) => setNacionalidad(e.target.value)} className={inputCls}>
+                          {props.catalogs.paises.map((p) => (
+                            <option key={`n-${p.id}-${p.nombre}`} value={p.nombre}>{p.nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">País *</label>
+                        <select value={pais} onChange={(e) => setPais(e.target.value)} className={inputCls}>
+                          {props.catalogs.paises.map((p) => (
+                            <option key={`p-${p.id}-${p.nombre}`} value={p.nombre}>{p.nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Provincia *</label>
+                        {pais === "ARGENTINA" ? (
+                          <select value={provincia} onChange={(e) => setProvincia(e.target.value)} className={inputCls}>
+                            {props.catalogs.provincias.map((pr) => (
+                              <option key={pr} value={pr}>{pr}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input value={provincia} onChange={(e) => setProvincia(e.target.value)} className={inputCls} />
+                        )}
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Localidad *</label>
+                        {pais === "ARGENTINA" && localidadesDisponibles.length > 0 ? (
+                          <select
+                            value={localidad}
+                            onChange={(e) => {
+                              setLocalidad(e.target.value);
+                              const m = localidadesDisponibles.find((l) => l.nombre === e.target.value);
+                              if (m?.cp) setCp(m.cp);
+                            }}
                             className={inputCls}
+                          >
+                            {localidadesDisponibles.map((l, idx) => (
+                              <option key={`${l.nombre}-${idx}`} value={l.nombre}>{l.nombre}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input value={localidad} onChange={(e) => setLocalidad(e.target.value)} className={inputCls} />
+                        )}
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Código Postal</label>
+                        <input value={cp} onChange={(e) => setCp(e.target.value)} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Calle</label>
+                        <input value={domicilioCalle} onChange={(e) => setDomicilioCalle(e.target.value)} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Número</label>
+                        <input value={domicilioNumero} onChange={(e) => setDomicilioNumero(e.target.value)} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Barrio</label>
+                        <input value={domicilioBarrio} onChange={(e) => setDomicilioBarrio(e.target.value)} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">País de WhatsApp *</label>
+                        <select
+                          value={waCountryIdx}
+                          onChange={(e) => setWaCountryIdx(Number(e.target.value))}
+                          className={inputCls}
+                        >
+                          {WHATSAPP_COUNTRIES.map((w, i) => (
+                            <option key={w.prefix} value={i}>{w.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">N° WhatsApp *</label>
+                        <input required value={whatsappNumero} onChange={(e) => setWhatsappNumero(e.target.value)} className={inputCls} placeholder="3585095475" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Correo Electrónico *</label>
+                        <input type="email" required value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className={inputCls} placeholder="tucorreo@ejemplo.com" />
+                      </div>
+                      <div className="sm:col-span-2 lg:col-span-3">
+                        <label className="mb-1 block text-xs font-semibold text-[#1F1F1F]">Contraseña *</label>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            required
+                            minLength={4}
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            className="w-full rounded-xl border border-[#1F1F1F]/22 bg-[#FAF8F6] py-2.5 pr-24 pl-3.5 text-sm font-medium text-[#1F1F1F] focus:border-[#FC8006] focus:bg-[#FFFFFF] focus:outline-none"
+                            placeholder="Mín. 4 caracteres"
                           />
                           <button
-                            type="submit"
-                            disabled={busy}
-                            className="w-full rounded-xl py-2 text-xs font-black"
-                            style={{ backgroundColor: primary, color: accent }}
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            aria-pressed={showPassword}
+                            className="absolute top-1/2 right-2.5 inline-flex -translate-y-1/2 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold hover:bg-[#1F1F1F]/8"
+                            style={{ color: primary }}
                           >
-                            Acceder con mi correo Google
+                            <EyeIcon off={showPassword} />
+                            <span>{showPassword ? "Ocultar" : "Mostrar"}</span>
                           </button>
-                        </form>
-                      )}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="rounded-xl bg-[#1F1F1F] p-3 text-[11px] text-[#FFFFFF]/85">
-                      <strong style={{ color: accent }}>¿Qué podés hacer en el portal?</strong>
-                      <ul className="mt-1 list-disc pl-4 space-y-0.5">
-                        <li>Descargar PDFs de contratos vigentes, pasados y futuros.</li>
-                        <li>Consultar duración, vencimientos y valores actualizados.</li>
-                        <li>Revisar tu cuenta corriente y pagar online con Split automático (Propietario + Inmobiliaria).</li>
-                      </ul>
-                    </div>
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="w-full cursor-pointer rounded-xl px-5 py-3.5 text-sm font-bold text-[#FFFFFF] shadow-md transition-all hover:brightness-110 disabled:opacity-60"
+                      style={{ backgroundColor: primary }}
+                    >
+                      {busy ? "Registrando..." : "Registrarme"}
+                    </button>
+                  </form>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-[#1F1F1F]/12 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMsg(null);
+                        setAuthTab("login");
+                      }}
+                      className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold hover:underline"
+                      style={{ color: accent }}
+                    >
+                      <ArrowLeftIcon />
+                      <span>Volver</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleGoogleOAuthPopup}
+                      className="cursor-pointer text-xs font-semibold underline underline-offset-4 transition-opacity hover:opacity-80"
+                      style={{ color: primary }}
+                    >
+                      Google
+                    </button>
                   </div>
                 </div>
               )}
 
-              {authTab === "register" && (
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Apellido(s) *</label>
-                      <input required value={apellidos} onChange={(e) => setApellidos(e.target.value)} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Nombre(s) *</label>
-                      <input required value={nombres} onChange={(e) => setNombres(e.target.value)} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Tipo Doc. *</label>
-                      <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value)} className={inputCls}>
-                        <option value="DNI">DNI</option>
-                        <option value="CUIT">CUIT</option>
-                        <option value="CUIL">CUIL</option>
-                        <option value="Pasaporte">Pasaporte</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">N° Documento *</label>
-                      <input required value={nroDoc} onChange={(e) => setNroDoc(e.target.value)} className={inputCls} placeholder="38123456" />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">CUIT / CUIL</label>
-                      <input value={cuitCuil} onChange={(e) => setCuitCuil(e.target.value)} className={inputCls} placeholder="20-38123456-7" />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Fecha de Nacimiento</label>
-                      <input type="date" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Estado Civil</label>
-                      <select value={estadoCivil} onChange={(e) => setEstadoCivil(e.target.value)} className={inputCls}>
-                        <option>Soltero/a</option>
-                        <option>Casado/a</option>
-                        <option>Unión convivencial</option>
-                        <option>Divorciado/a</option>
-                        <option>Viudo/a</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Nacionalidad</label>
-                      <select value={nacionalidad} onChange={(e) => setNacionalidad(e.target.value)} className={inputCls}>
-                        {props.catalogs.paises.map((p) => (
-                          <option key={`n-${p.id}-${p.nombre}`} value={p.nombre}>{p.nombre}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Despliegue de País, Provincia, Localidad y CP */}
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">País *</label>
-                      <select value={pais} onChange={(e) => setPais(e.target.value)} className={inputCls}>
-                        {props.catalogs.paises.map((p) => (
-                          <option key={`p-${p.id}-${p.nombre}`} value={p.nombre}>{p.nombre}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Provincia *</label>
-                      {pais === "ARGENTINA" ? (
-                        <select value={provincia} onChange={(e) => setProvincia(e.target.value)} className={inputCls}>
-                          {props.catalogs.provincias.map((pr) => (
-                            <option key={pr} value={pr}>{pr}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input value={provincia} onChange={(e) => setProvincia(e.target.value)} className={inputCls} />
-                      )}
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Localidad *</label>
-                      {pais === "ARGENTINA" && localidadesDisponibles.length > 0 ? (
-                        <select
-                          value={localidad}
-                          onChange={(e) => {
-                            setLocalidad(e.target.value);
-                            const m = localidadesDisponibles.find((l) => l.nombre === e.target.value);
-                            if (m?.cp) setCp(m.cp);
-                          }}
-                          className={inputCls}
-                        >
-                          {localidadesDisponibles.map((l, idx) => (
-                            <option key={`${l.nombre}-${idx}`} value={l.nombre}>{l.nombre}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input value={localidad} onChange={(e) => setLocalidad(e.target.value)} className={inputCls} />
-                      )}
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Código Postal</label>
-                      <input value={cp} onChange={(e) => setCp(e.target.value)} className={inputCls} />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Calle</label>
-                      <input value={domicilioCalle} onChange={(e) => setDomicilioCalle(e.target.value)} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Número</label>
-                      <input value={domicilioNumero} onChange={(e) => setDomicilioNumero(e.target.value)} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Barrio</label>
-                      <input value={domicilioBarrio} onChange={(e) => setDomicilioBarrio(e.target.value)} className={inputCls} />
-                    </div>
-
-                    {/* País de WhatsApp + Número */}
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">País de WhatsApp *</label>
-                      <select
-                        value={waCountryIdx}
-                        onChange={(e) => setWaCountryIdx(Number(e.target.value))}
-                        className={inputCls}
-                      >
-                        {WHATSAPP_COUNTRIES.map((w, i) => (
-                          <option key={w.prefix} value={i}>{w.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">N° WhatsApp *</label>
-                      <input required value={whatsappNumero} onChange={(e) => setWhatsappNumero(e.target.value)} className={inputCls} placeholder="3585095475" />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Correo Electrónico *</label>
-                      <input type="email" required value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] font-bold uppercase">Contraseña *</label>
-                      <input type="password" required minLength={4} value={regPassword} onChange={(e) => setRegPassword(e.target.value)} className={inputCls} placeholder="Mín. 4 caracteres" />
-                    </div>
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="rounded-xl px-6 py-3 text-sm font-black shadow"
-                    style={{ backgroundColor: accent, color: primary }}
-                  >
-                    {busy ? "Registrando..." : "Registrarme y Entrar al Portal"}
-                  </button>
-                </form>
-              )}
-
+              {/* 3. MODO RECUPERAR CONTRASEÑA */}
               {authTab === "recover" && (
-                <div className="max-w-md rounded-2xl border border-[#1F1F1F]/12 p-5 space-y-3">
-                  <h3 className="text-sm font-black text-[#1F1F1F]">Recuperar Contraseña</h3>
+                <div className="space-y-4">
                   {recStep === 1 ? (
-                    <form onSubmit={handleRecoverRequest} className="space-y-3">
-                      <p className="text-xs text-[#1F1F1F]/75">
-                        Ingresá tu correo registrado y te enviaremos un código de 6 dígitos para crear una nueva contraseña.
-                      </p>
-                      <input
-                        type="email"
-                        required
-                        value={recEmail}
-                        onChange={(e) => setRecEmail(e.target.value)}
-                        placeholder="tu-correo@ejemplo.com"
-                        className={inputCls}
-                      />
+                    <form onSubmit={handleRecoverRequest} className="space-y-4">
+                      <div>
+                        <label
+                          htmlFor="inmo-recover-email"
+                          className="block text-xs font-semibold sm:text-sm"
+                          style={{ color: primary }}
+                        >
+                          Correo electrónico
+                        </label>
+                        <input
+                          id="inmo-recover-email"
+                          type="email"
+                          required
+                          autoComplete="email"
+                          spellCheck={false}
+                          value={recEmail}
+                          onChange={(e) => setRecEmail(e.target.value)}
+                          placeholder="tucorreo@ejemplo.com"
+                          className={authInputCls}
+                        />
+                      </div>
                       <button
                         type="submit"
                         disabled={busy}
-                        className="w-full rounded-xl py-2.5 text-xs font-black"
-                        style={{ backgroundColor: primary, color: accent }}
+                        className="w-full cursor-pointer rounded-xl px-5 py-3.5 text-sm font-bold text-[#FFFFFF] shadow-md transition-all hover:brightness-110 disabled:opacity-60"
+                        style={{ backgroundColor: primary }}
                       >
-                        {busy ? "Enviando código..." : "Enviar código de recuperación"}
+                        {busy ? "Enviando código..." : "Enviar código"}
                       </button>
                     </form>
                   ) : (
-                    <form onSubmit={handleRecoverConfirm} className="space-y-3">
-                      <input
-                        required
-                        value={recCode}
-                        onChange={(e) => setRecCode(e.target.value)}
-                        placeholder="Código de 6 dígitos"
-                        className={inputCls}
-                      />
-                      <input
-                        type="password"
-                        required
-                        minLength={4}
-                        value={recNewPass}
-                        onChange={(e) => setRecNewPass(e.target.value)}
-                        placeholder="Nueva contraseña"
-                        className={inputCls}
-                      />
+                    <form onSubmit={handleRecoverConfirm} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold sm:text-sm" style={{ color: primary }}>
+                          Código de 6 dígitos
+                        </label>
+                        <input
+                          required
+                          value={recCode}
+                          onChange={(e) => setRecCode(e.target.value)}
+                          placeholder="Ingresá el código recibido"
+                          className={authInputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold sm:text-sm" style={{ color: primary }}>
+                          Nueva contraseña
+                        </label>
+                        <div className="relative mt-1.5">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            required
+                            minLength={4}
+                            value={recNewPass}
+                            onChange={(e) => setRecNewPass(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full rounded-xl border border-[#1F1F1F]/22 bg-[#FAF8F6] py-3 pr-24 pl-4 text-base font-medium text-[#1F1F1F] focus:border-[#FC8006] focus:bg-[#FFFFFF] focus:outline-none sm:text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            aria-pressed={showPassword}
+                            className="absolute top-1/2 right-2.5 inline-flex -translate-y-1/2 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold hover:bg-[#1F1F1F]/8"
+                            style={{ color: primary }}
+                          >
+                            <EyeIcon off={showPassword} />
+                            <span>{showPassword ? "Ocultar" : "Mostrar"}</span>
+                          </button>
+                        </div>
+                      </div>
                       <button
                         type="submit"
                         disabled={busy}
-                        className="w-full rounded-xl py-2.5 text-xs font-black"
-                        style={{ backgroundColor: accent, color: primary }}
+                        className="w-full cursor-pointer rounded-xl px-5 py-3.5 text-sm font-bold text-[#FFFFFF] shadow-md transition-all hover:brightness-110 disabled:opacity-60"
+                        style={{ backgroundColor: primary }}
                       >
-                        Guardar nueva contraseña
+                        {busy ? "Guardando..." : "Guardar nueva contraseña"}
                       </button>
                     </form>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMsg(null);
+                      setRecStep(1);
+                      setAuthTab("login");
+                    }}
+                    className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold hover:underline"
+                    style={{ color: accent }}
+                  >
+                    <ArrowLeftIcon />
+                    <span>Volver</span>
+                  </button>
                 </div>
               )}
             </div>
           ) : (
             /* VISTA LOGUEADO: CONTRATOS VIGENTES / PASADOS / FUTUROS, PDF, CTA CTE Y PAGO SPLIT */
             <div className="space-y-5">
-              <div className="flex flex-wrap gap-2 border-b border-[#1F1F1F]/10 pb-3">
-                {[
-                  {
-                    k: "vigente",
-                    l: `📄 Contratos Vigentes (${props.loggedContracts.filter((c) => c.estado === "vigente").length})`,
-                  },
-                  {
-                    k: "pasado",
-                    l: `🗂️ Contratos Pasados (${props.loggedContracts.filter((c) => c.estado === "pasado" || c.estado === "rescindido").length})`,
-                  },
-                  {
-                    k: "futuro",
-                    l: `🗓️ Contratos Futuros (${props.loggedContracts.filter((c) => c.estado === "futuro").length})`,
-                  },
-                  { k: "perfil", l: "👤 Mis Datos Personales" },
-                ].map((t) => (
-                  <button
-                    key={t.k}
-                    type="button"
-                    onClick={() => setDashTab(t.k as any)}
-                    className="rounded-xl px-4 py-2 text-xs font-black transition"
-                    style={{
-                      backgroundColor: dashTab === t.k ? primary : "#f1f5f9",
-                      color: dashTab === t.k ? accent : "#1F1F1F",
-                    }}
-                  >
-                    {t.l}
-                  </button>
-                ))}
-              </div>
-
               {dashTab === "perfil" ? (
                 <form onSubmit={handleUpdateProfile} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
@@ -1052,10 +1217,10 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                     <button
                       type="submit"
                       disabled={busy}
-                      className="rounded-xl px-5 py-2.5 text-xs font-black"
-                      style={{ backgroundColor: accent, color: primary }}
+                      className="rounded-xl px-5 py-2.5 text-xs font-bold text-[#FFFFFF] shadow transition hover:brightness-110"
+                      style={{ backgroundColor: primary }}
                     >
-                      💾 Guardar Mis Datos
+                      Guardar Mis Datos
                     </button>
                   </div>
                 </form>
@@ -1102,7 +1267,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                             </span>
                             <h3 className="mt-1 text-lg font-black">{activeContract.titulo}</h3>
                             <div className="text-xs text-[#FFFFFF]/80">
-                              📍 {activeContract.propiedadDireccion || activeContract.propiedadTitulo}
+                              {activeContract.propiedadDireccion || activeContract.propiedadTitulo}
                             </div>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -1114,7 +1279,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                                 className="rounded-xl px-4 py-2 text-xs font-black"
                                 style={{ backgroundColor: accent, color: primary }}
                               >
-                                📄 Descargar PDF Oficial
+                                Descargar PDF Oficial
                               </a>
                             )}
                             {activeContract.contenidoCompiladoHtml && (
@@ -1123,7 +1288,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                                 onClick={() => openCompiledContractPrint(activeContract)}
                                 className="rounded-xl border border-[#FFFFFF]/30 bg-[#FFFFFF]/10 px-4 py-2 text-xs font-black text-[#FFFFFF]"
                               >
-                                🖨️ Ver / Imprimir Contrato PDF
+                                Ver / Imprimir Contrato PDF
                               </button>
                             )}
                           </div>
@@ -1160,7 +1325,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                       {/* CUENTA CORRIENTE Y PAGOS CON SPLIT AUTOMÁTICO */}
                       <div className="rounded-2xl border border-[#1F1F1F]/15 p-4">
                         <h4 className="mb-3 text-sm font-black text-[#1F1F1F]">
-                          💳 Cuenta Corriente y Pagos con Distribución Split Automática
+                          Cuenta Corriente y Pagos con Distribución Split Automática
                         </h4>
                         <div className="overflow-x-auto">
                           <table className="w-full border-collapse text-xs">
@@ -1215,7 +1380,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                                   <td className="p-2 text-right">
                                     {q.estado === "pagado" ? (
                                       <span className="text-[11px] font-bold text-[#065f46]">
-                                        ✅ {q.comprobanteRef || "Pagado"}
+                                        ✓ {q.comprobanteRef || "Pagado"}
                                       </span>
                                     ) : (
                                       <button
@@ -1227,7 +1392,7 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
                                       >
                                         {payingCuotaId === q.id
                                           ? "Procesando..."
-                                          : "💳 Pagar (Split MP)"}
+                                          : "Pagar (Split MP)"}
                                       </button>
                                     )}
                                   </td>
