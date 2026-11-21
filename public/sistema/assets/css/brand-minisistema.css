@@ -126,6 +126,71 @@ html[data-brand="minisistema"] .erp-topbar {
   padding: 0.55rem 1.25rem;
 }
 
+@media (min-width: 769px) {
+  html[data-brand="minisistema"] .erp-topbar {
+    flex-wrap: nowrap !important;
+    gap: 0.65rem;
+    padding: 0.5rem 1.1rem;
+  }
+
+  html[data-brand="minisistema"] .topbar-brand {
+    flex: 0 0 auto;
+    margin-left: 0;
+  }
+
+  html[data-brand="minisistema"] .topbar-omnibox {
+    flex: 1 1 180px;
+    min-width: 140px;
+    max-width: 390px;
+    margin: 0 0.25rem;
+  }
+
+  html[data-brand="minisistema"] .topbar-actions {
+    flex: 0 1 auto;
+    min-width: 0;
+    flex-wrap: nowrap !important;
+    gap: 0.5rem;
+  }
+
+  html[data-brand="minisistema"] .topbar-caja-badge:not([hidden]) {
+    display: inline-block;
+    max-width: clamp(160px, 24vw, 310px);
+    padding: 0.34rem 0.72rem;
+    font-size: 0.76rem;
+    line-height: 1.25;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  html[data-brand="minisistema"] .erp-topbar .btn-back-home {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 0.36rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  html[data-brand="minisistema"] .erp-topbar .user-pill {
+    flex-shrink: 0;
+    padding: 0.3rem 0.72rem;
+    gap: 0.5rem;
+  }
+
+  html[data-brand="minisistema"] .erp-topbar .user-meta {
+    white-space: nowrap;
+  }
+
+  html[data-brand="minisistema"] .erp-topbar .btn-logout,
+  html[data-brand="minisistema"] .erp-topbar button[id*="logout"] {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
 html[data-brand="minisistema"] .topbar-brand {
   background: transparent;
   padding: 0.2rem 0.45rem;
@@ -269,7 +334,7 @@ html[data-brand="minisistema"] .verificador-currency-symbol {
   color: var(--ms-accent) !important;
 }
 
-/* Uniformidad de tamaño para todas las tarjetas de módulos en todas las filas */
+/* Uniformidad de tamaño y estética de íconos para todas las tarjetas de módulos */
 .modules-grid {
   grid-auto-rows: 1fr !important;
   align-items: stretch !important;
@@ -286,6 +351,50 @@ html[data-brand="minisistema"] .verificador-currency-symbol {
   justify-content: space-between !important;
 }
 
+html[data-brand="minisistema"] .module-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--ms-accent) 22%, #ffffff) 0%,
+    color-mix(in srgb, var(--ms-accent) 10%, #f4fbf8) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--ms-accent) 48%, transparent);
+  color: var(--ms-primary);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ms-primary) 9%, transparent);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+html[data-brand="minisistema"] .module-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+html[data-brand="minisistema"] .module-card:hover .module-icon {
+  background: var(--ms-primary);
+  border-color: var(--ms-primary);
+  color: var(--ms-accent);
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--ms-primary) 22%, transparent);
+}
+
+html[data-brand="minisistema"][data-theme="dark"] .module-icon {
+  background: color-mix(in srgb, var(--ms-accent) 16%, rgba(17, 45, 58, 0.78));
+  border-color: color-mix(in srgb, var(--ms-accent) 44%, transparent);
+  color: var(--ms-accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+}
+
+html[data-brand="minisistema"][data-theme="dark"] .module-card:hover .module-icon {
+  background: var(--ms-accent);
+  border-color: var(--ms-accent);
+  color: var(--ms-primary);
+}
+
 .modules-grid > .module-card h3 {
   min-height: 2.6em !important;
   line-height: 1.3 !important;
@@ -295,6 +404,23 @@ html[data-brand="minisistema"] .verificador-currency-symbol {
   min-width: 0 !important;
   overflow-wrap: anywhere !important;
   word-break: break-word !important;
+}
+
+.modules-grid > .module-card[data-open-caja] h3 {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 0.6rem !important;
+  flex-wrap: nowrap !important;
+}
+
+.modules-grid > .module-card[data-open-caja] .module-card-kbd {
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
 }
 
 #card-open-public-carrito h3 {

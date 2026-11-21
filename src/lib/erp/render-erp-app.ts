@@ -189,7 +189,7 @@ export function renderErpHtmlResponse(params: {
   };
 
   const verMatch = html.match(/assets\/(?:js\/app|css\/styles)\.(?:js|css)\?v=(\d+)/i);
-  const assetVer = `${verMatch ? verMatch[1] : "271"}.28`;
+  const assetVer = `${verMatch ? verMatch[1] : "271"}.29`;
 
   const headBootInjection = `
   <base href="${baseHref}">
