@@ -18,9 +18,10 @@ interface CemepFloatingControlsProps {
 }
 
 /**
- * Controles fijos en pantalla:
- * - Dos botones fijos estilo ReikiOnline (Acceso a Pacientes y Acceso a Profesionales)
- * - Botón redondo fijo de WhatsApp que cambia automáticamente entre CEMEP y CEMEP Plus
+ * Barra fija inferior derecha:
+ * [ Acceso a Pacientes ] [ Acceso a Profesionales ] ( Botón redondo WhatsApp )
+ * Los dos botones de acceso (estilo ReikiOnline) quedan fijos uno al lado del otro,
+ * inmediatamente a la izquierda del botón redondo de WhatsApp.
  */
 export function CemepFloatingControls({
   activeTab,
@@ -42,97 +43,120 @@ export function CemepFloatingControls({
   const waHref = `https://wa.me/${waDigits}?text=${encodeURIComponent(waText)}`;
 
   return (
-    <>
-      {/* Dos botones fijos de Acceso a Pacientes y Acceso a Profesionales (estilo ReikiOnline) */}
-      <aside
-        aria-label="Accesos rápidos a portales CEMEP"
-        className="fixed bottom-4 left-3 z-40 flex flex-col gap-2 sm:bottom-6 sm:left-5"
+    <aside
+      aria-label="Accesos rápidos y WhatsApp CEMEP"
+      className="fixed right-3 bottom-3 z-40 flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center justify-end gap-2 sm:right-5 sm:bottom-5 sm:flex-nowrap sm:gap-2.5"
+    >
+      {/* Botón 1: Acceso a Pacientes (estilo ReikiOnline, legible con blanco puro sobre azul marino CEMEP) */}
+      <button
+        type="button"
+        onClick={onOpenPatientPortal}
+        aria-label="Acceso a Pacientes"
+        title="Acceso a Pacientes — Turnos, Estudios y Recetas"
+        style={{
+          backgroundColor: "#1B335D",
+          color: "#FFFFFF",
+          borderColor: "#A6CA0E",
+        }}
+        className="group flex cursor-pointer items-center gap-2 rounded-full border-2 py-1.5 pr-3 pl-1.5 shadow-xl shadow-[#1B335D]/35 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] sm:pr-3.5"
       >
-        <button
-          type="button"
-          onClick={onOpenPatientPortal}
-          aria-label="Acceso a Pacientes"
-          title="Acceso a Pacientes — Turnos, Estudios y Recetas"
-          className="group flex cursor-pointer items-center gap-2 rounded-full border-2 border-[#A6CA0E] bg-[#1B335D] py-1.5 pr-3.5 pl-1.5 text-white shadow-xl shadow-[#1B335D]/35 transition-all duration-200 hover:scale-[1.03] hover:bg-[#142748] active:scale-[0.98]"
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#A6CA0E]/60 bg-[#0A74A6] text-white">
-            <UserRound className="h-4.5 w-4.5" />
-          </span>
-
-          <span className="flex flex-col text-left leading-tight">
-            <span className="whitespace-nowrap text-xs font-extrabold tracking-wide text-white sm:text-sm">
-              Acceso a Pacientes
-            </span>
-            {loggedPatientName ? (
-              <span className="max-w-[140px] truncate text-[10px] font-semibold text-[#A6CA0E]">
-                ● {loggedPatientName}
-              </span>
-            ) : (
-              <span className="hidden text-[10px] font-medium text-white/75 sm:inline">
-                Estudios · Recetas · Turnos
-              </span>
-            )}
-          </span>
-
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#A6CA0E] text-[#1B335D] transition-transform duration-200 group-hover:translate-x-0.5">
-            <ArrowUpRight className="h-3.5 w-3.5 stroke-[2.6]" />
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onOpenProfPortal}
-          aria-label="Acceso a Profesionales"
-          title="Acceso a Profesionales — Agenda, Historia Clínica y Carga de Estudios"
-          className="group flex cursor-pointer items-center gap-2 rounded-full border-2 border-[#57B7B8] bg-[#0099D8] py-1.5 pr-3.5 pl-1.5 text-white shadow-xl shadow-[#0099D8]/35 transition-all duration-200 hover:scale-[1.03] hover:bg-[#0A74A6] active:scale-[0.98]"
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/50 bg-[#1B335D] text-[#57B7B8]">
-            <Stethoscope className="h-4.5 w-4.5" />
-          </span>
-
-          <span className="flex flex-col text-left leading-tight">
-            <span className="whitespace-nowrap text-xs font-extrabold tracking-wide text-white sm:text-sm">
-              Acceso a Profesionales
-            </span>
-            {loggedProfName ? (
-              <span className="max-w-[140px] truncate text-[10px] font-semibold text-[#E8FF99]">
-                ● {loggedProfName}
-              </span>
-            ) : (
-              <span className="hidden text-[10px] font-medium text-white/85 sm:inline">
-                Turnos · Historia Clínica
-              </span>
-            )}
-          </span>
-
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[#1B335D] transition-transform duration-200 group-hover:translate-x-0.5">
-            <ArrowUpRight className="h-3.5 w-3.5 stroke-[2.6]" />
-          </span>
-        </button>
-      </aside>
-
-      {/* Botón redondo fijo de WhatsApp (dinámico según CEMEP o CEMEP Plus) */}
-      <div className="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-1.5 sm:right-6 sm:bottom-6">
         <span
-          className={`hidden rounded-full px-2.5 py-1 text-[11px] font-extrabold shadow-md sm:inline-block ${
-            isPlus
-              ? "bg-[#009EE3] text-white"
-              : "bg-[#1B335D] text-white"
-          }`}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border sm:h-9 sm:w-9"
+          style={{
+            backgroundColor: "#0A74A6",
+            borderColor: "rgba(166,202,14,0.65)",
+            color: "#FFFFFF",
+          }}
         >
-          {isPlus ? "WhatsApp CEMEP Plus" : "WhatsApp CEMEP"}
+          <UserRound className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
         </span>
-        <a
-          href={waHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Contactar a ${isPlus ? "CEMEP Plus" : "CEMEP"} por WhatsApp (${waDisplay})`}
-          title={`${isPlus ? "WhatsApp CEMEP Plus" : "WhatsApp CEMEP"} · ${waDisplay}`}
-          className="group flex h-14 w-14 items-center justify-center rounded-full border-2 border-white bg-[#25D366] text-white shadow-2xl shadow-[#1B335D]/40 transition-all duration-200 hover:scale-[1.07] hover:bg-[#1ebe5d] active:scale-[0.96]"
+
+        <span className="flex flex-col text-left leading-tight">
+          <span
+            className="whitespace-nowrap text-xs font-extrabold tracking-wide sm:text-sm"
+            style={{ color: "#FFFFFF" }}
+          >
+            Acceso a Pacientes
+          </span>
+          <span
+            className="hidden max-w-[140px] truncate text-[10px] font-semibold sm:inline"
+            style={{ color: loggedPatientName ? "#C9F03A" : "#D4ECFA" }}
+          >
+            {loggedPatientName ? `● ${loggedPatientName}` : "Estudios · Recetas"}
+          </span>
+        </span>
+
+        <span
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-transform duration-200 group-hover:translate-x-0.5"
+          style={{ backgroundColor: "#A6CA0E", color: "#1B335D" }}
         >
-          <WhatsAppIcon size={28} className="shrink-0 text-white" />
-        </a>
-      </div>
-    </>
+          <ArrowUpRight className="h-3.5 w-3.5 stroke-[2.6]" />
+        </span>
+      </button>
+
+      {/* Botón 2: Acceso a Profesionales (al lado del de Pacientes, a la izquierda del WhatsApp) */}
+      <button
+        type="button"
+        onClick={onOpenProfPortal}
+        aria-label="Acceso a Profesionales"
+        title="Acceso a Profesionales — Agenda, Historia Clínica y Carga de Estudios"
+        style={{
+          backgroundColor: "#0099D8",
+          color: "#FFFFFF",
+          borderColor: "#FFFFFF",
+        }}
+        className="group flex cursor-pointer items-center gap-2 rounded-full border-2 py-1.5 pr-3 pl-1.5 shadow-xl shadow-[#0099D8]/35 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] sm:pr-3.5"
+      >
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border sm:h-9 sm:w-9"
+          style={{
+            backgroundColor: "#1B335D",
+            borderColor: "rgba(255,255,255,0.5)",
+            color: "#57B7B8",
+          }}
+        >
+          <Stethoscope className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+        </span>
+
+        <span className="flex flex-col text-left leading-tight">
+          <span
+            className="whitespace-nowrap text-xs font-extrabold tracking-wide sm:text-sm"
+            style={{ color: "#FFFFFF" }}
+          >
+            Acceso a Profesionales
+          </span>
+          <span
+            className="hidden max-w-[140px] truncate text-[10px] font-semibold sm:inline"
+            style={{ color: loggedProfName ? "#E8FF99" : "#E8F7FF" }}
+          >
+            {loggedProfName ? `● ${loggedProfName}` : "Turnos · Historia Clínica"}
+          </span>
+        </span>
+
+        <span
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-transform duration-200 group-hover:translate-x-0.5"
+          style={{ backgroundColor: "#FFFFFF", color: "#1B335D" }}
+        >
+          <ArrowUpRight className="h-3.5 w-3.5 stroke-[2.6]" />
+        </span>
+      </button>
+
+      {/* Botón 3: Redondo fijo de WhatsApp (dinámico según CEMEP o CEMEP Plus) */}
+      <a
+        href={waHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Contactar a ${isPlus ? "CEMEP Plus" : "CEMEP"} por WhatsApp (${waDisplay})`}
+        title={`${isPlus ? "WhatsApp CEMEP Plus" : "WhatsApp CEMEP"} · ${waDisplay}`}
+        style={{
+          backgroundColor: "#25D366",
+          color: "#FFFFFF",
+          borderColor: "#FFFFFF",
+        }}
+        className="group flex h-13 w-13 shrink-0 items-center justify-center rounded-full border-2 shadow-2xl shadow-[#1B335D]/40 transition-all duration-200 hover:scale-[1.07] active:scale-[0.96] sm:h-14 sm:w-14"
+      >
+        <WhatsAppIcon size={28} className="shrink-0" style={{ color: "#FFFFFF" }} />
+      </a>
+    </aside>
   );
 }

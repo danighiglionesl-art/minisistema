@@ -55,24 +55,24 @@ function recetaEstadoBadge(estado: RecetaDigitalRecord["estado"]) {
   if (estado === "emitida") {
     return {
       label: "Emitida · Lista para descargar",
-      cls: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      cls: "bg-[#D1FAE5] text-[#065F46] border-[#A7F3D0]",
     };
   }
   if (estado === "en_proceso") {
     return {
       label: "En proceso",
-      cls: "bg-sky-100 text-sky-800 border-sky-200",
+      cls: "bg-[#E0F2FE] text-[#075985] border-[#BAE6FD]",
     };
   }
   if (estado === "rechazada") {
     return {
       label: "Observada / Rechazada",
-      cls: "bg-rose-100 text-rose-800 border-rose-200",
+      cls: "bg-[#FFE4E6] text-[#9F1239] border-[#FECDD3]",
     };
   }
   return {
     label: "Solicitada",
-    cls: "bg-amber-100 text-amber-800 border-amber-200",
+    cls: "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]",
   };
 }
 
@@ -259,23 +259,23 @@ export function PatientPortalModal({
       aria-label="Portal de Pacientes CEMEP"
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#1B335D]/70 p-3 backdrop-blur-sm sm:p-5"
     >
-      <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-[#FFFFFF] shadow-2xl">
         {/* Encabezado */}
         <div
-          className="flex items-center justify-between gap-4 px-5 py-4 text-white sm:px-7"
+          className="flex items-center justify-between gap-4 px-5 py-4 text-[#FFFFFF] sm:px-7"
           style={{
             background: "linear-gradient(135deg, #1B335D 0%, #0A74A6 65%, #0099D8 100%)",
           }}
         >
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFFFFF]/15">
               <UserRound className="h-5 w-5 text-[#A6CA0E]" />
             </span>
             <div>
               <h2 className="text-lg font-black tracking-tight sm:text-xl">
                 Portal de Pacientes · CEMEP
               </h2>
-              <p className="text-xs text-white/80">
+              <p className="text-xs text-[#FFFFFF]/80">
                 {bundle
                   ? `${bundle.user.nombreCompleto} · ${bundle.user.email}`
                   : "Consultá tus estudios, solicitá recetas digitales y gestioná tus turnos"}
@@ -287,7 +287,7 @@ export function PatientPortalModal({
               <button
                 type="button"
                 onClick={handleLogout}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white/15 px-3 py-2 text-xs font-bold text-white hover:bg-white/25"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#FFFFFF]/15 px-3 py-2 text-xs font-bold text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 Salir
@@ -297,7 +297,7 @@ export function PatientPortalModal({
               type="button"
               onClick={onClose}
               aria-label="Cerrar Portal de Pacientes"
-              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-white/15 text-white hover:bg-white/25"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-[#FFFFFF]/15 text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
             >
               <X className="h-5 w-5" />
             </button>
@@ -310,8 +310,8 @@ export function PatientPortalModal({
             <div
               className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-semibold ${
                 msg.isErr
-                  ? "border-rose-200 bg-rose-50 text-rose-800"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  ? "border-[#FECDD3] bg-[#FFF1F2] text-[#9F1239]"
+                  : "border-[#A7F3D0] bg-[#ECFDF5] text-[#065F46]"
               }`}
             >
               {msg.text}
@@ -321,7 +321,7 @@ export function PatientPortalModal({
           {!bundle ? (
             <div className="mx-auto max-w-xl">
               {/* Tabs auth */}
-              <div className="mb-5 grid grid-cols-3 gap-1.5 rounded-2xl bg-slate-100 p-1">
+              <div className="mb-5 grid grid-cols-3 gap-1.5 rounded-2xl bg-[#F1F5F9] p-1">
                 {[
                   { id: "login", label: "Ingresar" },
                   { id: "register", label: "Registrarme" },
@@ -336,8 +336,8 @@ export function PatientPortalModal({
                     }}
                     className={`cursor-pointer rounded-xl py-2.5 text-xs font-extrabold transition sm:text-sm ${
                       authTab === t.id
-                        ? "bg-[#1B335D] text-white shadow"
-                        : "text-slate-600 hover:text-[#1B335D]"
+                        ? "bg-[#1B335D] text-[#FFFFFF] shadow"
+                        : "text-[#475569] hover:text-[#1B335D]"
                     }`}
                   >
                     {t.label}
@@ -347,8 +347,8 @@ export function PatientPortalModal({
 
               {/* Bloque Google */}
               {authTab !== "recover" && (
-                <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-center">
-                  <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                <div className="mb-5 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC]/70 p-4 text-center">
+                  <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#64748B]">
                     Acceso rápido con Google
                   </div>
                   {googleClientId ? (
@@ -357,9 +357,9 @@ export function PatientPortalModal({
                     <button
                       type="button"
                       onClick={() => setShowGoogleFallback(true)}
-                      className="inline-flex cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                      className="inline-flex cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-5 py-2.5 text-sm font-bold text-[#334155] shadow-sm transition hover:bg-[#F8FAFC]"
                     >
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#4285F4] text-xs font-black text-white">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#4285F4] text-xs font-black text-[#FFFFFF]">
                         G
                       </span>
                       Continuar con Google
@@ -382,19 +382,19 @@ export function PatientPortalModal({
                         value={googleEmailQuick}
                         onChange={(e) => setGoogleEmailQuick(e.target.value)}
                         placeholder="tu.correo@gmail.com"
-                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                        className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm"
                       />
                       <input
                         type="text"
                         value={googleNameQuick}
                         onChange={(e) => setGoogleNameQuick(e.target.value)}
                         placeholder="Tu Nombre y Apellido"
-                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                        className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm"
                       />
                       <button
                         type="submit"
                         disabled={busy}
-                        className="cursor-pointer rounded-xl bg-[#4285F4] py-2 text-sm font-bold text-white hover:bg-[#3367D6] sm:col-span-2"
+                        className="cursor-pointer rounded-xl bg-[#4285F4] py-2 text-sm font-bold text-[#FFFFFF] hover:bg-[#3367D6] sm:col-span-2"
                       >
                         {busy ? "Ingresando..." : "Ingresar con cuenta Google"}
                       </button>
@@ -416,7 +416,7 @@ export function PatientPortalModal({
                   className="space-y-3.5"
                 >
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">
                       Correo electrónico
                     </label>
                     <input
@@ -425,11 +425,11 @@ export function PatientPortalModal({
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
                       placeholder="paciente@correo.com"
-                      className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:border-[#0099D8] focus:outline-none"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 text-sm focus:border-[#0099D8] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">
                       Contraseña
                     </label>
                     <input
@@ -438,13 +438,13 @@ export function PatientPortalModal({
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:border-[#0099D8] focus:outline-none"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 text-sm focus:border-[#0099D8] focus:outline-none"
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-3 text-sm font-extrabold text-white shadow-md hover:bg-[#142748] disabled:opacity-60"
+                    className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-3 text-sm font-extrabold text-[#FFFFFF] shadow-md hover:bg-[#142748] disabled:opacity-60"
                   >
                     {busy ? "Verificando..." : "Ingresar al Portal de Pacientes"}
                   </button>
@@ -478,25 +478,25 @@ export function PatientPortalModal({
                   className="grid gap-3 sm:grid-cols-2"
                 >
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">Apellido/s *</label>
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">Apellido/s *</label>
                     <input
                       required
                       value={regApellidos}
                       onChange={(e) => setRegApellidos(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">Nombre/s *</label>
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">Nombre/s *</label>
                     <input
                       required
                       value={regNombres}
                       onChange={(e) => setRegNombres(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">
                       DNI * (vincula tus estudios e historia)
                     </label>
                     <input
@@ -504,37 +504,37 @@ export function PatientPortalModal({
                       value={regDni}
                       onChange={(e) => setRegDni(e.target.value)}
                       placeholder="Ej. 35123456"
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">WhatsApp</label>
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">WhatsApp</label>
                     <input
                       value={regWhatsapp}
                       onChange={(e) => setRegWhatsapp(e.target.value)}
                       placeholder="358..."
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">
                       Obra Social / Prepaga
                     </label>
                     <input
                       value={regObraSocial}
                       onChange={(e) => setRegObraSocial(e.target.value)}
                       placeholder="APROSS, OSDE, PAMI, Particular..."
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">
                       Nº de Afiliado
                     </label>
                     <input
                       value={regNroAfiliado}
                       onChange={(e) => setRegNroAfiliado(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#009EE3]/30 bg-[#EBF9FF] px-3 py-2.5 text-xs font-bold text-[#1B335D] sm:col-span-2">
@@ -546,7 +546,7 @@ export function PatientPortalModal({
                     Soy afiliado/a a CEMEP Plus
                   </label>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">
                       Correo electrónico *
                     </label>
                     <input
@@ -554,11 +554,11 @@ export function PatientPortalModal({
                       required
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">
                       Crear Contraseña *
                     </label>
                     <input
@@ -567,13 +567,13 @@ export function PatientPortalModal({
                       minLength={4}
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={busy}
-                    className="mt-1 w-full cursor-pointer rounded-xl bg-[#0099D8] py-3 text-sm font-extrabold text-white shadow-md hover:bg-[#0A74A6] sm:col-span-2"
+                    className="mt-1 w-full cursor-pointer rounded-xl bg-[#0099D8] py-3 text-sm font-extrabold text-[#FFFFFF] shadow-md hover:bg-[#0A74A6] sm:col-span-2"
                   >
                     {busy ? "Creando cuenta..." : "Crear mi cuenta en CEMEP"}
                   </button>
@@ -582,7 +582,7 @@ export function PatientPortalModal({
 
               {authTab === "recover" && (
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-sky-200 bg-sky-50 p-3.5 text-xs text-sky-900">
+                  <div className="rounded-2xl border border-[#BAE6FD] bg-[#F0F9FF] p-3.5 text-xs text-[#0C4A6E]">
                     <KeyRound className="mb-1 inline h-4 w-4 text-[#0099D8]" /> Ingresá tu correo
                     electrónico registrado y te generaremos un código automático de 6 dígitos para
                     restablecer tu contraseña.
@@ -608,12 +608,12 @@ export function PatientPortalModal({
                         value={recEmail}
                         onChange={(e) => setRecEmail(e.target.value)}
                         placeholder="Tu correo registrado"
-                        className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm"
+                        className="w-full rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 text-sm"
                       />
                       <button
                         type="submit"
                         disabled={busy}
-                        className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-sm font-extrabold text-white"
+                        className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-sm font-extrabold text-[#FFFFFF]"
                       >
                         <Mail className="mr-1.5 inline h-4 w-4" />
                         Enviar código de recuperación
@@ -642,7 +642,7 @@ export function PatientPortalModal({
                         value={recCode}
                         onChange={(e) => setRecCode(e.target.value)}
                         placeholder="Código de 6 dígitos"
-                        className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-center text-lg font-black tracking-widest"
+                        className="w-full rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 text-center text-lg font-black tracking-widest"
                       />
                       <input
                         type="password"
@@ -651,12 +651,12 @@ export function PatientPortalModal({
                         value={recNewPass}
                         onChange={(e) => setRecNewPass(e.target.value)}
                         placeholder="Nueva contraseña (mín. 4 caracteres)"
-                        className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm"
+                        className="w-full rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 text-sm"
                       />
                       <button
                         type="submit"
                         disabled={busy}
-                        className="w-full cursor-pointer rounded-xl bg-emerald-600 py-2.5 text-sm font-extrabold text-white"
+                        className="w-full cursor-pointer rounded-xl bg-[#059669] py-2.5 text-sm font-extrabold text-[#FFFFFF]"
                       >
                         Confirmar nueva contraseña
                       </button>
@@ -668,7 +668,7 @@ export function PatientPortalModal({
           ) : (
             <div>
               {/* Navegación interna del paciente */}
-              <div className="mb-5 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+              <div className="mb-5 flex flex-wrap items-center gap-2 border-b border-[#E2E8F0] pb-3">
                 {[
                   {
                     id: "estudios",
@@ -696,8 +696,8 @@ export function PatientPortalModal({
                       onClick={() => setDashTab(tab.id as any)}
                       className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-extrabold transition sm:text-sm ${
                         active
-                          ? "bg-[#1B335D] text-white shadow"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                          ? "bg-[#1B335D] text-[#FFFFFF] shadow"
+                          : "bg-[#F1F5F9] text-[#334155] hover:bg-[#E2E8F0]"
                       }`}
                     >
                       <Icon className="h-4 w-4" />
@@ -711,18 +711,18 @@ export function PatientPortalModal({
               {dashTab === "estudios" && (
                 <div className="space-y-3">
                   {!bundle.user.dni && (
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-semibold text-amber-900">
+                    <div className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-3.5 text-xs font-semibold text-[#78350F]">
                       Completá tu <strong>DNI</strong> en «Mi Perfil» para vincular automáticamente
                       todos tus estudios médicos e historial de turnos de CEMEP.
                     </div>
                   )}
                   {bundle.estudios.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center">
-                      <FileHeart className="mx-auto h-10 w-10 text-slate-300" />
+                    <div className="rounded-2xl border border-dashed border-[#CBD5E1] p-8 text-center">
+                      <FileHeart className="mx-auto h-10 w-10 text-[#CBD5E1]" />
                       <h3 className="mt-2 text-base font-extrabold text-[#1B335D]">
                         Aún no tenés estudios cargados
                       </h3>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-[#64748B]">
                         Cuando tu profesional cargue ecografías, laboratorios, informes cardiológicos
                         o resultados de circuito, aparecerán aquí para ver y descargar.
                       </p>
@@ -731,7 +731,7 @@ export function PatientPortalModal({
                     bundle.estudios.map((est) => (
                       <div
                         key={est.id}
-                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+                        className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC]/70 p-4"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
@@ -739,14 +739,14 @@ export function PatientPortalModal({
                               <span className="rounded-full bg-[#0099D8]/15 px-2.5 py-0.5 text-[11px] font-extrabold text-[#0A74A6]">
                                 {est.tipoEstudio}
                               </span>
-                              <span className="text-xs font-semibold text-slate-500">
+                              <span className="text-xs font-semibold text-[#64748B]">
                                 {est.fechaEstudio}
                               </span>
                             </div>
                             <h4 className="mt-1 text-base font-extrabold text-[#1B335D]">
                               {est.titulo}
                             </h4>
-                            <p className="text-xs text-slate-600">
+                            <p className="text-xs text-[#475569]">
                               Profesional: <strong>{est.profesionalNombre}</strong>
                               {est.especialidadNombre ? ` · ${est.especialidadNombre}` : ""}
                             </p>
@@ -755,7 +755,7 @@ export function PatientPortalModal({
                             <a
                               href={est.archivoDataUrl}
                               download={est.archivoNombre || `${est.titulo}.pdf`}
-                              className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B335D] px-3.5 py-2 text-xs font-extrabold text-white hover:bg-[#0A74A6]"
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B335D] px-3.5 py-2 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#0A74A6]"
                             >
                               <Download className="h-3.5 w-3.5" />
                               Descargar estudio
@@ -763,7 +763,7 @@ export function PatientPortalModal({
                           )}
                         </div>
                         {est.descripcionInforme && (
-                          <p className="mt-2.5 whitespace-pre-wrap rounded-xl bg-white p-3 text-xs leading-relaxed text-slate-700">
+                          <p className="mt-2.5 whitespace-pre-wrap rounded-xl bg-[#FFFFFF] p-3 text-xs leading-relaxed text-[#334155]">
                             {est.descripcionInforme}
                           </p>
                         )}
@@ -801,7 +801,7 @@ export function PatientPortalModal({
                       Solicitar Emisión de Receta
                     </h3>
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-700">
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
                         Medicamento/s y dosis *
                       </label>
                       <textarea
@@ -810,57 +810,57 @@ export function PatientPortalModal({
                         value={recMeds}
                         onChange={(e) => setRecMeds(e.target.value)}
                         placeholder="Ej: Enalapril 10mg x 30 comp., Metformina 850mg..."
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-700">
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
                         Profesional tratante (opcional)
                       </label>
                       <input
                         value={recProf}
                         onChange={(e) => setRecProf(e.target.value)}
                         placeholder="Ej: Dra. Lucrecia Valdatta"
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">
+                        <label className="mb-1 block text-xs font-bold text-[#334155]">
                           Obra Social
                         </label>
                         <input
                           value={recOs}
                           onChange={(e) => setRecOs(e.target.value)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                          className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">
+                        <label className="mb-1 block text-xs font-bold text-[#334155]">
                           Nº Afiliado
                         </label>
                         <input
                           value={recAfiliado}
                           onChange={(e) => setRecAfiliado(e.target.value)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                          className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-700">
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
                         Diagnóstico / Observaciones
                       </label>
                       <input
                         value={recNotas}
                         onChange={(e) => setRecNotas(e.target.value)}
                         placeholder="Tratamiento habitual, renovación mensual..."
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                       />
                     </div>
                     <button
                       type="submit"
                       disabled={busy}
-                      className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-xs font-extrabold text-white hover:bg-[#0A74A6]"
+                      className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#0A74A6]"
                     >
                       {busy ? "Enviando..." : "Enviar solicitud de receta"}
                     </button>
@@ -871,7 +871,7 @@ export function PatientPortalModal({
                       Historial de Recetas Digitales
                     </h3>
                     {bundle.recetas.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-xs text-slate-500">
+                      <div className="rounded-2xl border border-dashed border-[#CBD5E1] p-6 text-center text-xs text-[#64748B]">
                         Todavía no solicitaste recetas digitales. Usá el formulario de la izquierda
                         para pedir una renovación o emisión.
                       </div>
@@ -881,7 +881,7 @@ export function PatientPortalModal({
                         return (
                           <div
                             key={r.id}
-                            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                            className="rounded-2xl border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-sm"
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <span className="text-xs font-black text-[#1B335D]">{r.codigo}</span>
@@ -891,16 +891,16 @@ export function PatientPortalModal({
                                 {badge.label}
                               </span>
                             </div>
-                            <p className="mt-2 whitespace-pre-wrap text-xs font-semibold text-slate-800">
+                            <p className="mt-2 whitespace-pre-wrap text-xs font-semibold text-[#1E293B]">
                               {r.medicamentosSolicitados}
                             </p>
-                            <div className="mt-1.5 text-[11px] text-slate-500">
+                            <div className="mt-1.5 text-[11px] text-[#64748B]">
                               {r.obraSocialNombre}
                               {r.profesionalNombre ? ` · ${r.profesionalNombre}` : ""} ·{" "}
                               {r.createdAt.slice(0, 10)}
                             </div>
                             {r.observacionesAdmin && (
-                              <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                              <div className="mt-2 rounded-xl bg-[#F8FAFC] px-3 py-2 text-xs text-[#334155]">
                                 <strong>Respuesta CEMEP:</strong> {r.observacionesAdmin}
                               </div>
                             )}
@@ -913,7 +913,7 @@ export function PatientPortalModal({
                               <a
                                 href={r.recetaArchivoDataUrl}
                                 download={r.recetaArchivoNombre || `${r.codigo}.pdf`}
-                                className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-extrabold text-white hover:bg-emerald-700"
+                                className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#059669] px-3.5 py-2 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#047857]"
                               >
                                 <FileCheck2 className="h-4 w-4" />
                                 Descargar Receta Digital
@@ -931,7 +931,7 @@ export function PatientPortalModal({
               {dashTab === "turnos" && (
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs text-[#475569]">
                       Turnos vinculados en tiempo real con el Turnero Web de CEMEP.
                     </p>
                     <button
@@ -940,39 +940,39 @@ export function PatientPortalModal({
                         onClose();
                         onJumpToTurnero();
                       }}
-                      className="cursor-pointer rounded-xl bg-[#0099D8] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#0A74A6]"
+                      className="cursor-pointer rounded-xl bg-[#0099D8] px-4 py-2 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#0A74A6]"
                     >
                       + Sacar Nuevo Turno Online
                     </button>
                   </div>
                   {bundle.turnos.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-500">
+                    <div className="rounded-2xl border border-dashed border-[#CBD5E1] p-8 text-center text-xs text-[#64748B]">
                       No encontramos turnos asociados a tu DNI o correo todavía.
                     </div>
                   ) : (
                     bundle.turnos.map((t) => (
                       <div
                         key={t.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC]/70 p-4"
                       >
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="rounded-lg bg-[#1B335D] px-2 py-0.5 text-[11px] font-black text-white">
+                            <span className="rounded-lg bg-[#1B335D] px-2 py-0.5 text-[11px] font-black text-[#FFFFFF]">
                               {t.fecha} · {t.horaInicio}
                             </span>
-                            <span className="text-xs font-bold text-slate-500">{t.codigo}</span>
+                            <span className="text-xs font-bold text-[#64748B]">{t.codigo}</span>
                           </div>
                           <div className="mt-1 text-sm font-extrabold text-[#1B335D]">
                             {t.especialidadNombre} — {t.profesionalNombre}
                           </div>
-                          <div className="text-xs text-slate-600">
+                          <div className="text-xs text-[#475569]">
                             Modalidad: {t.modalidad === "videollamada" ? "Videollamada" : "Presencial"} ·{" "}
                             {t.coberturaTipo === "particular"
                               ? "Particular"
                               : t.obraSocialNombre || "Obra Social"}
                           </div>
                         </div>
-                        <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-extrabold uppercase text-[#1B335D]">
+                        <span className="rounded-full bg-[#E0F2FE] px-3 py-1 text-xs font-extrabold uppercase text-[#1B335D]">
                           {t.estado}
                         </span>
                       </div>
@@ -1000,51 +1000,51 @@ export function PatientPortalModal({
                   className="grid gap-3 sm:grid-cols-2"
                 >
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">DNI</label>
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">DNI</label>
                     <input
                       value={profDni}
                       onChange={(e) => setProfDni(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">WhatsApp</label>
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">WhatsApp</label>
                     <input
                       value={profWhatsapp}
                       onChange={(e) => setProfWhatsapp(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">Apellido/s</label>
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">Apellido/s</label>
                     <input
                       value={profApellidos}
                       onChange={(e) => setProfApellidos(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">Nombre/s</label>
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">Nombre/s</label>
                     <input
                       value={profNombres}
                       onChange={(e) => setProfNombres(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">Obra Social</label>
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">Obra Social</label>
                     <input
                       value={profObraSocial}
                       onChange={(e) => setProfObraSocial(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">Nº Afiliado</label>
+                    <label className="mb-1 block text-xs font-bold text-[#334155]">Nº Afiliado</label>
                     <input
                       value={profNroAfiliado}
                       onChange={(e) => setProfNroAfiliado(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
                     />
                   </div>
                   <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#009EE3]/30 bg-[#EBF9FF] px-3 py-2.5 text-xs font-bold text-[#1B335D] sm:col-span-2">
@@ -1059,7 +1059,7 @@ export function PatientPortalModal({
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-sm font-extrabold text-white hover:bg-[#0A74A6] sm:col-span-2"
+                    className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-sm font-extrabold text-[#FFFFFF] hover:bg-[#0A74A6] sm:col-span-2"
                   >
                     {busy ? "Guardando..." : "Guardar cambios de perfil"}
                   </button>

@@ -193,6 +193,7 @@ export interface CemepTipItem {
   tagCta?: string;
   acentoHex?: string;
   destacado?: boolean;
+  fotoUrl?: string;
 }
 
 export interface CemepProfesionalDestacado {
@@ -202,6 +203,7 @@ export interface CemepProfesionalDestacado {
   diasAtencion: string;
   detalle: string;
   badge?: string;
+  fotoUrl?: string;
 }
 
 export interface CemepComercioAdherido {
@@ -212,6 +214,7 @@ export interface CemepComercioAdherido {
   direccion: string;
   instagram?: string;
   diasVigencia?: string;
+  fotoUrl?: string;
 }
 
 export interface CemepPlusPilar {
@@ -219,6 +222,7 @@ export interface CemepPlusPilar {
   titulo: string;
   subtitulo: string;
   items: string[];
+  fotoUrl?: string;
 }
 
 export interface CemepWebContentConfig {
@@ -273,6 +277,7 @@ export interface CemepWebContentConfig {
       etiqueta: string;
       titulo: string;
       descripcion: string;
+      fotoUrl?: string;
     }>;
     comerciosAdheridos: CemepComercioAdherido[];
     ctaAfiliacionTitulo: string;
@@ -305,9 +310,8 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
       farmaciaRedNombre: "Farmacia Ferrocchio",
       farmaciaRedDireccion: "Pellegrini 209 — Alcira Gigena",
       farmaciaRedWhatsapp: "+54 9 3585 709327",
-      avisoSuperiorActivo: true,
-      avisoSuperiorTexto:
-        "🩺 Nuevo Circuito Integral de Salud y Renovación EMMAC · 50% DTO exclusivo para afiliados CEMEP Plus · Solicitá tu turno online",
+      avisoSuperiorActivo: false,
+      avisoSuperiorTexto: "",
     },
     cemep: {
       whatsappDigits: "5493584381009",
@@ -349,6 +353,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           detalle:
             "Ecocardiograma Doppler, Ecodoppler de vasos de cuello, Presurometría (MAPA), Ergometría, Electrocardiograma y Holter.",
           badge: "Nuevos estudios",
+          fotoUrl: "/cemep/photos/prof-miragaya.webp",
         },
         {
           id: "prof-nunez",
@@ -358,6 +363,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           detalle:
             "Diagnóstico y tratamiento osteoarticular, prevención de sobrecarga cervical y salud deportiva.",
           badge: "Tips de postura",
+          fotoUrl: "/cemep/photos/prof-nunez.webp",
         },
         {
           id: "prof-valdatta",
@@ -367,6 +373,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           detalle:
             "Consultorio abierto y seguimiento metabólico personalizado con tratamientos actualizados.",
           badge: "Consultorio abierto",
+          fotoUrl: "/cemep/photos/prof-valdatta.webp",
         },
         {
           id: "prof-carabajal",
@@ -376,6 +383,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           detalle:
             "Ecografía mamaria, obstétrica y general con nuestro nuevo ecógrafo de alta definición.",
           badge: "Nuevo ecógrafo",
+          fotoUrl: "/cemep/photos/prof-carabajal.webp",
         },
       ],
       tipsSalud: [
@@ -395,6 +403,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           tagCta: "Atiende los viernes · Solicitá tu turno",
           acentoHex: "#0099D8",
           destacado: true,
+          fotoUrl: "/cemep/photos/prof-nunez.webp",
         },
         {
           id: "tip-postura",
@@ -412,6 +421,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           ],
           tagCta: "Cuidarte hoy es prevenir mañana",
           acentoHex: "#57B7B8",
+          fotoUrl: "/cemep/photos/prof-kinesiologia.webp",
         },
         {
           id: "tip-cardio",
@@ -427,6 +437,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           ],
           tagCta: "Atiende los martes · Reservá tu estudio",
           acentoHex: "#1B335D",
+          fotoUrl: "/cemep/photos/prof-miragaya.webp",
         },
         {
           id: "tip-diabetes",
@@ -442,6 +453,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           ],
           tagCta: "Atiende lunes y miércoles · Pedí tu cita",
           acentoHex: "#A6CA0E",
+          fotoUrl: "/cemep/photos/prof-valdatta.webp",
         },
       ],
     },
@@ -466,6 +478,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
             "Seguimiento familiar cercano en 9 de Julio 160",
             "Gestión ágil de turnos y recetas digitales",
           ],
+          fotoUrl: "/cemep/photos/hero-doctor-paciente.webp",
         },
         {
           id: "pilar-estudios",
@@ -476,6 +489,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
             "50% DTO en Circuito Integral de Salud",
             "50% DTO en Circuito EMMAC deportivo",
           ],
+          fotoUrl: "/cemep/photos/prof-miragaya.webp",
         },
         {
           id: "pilar-diagnostico",
@@ -486,6 +500,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
             "Radiografías digitales en sede",
             "Laboratorio clínico y acceso online a tus estudios",
           ],
+          fotoUrl: "/cemep/photos/prof-carabajal.webp",
         },
       ],
       campanasDestacadas: [
@@ -495,6 +510,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           titulo: "Tu embarazo, nuestra cobertura",
           descripcion:
             "Acompañamos cada etapa con cobertura para ecografías obstétricas y controles médicos en CEMEP.",
+          fotoUrl: "/cemep/photos/plus-camp-embarazo.webp",
         },
         {
           id: "camp-corazon",
@@ -502,6 +518,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           titulo: "Cobertura que llega al corazón",
           descripcion:
             "Consultas cardiológicas, Ecocardiograma Doppler, Electro, MAPA, Holter y Ergometría con respaldo CEMEP Plus.",
+          fotoUrl: "/cemep/photos/plus-camp-corazon.webp",
         },
         {
           id: "camp-prevencion",
@@ -509,6 +526,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           titulo: "Detección temprana y controles anuales",
           descripcion:
             "Controles ginecológicos, ecografía mamaria y chequeos preventivos con acompañamiento profesional todo el año.",
+          fotoUrl: "/cemep/photos/prof-dermatologa.webp",
         },
       ],
       comerciosAdheridos: [
@@ -521,6 +539,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           direccion: "Pellegrini 209 — Alcira Gigena",
           instagram: "@farmacia_ferrocchio",
           diasVigencia: "Todos los días presentando credencial",
+          fotoUrl: "/cemep/photos/red-farmacia-atencion.webp",
         },
         {
           id: "com-mimitos",
@@ -531,6 +550,7 @@ export function buildDefaultCemepWebContent(): CemepWebContentConfig {
           direccion: "Alcira Gigena, Córdoba",
           instagram: "@mi_mito.s",
           diasVigencia: "Todos los martes presentando credencial",
+          fotoUrl: "/cemep/photos/plus-comercio-clientes.webp",
         },
       ],
       ctaAfiliacionTitulo: "Si todavía no sos parte, afiliate hoy",

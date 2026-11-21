@@ -325,23 +325,23 @@ export function ProfessionalPortalModal({
       aria-label="Portal de Profesionales CEMEP"
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#1B335D]/75 p-2 backdrop-blur-sm sm:p-4"
     >
-      <div className="relative flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <div className="relative flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-[#FFFFFF] shadow-2xl">
         {/* Header */}
         <div
-          className="flex items-center justify-between gap-4 px-5 py-4 text-white sm:px-7"
+          className="flex items-center justify-between gap-4 px-5 py-4 text-[#FFFFFF] sm:px-7"
           style={{
             background: "linear-gradient(135deg, #1B335D 0%, #0A5E8A 55%, #57B7B8 100%)",
           }}
         >
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFFFFF]/15">
               <Stethoscope className="h-5 w-5 text-[#A6CA0E]" />
             </span>
             <div>
               <h2 className="text-lg font-black tracking-tight sm:text-xl">
                 Portal de Profesionales · Gestión Consultorios
               </h2>
-              <p className="text-xs text-white/85">
+              <p className="text-xs text-[#FFFFFF]/85">
                 {bundle
                   ? `${bundle.profesional.titulo ? `${bundle.profesional.titulo} ` : ""}${bundle.profesional.nombre}${bundle.profesional.isAdminAllView ? " · Vista Completa del Centro" : ""}`
                   : "Accedé a tus turnos dados, Historia Clínica integral y carga de estudios a pacientes"}
@@ -357,7 +357,7 @@ export function ProfessionalPortalModal({
                   onBundleChange(null);
                   setMsg(null);
                 }}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white/15 px-3 py-2 text-xs font-bold text-white hover:bg-white/25"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#FFFFFF]/15 px-3 py-2 text-xs font-bold text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 Salir
@@ -367,7 +367,7 @@ export function ProfessionalPortalModal({
               type="button"
               onClick={onClose}
               aria-label="Cerrar Portal de Profesionales"
-              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-white/15 text-white hover:bg-white/25"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-[#FFFFFF]/15 text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
             >
               <X className="h-5 w-5" />
             </button>
@@ -380,8 +380,8 @@ export function ProfessionalPortalModal({
             <div
               className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-semibold ${
                 msg.isErr
-                  ? "border-rose-200 bg-rose-50 text-rose-800"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  ? "border-[#FECDD3] bg-[#FFF1F2] text-[#9F1239]"
+                  : "border-[#A7F3D0] bg-[#ECFDF5] text-[#065F46]"
               }`}
             >
               {msg.text}
@@ -398,19 +398,19 @@ export function ProfessionalPortalModal({
                   password,
                 });
               }}
-              className="mx-auto my-4 max-w-md space-y-4 rounded-3xl border border-slate-200 bg-slate-50/70 p-6"
+              className="mx-auto my-4 max-w-md space-y-4 rounded-3xl border border-[#E2E8F0] bg-[#F8FAFC]/70 p-6"
             >
               <div className="text-center">
                 <h3 className="text-lg font-black text-[#1B335D]">
                   Ingreso de Profesionales de la Salud
                 </h3>
-                <p className="mt-1 text-xs text-slate-600">
+                <p className="mt-1 text-xs text-[#475569]">
                   Ingresá con tu <strong>DNI o Correo</strong> habilitado en Gestión Web, o con tu{" "}
                   <strong>usuario de MiniSistema ERP</strong>.
                 </p>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-bold text-slate-700">
+                <label className="mb-1 block text-xs font-bold text-[#334155]">
                   DNI, Correo o Usuario ERP
                 </label>
                 <input
@@ -418,24 +418,24 @@ export function ProfessionalPortalModal({
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="Ej: 32456789 / medico@cemep.com / danielg"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm"
+                  className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3.5 py-2.5 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-bold text-slate-700">Contraseña</label>
+                <label className="mb-1 block text-xs font-bold text-[#334155]">Contraseña</label>
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm"
+                  className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3.5 py-2.5 text-sm"
                 />
               </div>
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-3 text-sm font-extrabold text-white shadow-md hover:bg-[#0A74A6]"
+                className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-3 text-sm font-extrabold text-[#FFFFFF] shadow-md hover:bg-[#0A74A6]"
               >
                 {busy ? "Ingresando..." : "Acceder al Panel Profesional"}
               </button>
@@ -444,27 +444,27 @@ export function ProfessionalPortalModal({
             <div>
               {/* KPIs rápidos */}
               <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-[11px] font-bold uppercase text-slate-500">Turnos Hoy</div>
+                <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <div className="text-[11px] font-bold uppercase text-[#64748B]">Turnos Hoy</div>
                   <div className="text-2xl font-black text-[#1B335D]">
                     {bundle.turnos.filter((t) => t.fecha === today).length}
                   </div>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-[11px] font-bold uppercase text-slate-500">Pacientes</div>
+                <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <div className="text-[11px] font-bold uppercase text-[#64748B]">Pacientes</div>
                   <div className="text-2xl font-black text-[#0099D8]">{bundle.pacientes.length}</div>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-[11px] font-bold uppercase text-slate-500">
+                <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <div className="text-[11px] font-bold uppercase text-[#64748B]">
                     Estudios Cargados
                   </div>
                   <div className="text-2xl font-black text-[#0B7A75]">{bundle.estudios.length}</div>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-[11px] font-bold uppercase text-slate-500">
+                <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <div className="text-[11px] font-bold uppercase text-[#64748B]">
                     Recetas Pendientes
                   </div>
-                  <div className="text-2xl font-black text-amber-600">
+                  <div className="text-2xl font-black text-[#D97706]">
                     {
                       bundle.recetas.filter(
                         (r) => r.estado === "solicitada" || r.estado === "en_proceso"
@@ -475,7 +475,7 @@ export function ProfessionalPortalModal({
               </div>
 
               {/* Tabs */}
-              <div className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+              <div className="mb-5 flex flex-wrap gap-2 border-b border-[#E2E8F0] pb-3">
                 {[
                   { id: "turnos", label: "Turnos Dados", icon: CalendarCheck2 },
                   { id: "hc", label: "Historia Clínica", icon: ClipboardList },
@@ -491,8 +491,8 @@ export function ProfessionalPortalModal({
                       onClick={() => setDashTab(t.id as any)}
                       className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition sm:text-sm ${
                         active
-                          ? "bg-[#1B335D] text-white shadow"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                          ? "bg-[#1B335D] text-[#FFFFFF] shadow"
+                          : "bg-[#F1F5F9] text-[#334155] hover:bg-[#E2E8F0]"
                       }`}
                     >
                       <Icon className="h-4 w-4" />
@@ -514,8 +514,8 @@ export function ProfessionalPortalModal({
                           onClick={() => setTurnoFilter(m)}
                           className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-extrabold ${
                             turnoFilter === m
-                              ? "bg-[#0099D8] text-white"
-                              : "bg-slate-100 text-slate-700"
+                              ? "bg-[#0099D8] text-[#FFFFFF]"
+                              : "bg-[#F1F5F9] text-[#334155]"
                           }`}
                         >
                           {m === "hoy" ? "Hoy" : m === "proximos" ? "Próximos" : "Todos"}
@@ -523,18 +523,18 @@ export function ProfessionalPortalModal({
                       ))}
                     </div>
                     <div className="relative w-full sm:w-64">
-                      <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
+                      <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-[#94A3B8]" />
                       <input
                         value={turnoSearch}
                         onChange={(e) => setTurnoSearch(e.target.value)}
                         placeholder="Buscar paciente, DNI o código..."
-                        className="w-full rounded-xl border border-slate-300 py-2 pr-3 pl-9 text-xs"
+                        className="w-full rounded-xl border border-[#CBD5E1] py-2 pr-3 pl-9 text-xs"
                       />
                     </div>
                   </div>
 
                   {filteredTurnos.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-500">
+                    <div className="rounded-2xl border border-dashed border-[#CBD5E1] p-8 text-center text-xs text-[#64748B]">
                       No hay turnos para el filtro seleccionado.
                     </div>
                   ) : (
@@ -542,25 +542,25 @@ export function ProfessionalPortalModal({
                       {filteredTurnos.map((t) => (
                         <div
                           key={t.id}
-                          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC]/70 p-4"
                         >
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-lg bg-[#1B335D] px-2.5 py-0.5 text-xs font-black text-white">
+                              <span className="rounded-lg bg-[#1B335D] px-2.5 py-0.5 text-xs font-black text-[#FFFFFF]">
                                 {t.fecha} · {t.horaInicio}
                               </span>
-                              <span className="text-xs font-bold text-slate-500">{t.codigo}</span>
-                              <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-extrabold text-[#0A74A6]">
+                              <span className="text-xs font-bold text-[#64748B]">{t.codigo}</span>
+                              <span className="rounded-full bg-[#E0F2FE] px-2.5 py-0.5 text-[11px] font-extrabold text-[#0A74A6]">
                                 {t.especialidadNombre}
                               </span>
                             </div>
                             <div className="mt-1 text-sm font-extrabold text-[#1B335D]">
                               {t.pacienteNombreCompleto}{" "}
-                              <span className="text-xs font-semibold text-slate-500">
+                              <span className="text-xs font-semibold text-[#64748B]">
                                 · DNI {t.pacienteDni}
                               </span>
                             </div>
-                            <div className="text-xs text-slate-600">
+                            <div className="text-xs text-[#475569]">
                               Profesional: {t.profesionalNombre} ·{" "}
                               {t.coberturaTipo === "particular"
                                 ? "Particular"
@@ -579,7 +579,7 @@ export function ProfessionalPortalModal({
                                   estado: e.target.value as TurnoEstado,
                                 });
                               }}
-                              className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-[#1B335D]"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-1.5 text-xs font-bold text-[#1B335D]"
                             >
                               <option value="pendiente">Pendiente</option>
                               <option value="confirmado">Confirmado</option>
@@ -594,7 +594,7 @@ export function ProfessionalPortalModal({
                                 href={`/turnos?sala=${encodeURIComponent(t.video.roomCode)}&rol=profesional`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-indigo-700"
+                                className="inline-flex items-center gap-1 rounded-xl bg-[#4F46E5] px-3 py-1.5 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#4338CA]"
                               >
                                 <Video className="h-3.5 w-3.5" />
                                 Videollamada
@@ -617,7 +617,7 @@ export function ProfessionalPortalModal({
                                   }
                                 )
                               }
-                              className="cursor-pointer rounded-xl bg-[#0099D8] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#0A74A6]"
+                              className="cursor-pointer rounded-xl bg-[#0099D8] px-3 py-1.5 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#0A74A6]"
                             >
                               Abrir Historia Clínica →
                             </button>
@@ -633,14 +633,14 @@ export function ProfessionalPortalModal({
               {dashTab === "hc" && (
                 <div className="grid gap-5 lg:grid-cols-12">
                   {/* Columna izquierda: selector de pacientes */}
-                  <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 lg:col-span-4">
+                  <div className="space-y-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC]/70 p-3.5 lg:col-span-4">
                     <div className="relative">
-                      <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
+                      <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-[#94A3B8]" />
                       <input
                         value={pacSearch}
                         onChange={(e) => setPacSearch(e.target.value)}
                         placeholder="Buscar paciente por nombre o DNI..."
-                        className="w-full rounded-xl border border-slate-300 bg-white py-2 pr-3 pl-9 text-xs"
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] py-2 pr-3 pl-9 text-xs"
                       />
                     </div>
                     <div className="max-h-[55vh] space-y-1.5 overflow-y-auto pr-1">
@@ -654,7 +654,7 @@ export function ProfessionalPortalModal({
                             className={`w-full cursor-pointer rounded-xl border p-2.5 text-left transition ${
                               isSel
                                 ? "border-[#0099D8] bg-[#EBF7FD]"
-                                : "border-slate-200 bg-white hover:border-slate-300"
+                                : "border-[#E2E8F0] bg-[#FFFFFF] hover:border-[#CBD5E1]"
                             }`}
                           >
                             <div className="flex items-center justify-between gap-1">
@@ -662,12 +662,12 @@ export function ProfessionalPortalModal({
                                 {p.nombreCompleto}
                               </span>
                               {p.esUsuarioRegistrado && (
-                                <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">
+                                <span className="shrink-0 rounded-full bg-[#D1FAE5] px-2 py-0.5 text-[10px] font-extrabold text-[#047857]">
                                   Web
                                 </span>
                               )}
                             </div>
-                            <div className="mt-0.5 text-[11px] text-slate-500">
+                            <div className="mt-0.5 text-[11px] text-[#64748B]">
                               DNI: {p.dni || "—"} {p.obraSocial ? `· ${p.obraSocial}` : ""}
                             </div>
                           </button>
@@ -679,12 +679,12 @@ export function ProfessionalPortalModal({
                   {/* Columna derecha: Ficha + Evoluciones */}
                   <div className="space-y-4 lg:col-span-8">
                     {!selectedPacName ? (
-                      <div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center">
-                        <ClipboardList className="mx-auto h-10 w-10 text-slate-300" />
+                      <div className="rounded-2xl border border-dashed border-[#CBD5E1] p-10 text-center">
+                        <ClipboardList className="mx-auto h-10 w-10 text-[#CBD5E1]" />
                         <p className="mt-2 text-sm font-bold text-[#1B335D]">
                           Seleccioná un paciente a la izquierda (o desde un turno)
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-[#64748B]">
                           Podrás consultar y actualizar antecedentes, alergias, evoluciones SOAP,
                           signos vitales y estudios adjuntos.
                         </p>
@@ -692,13 +692,13 @@ export function ProfessionalPortalModal({
                     ) : (
                       <>
                         {/* Encabezado paciente */}
-                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#1B335D] p-4 text-white">
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#1B335D] p-4 text-[#FFFFFF]">
                           <div>
                             <div className="text-xs font-bold text-[#A6CA0E]">
                               HISTORIA CLÍNICA {linkedTurnoCode ? `· Turno ${linkedTurnoCode}` : ""}
                             </div>
                             <h3 className="text-lg font-black">{selectedPacName}</h3>
-                            <div className="text-xs text-white/80">
+                            <div className="text-xs text-[#FFFFFF]/80">
                               DNI: {selectedPacDni || "Sin DNI"} · {activePatientEvoluciones.length}{" "}
                               evoluciones · {activePatientEstudios.length} estudios
                             </div>
@@ -710,7 +710,7 @@ export function ProfessionalPortalModal({
                                 setEstPacDni(selectedPacDni);
                                 setDashTab("estudios");
                               }}
-                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#0099D8] px-3 py-2 text-xs font-extrabold text-white"
+                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#0099D8] px-3 py-2 text-xs font-extrabold text-[#FFFFFF]"
                             >
                               <FileUp className="h-3.5 w-3.5" />
                               Cargar Estudio
@@ -718,7 +718,7 @@ export function ProfessionalPortalModal({
                             <button
                               type="button"
                               onClick={handlePrintHc}
-                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white/15 px-3 py-2 text-xs font-extrabold text-white hover:bg-white/25"
+                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#FFFFFF]/15 px-3 py-2 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
                             >
                               <Printer className="h-3.5 w-3.5" />
                               Imprimir HC
@@ -727,7 +727,7 @@ export function ProfessionalPortalModal({
                         </div>
 
                         {fAlergias && (
-                          <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800">
+                          <div className="flex items-start gap-2 rounded-2xl border border-[#FECDD3] bg-[#FFF1F2] p-3 text-xs font-bold text-[#9F1239]">
                             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                             <span>ALERGIAS REGISTRADAS: {fAlergias}</span>
                           </div>
@@ -754,7 +754,7 @@ export function ProfessionalPortalModal({
                               },
                             });
                           }}
-                          className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+                          className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC]/70 p-4"
                         >
                           <div className="mb-3 flex items-center justify-between">
                             <h4 className="text-xs font-black uppercase tracking-wider text-[#1B335D]">
@@ -763,7 +763,7 @@ export function ProfessionalPortalModal({
                             <button
                               type="submit"
                               disabled={busy}
-                              className="cursor-pointer rounded-xl bg-[#1B335D] px-3.5 py-1.5 text-xs font-extrabold text-white"
+                              className="cursor-pointer rounded-xl bg-[#1B335D] px-3.5 py-1.5 text-xs font-extrabold text-[#FFFFFF]"
                             >
                               Guardar Ficha
                             </button>
@@ -773,49 +773,49 @@ export function ProfessionalPortalModal({
                               value={fGrupo}
                               onChange={(e) => setFGrupo(e.target.value)}
                               placeholder="Grupo sanguíneo (Ej: O+)"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                             <input
                               value={fAlergias}
                               onChange={(e) => setFAlergias(e.target.value)}
                               placeholder="Alergias conocidas (medicamentos, alimentos...)"
-                              className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#FECDD3] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                             <input
                               value={fAntPers}
                               onChange={(e) => setFAntPers(e.target.value)}
                               placeholder="Antecedentes personales (HTA, DBT, etc.)"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                             <input
                               value={fMedCronica}
                               onChange={(e) => setFMedCronica(e.target.value)}
                               placeholder="Medicación crónica habitual"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                             <input
                               value={fAntFam}
                               onChange={(e) => setFAntFam(e.target.value)}
                               placeholder="Antecedentes familiares"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                             <input
                               value={fAntQuir}
                               onChange={(e) => setFAntQuir(e.target.value)}
                               placeholder="Antecedentes quirúrgicos / internaciones"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                             <input
                               value={fHabitos}
                               onChange={(e) => setFHabitos(e.target.value)}
                               placeholder="Hábitos (tabaco, ejercicio, sueño)"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                             <input
                               value={fAlertas}
                               onChange={(e) => setFAlertas(e.target.value)}
                               placeholder="Alertas clínicas importantes"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                           </div>
                         </form>
@@ -871,14 +871,14 @@ export function ProfessionalPortalModal({
                               value={evEsp}
                               onChange={(e) => setEvEsp(e.target.value)}
                               placeholder="Especialidad"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                             <input
                               required
                               value={evMotivo}
                               onChange={(e) => setEvMotivo(e.target.value)}
                               placeholder="Motivo de consulta *"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                           </div>
                           {/* Signos vitales */}
@@ -887,37 +887,37 @@ export function ProfessionalPortalModal({
                               value={evTa}
                               onChange={(e) => setEvTa(e.target.value)}
                               placeholder="TA 120/80"
-                              className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-1.5 text-xs"
                             />
                             <input
                               value={evFc}
                               onChange={(e) => setEvFc(e.target.value)}
                               placeholder="FC lpm"
-                              className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-1.5 text-xs"
                             />
                             <input
                               value={evTemp}
                               onChange={(e) => setEvTemp(e.target.value)}
                               placeholder="Temp °C"
-                              className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-1.5 text-xs"
                             />
                             <input
                               value={evPeso}
                               onChange={(e) => setEvPeso(e.target.value)}
                               placeholder="Peso kg"
-                              className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-1.5 text-xs"
                             />
                             <input
                               value={evTalla}
                               onChange={(e) => setEvTalla(e.target.value)}
                               placeholder="Talla cm"
-                              className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-1.5 text-xs"
                             />
                             <input
                               value={evSat}
                               onChange={(e) => setEvSat(e.target.value)}
                               placeholder="SatO2 %"
-                              className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-1.5 text-xs"
                             />
                           </div>
                           <div className="grid gap-2.5 sm:grid-cols-2">
@@ -926,14 +926,14 @@ export function ProfessionalPortalModal({
                               value={evSubjetivo}
                               onChange={(e) => setEvSubjetivo(e.target.value)}
                               placeholder="Subjetivo / Anamnesis"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                             <textarea
                               rows={2}
                               value={evObjetivo}
                               onChange={(e) => setEvObjetivo(e.target.value)}
                               placeholder="Objetivo / Examen físico"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                           </div>
                           <div className="grid gap-2.5 sm:grid-cols-3">
@@ -942,13 +942,13 @@ export function ProfessionalPortalModal({
                               value={evDiag}
                               onChange={(e) => setEvDiag(e.target.value)}
                               placeholder="Diagnóstico clínico *"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs sm:col-span-2"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs sm:col-span-2"
                             />
                             <input
                               value={evCie10}
                               onChange={(e) => setEvCie10(e.target.value)}
                               placeholder="Código CIE-10 (opc.)"
-                              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                              className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                             />
                           </div>
                           <textarea
@@ -956,12 +956,12 @@ export function ProfessionalPortalModal({
                             value={evPlan}
                             onChange={(e) => setEvPlan(e.target.value)}
                             placeholder="Plan terapéutico / Estudios solicitados / Indicaciones"
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                            className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                           />
                           <button
                             type="submit"
                             disabled={busy}
-                            className="cursor-pointer rounded-xl bg-[#0099D8] px-5 py-2.5 text-xs font-extrabold text-white hover:bg-[#0A74A6]"
+                            className="cursor-pointer rounded-xl bg-[#0099D8] px-5 py-2.5 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#0A74A6]"
                           >
                             {busy ? "Guardando..." : "Registrar Evolución en Historia Clínica"}
                           </button>
@@ -974,24 +974,24 @@ export function ProfessionalPortalModal({
                             Evoluciones Anteriores ({activePatientEvoluciones.length})
                           </h4>
                           {activePatientEvoluciones.length === 0 ? (
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-[#64748B]">
                               Sin evoluciones registradas aún para este paciente.
                             </p>
                           ) : (
                             activePatientEvoluciones.map((ev) => (
                               <div
                                 key={ev.id}
-                                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                                className="rounded-2xl border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-sm"
                               >
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <span className="text-xs font-black text-[#1B335D]">
                                     {ev.fecha} {ev.hora} · {ev.especialidadNombre}
                                   </span>
-                                  <span className="text-[11px] font-semibold text-slate-500">
+                                  <span className="text-[11px] font-semibold text-[#64748B]">
                                     {ev.profesionalNombre}
                                   </span>
                                 </div>
-                                <div className="mt-1.5 text-xs text-slate-800">
+                                <div className="mt-1.5 text-xs text-[#1E293B]">
                                   <strong>Motivo:</strong> {ev.motivoConsulta}
                                 </div>
                                 {ev.signosVitales &&
@@ -1014,12 +1014,12 @@ export function ProfessionalPortalModal({
                                     </div>
                                   )}
                                 {ev.subjetivo && (
-                                  <div className="mt-1 text-xs text-slate-700">
+                                  <div className="mt-1 text-xs text-[#334155]">
                                     <strong>Anamnesis:</strong> {ev.subjetivo}
                                   </div>
                                 )}
                                 {ev.objetivo && (
-                                  <div className="mt-1 text-xs text-slate-700">
+                                  <div className="mt-1 text-xs text-[#334155]">
                                     <strong>Examen físico:</strong> {ev.objetivo}
                                   </div>
                                 )}
@@ -1030,7 +1030,7 @@ export function ProfessionalPortalModal({
                                   </div>
                                 )}
                                 {ev.planTerapeutico && (
-                                  <div className="mt-1 whitespace-pre-wrap text-xs text-slate-700">
+                                  <div className="mt-1 whitespace-pre-wrap text-xs text-[#334155]">
                                     <strong>Plan:</strong> {ev.planTerapeutico}
                                   </div>
                                 )}
@@ -1083,14 +1083,14 @@ export function ProfessionalPortalModal({
                       Cargar Estudio a Paciente
                     </h3>
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-700">
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
                         Paciente registrado / padrón *
                       </label>
                       <select
                         required
                         value={estPacDni}
                         onChange={(e) => setEstPacDni(e.target.value)}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                       >
                         <option value="">Seleccionar paciente...</option>
                         {bundle.pacientes.map((p) => (
@@ -1103,11 +1103,11 @@ export function ProfessionalPortalModal({
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Tipo</label>
+                        <label className="mb-1 block text-xs font-bold text-[#334155]">Tipo</label>
                         <select
                           value={estTipo}
                           onChange={(e) => setEstTipo(e.target.value as EstudioTipo)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-xs"
+                          className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-2 text-xs"
                         >
                           {ESTUDIO_TIPOS.map((t) => (
                             <option key={t} value={t}>
@@ -1117,17 +1117,17 @@ export function ProfessionalPortalModal({
                         </select>
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Fecha</label>
+                        <label className="mb-1 block text-xs font-bold text-[#334155]">Fecha</label>
                         <input
                           type="date"
                           value={estFecha}
                           onChange={(e) => setEstFecha(e.target.value)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-xs"
+                          className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-2 text-xs"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-700">
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
                         Título del estudio *
                       </label>
                       <input
@@ -1135,11 +1135,11 @@ export function ProfessionalPortalModal({
                         value={estTitulo}
                         onChange={(e) => setEstTitulo(e.target.value)}
                         placeholder="Ej: Ecocardiograma Doppler Color"
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-700">
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
                         Informe / Conclusiones
                       </label>
                       <textarea
@@ -1147,11 +1147,11 @@ export function ProfessionalPortalModal({
                         value={estInforme}
                         onChange={(e) => setEstInforme(e.target.value)}
                         placeholder="Resultados, valores principales o indicaciones..."
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-700">
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
                         Adjuntar PDF o Imagen (máx 4.5 MB)
                       </label>
                       <input
@@ -1164,10 +1164,10 @@ export function ProfessionalPortalModal({
                             setEstFileDataUrl(url);
                           })
                         }
-                        className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-xs"
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-2 text-xs"
                       />
                       {estFileName && (
-                        <div className="mt-1 text-[11px] font-bold text-emerald-700">
+                        <div className="mt-1 text-[11px] font-bold text-[#047857]">
                           Archivo listo: {estFileName}
                         </div>
                       )}
@@ -1178,13 +1178,13 @@ export function ProfessionalPortalModal({
                         checked={estVisible}
                         onChange={(e) => setEstVisible(e.target.checked)}
                       />
-                      <UserCheck className="h-4 w-4 text-emerald-600" />
+                      <UserCheck className="h-4 w-4 text-[#059669]" />
                       Visible inmediatamente en el Portal del Paciente
                     </label>
                     <button
                       type="submit"
                       disabled={busy}
-                      className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-xs font-extrabold text-white hover:bg-[#0A74A6]"
+                      className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#0A74A6]"
                     >
                       {busy ? "Subiendo..." : "Guardar y Publicar Estudio"}
                     </button>
@@ -1195,27 +1195,27 @@ export function ProfessionalPortalModal({
                       Estudios Recientes ({bundle.estudios.length})
                     </h3>
                     {bundle.estudios.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-500">
+                      <div className="rounded-2xl border border-dashed border-[#CBD5E1] p-8 text-center text-xs text-[#64748B]">
                         Todavía no hay estudios cargados.
                       </div>
                     ) : (
                       bundle.estudios.map((est) => (
                         <div
                           key={est.id}
-                          className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm"
+                          className="rounded-2xl border border-[#E2E8F0] bg-[#FFFFFF] p-3.5 shadow-sm"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div>
-                              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-extrabold text-[#0A74A6]">
+                              <span className="rounded-full bg-[#E0F2FE] px-2 py-0.5 text-[10px] font-extrabold text-[#0A74A6]">
                                 {est.tipoEstudio}
                               </span>{" "}
-                              <span className="text-xs font-bold text-slate-500">
+                              <span className="text-xs font-bold text-[#64748B]">
                                 {est.fechaEstudio}
                               </span>
                               <div className="mt-1 text-sm font-extrabold text-[#1B335D]">
                                 {est.titulo}
                               </div>
-                              <div className="text-xs text-slate-600">
+                              <div className="text-xs text-[#475569]">
                                 Paciente: <strong>{est.pacienteNombre}</strong> (DNI{" "}
                                 {est.pacienteDni || "—"}) ·{" "}
                                 {est.visibleParaPaciente ? "Visible al paciente" : "Uso interno"}
@@ -1226,7 +1226,7 @@ export function ProfessionalPortalModal({
                                 <a
                                   href={est.archivoDataUrl}
                                   download={est.archivoNombre || `${est.titulo}.pdf`}
-                                  className="inline-flex items-center gap-1 rounded-xl bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-[#1B335D] hover:bg-slate-200"
+                                  className="inline-flex items-center gap-1 rounded-xl bg-[#F1F5F9] px-2.5 py-1.5 text-xs font-bold text-[#1B335D] hover:bg-[#E2E8F0]"
                                 >
                                   <Download className="h-3.5 w-3.5" />
                                   Ver
@@ -1238,7 +1238,7 @@ export function ProfessionalPortalModal({
                                   if (!window.confirm("¿Eliminar este estudio?")) return;
                                   await postAction({ action: "prof_delete_estudio", id: est.id });
                                 }}
-                                className="cursor-pointer rounded-xl bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100"
+                                className="cursor-pointer rounded-xl bg-[#FFF1F2] p-1.5 text-[#E11D48] hover:bg-[#FFE4E6]"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -1254,41 +1254,41 @@ export function ProfessionalPortalModal({
               {/* TAB 4: RECETAS */}
               {dashTab === "recetas" && (
                 <div className="space-y-3">
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-[#475569]">
                     Solicitudes de recetas enviadas por pacientes registrados. Podés adjuntar la
                     receta digital en PDF/imagen o dejarla en proceso para administración.
                   </p>
                   {bundle.recetas.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-500">
+                    <div className="rounded-2xl border border-dashed border-[#CBD5E1] p-8 text-center text-xs text-[#64748B]">
                       No hay solicitudes de recetas registradas.
                     </div>
                   ) : (
                     bundle.recetas.map((r) => (
                       <div
                         key={r.id}
-                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+                        className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC]/70 p-4"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-black text-[#1B335D]">{r.codigo}</span>
-                              <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase text-[#0A74A6]">
+                              <span className="rounded-full bg-[#FFFFFF] px-2.5 py-0.5 text-[11px] font-extrabold uppercase text-[#0A74A6]">
                                 {r.estado}
                               </span>
                             </div>
                             <div className="mt-1 text-sm font-extrabold text-[#1B335D]">
                               {r.pacienteNombre} · DNI {r.pacienteDni || "—"}
                             </div>
-                            <div className="text-xs text-slate-600">
+                            <div className="text-xs text-[#475569]">
                               {r.obraSocialNombre} {r.nroAfiliado ? `· Af. ${r.nroAfiliado}` : ""} ·{" "}
                               {r.pacienteEmail}
                             </div>
-                            <div className="mt-2 rounded-xl bg-white p-2.5 text-xs font-semibold text-slate-800">
+                            <div className="mt-2 rounded-xl bg-[#FFFFFF] p-2.5 text-xs font-semibold text-[#1E293B]">
                               {r.medicamentosSolicitados}
                             </div>
                           </div>
                           <div className="flex flex-col gap-2">
-                            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-extrabold text-white hover:bg-emerald-700">
+                            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#059669] px-3.5 py-2 text-xs font-extrabold text-[#FFFFFF] hover:bg-[#047857]">
                               <FileUp className="h-3.5 w-3.5" />
                               Subir Receta Digital
                               <input
@@ -1313,7 +1313,7 @@ export function ProfessionalPortalModal({
                               <a
                                 href={r.recetaArchivoDataUrl}
                                 download={r.recetaArchivoNombre || `${r.codigo}.pdf`}
-                                className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#1B335D] px-3 py-1.5 text-xs font-bold text-white"
+                                className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#1B335D] px-3 py-1.5 text-xs font-bold text-[#FFFFFF]"
                               >
                                 <Download className="h-3.5 w-3.5" />
                                 Descargar adjunta

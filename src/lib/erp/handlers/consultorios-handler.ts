@@ -254,9 +254,10 @@ function buildPublicCemepStats(
   };
 }
 
-function canAccessConsultoriosErp(
-  session: ReturnType<typeof extractErpSessionFromRequest>
-): boolean {
+async function canAccessConsultoriosErp(
+  session: ReturnType<typeof extractErpSessionFromRequest>,
+  tenant: ErpTenantRecord
+): Promise<boolean> {
   if (!session) return false;
   if (
     session.username.toLowerCase() === GENERAL_ADMIN_USERNAME ||
@@ -265,8 +266,11 @@ function canAccessConsultoriosErp(
   ) {
     return true;
   }
-  const rawMods = (session as AnyObj).modules;
-  const mods: string[] = Array.isArray(rawMods) ? rawMods.map(String) : [];
+  const users = await listTenantUsersFromDb(tenant);
+  const found = users.find(
+    (u) => u.active !== false && u.username.toLowerCase() === session.username.toLowerCase()
+  );
+  const mods: string[] = Array.isArray(found?.modules) ? found.modules.map(String) : [];
   return mods.some(
     (m: string) =>
       m === "gestion_consultorios" ||
@@ -468,7 +472,7 @@ export async function handleErpConsultorios(
   tenant: ErpTenantRecord
 ): Promise<NextResponse> {
   const session = extractErpSessionFromRequest(req, tenant.slug);
-  if (!session || !canAccessConsultoriosErp(session)) {
+  if (!session || !(await canAccessConsultoriosErp(session, tenant))) {
     return NextResponse.json(
       { ok: false, message: "No tenés permisos para operar Gestión Consultorios / Gestión Web." },
       { status: 403 }
@@ -1594,29 +1598,9 @@ export async function handlePublicCemepPost(
       );
       let erpPasswordValid = false;
       if (erpMatch) {
-        if (erpMatch.plain_compat && erpMatch.plain_compat === password) {
-          erpPasswordValid = true;
-        } else if (erpMatch.password_hash) {
-          const h = erpMatch.password_hash;
-          if (h.startsWith("scrypt$")) {
-            erpPasswordValid = verifyPasswordScrypt(password, h);
-          } else if (h.startsWith("scrypt:")) {
-            const parts = h.split(":");
-            if (parts.length === 3) {
-              try {
-                const derived = crypto.scryptSync(password, parts[1], 64).toString("hex");
-                erpPasswordValid = crypto.timingSafeEqual(
-                  Buffer.from(derived, "hex"),
-                  Buffer.from(parts[2], "hex")
-                );
-              } catch {
-                erpPasswordValid = false;
-              }
-            }
-          } else if (h === crypto.createHash("sha256").update(password).digest("hex")) {
-            erpPasswordValid = true;
-          }
-        }
+        erpPasswordValid =
+          verifyErpUserPassword(password, erpMatch) ||
+          verifyPasswordScrypt(password, erpMatch.password_hash);
       }
 
       if (erpMatch && erpPasswordValid) {
