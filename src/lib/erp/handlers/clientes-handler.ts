@@ -309,7 +309,8 @@ export async function handleErpClientes(
     }
 
     if (postAction === "add_ctacte_movement") {
-      const cId = Number(payload.cId || payload.clienteId || 0);
+      const movIn = (payload.movement || payload) as AnyObj;
+      const cId = Number(payload.idCliente || payload.cId || payload.clienteId || movIn.cId || 0);
       const ent = db.clientes.find((c: AnyObj) => Number(c.id) === cId);
       if (!ent) {
         return NextResponse.json(
@@ -321,31 +322,117 @@ export async function handleErpClientes(
         (mx: number, m: AnyObj) => Math.max(mx, Number(m.id || 0)),
         0
       );
-      const imp = round2(payload.importe || payload.imp || 0);
-      const isDebe = payload.tipoMov === "DEBE" || Number(payload.dh) === 1 || Number(payload.d || 0) > 0;
+      const imp = round2(movIn.imp ?? movIn.importe ?? payload.importe ?? payload.imp ?? 0);
+      const isDebe =
+        movIn.tipoMov === "DEBE" ||
+        payload.tipoMov === "DEBE" ||
+        Number(movIn.dh ?? payload.dh) === 1 ||
+        Number(movIn.d ?? payload.d ?? 0) > 0;
       const mov: AnyObj = {
         id: maxMovId + 1,
         cId,
-        f: String(payload.fecha || new Date().toLocaleDateString("es-AR")),
-        fi: String(payload.fechaIso || new Date().toISOString().slice(0, 10)),
-        tcn: String(payload.tipoComprobante || payload.tcn || (isDebe ? "FACTURA" : "RECIBO")),
-        tca: String(payload.tca || (isDebe ? "FC" : "RC")),
-        l: String(payload.letra || payload.l || "B"),
-        n: String(payload.numero || payload.n || String(maxMovId + 1).padStart(8, "0")),
+        f: String(movIn.f || movIn.fecha || payload.fecha || new Date().toLocaleDateString("es-AR")),
+        fi: String(movIn.fi || movIn.fechaIso || payload.fechaIso || new Date().toISOString().slice(0, 10)),
+        v: String(movIn.v || payload.v || ""),
+        tc: Number(movIn.tc ?? payload.tc ?? (isDebe ? 20 : 21)),
+        tcn: String(movIn.tcn || movIn.tipoComprobante || payload.tipoComprobante || (isDebe ? "FACTURA" : "RECIBO")),
+        tca: String(movIn.tca || payload.tca || (isDebe ? "FC" : "RC")),
+        l: String(movIn.l || movIn.letra || payload.letra || "B"),
+        n: String(movIn.n || movIn.numero || payload.numero || String(maxMovId + 1).padStart(8, "0")),
         dh: isDebe ? 1 : -1,
         imp,
         d: isDebe ? imp : 0,
         h: isDebe ? 0 : imp,
         canc: 0,
         pend: imp,
-        obs: String(payload.observacion || payload.obs || ""),
-        origen: String(payload.origen || (ent.esProveedor && !ent.esCliente ? "COMPRA" : "VENTA")),
+        obs: String(movIn.obs || movIn.observacion || payload.observacion || ""),
+        origen: String(movIn.origen || payload.origen || (ent.esProveedor && !ent.esCliente ? "COMPRA" : "VENTA")),
+        ...(Array.isArray(movIn.items) ? { items: movIn.items } : {}),
+        ...(Array.isArray(movIn.fcrItems) ? { fcrItems: movIn.fcrItems } : {}),
+        ...(movIn.fcrModoIva === "neto" || movIn.fcrModoIva === "final"
+          ? { fcrModoIva: movIn.fcrModoIva }
+          : {}),
         createdAt: new Date().toISOString(),
         usuario: actor,
       };
       db.movimientosCtaCte.push(mov);
       recomputeEntityCtaCteStats(db, cId);
-      return commit("add_ctacte_movement", { movimiento: mov, client: ent });
+      const clientMovs = db.movimientosCtaCte.filter((m: AnyObj) => Number(m.cId) === cId);
+      return commit("add_ctacte_movement", {
+        movimiento: mov,
+        movement: mov,
+        client: ent,
+        movimientos: clientMovs,
+      });
+    }
+
+    if (postAction === "update_ctacte_movement") {
+      const movIn = (payload.movement || payload) as AnyObj;
+      const movId = Number(payload.movId || movIn.id || payload.id || 0);
+      const newCid = Number(payload.idCliente || movIn.cId || payload.cId || 0);
+      const oldCid = Number(payload.oldClientId || 0);
+      const movIdx = db.movimientosCtaCte.findIndex((m: AnyObj) => Number(m.id) === movId);
+      if (movIdx < 0) {
+        return NextResponse.json(
+          { ok: false, message: "Movimiento no encontrado para editar." },
+          { status: 404 }
+        );
+      }
+      const existing = db.movimientosCtaCte[movIdx];
+      const targetCid = newCid > 0 ? newCid : Number(existing.cId || 0);
+      const ent = db.clientes.find((c: AnyObj) => Number(c.id) === targetCid);
+      if (!ent) {
+        return NextResponse.json(
+          { ok: false, message: "Titular no encontrado." },
+          { status: 404 }
+        );
+      }
+      const prevCid = oldCid > 0 ? oldCid : Number(existing.cId || 0);
+      const imp = round2(movIn.imp ?? movIn.importe ?? existing.imp ?? 0);
+      const isDebe = Number(movIn.dh ?? existing.dh ?? 1) === 1;
+      const updatedMov: AnyObj = {
+        ...existing,
+        cId: targetCid,
+        f: String(movIn.f || existing.f || new Date().toLocaleDateString("es-AR")),
+        fi: String(movIn.fi || existing.fi || new Date().toISOString().slice(0, 10)),
+        v: String(movIn.v ?? existing.v ?? ""),
+        tc: Number(movIn.tc ?? existing.tc ?? (isDebe ? 20 : 21)),
+        tcn: String(movIn.tcn || existing.tcn || "FACTURA"),
+        tca: String(movIn.tca || existing.tca || "FC"),
+        l: String(movIn.l || existing.l || "B"),
+        n: String(movIn.n || existing.n || ""),
+        dh: isDebe ? 1 : -1,
+        imp,
+        d: isDebe ? imp : 0,
+        h: isDebe ? 0 : imp,
+        pend: Math.max(0, round2(imp - Number(existing.canc || 0))),
+        obs: String(movIn.obs ?? existing.obs ?? ""),
+        origen: String(movIn.origen || existing.origen || "COMPRA"),
+        ...(Array.isArray(movIn.items) ? { items: movIn.items } : {}),
+        ...(Array.isArray(movIn.fcrItems) ? { fcrItems: movIn.fcrItems } : {}),
+        ...(movIn.fcrModoIva === "neto" || movIn.fcrModoIva === "final"
+          ? { fcrModoIva: movIn.fcrModoIva }
+          : {}),
+        updatedAt: new Date().toISOString(),
+        updatedBy: actor,
+      };
+      db.movimientosCtaCte[movIdx] = updatedMov;
+      recomputeEntityCtaCteStats(db, targetCid);
+      let oldClient: AnyObj | undefined;
+      let oldMovimientos: AnyObj[] | undefined;
+      if (prevCid > 0 && prevCid !== targetCid) {
+        recomputeEntityCtaCteStats(db, prevCid);
+        oldClient = db.clientes.find((c: AnyObj) => Number(c.id) === prevCid);
+        oldMovimientos = db.movimientosCtaCte.filter((m: AnyObj) => Number(m.cId) === prevCid);
+      }
+      const clientMovs = db.movimientosCtaCte.filter((m: AnyObj) => Number(m.cId) === targetCid);
+      return commit("update_ctacte_movement", {
+        movimiento: updatedMov,
+        movement: updatedMov,
+        client: ent,
+        movimientos: clientMovs,
+        ...(oldClient ? { oldClient, oldMovimientos } : {}),
+      });
     }
 
     if (postAction === "annul_ctacte_movement") {

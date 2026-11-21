@@ -5235,6 +5235,8 @@ function normalizeMovimientoRecord(m) {
     caeVto: m.caeVto || '',
     qrImgSrc: m.qrImgSrc || '',
     items: Array.isArray(m.items) ? m.items : [],
+    fcrItems: Array.isArray(m.fcrItems) ? m.fcrItems : [],
+    fcrModoIva: m.fcrModoIva === 'neto' || m.fcrModoIva === 'final' ? m.fcrModoIva : '',
     esCompensacion,
     imputacionesCompensadas: Array.isArray(m.imputacionesCompensadas) ? m.imputacionesCompensadas : []
   };
@@ -65108,7 +65110,9 @@ function initApp() {
         const tr = document.createElement('tr');
         tr.dataset.artId = String(art.id);
         const ingresoVal = round2(Number(item.ingreso) || 0);
+        const origAppliedQty = round2(Number(item.originalAppliedIngreso) || 0);
         const stockActual = round2(Number(art.sf ?? 0));
+        const baseStockSinEstaFactura = round2(stockActual - origAppliedQty);
         const hasPriceInput = round2(Number(item.precioFactura) || 0) > 0;
 
         if (ingresoVal > 0 || hasPriceInput) {
@@ -65161,7 +65165,10 @@ function initApp() {
         // COL 4: Stock Actual
         const tdStock = document.createElement('td');
         tdStock.className = 'num-col';
-        tdStock.innerHTML = `<strong>${stockActual}</strong>`;
+        tdStock.innerHTML =
+          origAppliedQty !== 0
+            ? `<div class="price-cell-stack"><strong>${stockActual}</strong><span class="art-sub-meta" style="font-size:0.68rem;">Base s/FC: ${baseStockSinEstaFactura}</span></div>`
+            : `<strong>${stockActual}</strong>`;
         tr.appendChild(tdStock);
 
         // COL 5: Cant. Comprada (+ Stock)
@@ -65188,11 +65195,22 @@ function initApp() {
         const tdNuevo = document.createElement('td');
         tdNuevo.className = 'num-col';
         const renderNuevoCell = (val) => {
-          const nextS = fcrAllowFrac ? round2(stockActual + val) : Math.round(stockActual + val);
-          tdNuevo.innerHTML =
-            val !== 0
-              ? `<strong style="color:var(--success, #16a34a);">${nextS} (${val > 0 ? '+' : ''}${val})</strong>`
-              : `<span class="art-sub-meta">${nextS}</span>`;
+          const nextS = fcrAllowFrac
+            ? round2(baseStockSinEstaFactura + val)
+            : Math.round(baseStockSinEstaFactura + val);
+          const deltaVsCurrent = fcrAllowFrac ? round2(val - origAppliedQty) : Math.round(val - origAppliedQty);
+          if (origAppliedQty !== 0) {
+            if (deltaVsCurrent !== 0) {
+              tdNuevo.innerHTML = `<strong style="color:var(--success, #16a34a);">${nextS} (${deltaVsCurrent > 0 ? '+' : ''}${deltaVsCurrent} dif.)</strong>`;
+            } else {
+              tdNuevo.innerHTML = `<strong style="color:var(--silver-bright);">${nextS} (sin dif.)</strong>`;
+            }
+          } else {
+            tdNuevo.innerHTML =
+              val !== 0
+                ? `<strong style="color:var(--success, #16a34a);">${nextS} (${val > 0 ? '+' : ''}${val})</strong>`
+                : `<span class="art-sub-meta">${nextS}</span>`;
+          }
         };
         renderNuevoCell(normalizedIngresoVal);
         tr.appendChild(tdNuevo);
@@ -66016,6 +66034,223 @@ function initApp() {
       return dateScore * 1000000 + (Number(movId) || 0);
     }
 
+    const FCR_HISTORY_ITEMS_STORAGE_KEY = 'cn_erp_fcr_history_items_v1';
+
+    function loadFcrHistoryItemsLocalMap() {
+      try {
+        const raw = localStorage.getItem(FCR_HISTORY_ITEMS_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') return parsed;
+        }
+      } catch {}
+      return {};
+    }
+
+    function saveFcrHistoryItemsLocalEntry(movId, clientId, nroFactura, modoIva, items) {
+      if (!Array.isArray(items) || items.length === 0) return;
+      try {
+        const map = loadFcrHistoryItemsLocalMap();
+        const entry = {
+          movId: Number(movId) || 0,
+          clientId: Number(clientId) || 0,
+          nroFactura: String(nroFactura || '').trim().toUpperCase(),
+          modoIva: modoIva === 'neto' ? 'neto' : 'final',
+          items,
+          savedAt: new Date().toISOString()
+        };
+        if (Number(movId) > 0) {
+          map[`mov_${Number(movId)}`] = entry;
+        }
+        if (Number(clientId) > 0 && entry.nroFactura && entry.nroFactura !== '0' && entry.nroFactura !== 'S/N') {
+          map[`cli_${Number(clientId)}_${entry.nroFactura}`] = entry;
+        }
+        localStorage.setItem(FCR_HISTORY_ITEMS_STORAGE_KEY, JSON.stringify(map));
+      } catch {}
+    }
+
+    function populateFcrEditingItemsForMovement(provItem, mov) {
+      if (!provItem || !mov) return 0;
+      const { provIdsSet } = getMatchingProvIdsForFcr(provItem);
+      const savedProvCfg = resolveSavedFcrSupplierConfig(provItem);
+      const localMap = loadFcrHistoryItemsLocalMap();
+      const compUpper = String(mov.comprobante || '').trim().toUpperCase();
+      const nroMatch = compUpper.match(/(\d{4}-\d{8})/);
+      const nroKey = nroMatch ? nroMatch[1] : String(mov.n || '').trim().toUpperCase();
+      const localEntry =
+        (Number(mov.id) > 0 ? localMap[`mov_${Number(mov.id)}`] : null) ||
+        (Number(provItem.clientId) > 0 && nroKey ? localMap[`cli_${Number(provItem.clientId)}_${nroKey}`] : null) ||
+        null;
+
+      const explicitModoIva =
+        mov.fcrModoIva === 'neto' || mov.fcrModoIva === 'final'
+          ? mov.fcrModoIva
+          : localEntry && (localEntry.modoIva === 'neto' || localEntry.modoIva === 'final')
+          ? localEntry.modoIva
+          : savedProvCfg?.modoIva === 'neto'
+          ? 'neto'
+          : 'final';
+
+      const radFinal = document.getElementById('fcr-modo-iva-final');
+      const radNeto = document.getElementById('fcr-modo-iva-neto');
+      if (explicitModoIva === 'neto') {
+        if (radNeto) radNeto.checked = true;
+      } else if (radFinal) {
+        radFinal.checked = true;
+      }
+      updateFcrSavedModoIvaBadgeUI(explicitModoIva, true);
+
+      const savedList =
+        Array.isArray(mov.fcrItems) && mov.fcrItems.length > 0
+          ? mov.fcrItems
+          : Array.isArray(mov.items) && mov.items.length > 0
+          ? mov.items
+          : localEntry && Array.isArray(localEntry.items) && localEntry.items.length > 0
+          ? localEntry.items
+          : [];
+
+      const restoredItems = [];
+
+      if (savedList.length > 0) {
+        savedList.forEach((savedIt) => {
+          const artIdNum = Number(savedIt.artId ?? savedIt.id ?? 0);
+          const codStr = String(savedIt.codInterno ?? savedIt.c ?? '').trim();
+          const art =
+            (artIdNum > 0 ? (STATE.articulos || []).find((a) => Number(a.id) === artIdNum) : null) ||
+            (codStr ? (STATE.articulos || []).find((a) => String(a.c) === codStr) : null);
+          if (!art) return;
+          const isAssigned =
+            provIdsSet.has(Number(art.p)) ||
+            (Array.isArray(art.pr) && art.pr.some((x) => provIdsSet.has(Number(x && x.p))));
+          const qtyVal = round2(Number(savedIt.ingreso ?? savedIt.cantidad ?? savedIt.q ?? 0));
+          const priceVal = round2(
+            Number(
+              savedIt.precioFactura ??
+                savedIt.precioUnitario ??
+                savedIt.p ??
+                (explicitModoIva === 'neto' ? art.cn : art.cfn) ??
+                0
+            )
+          );
+          const itemObj = {
+            artId: Number(art.id),
+            art,
+            ingreso: qtyVal,
+            originalAppliedIngreso: qtyVal,
+            isAssigned,
+            codProv:
+              savedIt.codProv !== undefined && String(savedIt.codProv).trim() !== ''
+                ? String(savedIt.codProv).trim().toUpperCase()
+                : getArtSupplierCodeForFcr(art, provIdsSet),
+            codProvModified: Boolean(savedIt.codProvModified),
+            precioFactura: priceVal > 0 ? priceVal : 0,
+            keepCurrentPrice: Boolean(savedIt.keepCurrentPrice),
+            manualKeepDecision: Boolean(savedIt.manualKeepDecision)
+          };
+          recalculateFcrItemPricing(itemObj);
+          restoredItems.push(itemObj);
+        });
+      } else {
+        const movFecha = String(mov.fecha || mov.f || '').trim();
+        const obsUpper = String(mov.obs || '').toUpperCase();
+        const countMatches = Array.from(obsUpper.matchAll(/STOCK\s+ACTUALIZADO:\s*(\d+)\s*ART/gi));
+        const expectedArtCount = countMatches.reduce((acc, m) => acc + (Number(m[1]) || 0), 0);
+
+        const sameDateCandidates = [];
+        const allProvCandidates = [];
+
+        (STATE.articulos || []).forEach((art) => {
+          if (!art || art.bl === 1) return;
+          const prEntry = Array.isArray(art.pr)
+            ? art.pr.find((x) => provIdsSet.has(Number(x && x.p)))
+            : null;
+          const isAssigned = provIdsSet.has(Number(art.p)) || Boolean(prEntry);
+          if (!isAssigned) return;
+          const fuDate = String(prEntry?.fu || '').trim();
+          const fupDate = String(art.fup || '').trim();
+          const matchedDate = movFecha && (fuDate === movFecha || fupDate === movFecha);
+          if (matchedDate) {
+            sameDateCandidates.push({ art, prEntry, fuDate });
+          }
+          allProvCandidates.push({ art, prEntry, fuDate });
+        });
+
+        let selectedCandidates = sameDateCandidates.length > 0 ? sameDateCandidates : allProvCandidates;
+
+        if (sameDateCandidates.length > 0 && expectedArtCount > 0 && sameDateCandidates.length > expectedArtCount) {
+          const allCliMovs = (STATE.movimientosPorCliente[String(provItem.clientId)] || [])
+            .filter((m) => {
+              if (!m || m.origen !== 'COMPRA') return false;
+              const mF = String(m.fecha || m.f || '').trim();
+              const mObs = String(m.obs || '').toUpperCase();
+              return mF === movFecha && (mObs.includes('CARGA RÁPIDA') || mObs.includes('CARGA RAPIDA'));
+            })
+            .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+
+          if (allCliMovs.length > 1) {
+            let offset = 0;
+            let foundSlice = null;
+            for (const sibMov of allCliMovs) {
+              const sibObs = String(sibMov.obs || '').toUpperCase();
+              const sibMatches = Array.from(sibObs.matchAll(/STOCK\s+ACTUALIZADO:\s*(\d+)\s*ART/gi));
+              const sibCount = sibMatches.reduce((acc, m) => acc + (Number(m[1]) || 0), 0);
+              if (Number(sibMov.id) === Number(mov.id)) {
+                if (offset < sameDateCandidates.length) {
+                  foundSlice = sameDateCandidates.slice(offset, offset + expectedArtCount);
+                }
+                break;
+              }
+              offset += sibCount;
+            }
+            if (foundSlice && foundSlice.length > 0) {
+              selectedCandidates = foundSlice;
+            } else {
+              selectedCandidates = sameDateCandidates.slice(0, expectedArtCount);
+            }
+          } else {
+            selectedCandidates = sameDateCandidates.slice(0, expectedArtCount);
+          }
+        }
+
+        selectedCandidates.forEach(({ art }) => {
+          const allowFrac = doesArticleAllowFraction(art);
+          const rawSc = Number(art.sc) || 0;
+          const inferredQty = rawSc > 0 ? (allowFrac ? round2(rawSc) : Math.round(rawSc)) : 0;
+          const currentCost = round2(
+            Number(explicitModoIva === 'neto' ? art.cn : art.cfn) || 0
+          );
+          const itemObj = {
+            artId: Number(art.id),
+            art,
+            ingreso: inferredQty,
+            originalAppliedIngreso: inferredQty,
+            isAssigned: true,
+            codProv: getArtSupplierCodeForFcr(art, provIdsSet),
+            codProvModified: false,
+            precioFactura: currentCost > 0 ? currentCost : 0,
+            keepCurrentPrice: false,
+            manualKeepDecision: false
+          };
+          recalculateFcrItemPricing(itemObj);
+          restoredItems.push(itemObj);
+        });
+      }
+
+      FCR_STATE.invoiceArticles = restoredItems;
+      if (FCR_STATE.editingMov && Number(FCR_STATE.editingMov.movId) === Number(mov.id)) {
+        const prevMap = new Map();
+        restoredItems.forEach((it) => {
+          const origQ = round2(Number(it.originalAppliedIngreso) || 0);
+          if (origQ !== 0) {
+            prevMap.set(Number(it.artId), origQ);
+          }
+        });
+        FCR_STATE.editingMov.prevAppliedIngresoByArtId = prevMap;
+      }
+      renderFcrSupplierArticlesTable();
+      return restoredItems.length;
+    }
+
     function startEditFcrMovement(client, mov) {
       if (!client || !mov) return;
       const provNombre = String(client.razonSocial || client.nombre || 'PROVEEDOR').toUpperCase();
@@ -66023,8 +66258,10 @@ function initApp() {
         clientId: Number(client.id) || 0,
         movId: Number(mov.id) || 0,
         originalMov: mov,
-        provNombre
+        provNombre,
+        prevAppliedIngresoByArtId: new Map()
       };
+      FCR_STATE.invoiceArticles = [];
 
       const allProvs = buildProveedoresDirectoryForFcr();
       let provItem =
@@ -66054,6 +66291,20 @@ function initApp() {
       }
 
       selectFcrProveedor(provItem, false);
+
+      let loadedItemsCount = 0;
+      if (Array.isArray(STATE.articulos) && STATE.articulos.length > 0) {
+        loadedItemsCount = populateFcrEditingItemsForMovement(provItem, mov);
+      } else if (typeof loadCatalogDatabase === 'function') {
+        loadCatalogDatabase().then(() => {
+          if (
+            FCR_STATE.editingMov &&
+            Number(FCR_STATE.editingMov.movId) === Number(mov.id)
+          ) {
+            populateFcrEditingItemsForMovement(provItem, mov);
+          }
+        });
+      }
 
       const fechaInp = document.getElementById('fcr-fecha');
       if (fechaInp) {
@@ -66135,7 +66386,9 @@ function initApp() {
       renderFcrHistorialTable();
 
       showFcrAlert(
-        `✏️ Editando comprobante ${mov.comprobante || 'S/N'} de "${provNombre}". Modifique los datos necesarios y presione "Guardar Cambios en Factura".`,
+        `✏️ Editando comprobante ${mov.comprobante || 'S/N'} de "${provNombre}"${
+          loadedItemsCount > 0 ? ` (${loadedItemsCount} ítem(s) vinculados cargados abajo)` : ''
+        }. Modifique los datos o artículos necesarios y presione "Guardar Cambios en Factura".`,
         true
       );
 
@@ -67261,7 +67514,12 @@ function initApp() {
           ? `PRECIOS ACTUALIZADOS: ${itemsWithPriceUpdate.length} ART.`
           : '';
 
-      const userObs = String(document.getElementById('fcr-obs')?.value || '').trim().toUpperCase();
+      const userObs = String(document.getElementById('fcr-obs')?.value || '')
+        .replace(/STOCK\s+ACTUALIZADO:\s*\d+\s*ART\.\s*\([+\-]?\d+(?:[.,]\d+)?\s*UNID\.\)\s*·?\s*/gi, '')
+        .replace(/PRECIOS\s+ACTUALIZADOS:\s*\d+\s*ART\.\s*·?\s*/gi, '')
+        .replace(/^·+|·+$/g, '')
+        .trim()
+        .toUpperCase();
       const obsParts = ['FACTURA CARGA RÁPIDA'];
       if (userObs) obsParts.push(userObs);
       if (stockDetailNote) obsParts.push(stockDetailNote);
@@ -67273,6 +67531,20 @@ function initApp() {
 
       const fechaStr = isoToDdMmYyyy(fechaIso);
       const vencStr = addDaysToIsoAsDdMmYyyy(fechaIso, selProv.plazoDias || 0);
+      const currentModoIva = getSelectedFcrModoIva();
+
+      const fcrItemsSnapshot = (FCR_STATE.invoiceArticles || []).map((it) => ({
+        artId: Number(it.artId || it.art?.id) || 0,
+        codInterno: String(it.art?.c || ''),
+        nombre: String(it.art?.n || ''),
+        codProv: String(it.codProv || ''),
+        codProvModified: Boolean(it.codProvModified),
+        ingreso: round2(Number(it.ingreso) || 0),
+        precioFactura: round2(Number(it.precioFactura) || 0),
+        keepCurrentPrice: Boolean(it.keepCurrentPrice),
+        manualKeepDecision: Boolean(it.manualKeepDecision),
+        modoIva: currentModoIva
+      }));
 
       const proveedorMeta = {
         idProveedor: Number(selProv.idProveedor || selProv.codigo || selProv.clientId) || 0,
@@ -67294,7 +67566,9 @@ function initApp() {
         fi: fechaIso,
         v: vencStr,
         obs: obsStr,
-        origen: 'COMPRA'
+        origen: 'COMPRA',
+        fcrModoIva: currentModoIva,
+        fcrItems: fcrItemsSnapshot
       };
 
       const submitBtn = document.getElementById('btn-fcr-submit');
@@ -67315,6 +67589,10 @@ function initApp() {
         const factorCanje = Number(STATE.fidelizacionConfig?.factorCanje) || 1.12;
         const updatedArticlesFull = [];
         let anyPriceUpdated = false;
+        const prevAppliedMap =
+          editingInfo && editingInfo.prevAppliedIngresoByArtId instanceof Map
+            ? new Map(editingInfo.prevAppliedIngresoByArtId)
+            : new Map();
 
         (FCR_STATE.invoiceArticles || []).forEach((it) => {
           const art = (STATE.articulos || []).find((a) => Number(a.id) === Number(it.artId));
@@ -67322,7 +67600,18 @@ function initApp() {
 
           recalculateFcrItemPricing(it);
 
-          const addQty = round2(Number(it.ingreso) || 0);
+          const enteredQty = round2(Number(it.ingreso) || 0);
+          const prevQty = editingInfo
+            ? round2(
+                Number(
+                  it.originalAppliedIngreso !== undefined
+                    ? it.originalAppliedIngreso
+                    : prevAppliedMap.get(Number(art.id)) || 0
+                )
+              )
+            : 0;
+          prevAppliedMap.delete(Number(art.id));
+          const addQty = round2(enteredQty - prevQty);
           const hasPriceToUpdate = round2(Number(it.precioFactura) || 0) > 0 && !it.keepCurrentPrice;
           const hasCodProvChange = Boolean(it.codProvModified);
           const wasAddedManual = !it.isAssigned;
@@ -67389,6 +67678,21 @@ function initApp() {
 
           updatedArticlesFull.push(art);
         });
+
+        // Si al editar una factura se quitó de la lista un artículo que tenía ingreso previo en esta factura, revertir su stock anterior
+        if (editingInfo && prevAppliedMap.size > 0) {
+          prevAppliedMap.forEach((removedPrevQty, removedArtId) => {
+            const deltaRev = round2(-(Number(removedPrevQty) || 0));
+            if (deltaRev === 0) return;
+            const art = (STATE.articulos || []).find((a) => Number(a.id) === Number(removedArtId));
+            if (!art) return;
+            art.sc = round2((Number(art.sc) || 0) + deltaRev);
+            art.sf = round2((Number(art.si) || 0) + art.sc);
+            if (!updatedArticlesFull.some((u) => Number(u.id) === Number(art.id))) {
+              updatedArticlesFull.push(art);
+            }
+          });
+        }
 
         if (updatedArticlesFull.length > 0) {
           saveLocalFacturaProveedorArticleOverrides(updatedArticlesFull);
@@ -67475,6 +67779,17 @@ function initApp() {
 
           const cidKey = String(updatedClient.id);
           savedMov = normalizeMovimientoRecord(json.movement);
+          if (fcrItemsSnapshot.length > 0) {
+            savedMov.fcrItems = fcrItemsSnapshot;
+            savedMov.fcrModoIva = currentModoIva;
+            saveFcrHistoryItemsLocalEntry(
+              savedMov.id,
+              updatedClient.id,
+              nroFinal,
+              currentModoIva,
+              fcrItemsSnapshot
+            );
+          }
           if (Array.isArray(json.movimientos)) {
             STATE.movimientosPorCliente[cidKey] = json.movimientos.map(normalizeMovimientoRecord);
           } else {
