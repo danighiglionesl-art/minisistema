@@ -140,32 +140,24 @@
         '</div>' +
         '<div class="modules-grid" aria-label="Submódulos de Administración de Personal">' +
           '<article class="module-card" id="ms-personal-open-cv" data-personal-sub="cv" role="button" tabindex="0" style="cursor:pointer;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-              '<div class="module-icon" aria-hidden="true" style="margin:0;">' +
-                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-                  '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>' +
-                  '<polyline points="14 2 14 8 20 8"></polyline>' +
-                  '<circle cx="10" cy="13" r="2"></circle>' +
-                  '<path d="M14 17c0-1.5-1.8-2.5-4-2.5s-4 1-4 2.5"></path>' +
-                '</svg>' +
-              '</div>' +
-              '<span id="ms-cv-home-unread-pill" style="background:rgba(86,215,161,0.22);color:#112D3A;font-size:0.72rem;font-weight:800;padding:0.2rem 0.55rem;border-radius:999px;">ACTIVO</span>' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>' +
+                '<polyline points="14 2 14 8 20 8"></polyline>' +
+                '<circle cx="10" cy="13" r="2"></circle>' +
+                '<path d="M14 17c0-1.5-1.8-2.5-4-2.5s-4 1-4 2.5"></path>' +
+              '</svg>' +
             '</div>' +
             '<h3>Curriculum Vitae</h3>' +
-            '<p style="margin:0.25rem 0 0;font-size:0.78rem;opacity:0.75;">CV recibidos, CV previsualizados, valoración 1 a 10, ficha completa y enlace público /cv.</p>' +
           '</article>' +
           '<article class="module-card" id="ms-personal-open-asistencias" data-personal-sub="asistencias" role="button" tabindex="0" style="cursor:pointer;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-              '<div class="module-icon" aria-hidden="true" style="margin:0;">' +
-                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-                  '<circle cx="12" cy="12" r="9"></circle>' +
-                  '<polyline points="12 7 12 12 15 14"></polyline>' +
-                '</svg>' +
-              '</div>' +
-              '<span id="ms-asistencias-pill" style="background:rgba(17,45,58,0.1);color:#112D3A;font-size:0.72rem;font-weight:800;padding:0.2rem 0.55rem;border-radius:999px;">MÓDULO LISTO</span>' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                '<circle cx="12" cy="12" r="9"></circle>' +
+                '<polyline points="12 7 12 12 15 14"></polyline>' +
+              '</svg>' +
             '</div>' +
             '<h3>Control de Asistencias</h3>' +
-            '<p style="margin:0.25rem 0 0;font-size:0.78rem;opacity:0.75;">Registro y seguimiento de asistencias, horarios y novedades del personal.</p>' +
           '</article>' +
         '</div>';
 

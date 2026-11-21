@@ -266,15 +266,11 @@
     }
   }
 
-  function subCard(key, title, badgeId, badgeTxt, svgPath) {
-    var c = getThemeColors();
+  function subCard(key, title, svgPath) {
     return (
       '<article class="module-card" role="button" tabindex="0" data-mc-sub="' + key + '">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;">' +
-          '<div class="module-icon" aria-hidden="true">' +
-            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + svgPath + '</svg>' +
-          '</div>' +
-          '<span id="' + badgeId + '" style="background:' + c.accent + ';color:#112D3A;font-size:0.72rem;font-weight:900;padding:0.2rem 0.58rem;border-radius:999px;">' + esc(badgeTxt) + '</span>' +
+        '<div class="module-icon" aria-hidden="true">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + svgPath + '</svg>' +
         '</div>' +
         '<h3>' + esc(title) + '</h3>' +
       '</article>'
@@ -306,12 +302,12 @@
           '</div>' +
         '</div>' +
         '<div class="modules-grid" aria-label="Submódulos de Mi Contador">' +
-          subCard('ia', 'Asesor Empresarial IA (CFO Virtual)', 'mc-badge-ia', 'Gemini + ERP', '<path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"></path><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>') +
-          subCard('arca_ri', 'ARCA · Responsable Inscripto (F.2051 · F.2083 · F.5663)', 'mc-badge-ri', 'F.2051 / F.2083 / F.5663', '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line>') +
-          subCard('monotributo', 'ARCA · Monotributo y Recategorización', 'mc-badge-mono', '12 meses', '<path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path>') +
-          subCard('gastos_retiros', 'Compras, Gastos, Retiros y Retenciones', 'mc-badge-gr', 'Crédito Fiscal', '<line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>') +
-          subCard('finanzas_stock', 'Inteligencia de Stock, Ventas y Finanzas', 'mc-badge-stock', 'Stock Muerto / ABC', '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>') +
-          subCard('config', 'Configuración Fiscal, Tablas y Calendario', 'mc-badge-cfg', 'CUIT / Escalas', '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>') +
+          subCard('ia', 'Asesor Empresarial IA (CFO Virtual)', '<path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"></path><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>') +
+          subCard('arca_ri', 'ARCA · Responsable Inscripto (F.2051 · F.2083 · F.5663)', '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line>') +
+          subCard('monotributo', 'ARCA · Monotributo y Recategorización', '<path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path>') +
+          subCard('gastos_retiros', 'Compras, Gastos, Retiros y Retenciones', '<line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>') +
+          subCard('finanzas_stock', 'Inteligencia de Stock, Ventas y Finanzas', '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>') +
+          subCard('config', 'Configuración Fiscal, Tablas y Calendario', '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>') +
         '</div>';
 
       erpMain.appendChild(menuSec);

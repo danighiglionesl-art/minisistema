@@ -125,25 +125,19 @@
         '</div>' +
         '<div class="modules-grid" aria-label="Submódulos de Curriculum Vitae">' +
           '<article class="module-card" role="button" tabindex="0" data-cv-sub="recibidos">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;">' +
-              '<div class="module-icon" aria-hidden="true">' +
-                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-                  '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>' +
-                  '<path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>' +
-                '</svg>' +
-              '</div>' +
-              '<span id="ms-cv-badge-recibidos" style="background:#56D7A1;color:#112D3A;font-size:0.76rem;font-weight:900;padding:0.2rem 0.65rem;border-radius:999px;">0 sin ver</span>' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>' +
+                '<path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>' +
+              '</svg>' +
             '</div>' +
             '<h3>CV recibidos</h3>' +
           '</article>' +
           '<article class="module-card" role="button" tabindex="0" data-cv-sub="previsualizados">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;">' +
-              '<div class="module-icon" aria-hidden="true">' +
-                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-                  '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>' +
-                '</svg>' +
-              '</div>' +
-              '<span id="ms-cv-badge-prev" style="background:rgba(17,45,58,0.1);color:#112D3A;font-size:0.76rem;font-weight:800;padding:0.2rem 0.65rem;border-radius:999px;">0 evaluados</span>' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>' +
+              '</svg>' +
             '</div>' +
             '<h3>CV previsualizados</h3>' +
           '</article>' +

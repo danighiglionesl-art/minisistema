@@ -9,6 +9,7 @@
   'use strict';
 
   window.__MS_GESTION_CONSULTORIOS_OWNS_TURNOS__ = true;
+  window.__MS_GESTION_CONSULTORIOS_OWNS_GESTION_WEB__ = true;
 
   var ESTUDIO_TIPOS = [
     'Laboratorio',
@@ -80,7 +81,8 @@
       brandMods.length > 0 &&
       brandMods.indexOf('turnos') === -1 &&
       brandMods.indexOf('gestion_consultorios') === -1 &&
-      brandMods.indexOf('historia_clinica') === -1
+      brandMods.indexOf('historia_clinica') === -1 &&
+      brandMods.indexOf('gestion_web') === -1
     ) {
       return false;
     }
@@ -92,8 +94,10 @@
         s === 'gestion_consultorios' ||
         s === 'turnos' ||
         s === 'historia_clinica' ||
+        s === 'gestion_web' ||
         s.indexOf('turnos:') === 0 ||
-        s.indexOf('historia_clinica:') === 0
+        s.indexOf('historia_clinica:') === 0 ||
+        s.indexOf('gestion_web:') === 0
       );
     });
   }
@@ -186,52 +190,53 @@
         '</div>' +
         '<div class="modules-grid" aria-label="Submódulos de Gestión Consultorios">' +
           '<article class="module-card" id="ms-gc-open-turnero" role="button" tabindex="0" style="cursor:pointer;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-              '<div class="module-icon" aria-hidden="true" style="margin:0;">' +
-                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' +
-              '</div>' +
-              '<span id="ms-gc-pill-turnos" style="background:rgba(86,215,161,0.22);color:#112D3A;font-size:0.72rem;font-weight:800;padding:0.2rem 0.55rem;border-radius:999px;">0 turnos</span>' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' +
             '</div>' +
             '<h3>Turnero Web</h3>' +
-            '<p style="margin:0.25rem 0 0;font-size:0.78rem;opacity:0.75;">Agenda de profesionales, turnos online/manuales, obras sociales, videollamadas y Split MP.</p>' +
           '</article>' +
           '<article class="module-card" id="ms-gc-open-hc" role="button" tabindex="0" style="cursor:pointer;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-              '<div class="module-icon" aria-hidden="true" style="margin:0;">' +
-                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>' +
-              '</div>' +
-              '<span id="ms-gc-pill-hc" style="background:#e0f2fe;color:#0369a1;font-size:0.72rem;font-weight:800;padding:0.2rem 0.55rem;border-radius:999px;">0 evol.</span>' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>' +
             '</div>' +
             '<h3>Historia Clínica</h3>' +
-            '<p style="margin:0.25rem 0 0;font-size:0.78rem;opacity:0.75;">Fichas médicas, antecedentes, evoluciones SOAP, signos vitales, estudios adjuntos y recetas digitales.</p>' +
           '</article>' +
           '<article class="module-card" id="ms-gc-jump-web" role="button" tabindex="0" style="cursor:pointer;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-              '<div class="module-icon" aria-hidden="true" style="margin:0;">' +
-                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>' +
-              '</div>' +
-              '<span style="background:rgba(17,45,58,0.1);color:#112D3A;font-size:0.72rem;font-weight:800;padding:0.2rem 0.55rem;border-radius:999px;">CMS + USERS</span>' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>' +
             '</div>' +
-            '<h3>Ir a Gestión Web</h3>' +
-            '<p style="margin:0.25rem 0 0;font-size:0.78rem;opacity:0.75;">Usuarios registrados, editor publicable de /cemep, recetas digitales y accesos profesionales.</p>' +
+            '<h3>Gestión Web</h3>' +
           '</article>' +
         '</div>';
 
       erpMain.appendChild(menuSec);
       menuSec.querySelector('#ms-gc-back-home-btn').addEventListener('click', closeToHome);
-      menuSec.querySelector('#ms-gc-open-turnero').addEventListener('click', function () {
+      var openTurneroFn = function () {
         if (typeof window.__MS_OPEN_TURNOS_MENU__ === 'function') {
           window.__MS_OPEN_TURNOS_MENU__();
         }
-      });
-      menuSec.querySelector('#ms-gc-open-hc').addEventListener('click', function () {
+      };
+      var openHcFn = function () {
         openHistoriaClinica('fichas');
-      });
-      menuSec.querySelector('#ms-gc-jump-web').addEventListener('click', function () {
+      };
+      var jumpWebFn = function () {
         if (typeof window.__MS_OPEN_GESTION_WEB__ === 'function') {
           window.__MS_OPEN_GESTION_WEB__('menu');
         }
-      });
+      };
+      var bindCardActivation = function (el, fn) {
+        if (!el) return;
+        el.addEventListener('click', fn);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            fn();
+          }
+        });
+      };
+      bindCardActivation(menuSec.querySelector('#ms-gc-open-turnero'), openTurneroFn);
+      bindCardActivation(menuSec.querySelector('#ms-gc-open-hc'), openHcFn);
+      bindCardActivation(menuSec.querySelector('#ms-gc-jump-web'), jumpWebFn);
     }
 
     if (!hcSec) {

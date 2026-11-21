@@ -127,6 +127,10 @@
 
   function closeToHome() {
     hideAllErpSections();
+    if (typeof window.__MS_OPEN_GESTION_CONSULTORIOS__ === 'function') {
+      window.__MS_OPEN_GESTION_CONSULTORIOS__();
+      return;
+    }
     var inicio = document.getElementById('sec-inicio');
     if (inicio) inicio.hidden = false;
   }
@@ -146,15 +150,13 @@
     if (lnk && STATE.publicCemepUrl) lnk.href = STATE.publicCemepUrl;
   }
 
-  function subCard(key, title, desc, cntId, cntTxt, bg) {
+  function subCard(key, title, svgInner) {
     return (
       '<article class="module-card" data-gw-sub="' + key + '" role="button" tabindex="0" style="cursor:pointer;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-          '<div class="module-icon" aria-hidden="true" style="margin:0;">🌐</div>' +
-          '<span id="' + cntId + '" style="background:' + bg + ';color:#112D3A;font-size:0.72rem;font-weight:800;padding:0.2rem 0.55rem;border-radius:999px;">' + cntTxt + '</span>' +
+        '<div class="module-icon" aria-hidden="true">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + svgInner + '</svg>' +
         '</div>' +
-        '<h3>' + title + '</h3>' +
-        '<p style="margin:0.2rem 0 0;font-size:0.78rem;opacity:0.75;">' + desc + '</p>' +
+        '<h3>' + esc(title) + '</h3>' +
       '</article>'
     );
   }
@@ -174,16 +176,16 @@
       menuSec.innerHTML =
         '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
           '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
-            '<button type="button" class="btn-back-home" id="ms-gw-back-home">← Volver a Pantalla Principal</button>' +
-            '<span class="module-breadcrumb">ERP en Línea · <strong>Gestión Web</strong></span>' +
+            '<button type="button" class="btn-back-home" id="ms-gw-back-home">← Volver a Gestión Consultorios</button>' +
+            '<span class="module-breadcrumb">Gestión Consultorios · <strong>Gestión Web</strong></span>' +
           '</div>' +
           '<a href="/cemep" target="_blank" class="ms-sa-btn" id="ms-gw-open-public" style="padding:0.42rem 0.9rem;font-size:0.8rem;">🌐 Abrir Página Web /cemep ↗</a>' +
         '</div>' +
-        '<div class="modules-grid">' +
-          subCard('usuarios', 'Usuarios Registrados', 'Ver pacientes registrados (Google / Email), editar DNI/cobertura, habilitar o resetear clave.', 'ms-gw-cnt-users', '0 usuarios', '#e0f2fe') +
-          subCard('editor', 'Editor Web y Publicación', 'Editar espacios configurables de CEMEP y CEMEP Plus y publicarlos en vivo en /cemep.', 'ms-gw-cnt-editor', 'Publicado ✓', 'rgba(86,215,161,0.22)') +
-          subCard('recetas', 'Recetas Digitales (Admin)', 'Recibir solicitudes de pacientes y cargar recetas digitales PDF/imagen para descarga inmediata.', 'ms-gw-cnt-recetas', '0 pendientes', '#fef3c7') +
-          subCard('profesionales', 'Accesos de Profesionales', 'Crear y gestionar credenciales de profesionales para el Portal de Profesionales en /cemep.', 'ms-gw-cnt-profs', '0 accesos', 'rgba(17,45,58,0.1)') +
+        '<div class="modules-grid" aria-label="Submódulos de Gestión Web">' +
+          subCard('usuarios', 'Usuarios Registrados', '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>') +
+          subCard('editor', 'Editor Web y Publicación', '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>') +
+          subCard('recetas', 'Recetas Digitales (Admin)', '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line>') +
+          subCard('profesionales', 'Accesos de Profesionales', '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline>') +
         '</div>';
 
       erpMain.appendChild(menuSec);
@@ -191,6 +193,12 @@
       menuSec.querySelectorAll('[data-gw-sub]').forEach(function (card) {
         card.addEventListener('click', function () {
           openView(card.getAttribute('data-gw-sub'));
+        });
+        card.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            openView(card.getAttribute('data-gw-sub'));
+          }
         });
       });
     }
@@ -364,16 +372,12 @@
 
           // BLOQUE 1: GENERAL
           '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:1rem;">' +
-            '<h3 style="margin:0 0 0.7rem;color:#112D3A;">1. Datos Institucionales y Aviso Superior</h3>' +
+            '<h3 style="margin:0 0 0.7rem;color:#112D3A;">1. Datos Institucionales</h3>' +
             '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.6rem;">' +
               '<label style="font-size:0.76rem;font-weight:700;">Dirección<input id="gwe-dir" value="' + esc(d.general.direccion) + '" style="width:100%;padding:0.48rem;border:1px solid #cbd5e1;border-radius:8px;margin-top:0.2rem;"></label>' +
               '<label style="font-size:0.76rem;font-weight:700;">Localidad<input id="gwe-loc" value="' + esc(d.general.localidad) + '" style="width:100%;padding:0.48rem;border:1px solid #cbd5e1;border-radius:8px;margin-top:0.2rem;"></label>' +
               '<label style="font-size:0.76rem;font-weight:700;">Email Institucional<input id="gwe-email" value="' + esc(d.general.emailInstitucional) + '" style="width:100%;padding:0.48rem;border:1px solid #cbd5e1;border-radius:8px;margin-top:0.2rem;"></label>' +
               '<label style="font-size:0.76rem;font-weight:700;">Google Client ID (Opcional OAuth)<input id="gwe-gclient" value="' + esc(STATE.gestionWeb.googleClientId || '') + '" placeholder="xxx.apps.googleusercontent.com" style="width:100%;padding:0.48rem;border:1px solid #cbd5e1;border-radius:8px;margin-top:0.2rem;"></label>' +
-            '</div>' +
-            '<div style="margin-top:0.6rem;display:flex;flex-wrap:wrap;gap:0.6rem;align-items:center;">' +
-              '<label style="font-size:0.8rem;font-weight:700;display:flex;align-items:center;gap:0.4rem;"><input id="gwe-aviso-on" type="checkbox"' + (d.general.avisoSuperiorActivo ? ' checked' : '') + '> Mostrar cinta superior destacada</label>' +
-              '<input id="gwe-aviso-txt" value="' + esc(d.general.avisoSuperiorTexto) + '" style="flex:1;min-width:260px;padding:0.48rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.82rem;">' +
             '</div>' +
           '</div>' +
 
@@ -411,8 +415,8 @@
         next.general.direccion = root.querySelector('#gwe-dir').value.trim();
         next.general.localidad = root.querySelector('#gwe-loc').value.trim();
         next.general.emailInstitucional = root.querySelector('#gwe-email').value.trim();
-        next.general.avisoSuperiorActivo = root.querySelector('#gwe-aviso-on').checked;
-        next.general.avisoSuperiorTexto = root.querySelector('#gwe-aviso-txt').value.trim();
+        next.general.avisoSuperiorActivo = false;
+        next.general.avisoSuperiorTexto = '';
 
         next.cemep.whatsappDigits = root.querySelector('#gwe-c-wadig').value.replace(/\D/g, '');
         next.cemep.whatsappDisplay = root.querySelector('#gwe-c-wadisp').value.trim();
@@ -642,6 +646,19 @@
       if (nav) {
         var m = document.getElementById('sec-menu-gestion-web');
         var w = document.getElementById('sec-gestion-web-workspace');
+        var isGwActive = (m && !m.hidden) || (w && !w.hidden);
+
+        if (nav.id === 'btn-topbar-back-facturacion' && isGwActive) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (w && !w.hidden) {
+            openView('menu');
+          } else {
+            closeToHome();
+          }
+          return;
+        }
+
         if (m) m.hidden = true;
         if (w) w.hidden = true;
       }
@@ -653,8 +670,21 @@
   function syncHomeCard() {
     bindGlobalNavReset();
     var allowed = isGestionWebAllowed();
+    var ownedByConsultorios = Boolean(window.__MS_GESTION_CONSULTORIOS_OWNS_GESTION_WEB__);
     var inicioGrid = document.querySelector('#sec-inicio .modules-grid');
     var existing = document.getElementById('ms-gestion-web-home-card');
+
+    if (ownedByConsultorios) {
+      if (existing) {
+        existing.hidden = true;
+        existing.style.display = 'none';
+      }
+      if (allowed && !initialLoaded) {
+        initialLoaded = true;
+        reloadData(false);
+      }
+      return;
+    }
 
     if (allowed && inicioGrid && !existing) {
       var card = document.createElement('article');

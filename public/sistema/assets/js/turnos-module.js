@@ -259,23 +259,23 @@
           '<a href="/turnos" target="_blank" class="ms-sa-btn" style="padding:0.42rem 0.9rem;font-size:0.8rem;" id="ms-turnos-open-public-top">🌐 Abrir Portal Público /turnos ↗</a>' +
         '</div>' +
         '<div class="modules-grid" aria-label="Submódulos de Turnero Web">' +
-          subCardHtml('gestion_turnos', 'Gestión de Turnos', 'ms-trn-cnt-turnos', '0 hoy', '#56D7A1',
+          subCardHtml('gestion_turnos', 'Gestión de Turnos',
             '<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>') +
-          subCardHtml('gestion_profesionales', 'Gestión de Profesionales', 'ms-trn-cnt-gest', 'Agenda y O.S.', 'rgba(17,45,58,0.1)',
+          subCardHtml('gestion_profesionales', 'Gestión de Profesionales',
             '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>') +
-          subCardHtml('pacientes', 'Gestión de Pacientes', 'ms-trn-cnt-pac', '0 pacientes', 'rgba(17,45,58,0.1)',
+          subCardHtml('pacientes', 'Gestión de Pacientes',
             '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>') +
-          subCardHtml('profesionales', 'ABM Profesionales', 'ms-trn-cnt-prof', '0 activos', 'rgba(17,45,58,0.1)',
+          subCardHtml('profesionales', 'ABM Profesionales',
             '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>') +
-          subCardHtml('especialidades', 'ABM Especialidades', 'ms-trn-cnt-esp', '0 esp.', 'rgba(17,45,58,0.1)',
+          subCardHtml('especialidades', 'ABM Especialidades',
             '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>') +
-          subCardHtml('obras_sociales', 'ABM Obras Sociales', 'ms-trn-cnt-os', 'SSSalud', 'rgba(17,45,58,0.1)',
+          subCardHtml('obras_sociales', 'ABM Obras Sociales',
             '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>') +
-          subCardHtml('planes', 'ABM Planes', 'ms-trn-cnt-planes', '0 planes', 'rgba(17,45,58,0.1)',
+          subCardHtml('planes', 'ABM Planes',
             '<rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line>') +
-          subCardHtml('pagos_split', 'Pagos Online y Split MP', 'ms-trn-cnt-mp', '$ 0', '#dcfce7',
+          subCardHtml('pagos_split', 'Pagos Online y Split MP',
             '<line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>') +
-          subCardHtml('portal', 'Enlace, QR y Videollamada', 'ms-trn-cnt-portal', '/turnos', 'rgba(17,45,58,0.1)',
+          subCardHtml('portal', 'Enlace, QR y Videollamada',
             '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>') +
         '</div>';
 
@@ -322,14 +322,11 @@
     return { menuSec: menuSec, workSec: workSec };
   }
 
-  function subCardHtml(key, title, badgeId, badgeTxt, badgeBg, svgInner) {
+  function subCardHtml(key, title, svgInner) {
     return (
       '<article class="module-card" role="button" tabindex="0" data-turnos-sub="' + key + '">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;">' +
-          '<div class="module-icon" aria-hidden="true">' +
-            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + svgInner + '</svg>' +
-          '</div>' +
-          '<span id="' + badgeId + '" style="background:' + badgeBg + ';color:#112D3A;font-size:0.73rem;font-weight:900;padding:0.2rem 0.6rem;border-radius:999px;">' + esc(badgeTxt) + '</span>' +
+        '<div class="module-icon" aria-hidden="true">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + svgInner + '</svg>' +
         '</div>' +
         '<h3>' + esc(title) + '</h3>' +
       '</article>'
