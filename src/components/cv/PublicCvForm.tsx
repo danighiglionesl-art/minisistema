@@ -117,6 +117,8 @@ const MOTIVOS_EGRESO_OPTIONS = [
   "Cierre o reestructuración del comercio",
   "Estudios / Incompatibilidad horaria",
   "Acuerdo mutuo / Renuncia personal",
+  "Despido con Causa",
+  "Despido sin Causa",
 ];
 
 const YEARS_LIST = Array.from({ length: 42 }, (_, idx) =>
@@ -1024,8 +1026,8 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="grid grid-cols-5 gap-2">
+        <div className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-5 items-end gap-2">
             {isEnabled("tipoDoc") && (
             <div className="col-span-2">
               <label className={labelCls}>{fldLabel("tipoDoc", "Tipo Doc.")}</label>

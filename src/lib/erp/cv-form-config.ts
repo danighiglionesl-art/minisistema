@@ -633,6 +633,8 @@ export const DEFAULT_CV_FORM_FIELDS: CvFormFieldConfig[] = [
       "Cierre o reestructuración del comercio",
       "Estudios / Incompatibilidad horaria",
       "Acuerdo mutuo / Renuncia personal",
+      "Despido con Causa",
+      "Despido sin Causa",
     ],
   },
   {
@@ -713,6 +715,22 @@ export function mergeCvFormConfig(
       def.type === "select"
         ? cleanOptions(ov.options, def.options) || []
         : undefined;
+
+    // Incorporar automáticamente las opciones de despido en configuraciones guardadas antes de esta actualización
+    if (
+      def.key === "expMotivoEgreso" &&
+      options &&
+      options.length > 0 &&
+      (!saved?.updatedAt || saved.updatedAt < "2026-11-21T13:35:00.000Z")
+    ) {
+      const lowerSet = new Set(options.map((o) => o.toLowerCase()));
+      for (const addedOpt of ["Despido con Causa", "Despido sin Causa"]) {
+        if (!lowerSet.has(addedOpt.toLowerCase())) {
+          options.push(addedOpt);
+          lowerSet.add(addedOpt.toLowerCase());
+        }
+      }
+    }
 
     return {
       ...def,
