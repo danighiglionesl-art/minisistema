@@ -148,10 +148,24 @@
     });
   }
 
+  function updateTopbarState(visible, label) {
+    var backTopBtn = document.getElementById('btn-topbar-back-facturacion');
+    if (backTopBtn) {
+      backTopBtn.hidden = !visible;
+      if (visible) backTopBtn.textContent = '← Atrás';
+    }
+    var topbarModInd = document.getElementById('topbar-caja-indicator');
+    if (topbarModInd) {
+      topbarModInd.hidden = !visible;
+      if (visible && label) topbarModInd.textContent = label;
+    }
+  }
+
   function closeToHome() {
     hideAllErpSections();
     var inicio = document.getElementById('sec-inicio');
     if (inicio) inicio.hidden = false;
+    updateTopbarState(false);
   }
 
   function syncHubPills() {
@@ -266,21 +280,27 @@
   }
 
   function openGestionConsultoriosMenu() {
+    bindGlobalNavReset();
     var mounted = ensureSectionsMounted();
     if (!mounted) return;
     hideAllErpSections();
     mounted.menuSec.hidden = false;
+    updateTopbarState(true, 'Gestión Consultorios');
     reloadData(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function openHistoriaClinica(tab) {
+    bindGlobalNavReset();
     var mounted = ensureSectionsMounted();
     if (!mounted) return;
     STATE.hcTab = tab || 'fichas';
     hideAllErpSections();
     mounted.hcSec.hidden = false;
+    updateTopbarState(true, 'Gestión Consultorios · Historia Clínica');
     renderHcBody();
     reloadData(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   window.__MS_OPEN_GESTION_CONSULTORIOS__ = openGestionConsultoriosMenu;
@@ -712,6 +732,19 @@
       if (nav) {
         var m = document.getElementById('sec-menu-gestion-consultorios');
         var h = document.getElementById('sec-hc-workspace');
+        var isGcActive = (m && !m.hidden) || (h && !h.hidden);
+
+        if (nav.id === 'btn-topbar-back-facturacion' && isGcActive) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (h && !h.hidden) {
+            openGestionConsultoriosMenu();
+          } else {
+            closeToHome();
+          }
+          return;
+        }
+
         if (m) m.hidden = true;
         if (h) h.hidden = true;
       }

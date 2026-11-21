@@ -185,6 +185,19 @@
     });
   }
 
+  function updateTopbarState(visible, label) {
+    var backTopBtn = document.getElementById('btn-topbar-back-facturacion');
+    if (backTopBtn) {
+      backTopBtn.hidden = !visible;
+      if (visible) backTopBtn.textContent = '← Atrás';
+    }
+    var topbarModInd = document.getElementById('topbar-caja-indicator');
+    if (topbarModInd) {
+      topbarModInd.hidden = !visible;
+      if (visible && label) topbarModInd.textContent = label;
+    }
+  }
+
   function closeTurnosToHome() {
     hideAllErpSections();
     if (typeof window.__MS_OPEN_GESTION_CONSULTORIOS__ === 'function') {
@@ -193,6 +206,7 @@
     }
     var inicio = document.getElementById('sec-inicio');
     if (inicio) inicio.hidden = false;
+    updateTopbarState(false);
   }
 
   function applyApiResponse(res) {
@@ -334,6 +348,7 @@
   }
 
   async function openTurnosView(viewName) {
+    bindGlobalTurnosNavReset();
     var refs = ensureSectionsMounted();
     if (!refs) return;
     STATE.activeView = viewName || 'menu';
@@ -341,6 +356,7 @@
 
     if (STATE.activeView === 'menu') {
       refs.menuSec.hidden = false;
+      updateTopbarState(true, 'Gestión Consultorios · Turnero Web');
       await reloadTurnosData(false);
     } else {
       refs.workSec.hidden = false;
@@ -355,8 +371,20 @@
         pagos_split: 'Pagos Online Particular y Split Mercado Pago',
         portal: 'Portal Público /turnos, Código QR y Sala de Videollamada'
       };
+      var shortTitles = {
+        profesionales: 'ABM Profesionales',
+        obras_sociales: 'ABM Obras Sociales',
+        planes: 'ABM Planes',
+        especialidades: 'ABM Especialidades',
+        gestion_profesionales: 'Gestión de Profesionales',
+        pacientes: 'Gestión de Pacientes',
+        gestion_turnos: 'Gestión de Turnos',
+        pagos_split: 'Pagos Online y Split MP',
+        portal: 'Enlace, QR y Videollamada'
+      };
       var tEl = document.getElementById('ms-turnos-sub-title');
       if (tEl) tEl.textContent = titles[STATE.activeView] || 'Turnero Web';
+      updateTopbarState(true, 'Turnero Web · ' + (shortTitles[STATE.activeView] || 'Gestión'));
       await reloadTurnosData(true);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });

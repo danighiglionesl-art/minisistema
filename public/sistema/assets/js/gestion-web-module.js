@@ -125,6 +125,19 @@
     });
   }
 
+  function updateTopbarState(visible, label) {
+    var backTopBtn = document.getElementById('btn-topbar-back-facturacion');
+    if (backTopBtn) {
+      backTopBtn.hidden = !visible;
+      if (visible) backTopBtn.textContent = '← Atrás';
+    }
+    var topbarModInd = document.getElementById('topbar-caja-indicator');
+    if (topbarModInd) {
+      topbarModInd.hidden = !visible;
+      if (visible && label) topbarModInd.textContent = label;
+    }
+  }
+
   function closeToHome() {
     hideAllErpSections();
     if (typeof window.__MS_OPEN_GESTION_CONSULTORIOS__ === 'function') {
@@ -133,6 +146,7 @@
     }
     var inicio = document.getElementById('sec-inicio');
     if (inicio) inicio.hidden = false;
+    updateTopbarState(false);
   }
 
   function syncCounters() {
@@ -235,12 +249,14 @@
   }
 
   function openView(view) {
+    bindGlobalNavReset();
     var mounted = ensureMounted();
     if (!mounted) return;
     STATE.activeView = view || 'menu';
     hideAllErpSections();
     if (STATE.activeView === 'menu') {
       mounted.menuSec.hidden = false;
+      updateTopbarState(true, 'Gestión Consultorios · Gestión Web');
       reloadData(false);
     } else {
       mounted.workSec.hidden = false;
@@ -250,11 +266,19 @@
         recetas: 'Recetas Digitales (Carga del Administrador)',
         profesionales: 'Accesos de Profesionales'
       };
+      var shortTitles = {
+        usuarios: 'Usuarios Registrados',
+        editor: 'Editor Web y Publicación',
+        recetas: 'Recetas Digitales (Admin)',
+        profesionales: 'Accesos de Profesionales'
+      };
       var tEl = document.getElementById('ms-gw-sub-title');
       if (tEl) tEl.textContent = titles[STATE.activeView] || 'Gestión Web';
+      updateTopbarState(true, 'Gestión Web · ' + (shortTitles[STATE.activeView] || 'Panel'));
       renderWorkspace();
       reloadData(true);
     }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   window.__MS_OPEN_GESTION_WEB__ = openView;
