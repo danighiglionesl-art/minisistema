@@ -102,24 +102,6 @@ export default async function TenantPublicCvPage(context: {
             Cargá tu Curriculum Vitae en{" "}
             <span style={{ color: brand.accentHex }}>{tenant.fantasy_name}</span>
           </h1>
-          <p
-            className="mt-3 max-w-4xl text-base font-medium leading-relaxed text-[#FFFFFF]/90 sm:text-lg"
-            style={{ color: "rgba(255, 255, 255, 0.9)" }}
-          >
-            Completá tus datos personales, ubicación, disponibilidad horaria, formación,
-            fotografía y adjuntá tu CV en PDF.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3 text-xs font-extrabold sm:text-sm">
-            <span className="rounded-xl border border-[#56D7A1]/40 bg-[#FFFFFF]/10 px-3.5 py-2 text-[#FFFFFF]">
-              📷 Fotografía de Perfil
-            </span>
-            <span className="rounded-xl border border-[#56D7A1]/40 bg-[#FFFFFF]/10 px-3.5 py-2 text-[#FFFFFF]">
-              📄 Adjunto de CV en PDF
-            </span>
-            <span className="rounded-xl border border-[#56D7A1]/40 bg-[#FFFFFF]/10 px-3.5 py-2 text-[#FFFFFF]">
-              ✅ Confirmación Inmediata de Recepción
-            </span>
-          </div>
         </div>
 
         <PublicCvForm

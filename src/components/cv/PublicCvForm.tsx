@@ -860,78 +860,122 @@ export default function PublicCvForm(props: PublicCvFormProps) {
     });
   };
 
-  if (submittedReceipt) {
-    return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="mx-auto max-w-2xl rounded-3xl border-2 border-[#56D7A1] bg-[#FFFFFF] p-8 text-[#112D3A] shadow-2xl"
-      >
-        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#56D7A1]/25 text-3xl">
-          ✅
-        </div>
-        <div className="mb-1 text-xs font-extrabold uppercase tracking-wider text-[#0f6845]">
-          {submittedReceipt.isUpdate
-            ? "Actualización de CV Registrada · Alerta Enviada al Administrador"
-            : "Notificación de Recepción Exitosa"}
-        </div>
-        <h2 className="text-2xl font-extrabold text-[#112D3A]">
-          {submittedReceipt.isUpdate
-            ? "¡Tus datos de Curriculum Vitae fueron actualizados!"
-            : "¡Tu Curriculum Vitae fue enviado correctamente!"}
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-[#112D3A]/80">
-          Gracias <strong>{submittedReceipt.candidateName}</strong>.{" "}
-          {submittedReceipt.isUpdate
-            ? `Tus nuevos datos actualizaron tu ficha existente sin duplicar tu postulación y se envió un alerta de nuevos datos al administrador de `
-            : `Tus datos, perfil laboral y archivos adjuntos ya ingresaron al módulo de selección de `}
-          {/^minisistema\.?$/i.test((props.fantasyName || "").trim()) ? (
-            <BrandWordmark onMintSurface className="h-[0.95em]" />
-          ) : (
-            <strong>{props.fantasyName}</strong>
-          )}
-          .
-        </p>
-
-        <div className="my-6 rounded-2xl border border-[#56D7A1] bg-[#112D3A] p-5 text-[#FFFFFF]">
-          <div className="text-xs font-bold uppercase tracking-wider text-[#56D7A1]">
-            Comprobante de Postulación
-          </div>
-          <div className="mt-1 text-2xl font-black tracking-wide text-[#FFFFFF]">
-            {submittedReceipt.codigo}
-          </div>
-          <div className="mt-2 grid gap-1 text-xs text-[#FFFFFF]/85 sm:grid-cols-2">
-            <div>
-              <strong>Puesto postulado:</strong> {submittedReceipt.puesto}
-            </div>
-            <div>
-              <strong>Fecha y hora:</strong>{" "}
-              {new Date(submittedReceipt.submittedAt).toLocaleString("es-AR")}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded-xl bg-[#56D7A1] px-5 py-3 text-sm font-extrabold text-[#112D3A] shadow hover:brightness-95"
-          >
-            🖨️ Imprimir / Guardar Comprobante
-          </button>
-          <a
-            href="/"
-            className="rounded-xl border-2 border-[#112D3A] px-5 py-3 text-sm font-extrabold text-[#112D3A] hover:bg-[#112D3A] hover:text-[#FFFFFF]"
-          >
-            Volver al Inicio
-          </a>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!submittedReceipt) return;
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setSubmittedReceipt(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [submittedReceipt]);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <>
+      {submittedReceipt && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cv-receipt-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSubmittedReceipt(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#112D3A]/70 p-4 backdrop-blur-sm"
+        >
+          <div className="relative w-full max-w-xl rounded-3xl border-2 border-[#56D7A1] bg-[#FFFFFF] p-7 text-[#112D3A] shadow-2xl sm:p-8">
+            <button
+              type="button"
+              onClick={() => setSubmittedReceipt(null)}
+              aria-label="Cerrar notificación"
+              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#112D3A]/10 text-sm font-black text-[#112D3A] transition hover:bg-[#112D3A] hover:text-[#FFFFFF]"
+            >
+              ✕
+            </button>
+
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-[#56D7A1]/50 bg-[#56D7A1]/20 text-[#112D3A]">
+              <svg
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div className="mb-1 text-xs font-extrabold uppercase tracking-wider text-[#0f6845]">
+              {submittedReceipt.isUpdate
+                ? "Actualización de CV Registrada · Alerta Enviada al Administrador"
+                : "Notificación de Recepción Exitosa"}
+            </div>
+            <h2
+              id="cv-receipt-modal-title"
+              className="text-2xl font-extrabold text-[#112D3A]"
+            >
+              {submittedReceipt.isUpdate
+                ? "¡Tus datos de Curriculum Vitae fueron actualizados!"
+                : "¡Tu Curriculum Vitae fue enviado correctamente!"}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[#112D3A]/80">
+              Gracias <strong>{submittedReceipt.candidateName}</strong>.{" "}
+              {submittedReceipt.isUpdate
+                ? `Tus nuevos datos actualizaron tu ficha existente sin duplicar tu postulación y se envió un alerta de nuevos datos al administrador de `
+                : `Tus datos, perfil laboral y archivos adjuntos ya ingresaron al módulo de selección de `}
+              {/^minisistema\.?$/i.test((props.fantasyName || "").trim()) ? (
+                <BrandWordmark onMintSurface className="h-[0.95em]" />
+              ) : (
+                <strong>{props.fantasyName}</strong>
+              )}
+              .
+            </p>
+
+            <div className="my-6 rounded-2xl border border-[#56D7A1] bg-[#112D3A] p-5 text-[#FFFFFF]">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#56D7A1]">
+                Comprobante de Postulación
+              </div>
+              <div className="mt-1 text-2xl font-black tracking-wide text-[#FFFFFF]">
+                {submittedReceipt.codigo}
+              </div>
+              <div className="mt-2 grid gap-1 text-xs text-[#FFFFFF]/85 sm:grid-cols-2">
+                <div>
+                  <strong>Puesto postulado:</strong> {submittedReceipt.puesto}
+                </div>
+                <div>
+                  <strong>Fecha y hora:</strong>{" "}
+                  {new Date(submittedReceipt.submittedAt).toLocaleString("es-AR")}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="rounded-xl bg-[#56D7A1] px-5 py-3 text-sm font-extrabold text-[#112D3A] shadow hover:brightness-95"
+              >
+                Imprimir / Guardar Comprobante
+              </button>
+              <a
+                href="/"
+                className="rounded-xl border-2 border-[#112D3A] px-5 py-3 text-sm font-extrabold text-[#112D3A] hover:bg-[#112D3A] hover:text-[#FFFFFF]"
+              >
+                Volver al Inicio
+              </a>
+              <button
+                type="button"
+                onClick={() => setSubmittedReceipt(null)}
+                className="ml-auto rounded-xl px-4 py-3 text-sm font-bold text-[#112D3A]/70 hover:bg-[#112D3A]/10 hover:text-[#112D3A]"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <form onSubmit={handleSubmit} className="space-y-8">
       {dniFoundToast && (
         <div
           role="status"
@@ -2413,5 +2457,6 @@ export default function PublicCvForm(props: PublicCvFormProps) {
         </div>
       </section>
     </form>
+    </>
   );
 }
