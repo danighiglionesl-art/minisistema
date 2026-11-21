@@ -667,8 +667,44 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
     return (principal * (r * Math.pow(1 + r, n))) / (Math.pow(1 + r, n) - 1);
   }, [selectedProp, calcAnticipoPct, calcAnios, calcTna]);
 
+  // Trama suave arquitectónica tipo marca de agua con el isotipo geométrico de la inmobiliaria
+  const watermarkSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'>
+    <g fill='none' stroke='#1F1F1F' stroke-opacity='0.032' stroke-width='0.9'>
+      <path d='M0 120 L120 0 L240 120 L120 240 Z'/>
+      <circle cx='120' cy='0' r='2' fill='#FC8006' fill-opacity='0.09' stroke='none'/>
+      <circle cx='0' cy='120' r='2' fill='#FC8006' fill-opacity='0.09' stroke='none'/>
+      <circle cx='240' cy='120' r='2' fill='#FC8006' fill-opacity='0.09' stroke='none'/>
+      <circle cx='120' cy='240' r='2' fill='#FC8006' fill-opacity='0.09' stroke='none'/>
+    </g>
+    <g transform='translate(60 60) rotate(-12) translate(-32 -32)'>
+      <circle cx='32' cy='32' r='26' fill='none' stroke='#1F1F1F' stroke-opacity='0.05' stroke-width='1.4'/>
+      <path d='M12 34 L21 26 L21 18 L26 18 L26 22 L32 16 L52 34' fill='none' stroke='#FC8006' stroke-opacity='0.09' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/>
+      <path d='M18 33 L32 21 L46 33 L46 43 L18 43 Z' fill='#1F1F1F' fill-opacity='0.035'/>
+      <rect x='26' y='33' width='4.5' height='4' fill='#D90202' fill-opacity='0.065'/>
+      <rect x='33.5' y='33' width='4.5' height='4' fill='#D90202' fill-opacity='0.065'/>
+      <line x1='14' y1='45.5' x2='50' y2='45.5' stroke='#FC8006' stroke-opacity='0.09' stroke-width='2.4' stroke-linecap='round'/>
+    </g>
+    <g transform='translate(180 180) rotate(-12) translate(-32 -32)'>
+      <circle cx='32' cy='32' r='26' fill='none' stroke='#1F1F1F' stroke-opacity='0.05' stroke-width='1.4'/>
+      <path d='M12 34 L21 26 L21 18 L26 18 L26 22 L32 16 L52 34' fill='none' stroke='#FC8006' stroke-opacity='0.09' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/>
+      <path d='M18 33 L32 21 L46 33 L46 43 L18 43 Z' fill='#1F1F1F' fill-opacity='0.035'/>
+      <rect x='26' y='33' width='4.5' height='4' fill='#D90202' fill-opacity='0.065'/>
+      <rect x='33.5' y='33' width='4.5' height='4' fill='#D90202' fill-opacity='0.065'/>
+      <line x1='14' y1='45.5' x2='50' y2='45.5' stroke='#FC8006' stroke-opacity='0.09' stroke-width='2.4' stroke-linecap='round'/>
+    </g>
+  </svg>`;
+  const watermarkDataUri = `url("data:image/svg+xml,${encodeURIComponent(watermarkSvg)}")`;
+
   return (
-    <div className="min-h-screen bg-[#F6F5F3] text-[#1F1F1F] flex flex-col">
+    <div
+      className="min-h-screen text-[#1F1F1F] flex flex-col"
+      style={{
+        backgroundColor: "#F6F5F3",
+        backgroundImage: `radial-gradient(ellipse 75% 40% at 10% 6%, rgba(252,128,6,0.065), transparent 60%), radial-gradient(ellipse 65% 38% at 90% 16%, rgba(217,2,2,0.045), transparent 58%), ${watermarkDataUri}`,
+        backgroundSize: "auto, auto, 240px 240px",
+        backgroundRepeat: "no-repeat, no-repeat, repeat",
+      }}
+    >
       {/* CABECERA INSTITUCIONAL CON ACCESO A CLIENTES Y WHATSAPP */}
       <header
         className="sticky top-0 z-40 border-b-4 shadow-md"
