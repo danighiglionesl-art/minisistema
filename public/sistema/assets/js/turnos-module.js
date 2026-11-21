@@ -43,6 +43,10 @@
     },
     // Estados de edición y filtros por submódulo
     editingProfId: null,
+    profModalOpen: false,
+    profDraft: null,
+    profEspPickerOpen: false,
+    profOsPickerOpen: false,
     searchProf: '',
     editingOsId: null,
     filterOsTipo: '',
@@ -394,9 +398,66 @@
   }
 
   // ==================== 1. ABM PROFESIONALES ====================
+  function createProfDraft(editing) {
+    return {
+      dni: editing ? String(editing.dni || '') : '',
+      titulo: editing ? String(editing.titulo || 'Dr.') : 'Dr.',
+      apellidos: editing ? String(editing.apellidos || '') : '',
+      nombres: editing ? String(editing.nombres || '') : '',
+      matriculaProvincial: editing ? String(editing.matriculaProvincial || '') : '',
+      matriculaNacional: editing ? String(editing.matriculaNacional || '') : '',
+      whatsapp: editing ? String(editing.whatsapp || '') : '',
+      email: editing ? String(editing.email || '') : '',
+      valorConsultaParticularArs: editing ? Number(editing.valorConsultaParticularArs || 0) : 25000,
+      permitePresencial: editing ? editing.permitePresencial !== false : true,
+      permiteVideollamada: editing ? editing.permiteVideollamada !== false : true,
+      especialidadIds: editing && Array.isArray(editing.especialidadIds) ? editing.especialidadIds.slice() : [],
+      obraSocialIds: editing && Array.isArray(editing.obraSocialIds) ? editing.obraSocialIds.slice() : []
+    };
+  }
+
+  function syncProfDraftFromDom(bodyEl) {
+    if (!STATE.profDraft || !bodyEl) return;
+    var dniEl = bodyEl.querySelector('#trn-p-dni');
+    if (!dniEl) return;
+    STATE.profDraft.dni = dniEl.value;
+    var titEl = bodyEl.querySelector('#trn-p-titulo');
+    if (titEl) STATE.profDraft.titulo = titEl.value;
+    var apEl = bodyEl.querySelector('#trn-p-ap');
+    if (apEl) STATE.profDraft.apellidos = apEl.value;
+    var nomEl = bodyEl.querySelector('#trn-p-nom');
+    if (nomEl) STATE.profDraft.nombres = nomEl.value;
+    var mpEl = bodyEl.querySelector('#trn-p-mp');
+    if (mpEl) STATE.profDraft.matriculaProvincial = mpEl.value;
+    var mnEl = bodyEl.querySelector('#trn-p-mn');
+    if (mnEl) STATE.profDraft.matriculaNacional = mnEl.value;
+    var waEl = bodyEl.querySelector('#trn-p-wa');
+    if (waEl) STATE.profDraft.whatsapp = waEl.value;
+    var emEl = bodyEl.querySelector('#trn-p-email');
+    if (emEl) STATE.profDraft.email = emEl.value;
+    var valEl = bodyEl.querySelector('#trn-p-val');
+    if (valEl) STATE.profDraft.valorConsultaParticularArs = Number(valEl.value || 0);
+    var presEl = bodyEl.querySelector('#trn-p-pres');
+    if (presEl) STATE.profDraft.permitePresencial = presEl.checked;
+    var vidEl = bodyEl.querySelector('#trn-p-vid');
+    if (vidEl) STATE.profDraft.permiteVideollamada = vidEl.checked;
+  }
+
   function renderProfesionalesView() {
     var profs = STATE.data.profesionales || [];
-    var esps = (STATE.data.especialidades || []).filter(function (e) { return e.activa; });
+    var esps = (STATE.data.especialidades || [])
+      .filter(function (e) { return e.activa; })
+      .slice()
+      .sort(function (a, b) {
+        return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' });
+      });
+    var obras = (STATE.data.obrasSociales || [])
+      .filter(function (o) { return o.activa; })
+      .slice()
+      .sort(function (a, b) {
+        return String(a.sigla || a.nombre || '').localeCompare(String(b.sigla || b.nombre || ''), 'es', { sensitivity: 'base' });
+      });
+
     var editing = STATE.editingProfId
       ? profs.find(function (p) { return p.id === STATE.editingProfId; }) || null
       : null;
@@ -411,22 +472,8 @@
       );
     });
 
-    var espChecks = esps
-      .map(function (e) {
-        var checked = editing && (editing.especialidadIds || []).indexOf(e.id) !== -1;
-        return (
-          '<label style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.3rem 0.6rem;border-radius:8px;border:1px solid #cbd5e1;background:' +
-          (checked ? '#dcfce7' : '#fff') +
-          ';font-size:0.78rem;font-weight:700;cursor:pointer;">' +
-            '<input type="checkbox" class="trn-prof-esp-chk" value="' + esc(e.id) + '" ' + (checked ? 'checked' : '') + '>' +
-            esc(e.nombre) + ' (' + esc(e.duracionMinutos) + 'm)' +
-          '</label>'
-        );
-      })
-      .join('');
-
     var rows = filtered.length === 0
-      ? '<tr><td colspan="7" style="padding:1.5rem;text-align:center;color:#64748b;">Aún no hay profesionales cargados. Completá el formulario de arriba para dar de alta el primero.</td></tr>'
+      ? '<tr><td colspan="7" style="padding:1.5rem;text-align:center;color:#64748b;">Aún no hay profesionales cargados. Hacé clic en <strong>+ Nuevo Profesional</strong> para dar de alta el primero.</td></tr>'
       : filtered.map(function (p) {
           var espNames = (p.especialidadIds || []).map(function (eid) {
             var f = (STATE.data.especialidades || []).find(function (x) { return x.id === eid; });
@@ -445,7 +492,7 @@
                 (p.permiteVideollamada ? '📹 Video' : '') +
               '</td>' +
               '<td style="padding:0.6rem;font-size:0.8rem;">' +
-                (p.atiendeParticular ? '<strong>' + fmtArs(p.valorConsultaParticularArs) + '</strong>' : '<span style="color:#94a3b8;">No</span>') +
+                '<strong>' + fmtArs(p.valorConsultaParticularArs) + '</strong>' +
                 '<br><small style="color:' + (mpOk ? '#047857' : '#b45309') + ';font-weight:700;">' +
                 (mpOk ? '✅ MP Vinculado' : '⚠️ MP Sin vincular') + '</small>' +
               '</td>' +
@@ -459,48 +506,210 @@
           );
         }).join('');
 
+    var profModalHtml = '';
+    if (STATE.profModalOpen) {
+      var draft = STATE.profDraft || createProfDraft(editing);
+      STATE.profDraft = draft;
+
+      var selEspNames = (draft.especialidadIds || []).map(function (eid) {
+        var f = esps.find(function (x) { return x.id === eid; });
+        return f ? f.nombre : '';
+      }).filter(Boolean);
+
+      var activeOsIds = obras.map(function (o) { return o.id; });
+      var selOsIds = (draft.obraSocialIds || []).filter(function (oid) {
+        return activeOsIds.indexOf(oid) !== -1;
+      });
+      var allOsSelected = obras.length > 0 && selOsIds.length === obras.length;
+      var selOsSiglas = selOsIds.map(function (oid) {
+        var f = obras.find(function (x) { return x.id === oid; });
+        return f ? f.sigla : '';
+      }).filter(Boolean);
+
+      var espSummaryTxt = selEspNames.length === 0
+        ? '<span style="color:#64748b;">Ninguna especialidad seleccionada</span>'
+        : '<strong style="color:#112D3A;">' + selEspNames.length + ' seleccionada' + (selEspNames.length === 1 ? '' : 's') + ':</strong> ' +
+          '<span style="color:#334155;">' + esc(selEspNames.slice(0, 4).join(', ')) + (selEspNames.length > 4 ? ' +' + (selEspNames.length - 4) + ' más' : '') + '</span>';
+
+      var osSummaryTxt = allOsSelected
+        ? '<strong style="color:#047857;">Todas las Obras Sociales (' + obras.length + ')</strong>'
+        : selOsSiglas.length === 0
+          ? '<span style="color:#64748b;">Ninguna obra social seleccionada</span>'
+          : '<strong style="color:#112D3A;">' + selOsSiglas.length + ' de ' + obras.length + ':</strong> ' +
+            '<span style="color:#334155;">' + esc(selOsSiglas.slice(0, 5).join(', ')) + (selOsSiglas.length > 5 ? ' +' + (selOsSiglas.length - 5) + ' más' : '') + '</span>';
+
+      profModalHtml =
+        '<div id="trn-prof-modal-backdrop" role="dialog" aria-modal="true" style="position:fixed;inset:0;z-index:9999;background:rgba(17,45,58,0.68);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;">' +
+          '<div style="width:100%;max-width:780px;max-height:92vh;display:flex;flex-direction:column;background:#ffffff;border-radius:18px;border:2px solid #56D7A1;box-shadow:0 24px 60px rgba(0,0,0,0.32);overflow:hidden;">' +
+            '<div style="background:#112D3A;color:#ffffff;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-shrink:0;">' +
+              '<div>' +
+                '<div style="font-size:0.7rem;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;color:#56D7A1;">Turnero Web · ABM Profesionales</div>' +
+                '<h3 style="margin:0.15rem 0 0;font-size:1.1rem;color:#ffffff;">' + (editing ? '✏️ Editar Profesional' : '➕ Alta de Nuevo Profesional') + '</h3>' +
+              '</div>' +
+              '<button type="button" id="trn-p-modal-close" aria-label="Cerrar" style="background:rgba(255,255,255,0.12);border:none;color:#ffffff;width:34px;height:34px;border-radius:10px;cursor:pointer;font-size:1rem;font-weight:900;">✕</button>' +
+            '</div>' +
+            '<form id="ms-trn-prof-form" style="padding:1.25rem;display:grid;gap:0.9rem;overflow-y:auto;">' +
+              '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:0.7rem;">' +
+                '<div><label class="ms-sa-label">DNI Profesional *</label><input class="ms-sa-input" id="trn-p-dni" required value="' + esc(draft.dni) + '" placeholder="Ej: 30123456"></div>' +
+                '<div><label class="ms-sa-label">Título</label><select class="ms-sa-select" id="trn-p-titulo">' +
+                  ['Dr.', 'Dra.', 'Lic.', 'Klgo./a', 'Od.', 'Prof.', 'Mg.'].map(function (t) {
+                    return '<option value="' + t + '" ' + (draft.titulo === t ? 'selected' : '') + '>' + t + '</option>';
+                  }).join('') +
+                '</select></div>' +
+                '<div><label class="ms-sa-label">Apellido/s *</label><input class="ms-sa-input" id="trn-p-ap" required value="' + esc(draft.apellidos) + '" placeholder="Ej: Pérez"></div>' +
+                '<div><label class="ms-sa-label">Nombre/s *</label><input class="ms-sa-input" id="trn-p-nom" required value="' + esc(draft.nombres) + '" placeholder="Ej: Juan Carlos"></div>' +
+                '<div><label class="ms-sa-label">Matrícula Provincial</label><input class="ms-sa-input" id="trn-p-mp" value="' + esc(draft.matriculaProvincial) + '" placeholder="Ej: 28450"></div>' +
+                '<div><label class="ms-sa-label">Matrícula Nacional</label><input class="ms-sa-input" id="trn-p-mn" value="' + esc(draft.matriculaNacional) + '" placeholder="Opcional"></div>' +
+                '<div><label class="ms-sa-label">WhatsApp</label><input class="ms-sa-input" id="trn-p-wa" value="' + esc(draft.whatsapp) + '" placeholder="3585095475"></div>' +
+                '<div><label class="ms-sa-label">Email</label><input class="ms-sa-input" type="email" id="trn-p-email" value="' + esc(draft.email) + '" placeholder="dr@clinica.com"></div>' +
+                '<div><label class="ms-sa-label">Valor Consulta Particular</label><input class="ms-sa-input" type="number" min="0" id="trn-p-val" value="' + esc(draft.valorConsultaParticularArs) + '"></div>' +
+              '</div>' +
+
+              '<div style="display:flex;flex-wrap:wrap;gap:1.25rem;padding:0.65rem 0.9rem;border-radius:10px;background:#f8fbfc;border:1px solid #dbe7ec;font-size:0.84rem;font-weight:700;">' +
+                '<label style="cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;"><input type="checkbox" id="trn-p-pres" ' + (draft.permitePresencial ? 'checked' : '') + '> 🏥 Atiende Presencial</label>' +
+                '<label style="cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;"><input type="checkbox" id="trn-p-vid" ' + (draft.permiteVideollamada ? 'checked' : '') + '> 📹 Atiende Videollamada</label>' +
+              '</div>' +
+
+              '<div style="display:grid;gap:0.65rem;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.65rem;padding:0.75rem 0.9rem;border-radius:12px;border:1px solid #dbe7ec;background:#f8fbfc;">' +
+                  '<div style="flex:1;min-width:220px;">' +
+                    '<div style="font-size:0.78rem;font-weight:800;color:#112D3A;margin-bottom:0.2rem;">Especialidades que atiende el profesional</div>' +
+                    '<div style="font-size:0.8rem;">' + espSummaryTxt + '</div>' +
+                  '</div>' +
+                  '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="trn-p-open-esp-picker" style="padding:0.42rem 0.85rem;font-size:0.8rem;white-space:nowrap;">📋 Elegir Especialidades (' + selEspNames.length + ')</button>' +
+                '</div>' +
+
+                '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.65rem;padding:0.75rem 0.9rem;border-radius:12px;border:1px solid #dbe7ec;background:#f8fbfc;">' +
+                  '<div style="flex:1;min-width:220px;">' +
+                    '<div style="font-size:0.78rem;font-weight:800;color:#112D3A;margin-bottom:0.2rem;">Obras Sociales que atiende</div>' +
+                    '<div style="font-size:0.8rem;">' + osSummaryTxt + '</div>' +
+                  '</div>' +
+                  '<div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">' +
+                    '<label style="cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;font-size:0.8rem;font-weight:800;color:#112D3A;padding:0.38rem 0.65rem;border-radius:8px;border:1px solid ' + (allOsSelected ? '#56D7A1' : '#cbd5e1') + ';background:' + (allOsSelected ? '#dcfce7' : '#ffffff') + ';">' +
+                      '<input type="checkbox" id="trn-p-os-all-quick" ' + (allOsSelected ? 'checked' : '') + '> Todas' +
+                    '</label>' +
+                    '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="trn-p-open-os-picker" style="padding:0.42rem 0.85rem;font-size:0.8rem;white-space:nowrap;">🏥 Elegir Obras Sociales (' + selOsIds.length + ')</button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+
+              '<div style="display:flex;justify-content:flex-end;gap:0.55rem;padding-top:0.35rem;border-top:1px solid #e2ecf0;">' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="trn-p-cancel">Cancelar</button>' +
+                '<button type="submit" class="ms-sa-btn">💾 ' + (editing ? 'Guardar Cambios' : 'Dar de Alta Profesional') + '</button>' +
+              '</div>' +
+            '</form>' +
+          '</div>' +
+        '</div>';
+    }
+
+    var espPickerHtml = '';
+    if (STATE.profModalOpen && STATE.profEspPickerOpen) {
+      var draftEsp = STATE.profDraft || createProfDraft(editing);
+      var selEspSet = {};
+      (draftEsp.especialidadIds || []).forEach(function (id) { selEspSet[id] = true; });
+      var espListItems = esps.length === 0
+        ? '<div style="padding:1.25rem;text-align:center;color:#64748b;font-size:0.84rem;">No hay especialidades activas cargadas.</div>'
+        : esps.map(function (e) {
+            var checked = Boolean(selEspSet[e.id]);
+            return (
+              '<label class="trn-esp-list-row" data-search="' + esc(String(e.nombre || '').toLowerCase()) + '" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.65rem 0.85rem;border-bottom:1px solid #e2ecf0;cursor:pointer;background:' + (checked ? '#ecfdf5' : '#ffffff') + ';">' +
+                '<span style="display:inline-flex;align-items:center;gap:0.6rem;font-size:0.86rem;font-weight:700;color:#112D3A;">' +
+                  '<input type="checkbox" class="trn-prof-esp-chk" value="' + esc(e.id) + '" ' + (checked ? 'checked' : '') + ' style="width:16px;height:16px;accent-color:#112D3A;">' +
+                  esc(e.nombre) +
+                '</span>' +
+                '<span style="font-size:0.76rem;font-weight:700;color:#475569;white-space:nowrap;">' + esc(e.duracionMinutos) + ' min</span>' +
+              '</label>'
+            );
+          }).join('');
+
+      espPickerHtml =
+        '<div id="trn-prof-esp-picker-backdrop" role="dialog" aria-modal="true" style="position:fixed;inset:0;z-index:10010;background:rgba(17,45,58,0.65);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:1rem;">' +
+          '<div style="width:100%;max-width:520px;max-height:85vh;display:flex;flex-direction:column;background:#ffffff;border-radius:16px;border:2px solid #56D7A1;box-shadow:0 24px 60px rgba(0,0,0,0.38);overflow:hidden;">' +
+            '<div style="background:#112D3A;color:#ffffff;padding:0.9rem 1.15rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-shrink:0;">' +
+              '<div>' +
+                '<div style="font-size:0.68rem;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;color:#56D7A1;">Selección en Lista</div>' +
+                '<h3 style="margin:0.1rem 0 0;font-size:1rem;color:#ffffff;">Especialidades del Profesional</h3>' +
+              '</div>' +
+              '<button type="button" id="trn-esp-picker-close" aria-label="Cerrar" style="background:rgba(255,255,255,0.12);border:none;color:#ffffff;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:0.95rem;font-weight:900;">✕</button>' +
+            '</div>' +
+            '<div style="padding:0.75rem 1rem;border-bottom:1px solid #e2ecf0;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;background:#f8fbfc;flex-shrink:0;">' +
+              '<input class="ms-sa-input" id="trn-esp-picker-search" placeholder="Buscar especialidad..." style="flex:1;min-width:180px;">' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="trn-esp-picker-all" style="padding:0.35rem 0.65rem;font-size:0.76rem;">Todas</button>' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="trn-esp-picker-none" style="padding:0.35rem 0.65rem;font-size:0.76rem;">Limpiar</button>' +
+            '</div>' +
+            '<div id="trn-esp-picker-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;">' +
+              espListItems +
+            '</div>' +
+            '<div style="padding:0.8rem 1rem;border-top:1px solid #e2ecf0;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;background:#ffffff;flex-shrink:0;">' +
+              '<span id="trn-esp-picker-count" style="font-size:0.8rem;font-weight:800;color:#475569;">' + (draftEsp.especialidadIds || []).length + ' seleccionadas</span>' +
+              '<button type="button" class="ms-sa-btn" id="trn-esp-picker-done" style="padding:0.45rem 1rem;font-size:0.82rem;">✅ Listo</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    }
+
+    var osPickerHtml = '';
+    if (STATE.profModalOpen && STATE.profOsPickerOpen) {
+      var draftOs = STATE.profDraft || createProfDraft(editing);
+      var selOsSet = {};
+      (draftOs.obraSocialIds || []).forEach(function (id) { selOsSet[id] = true; });
+      var allSelectedNow = obras.length > 0 && obras.every(function (o) { return Boolean(selOsSet[o.id]); });
+
+      var osListItems = obras.length === 0
+        ? '<div style="padding:1.25rem;text-align:center;color:#64748b;font-size:0.84rem;">No hay obras sociales activas cargadas.</div>'
+        : obras.map(function (o) {
+            var checked = Boolean(selOsSet[o.id]);
+            var searchKey = (String(o.sigla || '') + ' ' + String(o.nombre || '') + ' ' + String(o.codigoRnos || '')).toLowerCase();
+            return (
+              '<label class="trn-os-list-row" data-search="' + esc(searchKey) + '" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.65rem 0.85rem;border-bottom:1px solid #e2ecf0;cursor:pointer;background:' + (checked ? '#ecfdf5' : '#ffffff') + ';">' +
+                '<span style="display:inline-flex;align-items:center;gap:0.6rem;min-width:0;">' +
+                  '<input type="checkbox" class="trn-prof-os-chk" value="' + esc(o.id) + '" ' + (checked ? 'checked' : '') + ' style="width:16px;height:16px;accent-color:#112D3A;flex-shrink:0;">' +
+                  '<span style="display:flex;flex-direction:column;min-width:0;">' +
+                    '<strong style="font-size:0.86rem;color:#112D3A;">' + esc(o.sigla) + '</strong>' +
+                    '<small style="font-size:0.74rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(o.nombre) + '</small>' +
+                  '</span>' +
+                '</span>' +
+                '<span style="font-size:0.72rem;font-weight:700;color:#475569;white-space:nowrap;">' + esc(o.tipo || '') + '</span>' +
+              '</label>'
+            );
+          }).join('');
+
+      osPickerHtml =
+        '<div id="trn-prof-os-picker-backdrop" role="dialog" aria-modal="true" style="position:fixed;inset:0;z-index:10010;background:rgba(17,45,58,0.65);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:1rem;">' +
+          '<div style="width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;background:#ffffff;border-radius:16px;border:2px solid #56D7A1;box-shadow:0 24px 60px rgba(0,0,0,0.38);overflow:hidden;">' +
+            '<div style="background:#112D3A;color:#ffffff;padding:0.9rem 1.15rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-shrink:0;">' +
+              '<div>' +
+                '<div style="font-size:0.68rem;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;color:#56D7A1;">Selección en Lista</div>' +
+                '<h3 style="margin:0.1rem 0 0;font-size:1rem;color:#ffffff;">Obras Sociales que Atiende</h3>' +
+              '</div>' +
+              '<button type="button" id="trn-os-picker-close" aria-label="Cerrar" style="background:rgba(255,255,255,0.12);border:none;color:#ffffff;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:0.95rem;font-weight:900;">✕</button>' +
+            '</div>' +
+            '<div style="padding:0.75rem 1rem;border-bottom:1px solid #e2ecf0;display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;background:#f8fbfc;flex-shrink:0;">' +
+              '<label style="cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;font-size:0.82rem;font-weight:800;color:#112D3A;padding:0.4rem 0.7rem;border-radius:8px;border:1px solid #56D7A1;background:' + (allSelectedNow ? '#dcfce7' : '#ffffff') + ';white-space:nowrap;">' +
+                '<input type="checkbox" id="trn-os-picker-all-chk" ' + (allSelectedNow ? 'checked' : '') + ' style="width:16px;height:16px;accent-color:#112D3A;"> Todas (' + obras.length + ')' +
+              '</label>' +
+              '<input class="ms-sa-input" id="trn-os-picker-search" placeholder="Buscar obra social..." style="flex:1;min-width:180px;">' +
+            '</div>' +
+            '<div id="trn-os-picker-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;">' +
+              osListItems +
+            '</div>' +
+            '<div style="padding:0.8rem 1rem;border-top:1px solid #e2ecf0;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;background:#ffffff;flex-shrink:0;">' +
+              '<span id="trn-os-picker-count" style="font-size:0.8rem;font-weight:800;color:#475569;">' + (draftOs.obraSocialIds || []).length + ' de ' + obras.length + ' seleccionadas</span>' +
+              '<button type="button" class="ms-sa-btn" id="trn-os-picker-done" style="padding:0.45rem 1rem;font-size:0.82rem;">✅ Listo</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    }
+
     return (
       '<div style="display:grid;gap:1rem;">' +
         '<div class="ms-sa-card">' +
-          '<h4 style="margin-top:0;">' + (editing ? '✏️ Editar Profesional' : '➕ Alta de Nuevo Profesional') + '</h4>' +
-          '<form id="ms-trn-prof-form" style="display:grid;gap:0.75rem;">' +
-            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.65rem;">' +
-              '<div><label class="ms-sa-label">DNI Profesional *</label><input class="ms-sa-input" id="trn-p-dni" required value="' + esc(editing ? editing.dni : '') + '" placeholder="Ej: 30123456"></div>' +
-              '<div><label class="ms-sa-label">Título</label><select class="ms-sa-select" id="trn-p-titulo">' +
-                ['Dr.', 'Dra.', 'Lic.', 'Klgo./a', 'Od.', 'Prof.', 'Mg.'].map(function (t) {
-                  return '<option value="' + t + '" ' + (editing && editing.titulo === t ? 'selected' : '') + '>' + t + '</option>';
-                }).join('') +
-              '</select></div>' +
-              '<div><label class="ms-sa-label">Apellido/s * (por separado)</label><input class="ms-sa-input" id="trn-p-ap" required value="' + esc(editing ? editing.apellidos : '') + '" placeholder="Ej: Pérez"></div>' +
-              '<div><label class="ms-sa-label">Nombre/s * (por separado)</label><input class="ms-sa-input" id="trn-p-nom" required value="' + esc(editing ? editing.nombres : '') + '" placeholder="Ej: Juan Carlos"></div>' +
-              '<div><label class="ms-sa-label">Matrícula Provincial</label><input class="ms-sa-input" id="trn-p-mp" value="' + esc(editing ? editing.matriculaProvincial : '') + '" placeholder="Ej: 28450"></div>' +
-              '<div><label class="ms-sa-label">Matrícula Nacional</label><input class="ms-sa-input" id="trn-p-mn" value="' + esc(editing ? editing.matriculaNacional : '') + '" placeholder="Opcional"></div>' +
-              '<div><label class="ms-sa-label">WhatsApp</label><input class="ms-sa-input" id="trn-p-wa" value="' + esc(editing ? editing.whatsapp : '') + '" placeholder="3585095475"></div>' +
-              '<div><label class="ms-sa-label">Email</label><input class="ms-sa-input" type="email" id="trn-p-email" value="' + esc(editing ? editing.email : '') + '" placeholder="dr@clinica.com"></div>' +
-              '<div><label class="ms-sa-label">Valor Consulta Particular (ARS)</label><input class="ms-sa-input" type="number" min="0" id="trn-p-val" value="' + esc(editing ? editing.valorConsultaParticularArs : 25000) + '"></div>' +
-            '</div>' +
-            '<div style="display:flex;flex-wrap:wrap;gap:1rem;font-size:0.84rem;font-weight:700;">' +
-              '<label><input type="checkbox" id="trn-p-pres" ' + (!editing || editing.permitePresencial ? 'checked' : '') + '> 🏥 Atiende Presencial</label>' +
-              '<label><input type="checkbox" id="trn-p-vid" ' + (!editing || editing.permiteVideollamada ? 'checked' : '') + '> 📹 Atiende Videollamada</label>' +
-              '<label><input type="checkbox" id="trn-p-part" ' + (!editing || editing.atiendeParticular ? 'checked' : '') + '> 💳 Atiende Particular (sin O.S.)</label>' +
-            '</div>' +
-            '<div>' +
-              '<label class="ms-sa-label">Especialidades que atiende el profesional:</label>' +
-              '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;max-height:150px;overflow-y:auto;padding:0.5rem;border:1px solid #dbe7ec;border-radius:10px;background:#f8fbfc;">' +
-                espChecks +
-              '</div>' +
-            '</div>' +
-            '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">' +
-              '<button type="submit" class="ms-sa-btn">💾 ' + (editing ? 'Guardar Cambios' : 'Dar de Alta Profesional') + '</button>' +
-              (editing ? '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="trn-p-cancel">Cancelar edición</button>' : '') +
-            '</div>' +
-          '</form>' +
-        '</div>' +
-
-        '<div class="ms-sa-card">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;margin-bottom:0.8rem;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.65rem;margin-bottom:0.85rem;">' +
             '<h4 style="margin:0;">👨‍⚕️ Padrón de Profesionales (' + filtered.length + ')</h4>' +
-            '<input class="ms-sa-input" id="trn-p-search" style="max-width:280px;" value="' + esc(STATE.searchProf) + '" placeholder="Buscar por DNI, Apellido o Nombre...">' +
+            '<div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;">' +
+              '<input class="ms-sa-input" id="trn-p-search" style="max-width:260px;" value="' + esc(STATE.searchProf) + '" placeholder="Buscar por DNI, Apellido o Nombre...">' +
+              '<button type="button" class="ms-sa-btn" id="trn-p-open-new" style="white-space:nowrap;">➕ Nuevo Profesional</button>' +
+            '</div>' +
           '</div>' +
           '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">' +
             '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;font-size:0.78rem;">' +
@@ -508,7 +717,10 @@
               '<th style="padding:0.5rem;">Modalidad</th><th style="padding:0.5rem;">Particular / MP</th><th style="padding:0.5rem;">Config.</th><th style="padding:0.5rem;text-align:right;">Acciones</th>' +
             '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
         '</div>' +
-      '</div>'
+      '</div>' +
+      profModalHtml +
+      espPickerHtml +
+      osPickerHtml
     );
   }
 
@@ -1539,33 +1751,59 @@
 
   function bindWorkspaceEvents(bodyEl) {
     // --- ABM Profesionales ---
+    var closeProfModal = function () {
+      STATE.profModalOpen = false;
+      STATE.profEspPickerOpen = false;
+      STATE.profOsPickerOpen = false;
+      STATE.editingProfId = null;
+      STATE.profDraft = null;
+      renderWorkspace();
+    };
+
+    var profOpenNew = bodyEl.querySelector('#trn-p-open-new');
+    if (profOpenNew) {
+      profOpenNew.addEventListener('click', function () {
+        STATE.editingProfId = null;
+        STATE.profDraft = createProfDraft(null);
+        STATE.profModalOpen = true;
+        STATE.profEspPickerOpen = false;
+        STATE.profOsPickerOpen = false;
+        renderWorkspace();
+      });
+    }
+
     var profForm = bodyEl.querySelector('#ms-trn-prof-form');
     if (profForm) {
       profForm.addEventListener('submit', async function (ev) {
         ev.preventDefault();
-        var espIds = [];
-        bodyEl.querySelectorAll('.trn-prof-esp-chk:checked').forEach(function (c) { espIds.push(c.value); });
+        syncProfDraftFromDom(bodyEl);
+        var d = STATE.profDraft || createProfDraft(null);
         var res = await apiTurnos('POST', {
           action: 'save_profesional',
           profesional: {
             id: STATE.editingProfId || undefined,
-            dni: bodyEl.querySelector('#trn-p-dni').value,
-            titulo: bodyEl.querySelector('#trn-p-titulo').value,
-            apellidos: bodyEl.querySelector('#trn-p-ap').value,
-            nombres: bodyEl.querySelector('#trn-p-nom').value,
-            matriculaProvincial: bodyEl.querySelector('#trn-p-mp').value,
-            matriculaNacional: bodyEl.querySelector('#trn-p-mn').value,
-            whatsapp: bodyEl.querySelector('#trn-p-wa').value,
-            email: bodyEl.querySelector('#trn-p-email').value,
-            valorConsultaParticularArs: Number(bodyEl.querySelector('#trn-p-val').value || 0),
-            permitePresencial: bodyEl.querySelector('#trn-p-pres').checked,
-            permiteVideollamada: bodyEl.querySelector('#trn-p-vid').checked,
-            atiendeParticular: bodyEl.querySelector('#trn-p-part').checked,
-            especialidadIds: espIds
+            dni: d.dni,
+            titulo: d.titulo,
+            apellidos: d.apellidos,
+            nombres: d.nombres,
+            matriculaProvincial: d.matriculaProvincial,
+            matriculaNacional: d.matriculaNacional,
+            whatsapp: d.whatsapp,
+            email: d.email,
+            valorConsultaParticularArs: Number(d.valorConsultaParticularArs || 0),
+            permitePresencial: Boolean(d.permitePresencial),
+            permiteVideollamada: Boolean(d.permiteVideollamada),
+            atiendeParticular: true,
+            especialidadIds: Array.isArray(d.especialidadIds) ? d.especialidadIds : [],
+            obraSocialIds: Array.isArray(d.obraSocialIds) ? d.obraSocialIds : []
           }
         });
         if (res && res.ok) {
+          STATE.profModalOpen = false;
+          STATE.profEspPickerOpen = false;
+          STATE.profOsPickerOpen = false;
           STATE.editingProfId = null;
+          STATE.profDraft = null;
           applyApiResponse(res);
           showToast(res.message || 'Profesional guardado.', false);
           renderWorkspace();
@@ -1574,8 +1812,174 @@
         }
       });
     }
+
     var profCancel = bodyEl.querySelector('#trn-p-cancel');
-    if (profCancel) profCancel.addEventListener('click', function () { STATE.editingProfId = null; renderWorkspace(); });
+    if (profCancel) profCancel.addEventListener('click', closeProfModal);
+    var profModalClose = bodyEl.querySelector('#trn-p-modal-close');
+    if (profModalClose) profModalClose.addEventListener('click', closeProfModal);
+    var profBackdrop = bodyEl.querySelector('#trn-prof-modal-backdrop');
+    if (profBackdrop) {
+      profBackdrop.addEventListener('click', function (ev) {
+        if (ev.target === profBackdrop) closeProfModal();
+      });
+    }
+
+    var openEspPickerBtn = bodyEl.querySelector('#trn-p-open-esp-picker');
+    if (openEspPickerBtn) {
+      openEspPickerBtn.addEventListener('click', function () {
+        syncProfDraftFromDom(bodyEl);
+        STATE.profEspPickerOpen = true;
+        renderWorkspace();
+        var s = document.getElementById('trn-esp-picker-search');
+        if (s) s.focus();
+      });
+    }
+
+    var openOsPickerBtn = bodyEl.querySelector('#trn-p-open-os-picker');
+    if (openOsPickerBtn) {
+      openOsPickerBtn.addEventListener('click', function () {
+        syncProfDraftFromDom(bodyEl);
+        STATE.profOsPickerOpen = true;
+        renderWorkspace();
+        var s = document.getElementById('trn-os-picker-search');
+        if (s) s.focus();
+      });
+    }
+
+    var osAllQuick = bodyEl.querySelector('#trn-p-os-all-quick');
+    if (osAllQuick) {
+      osAllQuick.addEventListener('change', function () {
+        syncProfDraftFromDom(bodyEl);
+        if (!STATE.profDraft) return;
+        var activeOs = (STATE.data.obrasSociales || []).filter(function (o) { return o.activa; });
+        STATE.profDraft.obraSocialIds = osAllQuick.checked
+          ? activeOs.map(function (o) { return o.id; })
+          : [];
+        renderWorkspace();
+      });
+    }
+
+    // --- Picker Modal: Especialidades en lista ---
+    var closeEspPicker = function () {
+      STATE.profEspPickerOpen = false;
+      renderWorkspace();
+    };
+    var espPickerBackdrop = bodyEl.querySelector('#trn-prof-esp-picker-backdrop');
+    if (espPickerBackdrop) {
+      espPickerBackdrop.addEventListener('click', function (ev) {
+        if (ev.target === espPickerBackdrop) closeEspPicker();
+      });
+    }
+    var espPickerClose = bodyEl.querySelector('#trn-esp-picker-close');
+    if (espPickerClose) espPickerClose.addEventListener('click', closeEspPicker);
+    var espPickerDone = bodyEl.querySelector('#trn-esp-picker-done');
+    if (espPickerDone) espPickerDone.addEventListener('click', closeEspPicker);
+
+    var updateEspPickerUi = function () {
+      if (!STATE.profDraft) return;
+      var ids = [];
+      bodyEl.querySelectorAll('.trn-prof-esp-chk').forEach(function (chk) {
+        var row = chk.closest('.trn-esp-list-row');
+        if (chk.checked) {
+          ids.push(chk.value);
+          if (row) row.style.background = '#ecfdf5';
+        } else if (row) {
+          row.style.background = '#ffffff';
+        }
+      });
+      STATE.profDraft.especialidadIds = ids;
+      var cnt = bodyEl.querySelector('#trn-esp-picker-count');
+      if (cnt) cnt.textContent = ids.length + ' seleccionadas';
+    };
+    bodyEl.querySelectorAll('.trn-prof-esp-chk').forEach(function (chk) {
+      chk.addEventListener('change', updateEspPickerUi);
+    });
+    var espPickerAll = bodyEl.querySelector('#trn-esp-picker-all');
+    if (espPickerAll) {
+      espPickerAll.addEventListener('click', function () {
+        bodyEl.querySelectorAll('.trn-prof-esp-chk').forEach(function (chk) { chk.checked = true; });
+        updateEspPickerUi();
+      });
+    }
+    var espPickerNone = bodyEl.querySelector('#trn-esp-picker-none');
+    if (espPickerNone) {
+      espPickerNone.addEventListener('click', function () {
+        bodyEl.querySelectorAll('.trn-prof-esp-chk').forEach(function (chk) { chk.checked = false; });
+        updateEspPickerUi();
+      });
+    }
+    var espPickerSearch = bodyEl.querySelector('#trn-esp-picker-search');
+    if (espPickerSearch) {
+      espPickerSearch.addEventListener('input', function () {
+        var q = String(espPickerSearch.value || '').trim().toLowerCase();
+        bodyEl.querySelectorAll('.trn-esp-list-row').forEach(function (row) {
+          var hay = row.getAttribute('data-search') || '';
+          row.style.display = !q || hay.indexOf(q) !== -1 ? 'flex' : 'none';
+        });
+      });
+    }
+
+    // --- Picker Modal: Obras Sociales en lista + Todas ---
+    var closeOsPicker = function () {
+      STATE.profOsPickerOpen = false;
+      renderWorkspace();
+    };
+    var osPickerBackdrop = bodyEl.querySelector('#trn-prof-os-picker-backdrop');
+    if (osPickerBackdrop) {
+      osPickerBackdrop.addEventListener('click', function (ev) {
+        if (ev.target === osPickerBackdrop) closeOsPicker();
+      });
+    }
+    var osPickerClose = bodyEl.querySelector('#trn-os-picker-close');
+    if (osPickerClose) osPickerClose.addEventListener('click', closeOsPicker);
+    var osPickerDone = bodyEl.querySelector('#trn-os-picker-done');
+    if (osPickerDone) osPickerDone.addEventListener('click', closeOsPicker);
+
+    var updateOsPickerUi = function () {
+      if (!STATE.profDraft) return;
+      var chks = bodyEl.querySelectorAll('.trn-prof-os-chk');
+      var ids = [];
+      chks.forEach(function (chk) {
+        var row = chk.closest('.trn-os-list-row');
+        if (chk.checked) {
+          ids.push(chk.value);
+          if (row) row.style.background = '#ecfdf5';
+        } else if (row) {
+          row.style.background = '#ffffff';
+        }
+      });
+      STATE.profDraft.obraSocialIds = ids;
+      var cnt = bodyEl.querySelector('#trn-os-picker-count');
+      if (cnt) cnt.textContent = ids.length + ' de ' + chks.length + ' seleccionadas';
+      var allChk = bodyEl.querySelector('#trn-os-picker-all-chk');
+      if (allChk) {
+        allChk.checked = chks.length > 0 && ids.length === chks.length;
+        var lbl = allChk.closest('label');
+        if (lbl) lbl.style.background = allChk.checked ? '#dcfce7' : '#ffffff';
+      }
+    };
+    bodyEl.querySelectorAll('.trn-prof-os-chk').forEach(function (chk) {
+      chk.addEventListener('change', updateOsPickerUi);
+    });
+    var osPickerAllChk = bodyEl.querySelector('#trn-os-picker-all-chk');
+    if (osPickerAllChk) {
+      osPickerAllChk.addEventListener('change', function () {
+        var checked = osPickerAllChk.checked;
+        bodyEl.querySelectorAll('.trn-prof-os-chk').forEach(function (chk) { chk.checked = checked; });
+        updateOsPickerUi();
+      });
+    }
+    var osPickerSearch = bodyEl.querySelector('#trn-os-picker-search');
+    if (osPickerSearch) {
+      osPickerSearch.addEventListener('input', function () {
+        var q = String(osPickerSearch.value || '').trim().toLowerCase();
+        bodyEl.querySelectorAll('.trn-os-list-row').forEach(function (row) {
+          var hay = row.getAttribute('data-search') || '';
+          row.style.display = !q || hay.indexOf(q) !== -1 ? 'flex' : 'none';
+        });
+      });
+    }
+
     var profSearch = bodyEl.querySelector('#trn-p-search');
     if (profSearch) profSearch.addEventListener('input', function () {
       STATE.searchProf = profSearch.value;
@@ -1584,7 +1988,16 @@
       if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
     });
     bodyEl.querySelectorAll('[data-edit-prof]').forEach(function (b) {
-      b.addEventListener('click', function () { STATE.editingProfId = b.getAttribute('data-edit-prof'); renderWorkspace(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+      b.addEventListener('click', function () {
+        var pid = b.getAttribute('data-edit-prof');
+        var found = (STATE.data.profesionales || []).find(function (p) { return p.id === pid; }) || null;
+        STATE.editingProfId = pid;
+        STATE.profDraft = createProfDraft(found);
+        STATE.profModalOpen = true;
+        STATE.profEspPickerOpen = false;
+        STATE.profOsPickerOpen = false;
+        renderWorkspace();
+      });
     });
     bodyEl.querySelectorAll('[data-goto-gest-prof]').forEach(function (b) {
       b.addEventListener('click', function () { syncGestionDraftForProf(b.getAttribute('data-goto-gest-prof')); openTurnosView('gestion_profesionales'); });
@@ -2224,6 +2637,22 @@
       },
       true
     );
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Escape') return;
+      if (STATE.activeView !== 'profesionales' || !STATE.profModalOpen) return;
+      if (STATE.profOsPickerOpen) {
+        STATE.profOsPickerOpen = false;
+        renderWorkspace();
+      } else if (STATE.profEspPickerOpen) {
+        STATE.profEspPickerOpen = false;
+        renderWorkspace();
+      } else {
+        STATE.profModalOpen = false;
+        STATE.editingProfId = null;
+        STATE.profDraft = null;
+        renderWorkspace();
+      }
+    });
   }
 
   var initialLoaded = false;
