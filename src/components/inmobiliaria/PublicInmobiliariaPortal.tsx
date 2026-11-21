@@ -812,35 +812,92 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
 
         {/* 4. PESTAÑAS ESTILO MERCADO PAGO / CEMEP (VENTAS / ALQUILERES / ALQUILERES TEMPORARIOS) */}
         {(() => {
-          const opTabs = [
+          const opTabs: Array<{
+            key: OperacionInmobiliaria;
+            label: string;
+            shortLabel: string;
+            sub: string;
+            icon: React.ReactNode;
+            count: number;
+          }> = [
             {
-              key: "venta" as OperacionInmobiliaria,
+              key: "venta",
               label: "Ventas",
               shortLabel: "Ventas",
               sub: "Casas, Deptos, Lotes y Campos",
-              icon: "🏡",
+              icon: (
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 10.5L12 3l9 7.5" />
+                  <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" />
+                  <path d="M9.5 21v-6a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6" />
+                </svg>
+              ),
               count: tabCounts.venta,
             },
             {
-              key: "alquiler" as OperacionInmobiliaria,
+              key: "alquiler",
               label: "Alquileres",
               shortLabel: "Alquileres",
               sub: "Vivienda y Comerciales",
-              icon: "🔑",
+              icon: (
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="7.5" cy="15.5" r="4.5" />
+                  <path d="M11 12l9-9" />
+                  <path d="M15.5 7.5L18 10" />
+                  <path d="M18 5l2.5 2.5" />
+                </svg>
+              ),
               count: tabCounts.alquiler,
             },
             {
-              key: "alquiler_temporario" as OperacionInmobiliaria,
+              key: "alquiler_temporario",
               label: "Alquileres Temporarios",
               shortLabel: "Temporarios",
               sub: "Por día, semana o quincena",
-              icon: "🏖️",
+              icon: (
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="4" width="18" height="17" rx="2" />
+                  <path d="M16 2v4" />
+                  <path d="M8 2v4" />
+                  <path d="M3 10h18" />
+                  <path d="M9 15l2 2 4-4" />
+                </svg>
+              ),
               count: tabCounts.alquiler_temporario,
             },
-          ] as const;
+          ];
 
           const currentVisualTab: OperacionInmobiliaria = activeTab;
-          const isVentaActive = !aiResult && currentVisualTab === "venta";
 
           const tabsHeaderBg =
             currentVisualTab === "venta"
@@ -850,19 +907,22 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               : `linear-gradient(90deg, color-mix(in srgb, ${primary} 88%, #000000) 0%, color-mix(in srgb, ${primary} 48%, ${accent}) 55%, ${accent} 100%)`;
 
           return (
-            <section id="propiedades-tabs" className="w-full overflow-hidden rounded-[28px] shadow-xl">
-              {/* Franja superior donde descansan las 3 pestañas estilo carpeta / CEMEP */}
+            <section
+              id="propiedades-tabs"
+              className="w-full overflow-hidden rounded-[28px] border border-[#1F1F1F]/10 bg-[#FFFFFF] shadow-xl"
+            >
+              {/* Franja superior donde descansan las 3 pestañas estilo carpeta */}
               <div
-                className="w-full pt-4 transition-all duration-300 sm:pt-6"
+                className="w-full pt-4 transition-all duration-300 sm:pt-5"
                 style={{ background: tabsHeaderBg }}
               >
-                <div className="px-3 sm:px-6">
+                <div className="px-5 sm:px-7">
                   <div
                     role="tablist"
                     aria-label="Operaciones inmobiliarias: Ventas, Alquileres y Alquileres Temporarios"
-                    className="relative flex items-end gap-1 sm:gap-2"
+                    className="relative flex items-end gap-1.5 sm:gap-2.5"
                   >
-                    {opTabs.map((tab, idx) => {
+                    {opTabs.map((tab) => {
                       const isActive = !aiResult && activeTab === tab.key;
                       return (
                         <button
@@ -879,33 +939,37 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           style={{
                             backgroundColor: isActive ? "#FFFFFF" : "transparent",
                             color: isActive ? primary : "#FFFFFF",
+                            outline: "none",
                           }}
-                          className={`relative flex shrink-0 cursor-pointer items-center gap-2 px-3.5 py-3 text-xs font-black tracking-tight transition-all duration-200 focus:outline-none sm:gap-2.5 sm:px-6 sm:py-4 sm:text-base ${
+                          className={`relative flex shrink-0 cursor-pointer items-center gap-2 px-3.5 py-3 text-xs font-black tracking-tight transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FC8006] sm:gap-2.5 sm:px-6 sm:py-3.5 sm:text-base ${
                             isActive
-                              ? "z-20 rounded-t-[22px]"
-                              : "z-10 rounded-t-[20px] hover:bg-[#FFFFFF]/15"
+                              ? "-mb-px z-20 rounded-t-[20px]"
+                              : "z-10 rounded-t-[18px] hover:bg-[#FFFFFF]/12"
                           }`}
                         >
-                          {/* Curva cóncava invertida inferior izquierda cuando la pestaña activa no es la primera */}
-                          {isActive && idx > 0 && (
+                          {/* Curva cóncava invertida inferior izquierda */}
+                          {isActive && (
                             <svg
                               aria-hidden="true"
-                              width="22"
-                              height="22"
-                              viewBox="0 0 22 22"
-                              className="pointer-events-none absolute -left-[22px] bottom-0 block h-[22px] w-[22px]"
+                              width="20"
+                              height="20"
+                              viewBox="0 0 20 20"
+                              className="pointer-events-none absolute -left-[20px] bottom-0 block h-[20px] w-[20px]"
                             >
-                              <path d="M22 0 L22 22 L0 22 A22 22 0 0 0 22 0 Z" fill="#FFFFFF" />
+                              <path d="M20 0 L20 20 L0 20 A20 20 0 0 0 20 0 Z" fill="#FFFFFF" />
                             </svg>
                           )}
 
                           <span
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm sm:h-8 sm:w-8 sm:text-base"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors sm:h-8 sm:w-8"
                             style={{
-                              backgroundColor: "#FFFFFF",
+                              backgroundColor: isActive
+                                ? `color-mix(in srgb, ${accent} 16%, #FFFFFF)`
+                                : "rgba(255,255,255,0.14)",
                               borderColor: isActive
-                                ? `color-mix(in srgb, ${primary} 18%, transparent)`
-                                : "rgba(255,255,255,0.55)",
+                                ? `color-mix(in srgb, ${accent} 42%, transparent)`
+                                : "rgba(255,255,255,0.28)",
+                              color: isActive ? primary : "#FFFFFF",
                             }}
                           >
                             {tab.icon}
@@ -926,16 +990,16 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                             {tab.count}
                           </span>
 
-                          {/* Curva cóncava invertida inferior derecha cuando la pestaña está activa */}
+                          {/* Curva cóncava invertida inferior derecha */}
                           {isActive && (
                             <svg
                               aria-hidden="true"
-                              width="22"
-                              height="22"
-                              viewBox="0 0 22 22"
-                              className="pointer-events-none absolute -right-[22px] bottom-0 block h-[22px] w-[22px]"
+                              width="20"
+                              height="20"
+                              viewBox="0 0 20 20"
+                              className="pointer-events-none absolute -right-[20px] bottom-0 block h-[20px] w-[20px]"
                             >
-                              <path d="M0 0 L0 22 L22 22 A22 22 0 0 1 0 0 Z" fill="#FFFFFF" />
+                              <path d="M0 0 L0 20 L20 20 A20 20 0 0 1 0 0 Z" fill="#FFFFFF" />
                             </svg>
                           )}
                         </button>
@@ -945,31 +1009,34 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                 </div>
               </div>
 
-              {/* Cuerpo principal blanco que se funde sin corte con la pestaña activa */}
-              <div className="relative w-full bg-[#F6F5F3]">
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 top-0 h-14 transition-all duration-300"
-                  style={{ background: tabsHeaderBg }}
-                />
-                <div className="relative px-3 pb-3 sm:px-6 sm:pb-6">
-                  <div
-                    role="tabpanel"
-                    id={`panel-inmo-${activeTab}`}
-                    aria-labelledby={`tab-inmo-${activeTab}`}
-                    style={{ backgroundColor: "#FFFFFF" }}
-                    className={`relative z-10 bg-[#FFFFFF] p-4 sm:p-6 space-y-6 shadow-xl transition-all duration-200 ${
-                      isVentaActive
-                        ? "rounded-tr-[26px] rounded-b-[26px] rounded-tl-none"
-                        : "rounded-[26px]"
-                    }`}
-                  >
+              {/* Cuerpo principal blanco a ancho completo, sin bordes negros sobresalientes */}
+              <div
+                role="tabpanel"
+                id={`panel-inmo-${activeTab}`}
+                aria-labelledby={`tab-inmo-${activeTab}`}
+                style={{ backgroundColor: "#FFFFFF" }}
+                className="relative z-10 w-full space-y-6 bg-[#FFFFFF] p-4 sm:p-6"
+              >
                     {/* BARRA DE BÚSQUEDA RÁPIDA + FILTROS RÁPIDOS (URBANA/RURAL, PH, GARAGE, PILETA, QUINCHO...) */}
                     <div className="rounded-2xl border border-[#1F1F1F]/10 bg-[#FAF8F6] p-4 sm:p-5 space-y-4">
             <div className="grid gap-3 md:grid-cols-12">
               <div className="md:col-span-5">
-                <label className="mb-1 block text-[11px] font-extrabold uppercase text-[#1F1F1F]/70">
-                  🔎 Búsqueda Rápida
+                <label className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-[#1F1F1F]/70">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                  <span>Búsqueda Rápida</span>
                 </label>
                 <input
                   type="search"
@@ -1367,8 +1434,6 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
               })}
             </div>
           )}
-                  </div>
-                </div>
               </div>
             </section>
           );
