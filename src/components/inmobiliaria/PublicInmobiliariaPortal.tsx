@@ -1646,7 +1646,7 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                         </div>
                       </div>
 
-                      <div className="mt-4 flex items-center gap-2 border-t border-[#1F1F1F]/10 pt-3.5">
+                      <div className="mt-4 flex items-stretch gap-2 border-t border-[#1F1F1F]/10 pt-3.5">
                         <button
                           type="button"
                           onClick={() => openPropertyDetail(prop)}
@@ -1661,11 +1661,12 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                           )}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-black shadow hover:brightness-95"
+                          title="Consultar por WhatsApp"
+                          aria-label={`Consultar por WhatsApp sobre ${prop.titulo}`}
+                          className="inline-flex w-11 shrink-0 items-center justify-center rounded-xl shadow transition hover:scale-105 hover:brightness-95"
                           style={{ backgroundColor: accent, color: primary }}
                         >
-                          <WhatsAppIcon size={14} className="shrink-0" />
-                          <span>WA</span>
+                          <WhatsAppIcon size={20} className="shrink-0" />
                         </a>
                       </div>
                     </div>
@@ -2232,7 +2233,8 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
                       rel="noopener noreferrer"
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-black text-[#FFFFFF] shadow hover:brightness-95"
                     >
-                      💬 Consultar por WhatsApp
+                      <WhatsAppIcon size={18} className="shrink-0" />
+                      <span>Consultar por WhatsApp</span>
                     </a>
 
                     <form onSubmit={handleSendLead} className="space-y-2.5 pt-2 border-t border-[#1F1F1F]/10">
