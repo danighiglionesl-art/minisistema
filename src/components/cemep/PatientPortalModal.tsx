@@ -2,9 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import {
+  ArrowLeft,
   Calendar,
   CheckCircle2,
   Download,
+  Eye,
+  EyeOff,
   FileCheck2,
   FileHeart,
   FilePlus2,
@@ -93,6 +96,7 @@ export function PatientPortalModal({
   // Login
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [showGoogleFallback, setShowGoogleFallback] = useState(false);
   const [googleEmailQuick, setGoogleEmailQuick] = useState("");
   const [googleNameQuick, setGoogleNameQuick] = useState("");
@@ -209,9 +213,36 @@ export function PatientPortalModal({
     } else {
       setTimeout(initGsi, 120);
     }
-  }, [open, bundle, googleClientId, apiUrl, onBundleChange]);
+  }, [open, bundle, googleClientId, showGoogleFallback, apiUrl, onBundleChange]);
+
+  // Cerrar con tecla Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
 
   if (!open) return null;
+
+  function handleGoogleContinueClick() {
+    setMsg(null);
+    if (googleClientId) {
+      const g = (window as unknown as { google?: any }).google;
+      if (g?.accounts?.id) {
+        try {
+          g.accounts.id.prompt();
+        } catch {
+          // Mostrar botón oficial de Google como respaldo
+        }
+      }
+      setShowGoogleFallback(true);
+      return;
+    }
+    setShowGoogleFallback((prev) => !prev);
+  }
 
   async function postAction(payload: Record<string, unknown>) {
     setBusy(true);
@@ -257,33 +288,68 @@ export function PatientPortalModal({
       role="dialog"
       aria-modal="true"
       aria-label="Portal de Pacientes CEMEP"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#1B335D]/70 p-3 backdrop-blur-sm sm:p-5"
     >
-      <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-[#FFFFFF] shadow-2xl">
-        {/* Encabezado */}
-        <div
-          className="flex items-center justify-between gap-4 px-5 py-4 text-[#FFFFFF] sm:px-7"
-          style={{
-            background: "linear-gradient(135deg, #1B335D 0%, #0A74A6 65%, #0099D8 100%)",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFFFFF]/15">
-              <UserRound className="h-5 w-5 text-[#A6CA0E]" />
-            </span>
-            <div>
-              <h2 className="text-lg font-black tracking-tight sm:text-xl">
-                Portal de Pacientes · CEMEP
+      <div
+        className={`relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-3xl border border-[#0099D8]/25 bg-[#FFFFFF] text-[#1B335D] shadow-2xl ${
+          bundle ? "max-w-4xl" : "max-w-2xl"
+        }`}
+      >
+        {/* Encabezado: formato limpio estilo ReikiOnline en modo acceso, cabecera institucional completa en sesión iniciada */}
+        {!bundle ? (
+          <div className="flex items-center justify-between gap-3 border-b border-[#1B335D]/12 bg-[#FFFFFF] px-6 py-4 sm:px-8 sm:py-5">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#0099D8]/30 bg-[#FFFFFF] p-1 shadow-sm">
+                <img
+                  src="/cemep/cemep-favicon.png"
+                  alt="CEMEP"
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 object-contain"
+                />
+              </div>
+              <h2 className="text-lg font-bold tracking-tight text-[#1B335D] sm:text-xl">
+                {authTab === "register"
+                  ? "Registrarme"
+                  : authTab === "recover"
+                    ? "Recuperar contraseña"
+                    : "Ingresar"}
               </h2>
-              <p className="text-xs text-[#FFFFFF]/80">
-                {bundle
-                  ? `${bundle.user.nombreCompleto} · ${bundle.user.email}`
-                  : "Consultá tus estudios, solicitá recetas digitales y gestioná tus turnos"}
-              </p>
             </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar Portal de Pacientes"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-[#F1F5F9] text-[#1B335D] transition-colors hover:bg-[#E2E8F0]"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            {bundle && (
+        ) : (
+          <div
+            className="flex items-center justify-between gap-4 px-5 py-4 text-[#FFFFFF] sm:px-7"
+            style={{
+              background: "linear-gradient(135deg, #1B335D 0%, #0A74A6 65%, #0099D8 100%)",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFFFFF]/15">
+                <UserRound className="h-5 w-5 text-[#A6CA0E]" />
+              </span>
+              <div>
+                <h2 className="text-lg font-black tracking-tight sm:text-xl">
+                  Portal de Pacientes · CEMEP
+                </h2>
+                <p className="text-xs text-[#FFFFFF]/80">
+                  {bundle.user.nombreCompleto} · {bundle.user.email}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleLogout}
@@ -292,26 +358,31 @@ export function PatientPortalModal({
                 <LogOut className="h-3.5 w-3.5" />
                 Salir
               </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Cerrar Portal de Pacientes"
-              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-[#FFFFFF]/15 text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
-            >
-              <X className="h-5 w-5" />
-            </button>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Cerrar Portal de Pacientes"
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-[#FFFFFF]/15 text-[#FFFFFF] hover:bg-[#FFFFFF]/25"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Contenido */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-7">
+        <div
+          className={`flex-1 overflow-y-auto overscroll-contain ${
+            bundle ? "p-5 sm:p-7" : "px-6 py-5 sm:px-8 sm:py-6"
+          }`}
+        >
           {msg && (
             <div
-              className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+              role="alert"
+              className={`mb-4 rounded-xl border px-4 py-3 text-xs font-semibold sm:text-sm ${
                 msg.isErr
                   ? "border-[#FECDD3] bg-[#FFF1F2] text-[#9F1239]"
-                  : "border-[#A7F3D0] bg-[#ECFDF5] text-[#065F46]"
+                  : "border-[#57B7B8]/40 bg-[#EFFCF9] text-[#0A5E63]"
               }`}
             >
               {msg.text}
@@ -319,274 +390,383 @@ export function PatientPortalModal({
           )}
 
           {!bundle ? (
-            <div className="mx-auto max-w-xl">
-              {/* Tabs auth */}
-              <div className="mb-5 grid grid-cols-3 gap-1.5 rounded-2xl bg-[#F1F5F9] p-1">
-                {[
-                  { id: "login", label: "Ingresar" },
-                  { id: "register", label: "Registrarme" },
-                  { id: "recover", label: "Recuperar Clave" },
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      setAuthTab(t.id as "login" | "register" | "recover");
-                      setMsg(null);
+            <div>
+              {/* 1. MODO INGRESAR (Formato ReikiOnline en paleta CEMEP) */}
+              {authTab === "login" && (
+                <div>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await postAction({
+                        action: "patient_login",
+                        email: loginEmail,
+                        password: loginPassword,
+                      });
                     }}
-                    className={`cursor-pointer rounded-xl py-2.5 text-xs font-extrabold transition sm:text-sm ${
-                      authTab === t.id
-                        ? "bg-[#1B335D] text-[#FFFFFF] shadow"
-                        : "text-[#475569] hover:text-[#1B335D]"
-                    }`}
+                    className="space-y-4"
                   >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Bloque Google */}
-              {authTab !== "recover" && (
-                <div className="mb-5 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC]/70 p-4 text-center">
-                  <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#64748B]">
-                    Acceso rápido con Google
-                  </div>
-                  {googleClientId ? (
-                    <div id="cemep-google-btn-slot" className="flex justify-center" />
-                  ) : !showGoogleFallback ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowGoogleFallback(true)}
-                      className="inline-flex cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-5 py-2.5 text-sm font-bold text-[#334155] shadow-sm transition hover:bg-[#F8FAFC]"
-                    >
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#4285F4] text-xs font-black text-[#FFFFFF]">
-                        G
-                      </span>
-                      Continuar con Google
-                    </button>
-                  ) : (
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        await postAction({
-                          action: "patient_google_login",
-                          fallbackEmail: googleEmailQuick,
-                          fallbackName: googleNameQuick,
-                        });
-                      }}
-                      className="mt-2 grid gap-2 text-left sm:grid-cols-2"
-                    >
+                    <div>
+                      <label
+                        htmlFor="cemep-patient-login-email"
+                        className="block text-xs font-semibold text-[#1B335D] sm:text-sm"
+                      >
+                        Correo electrónico
+                      </label>
                       <input
+                        id="cemep-patient-login-email"
                         type="email"
                         required
-                        value={googleEmailQuick}
-                        onChange={(e) => setGoogleEmailQuick(e.target.value)}
-                        placeholder="tu.correo@gmail.com"
-                        className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm"
+                        autoComplete="username"
+                        spellCheck={false}
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
+                        placeholder="tucorreo@ejemplo.com"
+                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-3 text-base text-[#1B335D] placeholder:text-[#1B335D]/40 transition-colors focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none sm:text-sm"
                       />
-                      <input
-                        type="text"
-                        value={googleNameQuick}
-                        onChange={(e) => setGoogleNameQuick(e.target.value)}
-                        placeholder="Tu Nombre y Apellido"
-                        className="rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm"
-                      />
-                      <button
-                        type="submit"
-                        disabled={busy}
-                        className="cursor-pointer rounded-xl bg-[#4285F4] py-2 text-sm font-bold text-[#FFFFFF] hover:bg-[#3367D6] sm:col-span-2"
-                      >
-                        {busy ? "Ingresando..." : "Ingresar con cuenta Google"}
-                      </button>
-                    </form>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <label
+                          htmlFor="cemep-patient-login-pass"
+                          className="block text-xs font-semibold text-[#1B335D] sm:text-sm"
+                        >
+                          Contraseña
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMsg(null);
+                            setRecStep(1);
+                            setAuthTab("recover");
+                          }}
+                          className="cursor-pointer text-xs font-semibold text-[#0099D8] underline underline-offset-4 hover:text-[#0A74A6]"
+                        >
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      </div>
+                      <div className="relative mt-1.5">
+                        <input
+                          id="cemep-patient-login-pass"
+                          type={showPassword ? "text" : "password"}
+                          required
+                          autoComplete="current-password"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] py-3 pr-24 pl-4 text-base text-[#1B335D] placeholder:text-[#1B335D]/40 transition-colors focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none sm:text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          aria-pressed={showPassword}
+                          aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                          className="absolute top-1/2 right-2.5 inline-flex -translate-y-1/2 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#0099D8] transition-colors hover:bg-[#0099D8]/10"
+                        >
+                          {showPassword ? (
+                            <>
+                              <EyeOff className="h-3.5 w-3.5" />
+                              <span>Ocultar</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-3.5 w-3.5" />
+                              <span>Mostrar</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="w-full cursor-pointer rounded-xl bg-[#1B335D] px-5 py-3.5 text-sm font-bold text-[#FFFFFF] shadow-md shadow-[#1B335D]/20 transition-all hover:bg-[#0A74A6] disabled:opacity-60"
+                    >
+                      {busy ? "Verificando..." : "Ingresar"}
+                    </button>
+                  </form>
+
+                  {/* Separador "o" estilo ReikiOnline */}
+                  <div className="my-4 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-[#1B335D]/15" />
+                    <span className="text-xs font-medium text-[#1B335D]/60">o</span>
+                    <div className="h-px flex-1 bg-[#1B335D]/15" />
+                  </div>
+
+                  {/* Dos botones inferiores en paralelo: Google | Registrarme */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={handleGoogleContinueClick}
+                      disabled={busy}
+                      className="inline-flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-[#0099D8]/30 bg-[#FFFFFF] px-4 py-3 text-xs font-semibold text-[#1B335D] transition-all hover:border-[#0099D8] hover:bg-[#F4F9FC] disabled:opacity-60 sm:text-sm"
+                    >
+                      <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          fill="#4285F4"
+                          d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"
+                        />
+                      </svg>
+                      <span>Google</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMsg(null);
+                        setShowGoogleFallback(false);
+                        setAuthTab("register");
+                      }}
+                      className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-[#1B335D] bg-[#A6CA0E]/25 px-4 py-3 text-xs font-bold text-[#1B335D] transition-all hover:bg-[#A6CA0E]/45 sm:text-sm"
+                    >
+                      <span>Registrarme</span>
+                    </button>
+                  </div>
+
+                  {/* Acceso rápido con Google (desplegable al hacer clic en Google) */}
+                  {showGoogleFallback && (
+                    <div className="mt-4 rounded-2xl border border-[#0099D8]/25 bg-[#F4F9FC] p-4">
+                      {googleClientId ? (
+                        <div id="cemep-google-btn-slot" className="flex justify-center" />
+                      ) : (
+                        <form
+                          onSubmit={async (e) => {
+                            e.preventDefault();
+                            await postAction({
+                              action: "patient_google_login",
+                              fallbackEmail: googleEmailQuick,
+                              fallbackName: googleNameQuick,
+                            });
+                          }}
+                          className="grid gap-2.5 sm:grid-cols-2"
+                        >
+                          <input
+                            type="email"
+                            required
+                            value={googleEmailQuick}
+                            onChange={(e) => setGoogleEmailQuick(e.target.value)}
+                            placeholder="tu.correo@gmail.com"
+                            className="rounded-xl border border-[#0099D8]/30 bg-[#FFFFFF] px-3.5 py-2.5 text-sm text-[#1B335D] focus:border-[#0099D8] focus:outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={googleNameQuick}
+                            onChange={(e) => setGoogleNameQuick(e.target.value)}
+                            placeholder="Tu Nombre y Apellido"
+                            className="rounded-xl border border-[#0099D8]/30 bg-[#FFFFFF] px-3.5 py-2.5 text-sm text-[#1B335D] focus:border-[#0099D8] focus:outline-none"
+                          />
+                          <button
+                            type="submit"
+                            disabled={busy}
+                            className="cursor-pointer rounded-xl bg-[#0099D8] py-2.5 text-sm font-bold text-[#FFFFFF] transition hover:bg-[#0A74A6] sm:col-span-2"
+                          >
+                            {busy ? "Ingresando..." : "Continuar con cuenta Google"}
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
-              {authTab === "login" && (
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    await postAction({
-                      action: "patient_login",
-                      email: loginEmail,
-                      password: loginPassword,
-                    });
-                  }}
-                  className="space-y-3.5"
-                >
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">
-                      Correo electrónico
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      placeholder="paciente@correo.com"
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 text-sm focus:border-[#0099D8] focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">
-                      Contraseña
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 text-sm focus:border-[#0099D8] focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-3 text-sm font-extrabold text-[#FFFFFF] shadow-md hover:bg-[#142748] disabled:opacity-60"
-                  >
-                    {busy ? "Verificando..." : "Ingresar al Portal de Pacientes"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAuthTab("recover")}
-                    className="w-full cursor-pointer text-center text-xs font-bold text-[#0099D8] hover:underline"
-                  >
-                    ¿Olvidaste tu contraseña? Recuperala automáticamente
-                  </button>
-                </form>
-              )}
-
+              {/* 2. MODO REGISTRARME */}
               {authTab === "register" && (
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    await postAction({
-                      action: "patient_register",
-                      apellidos: regApellidos,
-                      nombres: regNombres,
-                      dni: regDni,
-                      whatsapp: regWhatsapp,
-                      obraSocial: regObraSocial,
-                      nroAfiliado: regNroAfiliado,
-                      esAfiliadoCemepPlus: regPlus,
-                      email: regEmail,
-                      password: regPassword,
-                    });
-                  }}
-                  className="grid gap-3 sm:grid-cols-2"
-                >
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">Apellido/s *</label>
-                    <input
-                      required
-                      value={regApellidos}
-                      onChange={(e) => setRegApellidos(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">Nombre/s *</label>
-                    <input
-                      required
-                      value={regNombres}
-                      onChange={(e) => setRegNombres(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">
-                      DNI * (vincula tus estudios e historia)
-                    </label>
-                    <input
-                      required
-                      value={regDni}
-                      onChange={(e) => setRegDni(e.target.value)}
-                      placeholder="Ej. 35123456"
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">WhatsApp</label>
-                    <input
-                      value={regWhatsapp}
-                      onChange={(e) => setRegWhatsapp(e.target.value)}
-                      placeholder="358..."
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">
-                      Obra Social / Prepaga
-                    </label>
-                    <input
-                      value={regObraSocial}
-                      onChange={(e) => setRegObraSocial(e.target.value)}
-                      placeholder="APROSS, OSDE, PAMI, Particular..."
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">
-                      Nº de Afiliado
-                    </label>
-                    <input
-                      value={regNroAfiliado}
-                      onChange={(e) => setRegNroAfiliado(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#009EE3]/30 bg-[#EBF9FF] px-3 py-2.5 text-xs font-bold text-[#1B335D] sm:col-span-2">
-                    <input
-                      type="checkbox"
-                      checked={regPlus}
-                      onChange={(e) => setRegPlus(e.target.checked)}
-                    />
-                    Soy afiliado/a a CEMEP Plus
-                  </label>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">
-                      Correo electrónico *
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">
-                      Crear Contraseña *
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      minLength={4}
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="mt-1 w-full cursor-pointer rounded-xl bg-[#0099D8] py-3 text-sm font-extrabold text-[#FFFFFF] shadow-md hover:bg-[#0A74A6] sm:col-span-2"
+                <div>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await postAction({
+                        action: "patient_register",
+                        apellidos: regApellidos,
+                        nombres: regNombres,
+                        dni: regDni,
+                        whatsapp: regWhatsapp,
+                        obraSocial: regObraSocial,
+                        nroAfiliado: regNroAfiliado,
+                        esAfiliadoCemepPlus: regPlus,
+                        email: regEmail,
+                        password: regPassword,
+                      });
+                    }}
+                    className="grid gap-3.5 sm:grid-cols-2"
                   >
-                    {busy ? "Creando cuenta..." : "Crear mi cuenta en CEMEP"}
-                  </button>
-                </form>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
+                        Apellido/s *
+                      </label>
+                      <input
+                        required
+                        value={regApellidos}
+                        onChange={(e) => setRegApellidos(e.target.value)}
+                        placeholder="Tu apellido"
+                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-2.5 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
+                        Nombre/s *
+                      </label>
+                      <input
+                        required
+                        value={regNombres}
+                        onChange={(e) => setRegNombres(e.target.value)}
+                        placeholder="Tu nombre"
+                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-2.5 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
+                        DNI * (vincula tus estudios e historia)
+                      </label>
+                      <input
+                        required
+                        value={regDni}
+                        onChange={(e) => setRegDni(e.target.value)}
+                        placeholder="Ej. 35123456"
+                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-2.5 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
+                        WhatsApp
+                      </label>
+                      <input
+                        value={regWhatsapp}
+                        onChange={(e) => setRegWhatsapp(e.target.value)}
+                        placeholder="358..."
+                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-2.5 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
+                        Obra Social / Prepaga
+                      </label>
+                      <input
+                        value={regObraSocial}
+                        onChange={(e) => setRegObraSocial(e.target.value)}
+                        placeholder="APROSS, OSDE, PAMI, Particular..."
+                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-2.5 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
+                        Nº de Afiliado
+                      </label>
+                      <input
+                        value={regNroAfiliado}
+                        onChange={(e) => setRegNroAfiliado(e.target.value)}
+                        placeholder="Opcional"
+                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-2.5 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                      />
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#57B7B8]/40 bg-[#F0FBF9] px-3.5 py-2.5 text-xs font-bold text-[#1B335D] sm:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={regPlus}
+                        onChange={(e) => setRegPlus(e.target.checked)}
+                      />
+                      Soy afiliado/a a CEMEP Plus
+                    </label>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
+                        Correo electrónico *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        placeholder="tucorreo@ejemplo.com"
+                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-2.5 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
+                        Contraseña *
+                      </label>
+                      <div className="relative mt-1.5">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          minLength={4}
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] py-2.5 pr-11 pl-4 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          aria-pressed={showPassword}
+                          aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                          className="absolute top-1/2 right-2.5 -translate-y-1/2 cursor-pointer rounded-lg p-1 text-[#0099D8] hover:bg-[#0099D8]/10"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="mt-1 w-full cursor-pointer rounded-xl bg-[#1B335D] px-5 py-3.5 text-sm font-bold text-[#FFFFFF] shadow-md shadow-[#1B335D]/20 transition-all hover:bg-[#0A74A6] disabled:opacity-60 sm:col-span-2"
+                    >
+                      {busy ? "Creando cuenta..." : "Registrarme"}
+                    </button>
+                  </form>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-[#1B335D]/15 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMsg(null);
+                        setAuthTab("login");
+                      }}
+                      className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-[#0099D8] hover:underline"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      <span>Volver</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthTab("login");
+                        setShowGoogleFallback(true);
+                      }}
+                      className="cursor-pointer text-xs font-semibold text-[#1B335D] underline underline-offset-4 hover:text-[#0099D8]"
+                    >
+                      Google
+                    </button>
+                  </div>
+                </div>
               )}
 
+              {/* 3. MODO RECUPERAR CONTRASEÑA */}
               {authTab === "recover" && (
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-[#BAE6FD] bg-[#F0F9FF] p-3.5 text-xs text-[#0C4A6E]">
-                    <KeyRound className="mb-1 inline h-4 w-4 text-[#0099D8]" /> Ingresá tu correo
-                    electrónico registrado y te generaremos un código automático de 6 dígitos para
-                    restablecer tu contraseña.
+                  <div className="rounded-xl border border-[#0099D8]/25 bg-[#F4F9FC] p-3.5 text-xs text-[#1B335D]">
+                    <KeyRound className="mr-1.5 mb-0.5 inline h-4 w-4 text-[#0099D8]" />
+                    Ingresá tu correo electrónico registrado y te generaremos un código automático de
+                    6 dígitos para restablecer tu contraseña.
                   </div>
+
                   {recStep === 1 ? (
                     <form
                       onSubmit={async (e) => {
@@ -600,20 +780,31 @@ export function PatientPortalModal({
                           if (data.devCodeHint) setRecCode(data.devCodeHint);
                         }
                       }}
-                      className="space-y-3"
+                      className="space-y-4"
                     >
-                      <input
-                        type="email"
-                        required
-                        value={recEmail}
-                        onChange={(e) => setRecEmail(e.target.value)}
-                        placeholder="Tu correo registrado"
-                        className="w-full rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 text-sm"
-                      />
+                      <div>
+                        <label
+                          htmlFor="cemep-patient-recover-email"
+                          className="block text-xs font-semibold text-[#1B335D] sm:text-sm"
+                        >
+                          Correo electrónico
+                        </label>
+                        <input
+                          id="cemep-patient-recover-email"
+                          type="email"
+                          required
+                          autoComplete="email"
+                          spellCheck={false}
+                          value={recEmail}
+                          onChange={(e) => setRecEmail(e.target.value)}
+                          placeholder="tucorreo@ejemplo.com"
+                          className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-3 text-base text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none sm:text-sm"
+                        />
+                      </div>
                       <button
                         type="submit"
                         disabled={busy}
-                        className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-sm font-extrabold text-[#FFFFFF]"
+                        className="w-full cursor-pointer rounded-xl bg-[#1B335D] px-5 py-3.5 text-sm font-bold text-[#FFFFFF] shadow-md transition-colors hover:bg-[#0A74A6] disabled:opacity-60"
                       >
                         <Mail className="mr-1.5 inline h-4 w-4" />
                         Enviar código de recuperación
@@ -635,33 +826,47 @@ export function PatientPortalModal({
                           setAuthTab("login");
                         }
                       }}
-                      className="space-y-3"
+                      className="space-y-3.5"
                     >
                       <input
                         required
                         value={recCode}
                         onChange={(e) => setRecCode(e.target.value)}
                         placeholder="Código de 6 dígitos"
-                        className="w-full rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 text-center text-lg font-black tracking-widest"
+                        className="w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-3 text-center text-lg font-black tracking-widest text-[#1B335D] focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
                       />
                       <input
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         required
                         minLength={4}
                         value={recNewPass}
                         onChange={(e) => setRecNewPass(e.target.value)}
                         placeholder="Nueva contraseña (mín. 4 caracteres)"
-                        className="w-full rounded-xl border border-[#CBD5E1] px-3.5 py-2.5 text-sm"
+                        className="w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-3 text-sm text-[#1B335D] focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
                       />
                       <button
                         type="submit"
                         disabled={busy}
-                        className="w-full cursor-pointer rounded-xl bg-[#059669] py-2.5 text-sm font-extrabold text-[#FFFFFF]"
+                        className="w-full cursor-pointer rounded-xl bg-[#1B335D] px-5 py-3.5 text-sm font-bold text-[#FFFFFF] shadow-md transition-colors hover:bg-[#0A74A6] disabled:opacity-60"
                       >
                         Confirmar nueva contraseña
                       </button>
                     </form>
                   )}
+
+                  <div className="border-t border-[#1B335D]/15 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMsg(null);
+                        setAuthTab("login");
+                      }}
+                      className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-[#0099D8] hover:underline"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      <span>Volver</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
