@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import PublicCvForm from "@/components/cv/PublicCvForm";
+import { getTenantCvFormConfig } from "@/lib/erp/handlers/cv-handler";
 import referenceCatalogs from "@/lib/erp/reference-catalogs.json";
 import {
   enforceOptionBranding,
@@ -43,6 +44,7 @@ export default async function TenantPublicCvPage(context: {
     tenant.is_base,
     tenant.branding
   );
+  const formConfig = await getTenantCvFormConfig(tenant);
 
   const cats = referenceCatalogs.catalogs as {
     paises?: Array<{ id: number; nombre: string; abreviatura?: string }>;
@@ -133,6 +135,7 @@ export default async function TenantPublicCvPage(context: {
           paises={cats.paises || []}
           provincias={cats.provincias || []}
           localidadesPorProvincia={cats.localidadesPorProvincia || {}}
+          formConfig={formConfig}
         />
       </main>
     </div>

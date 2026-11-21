@@ -8,6 +8,12 @@ import {
   getCvFieldMap,
   mergeCvFormConfig,
 } from "@/lib/erp/cv-form-config";
+import {
+  ALL_WORLD_LANGUAGES,
+  COMMON_WORLD_LANGUAGES,
+  LANGUAGE_LEVEL_OPTIONS,
+  OTHER_WORLD_LANGUAGES,
+} from "@/lib/erp/world-languages";
 
 interface PaisItem {
   id: number;
@@ -47,6 +53,11 @@ interface ExperienceRow {
   referenciaNombre: string;
   referenciaTelefono: string;
   tareas: string;
+}
+
+interface LanguageRow {
+  idioma: string;
+  nivel: string;
 }
 
 const WHATSAPP_COUNTRIES = [
@@ -278,13 +289,56 @@ export default function PublicCvForm(props: PublicCvFormProps) {
   const [nivelPosFacturacion, setNivelPosFacturacion] = useState("");
   const [nivelExcel, setNivelExcel] = useState("");
   const [nivelAtencionDigital, setNivelAtencionDigital] = useState("");
-  const [idiomaPrincipal, setIdiomaPrincipal] = useState("");
-  const [nivelIdioma, setNivelIdioma] = useState(
-    () =>
-      (fieldMap.nivelIdioma?.options && fieldMap.nivelIdioma.options[0]) ||
-      "Básico"
-  );
+  const defaultLanguageLevel =
+    (fieldMap.nivelIdioma?.options && fieldMap.nivelIdioma.options[0]) ||
+    LANGUAGE_LEVEL_OPTIONS[0];
+  const [idiomas, setIdiomas] = useState<LanguageRow[]>([
+    { idioma: "", nivel: defaultLanguageLevel },
+  ]);
   const [cursosAdicionales, setCursosAdicionales] = useState("");
+
+  const extraCustomLanguages = useMemo(() => {
+    const cfgOpts = fieldMap.idiomaPrincipal?.options;
+    if (!Array.isArray(cfgOpts)) return [];
+    const known = new Set<string>(ALL_WORLD_LANGUAGES);
+    return cfgOpts.filter(
+      (opt) => opt && opt !== "Ninguno" && !known.has(opt)
+    );
+  }, [fieldMap]);
+
+  const updateIdioma = (idx: number, nextIdioma: string) => {
+    setIdiomas((prev) => {
+      if (idx === 0 && (!nextIdioma || nextIdioma === "Ninguno")) {
+        return [{ idioma: nextIdioma, nivel: defaultLanguageLevel }];
+      }
+      return prev.map((row, i) =>
+        i === idx ? { ...row, idioma: nextIdioma } : row
+      );
+    });
+  };
+
+  const updateIdiomaNivel = (idx: number, nextNivel: string) => {
+    setIdiomas((prev) =>
+      prev.map((row, i) => (i === idx ? { ...row, nivel: nextNivel } : row))
+    );
+  };
+
+  const addIdiomaRow = () => {
+    setIdiomas((prev) =>
+      prev.length >= 10
+        ? prev
+        : [...prev, { idioma: "", nivel: defaultLanguageLevel }]
+    );
+  };
+
+  const removeIdiomaRow = (idx: number) => {
+    setIdiomas((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      return next.length > 0
+        ? next
+        : [{ idioma: "Ninguno", nivel: defaultLanguageLevel }];
+    });
+  };
 
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
 
@@ -456,8 +510,21 @@ export default function PublicCvForm(props: PublicCvFormProps) {
     if (fh.nivelPosFacturacion) setNivelPosFacturacion(String(fh.nivelPosFacturacion));
     if (fh.nivelExcel) setNivelExcel(String(fh.nivelExcel));
     if (fh.nivelAtencionDigital) setNivelAtencionDigital(String(fh.nivelAtencionDigital));
-    if (fh.idiomaPrincipal) setIdiomaPrincipal(String(fh.idiomaPrincipal));
-    if (fh.nivelIdioma) setNivelIdioma(String(fh.nivelIdioma));
+    if (Array.isArray(fh.idiomas) && fh.idiomas.length > 0) {
+      setIdiomas(
+        fh.idiomas.map((it: Record<string, unknown>) => ({
+          idioma: String(it?.idioma || ""),
+          nivel: String(it?.nivel || defaultLanguageLevel),
+        }))
+      );
+    } else if (fh.idiomaPrincipal) {
+      setIdiomas([
+        {
+          idioma: String(fh.idiomaPrincipal),
+          nivel: String(fh.nivelIdioma || defaultLanguageLevel),
+        },
+      ]);
+    }
     setCursosAdicionales(toUpperText(fh.cursosAdicionales || ""));
 
     if (exps.length > 0) {
@@ -609,6 +676,19 @@ export default function PublicCvForm(props: PublicCvFormProps) {
     ].filter(Boolean);
     const domicilioCompuesto = domicilioParts.join(", ");
 
+    const validIdiomas = idiomas
+      .map((r) => ({
+        idioma: String(r.idioma || "").trim(),
+        nivel: String(r.nivel || defaultLanguageLevel).trim() || defaultLanguageLevel,
+      }))
+      .filter((r) => r.idioma && r.idioma !== "Ninguno");
+    const primaryIdiomaVal =
+      validIdiomas.length > 0
+        ? validIdiomas[0].idioma
+        : String(idiomas[0]?.idioma || "").trim();
+    const primaryIdiomaNivel =
+      validIdiomas.length > 0 ? validIdiomas[0].nivel : "";
+
     try {
       const res = await fetch(
         `/api/cv?tenant=${encodeURIComponent(props.tenantSlug)}`,
@@ -664,8 +744,9 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             nivelPosFacturacion,
             nivelExcel,
             nivelAtencionDigital,
-            idiomaPrincipal,
-            nivelIdioma: idiomaPrincipal === "Ninguno" ? "" : nivelIdioma,
+            idiomaPrincipal: primaryIdiomaVal,
+            nivelIdioma: primaryIdiomaNivel,
+            idiomas: validIdiomas,
             cursosAdicionales,
             sinExperienciaPrevia,
             experiencias: sinExperienciaPrevia ? [] : experiencias,
@@ -898,6 +979,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             </h2>
           </div>
 
+          {isEnabled("foto") && (
           <div className="flex items-center gap-4">
             <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-2 border-[#56D7A1] bg-[#112D3A]/5">
               {fotoBase64 ? (
@@ -939,27 +1021,28 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               </p>
             </div>
           </div>
+          )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="grid grid-cols-5 gap-2">
+            {isEnabled("tipoDoc") && (
             <div className="col-span-2">
-              <label className={labelCls}>Tipo Doc. *</label>
+              <label className={labelCls}>{fldLabel("tipoDoc", "Tipo Doc.")}</label>
               <select
                 className={inputCls}
-                required
+                required={isReq("tipoDoc")}
                 value={tipoDoc}
                 onChange={(e) => setTipoDoc(e.target.value)}
               >
-                <option value="DNI">DNI</option>
-                <option value="CUIL">CUIL</option>
-                <option value="CUIT">CUIT</option>
-                <option value="Pasaporte">Pasaporte</option>
-                <option value="Doc. Extranjero">Extranjero</option>
+                {fldOptions("tipoDoc", ["DNI", "CUIL", "CUIT", "Pasaporte", "Doc. Extranjero"], tipoDoc).map((opt) => (
+                  <option key={`td-${opt}`} value={opt}>{opt}</option>
+                ))}
               </select>
             </div>
-            <div className="col-span-3">
-              <label className={labelCls}>Número (DNI) *</label>
+            )}
+            <div className={isEnabled("tipoDoc") ? "col-span-3" : "col-span-5"}>
+              <label className={labelCls}>{fldLabel("nroDoc", "Número (DNI)")}</label>
               <div className="relative">
                 <input
                   className={lookupLoading ? `${inputCls} pr-9` : inputCls}
@@ -967,7 +1050,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                   value={nroDoc}
                   onChange={handleUpperChange(setNroDoc)}
                   onBlur={() => void lookupCvByDni(nroDoc)}
-                  placeholder="Ej: 38123456"
+                  placeholder={fldPlaceholder("nroDoc", "Ej: 38123456")}
                 />
                 {lookupLoading && (
                   <span
@@ -979,98 +1062,103 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             </div>
           </div>
           <div>
-            <label className={labelCls}>Nombre(s) *</label>
+            <label className={labelCls}>{fldLabel("nombres", "Nombre(s)")}</label>
             <input
               className={inputCls}
               required
               value={nombres}
               onChange={handleUpperChange(setNombres)}
-              placeholder="Ej: María Florencia"
+              placeholder={fldPlaceholder("nombres", "Ej: María Florencia")}
             />
           </div>
           <div>
-            <label className={labelCls}>Apellido(s) *</label>
+            <label className={labelCls}>{fldLabel("apellidos", "Apellido(s)")}</label>
             <input
               className={inputCls}
               required
               value={apellidos}
               onChange={handleUpperChange(setApellidos)}
-              placeholder="Ej: González"
+              placeholder={fldPlaceholder("apellidos", "Ej: González")}
             />
           </div>
 
+          {isEnabled("fechaNacimiento") && (
           <div>
-            <label className={labelCls}>Fecha de Nacimiento *</label>
+            <label className={labelCls}>{fldLabel("fechaNacimiento", "Fecha de Nacimiento")}</label>
             <input
               type="date"
-              required
+              required={isReq("fechaNacimiento")}
               className={inputCls}
               value={fechaNacimiento}
               onChange={(e) => setFechaNacimiento(e.target.value)}
             />
           </div>
+          )}
+          {isEnabled("genero") && (
           <div>
-            <label className={labelCls}>Género *</label>
+            <label className={labelCls}>{fldLabel("genero", "Género")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("genero")}
               value={genero}
               onChange={(e) => setGenero(e.target.value)}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("genero")}>
                 Seleccionar...
               </option>
-              <option value="Femenino">Femenino</option>
-              <option value="Masculino">Masculino</option>
-              <option value="No binario">No binario</option>
-              <option value="Prefiero no especificar">Prefiero no especificar</option>
+              {fldOptions("genero", ["Femenino", "Masculino", "No binario", "Prefiero no especificar"], genero).map((opt) => (
+                <option key={`gen-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
+          {isEnabled("estadoCivil") && (
           <div>
-            <label className={labelCls}>Estado Civil *</label>
+            <label className={labelCls}>{fldLabel("estadoCivil", "Estado Civil")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("estadoCivil")}
               value={estadoCivil}
               onChange={(e) => setEstadoCivil(e.target.value)}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("estadoCivil")}>
                 Seleccionar...
               </option>
-              <option value="Soltero/a">Soltero/a</option>
-              <option value="Casado/a">Casado/a</option>
-              <option value="Unión convivencial">Unión convivencial</option>
-              <option value="Divorciado/a">Divorciado/a</option>
-              <option value="Viudo/a">Viudo/a</option>
+              {fldOptions("estadoCivil", ["Soltero/a", "Casado/a", "Unión convivencial", "Divorciado/a", "Viudo/a"], estadoCivil).map((opt) => (
+                <option key={`ec-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("hijosACargo") && (
           <div>
-            <label className={labelCls}>Cargas de Familia / Hijos *</label>
+            <label className={labelCls}>{fldLabel("hijosACargo", "Cargas de Familia / Hijos")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("hijosACargo")}
               value={hijosACargo}
               onChange={(e) => setHijosACargo(e.target.value)}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("hijosACargo")}>
                 Seleccionar...
               </option>
-              <option value="Sin cargas de familia">Sin cargas de familia</option>
-              <option value="1 persona a cargo">1 persona a cargo</option>
-              <option value="2 personas a cargo">2 personas a cargo</option>
-              <option value="3 o más personas a cargo">3 o más personas a cargo</option>
+              {fldOptions("hijosACargo", ["Sin cargas de familia", "1 persona a cargo", "2 personas a cargo", "3 o más personas a cargo"], hijosACargo).map((opt) => (
+                <option key={`hc-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
+          {isEnabled("nacionalidad") && (
           <div className="sm:col-span-2">
-            <label className={labelCls}>Nacionalidad *</label>
+            <label className={labelCls}>{fldLabel("nacionalidad", "Nacionalidad")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("nacionalidad")}
               value={nacionalidad}
               onChange={(e) => setNacionalidad(e.target.value)}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("nacionalidad")}>
                 Seleccionar...
               </option>
               {props.paises.map((p) => (
@@ -1080,6 +1168,8 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               ))}
             </select>
           </div>
+          )}
+          {renderCustomFieldsForSection("personal")}
         </div>
       </section>
 
@@ -1095,11 +1185,12 @@ export default function PublicCvForm(props: PublicCvFormProps) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {isEnabled("pais") && (
           <div>
-            <label className={labelCls}>País de Residencia *</label>
+            <label className={labelCls}>{fldLabel("pais", "País de Residencia")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("pais")}
               value={pais}
               onChange={(e) => setPais(e.target.value)}
             >
@@ -1110,13 +1201,15 @@ export default function PublicCvForm(props: PublicCvFormProps) {
               ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("provincia") && (
           <div>
-            <label className={labelCls}>Provincia / Estado *</label>
+            <label className={labelCls}>{fldLabel("provincia", "Provincia / Estado")}</label>
             {pais === "ARGENTINA" ? (
               <select
                 className={inputCls}
-                required
+                required={isReq("provincia")}
                 value={provincia}
                 onChange={(e) => setProvincia(e.target.value)}
               >
@@ -1129,20 +1222,22 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             ) : (
               <input
                 className={inputCls}
-                required
+                required={isReq("provincia")}
                 value={provincia}
                 onChange={handleUpperChange(setProvincia)}
                 placeholder="Estado / Región"
               />
             )}
           </div>
+          )}
 
+          {isEnabled("localidad") && (
           <div>
-            <label className={labelCls}>Localidad / Ciudad *</label>
+            <label className={labelCls}>{fldLabel("localidad", "Localidad / Ciudad")}</label>
             {pais === "ARGENTINA" && localidadesDisponibles.length > 0 ? (
               <select
                 className={inputCls}
-                required
+                required={isReq("localidad")}
                 value={localidad}
                 onChange={(e) => handleLocalidadChange(e.target.value)}
               >
@@ -1155,104 +1250,127 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             ) : (
               <input
                 className={inputCls}
-                required
+                required={isReq("localidad")}
                 value={localidad}
                 onChange={handleUpperChange(setLocalidad)}
                 placeholder="Ciudad / Localidad"
               />
             )}
           </div>
+          )}
 
+          {isEnabled("cp") && (
           <div>
-            <label className={labelCls}>Código Postal *</label>
+            <label className={labelCls}>{fldLabel("cp", "Código Postal")}</label>
             <input
               className={inputCls}
-              required
+              required={isReq("cp")}
               value={cp}
               onChange={handleUpperChange(setCp)}
-              placeholder="Ej: 5800"
+              placeholder={fldPlaceholder("cp", "Ej: 5800")}
             />
           </div>
+          )}
 
           {/* Domicilio dividido */}
+          {isEnabled("domicilioCalle") && (
           <div className="sm:col-span-2">
-            <label className={labelCls}>Calle *</label>
+            <label className={labelCls}>{fldLabel("domicilioCalle", "Calle")}</label>
             <input
               className={inputCls}
-              required
+              required={isReq("domicilioCalle")}
               value={domicilioCalle}
               onChange={handleUpperChange(setDomicilioCalle)}
-              placeholder="Ej: Av. San Martín"
+              placeholder={fldPlaceholder("domicilioCalle", "Ej: Av. San Martín")}
             />
           </div>
+          )}
 
+          {isEnabled("domicilioNumero") && (
           <div>
-            <label className={labelCls}>Número *</label>
+            <label className={labelCls}>{fldLabel("domicilioNumero", "Número")}</label>
             <input
               className={inputCls}
-              required
+              required={isReq("domicilioNumero")}
               value={domicilioNumero}
               onChange={handleUpperChange(setDomicilioNumero)}
-              placeholder="Ej: 450 (o S/N)"
+              placeholder={fldPlaceholder("domicilioNumero", "Ej: 450 (o S/N)")}
             />
           </div>
+          )}
 
+          {isEnabled("domicilioBarrio") && (
           <div>
-            <label className={labelCls}>Barrio *</label>
+            <label className={labelCls}>{fldLabel("domicilioBarrio", "Barrio")}</label>
             <input
               className={inputCls}
-              required
+              required={isReq("domicilioBarrio")}
               value={domicilioBarrio}
               onChange={handleUpperChange(setDomicilioBarrio)}
-              placeholder="Ej: Centro"
+              placeholder={fldPlaceholder("domicilioBarrio", "Ej: Centro")}
             />
           </div>
+          )}
 
+          {isEnabled("domicilioPiso") && (
           <div>
-            <label className={labelCls}>Piso</label>
+            <label className={labelCls}>{fldLabel("domicilioPiso", "Piso")}</label>
             <input
               className={inputCls}
+              required={isReq("domicilioPiso")}
               value={domicilioPiso}
               onChange={handleUpperChange(setDomicilioPiso)}
-              placeholder="Opcional"
+              placeholder={fldPlaceholder("domicilioPiso", "Opcional")}
             />
           </div>
+          )}
 
+          {isEnabled("domicilioDpto") && (
           <div>
-            <label className={labelCls}>Dpto.</label>
+            <label className={labelCls}>{fldLabel("domicilioDpto", "Dpto.")}</label>
             <input
               className={inputCls}
+              required={isReq("domicilioDpto")}
               value={domicilioDpto}
               onChange={handleUpperChange(setDomicilioDpto)}
-              placeholder="Opcional"
+              placeholder={fldPlaceholder("domicilioDpto", "Opcional")}
             />
           </div>
+          )}
 
+          {isEnabled("domicilioEdificio") && (
           <div>
-            <label className={labelCls}>Edificio</label>
+            <label className={labelCls}>{fldLabel("domicilioEdificio", "Edificio")}</label>
             <input
               className={inputCls}
+              required={isReq("domicilioEdificio")}
               value={domicilioEdificio}
               onChange={handleUpperChange(setDomicilioEdificio)}
-              placeholder="Opcional"
+              placeholder={fldPlaceholder("domicilioEdificio", "Opcional")}
             />
           </div>
+          )}
 
+          {isEnabled("domicilioTorre") && (
           <div>
-            <label className={labelCls}>Torre</label>
+            <label className={labelCls}>{fldLabel("domicilioTorre", "Torre")}</label>
             <input
               className={inputCls}
+              required={isReq("domicilioTorre")}
               value={domicilioTorre}
               onChange={handleUpperChange(setDomicilioTorre)}
-              placeholder="Opcional"
+              placeholder={fldPlaceholder("domicilioTorre", "Opcional")}
             />
           </div>
+          )}
 
+          {isEnabled("whatsapp") && (
+          <>
           <div>
-            <label className={labelCls}>País de WhatsApp *</label>
+            <label className={labelCls}>País de WhatsApp{isReq("whatsapp") ? " *" : ""}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("whatsapp")}
               value={waCountryIdx}
               onChange={(e) => setWaCountryIdx(Number(e.target.value))}
             >
@@ -1265,70 +1383,85 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
 
           <div>
-            <label className={labelCls}>Número de WhatsApp *</label>
+            <label className={labelCls}>{fldLabel("whatsapp", "Número de WhatsApp")}</label>
             <input
               className={inputCls}
-              required
+              required={isReq("whatsapp")}
               type="tel"
               value={whatsappNumero}
               onChange={handleUpperChange(setWhatsappNumero)}
-              placeholder="Ej: 3585095475 (sin 0 ni 15)"
+              placeholder={fldPlaceholder("whatsapp", "Ej: 3585095475 (sin 0 ni 15)")}
             />
           </div>
+          </>
+          )}
 
+          {isEnabled("email") && (
           <div className="sm:col-span-2">
-            <label className={labelCls}>Correo Electrónico *</label>
+            <label className={labelCls}>{fldLabel("email", "Correo Electrónico")}</label>
             <input
               type="email"
-              required
+              required={isReq("email")}
               className={inputCls}
               value={email}
               onChange={handleUpperChange(setEmail)}
-              placeholder="nombre@correo.com"
+              placeholder={fldPlaceholder("email", "nombre@correo.com")}
             />
           </div>
+          )}
 
+          {isEnabled("facebookUrl") && (
           <div>
-            <label className={labelCls}>Facebook *</label>
+            <label className={labelCls}>{fldLabel("facebookUrl", "Facebook")}</label>
             <input
               className={inputCls}
-              required
+              required={isReq("facebookUrl")}
               value={facebookUrl}
               onChange={handleUpperChange(setFacebookUrl)}
-              placeholder="Usuario o enlace (o 'No tengo')"
+              placeholder={fldPlaceholder("facebookUrl", "Usuario o enlace (o 'No tengo')")}
             />
           </div>
+          )}
 
+          {isEnabled("instagramUrl") && (
           <div>
-            <label className={labelCls}>Instagram *</label>
+            <label className={labelCls}>{fldLabel("instagramUrl", "Instagram")}</label>
             <input
               className={inputCls}
-              required
+              required={isReq("instagramUrl")}
               value={instagramUrl}
               onChange={handleUpperChange(setInstagramUrl)}
-              placeholder="@usuario (o 'No tengo')"
+              placeholder={fldPlaceholder("instagramUrl", "@usuario (o 'No tengo')")}
             />
           </div>
+          )}
 
+          {isEnabled("telefonoAlternativo") && (
           <div>
-            <label className={labelCls}>Teléfono Alternativo</label>
+            <label className={labelCls}>{fldLabel("telefonoAlternativo", "Teléfono Alternativo")}</label>
             <input
               className={inputCls}
+              required={isReq("telefonoAlternativo")}
               value={telefonoAlternativo}
               onChange={handleUpperChange(setTelefonoAlternativo)}
-              placeholder="Opcional (familiar / fijo)"
+              placeholder={fldPlaceholder("telefonoAlternativo", "Opcional (familiar / fijo)")}
             />
           </div>
+          )}
 
+          {isEnabled("linkedinUrl") && (
           <div>
-            <label className={labelCls}>LinkedIn / Portfolio</label>
+            <label className={labelCls}>{fldLabel("linkedinUrl", "LinkedIn / Portfolio")}</label>
             <input
               className={inputCls}
+              required={isReq("linkedinUrl")}
               value={linkedinUrl}
               onChange={handleUpperChange(setLinkedinUrl)}
-              placeholder="https://linkedin.com/in/..."
+              placeholder={fldPlaceholder("linkedinUrl", "https://linkedin.com/in/...")}
             />
           </div>
+          )}
+          {renderCustomFieldsForSection("ubicacion")}
         </div>
       </section>
 
@@ -1344,43 +1477,49 @@ export default function PublicCvForm(props: PublicCvFormProps) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {isEnabled("puestoPrincipal") && (
           <div>
-            <label className={labelCls}>Puesto / Área Principal *</label>
+            <label className={labelCls}>{fldLabel("puestoPrincipal", "Puesto / Área Principal")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("puestoPrincipal")}
               value={puestoPrincipal}
               onChange={(e) => setPuestoPrincipal(e.target.value)}
             >
-              {PUESTOS_OPTIONS.map((p) => (
+              {fldOptions("puestoPrincipal", PUESTOS_OPTIONS, puestoPrincipal).map((p) => (
                 <option key={`p1-${p}`} value={p}>
                   {p}
                 </option>
               ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("puestoSecundario") && (
           <div>
-            <label className={labelCls}>Segundo Puesto de Interés</label>
+            <label className={labelCls}>{fldLabel("puestoSecundario", "Segundo Puesto de Interés")}</label>
             <select
               className={inputCls}
+              required={isReq("puestoSecundario")}
               value={puestoSecundario}
               onChange={(e) => setPuestoSecundario(e.target.value)}
             >
               <option value="Sin segundo puesto">Sin segundo puesto</option>
-              {PUESTOS_OPTIONS.map((p) => (
+              {fldOptions("puestoSecundario", PUESTOS_OPTIONS, puestoSecundario).map((p) => (
                 <option key={`p2-${p}`} value={p}>
                   {p}
                 </option>
               ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("experienciaTotal") && (
           <div>
-            <label className={labelCls}>Experiencia Total Laboral *</label>
+            <label className={labelCls}>{fldLabel("experienciaTotal", "Experiencia Total Laboral")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("experienciaTotal")}
               value={experienciaTotal}
               onChange={(e) => {
                 const val = e.target.value;
@@ -1392,174 +1531,217 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                 }
               }}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("experienciaTotal")}>
                 Seleccionar...
               </option>
-              <option value="Sin experiencia / Primer empleo">
-                Sin experiencia / Primer empleo
-              </option>
-              <option value="Menos de 1 año">Menos de 1 año</option>
-              <option value="1 a 2 años">1 a 2 años</option>
-              <option value="3 a 5 años">3 a 5 años</option>
-              <option value="5 a 10 años">5 a 10 años</option>
-              <option value="Más de 10 años">Más de 10 años</option>
+              {fldOptions(
+                "experienciaTotal",
+                [
+                  "Sin experiencia / Primer empleo",
+                  "Menos de 1 año",
+                  "1 a 2 años",
+                  "3 a 5 años",
+                  "5 a 10 años",
+                  "Más de 10 años",
+                ],
+                experienciaTotal
+              ).map((opt) => (
+                <option key={`exp-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("disponibilidadHoraria") && (
           <div>
-            <label className={labelCls}>Disponibilidad Horaria *</label>
+            <label className={labelCls}>{fldLabel("disponibilidadHoraria", "Disponibilidad Horaria")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("disponibilidadHoraria")}
               value={disponibilidadHoraria}
               onChange={(e) => setDisponibilidadHoraria(e.target.value)}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("disponibilidadHoraria")}>
                 Seleccionar...
               </option>
-              <option value="Full Time — Jornada Completa">
-                Full Time — Jornada Completa
-              </option>
-              <option value="Part Time — Turno Mañana">Part Time — Turno Mañana</option>
-              <option value="Part Time — Turno Tarde">Part Time — Turno Tarde</option>
-              <option value="Turnos Rotativos / Horario Cortado">
-                Turnos Rotativos / Horario Cortado
-              </option>
-              <option value="Fines de Semana / Franquero">
-                Fines de Semana / Franquero
-              </option>
+              {fldOptions(
+                "disponibilidadHoraria",
+                [
+                  "Full Time — Jornada Completa",
+                  "Part Time — Turno Mañana",
+                  "Part Time — Turno Tarde",
+                  "Turnos Rotativos / Horario Cortado",
+                  "Fines de Semana / Franquero",
+                ],
+                disponibilidadHoraria
+              ).map((opt) => (
+                <option key={`dh-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("incorporacion") && (
           <div>
-            <label className={labelCls}>Disponibilidad de Incorporación</label>
+            <label className={labelCls}>{fldLabel("incorporacion", "Disponibilidad de Incorporación")}</label>
             <select
               className={inputCls}
+              required={isReq("incorporacion")}
               value={incorporacion}
               onChange={(e) => setIncorporacion(e.target.value)}
             >
-              <option value="Inmediata">Inmediata</option>
-              <option value="En 7 días">En 7 días</option>
-              <option value="En 15 días (preaviso)">En 15 días (preaviso)</option>
-              <option value="En 30 días">En 30 días</option>
-              <option value="A convenir">A convenir</option>
+              {fldOptions(
+                "incorporacion",
+                ["Inmediata", "En 7 días", "En 15 días (preaviso)", "En 30 días", "A convenir"],
+                incorporacion
+              ).map((opt) => (
+                <option key={`inc-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("modalidad") && (
           <div>
-            <label className={labelCls}>Modalidad Preferida *</label>
+            <label className={labelCls}>{fldLabel("modalidad", "Modalidad Preferida")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("modalidad")}
               value={modalidad}
               onChange={(e) => setModalidad(e.target.value)}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("modalidad")}>
                 Seleccionar...
               </option>
-              <option value="100% Presencial">100% Presencial</option>
-              <option value="Híbrida (Presencial + Remoto)">
-                Híbrida (Presencial + Remoto)
-              </option>
-              <option value="100% Remota">100% Remota</option>
+              {fldOptions(
+                "modalidad",
+                ["100% Presencial", "Híbrida (Presencial + Remoto)", "100% Remota"],
+                modalidad
+              ).map((opt) => (
+                <option key={`mod-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("licenciaConducir") && (
           <div>
-            <label className={labelCls}>Licencia de Conducir *</label>
+            <label className={labelCls}>{fldLabel("licenciaConducir", "Licencia de Conducir")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("licenciaConducir")}
               value={licenciaConducir}
               onChange={(e) => setLicenciaConducir(e.target.value)}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("licenciaConducir")}>
                 Seleccionar...
               </option>
-              <option value="No posee">No posee</option>
-              <option value="Moto (Clase A)">Moto (Clase A)</option>
-              <option value="Auto / Utilitario (Clase B1/B2)">
-                Auto / Utilitario (Clase B1/B2)
-              </option>
-              <option value="Camión / Carga (Clase C/E)">
-                Camión / Carga (Clase C/E)
-              </option>
-              <option value="Transporte Profesional (Clase D)">
-                Transporte Profesional (Clase D)
-              </option>
+              {fldOptions(
+                "licenciaConducir",
+                [
+                  "No posee",
+                  "Moto (Clase A)",
+                  "Auto / Utilitario (Clase B1/B2)",
+                  "Camión / Carga (Clase C/E)",
+                  "Transporte Profesional (Clase D)",
+                ],
+                licenciaConducir
+              ).map((opt) => (
+                <option key={`lic-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("movilidadPropia") && (
           <div>
-            <label className={labelCls}>Movilidad Propia</label>
+            <label className={labelCls}>{fldLabel("movilidadPropia", "Movilidad Propia")}</label>
             <select
               className={inputCls}
+              required={isReq("movilidadPropia")}
               value={movilidadPropia}
               onChange={(e) => setMovilidadPropia(e.target.value)}
             >
-              <option value="No posee / Transporte público">
-                No posee / Transporte público
-              </option>
-              <option value="Bicicleta">Bicicleta</option>
-              <option value="Moto propia">Moto propia</option>
-              <option value="Auto propio">Auto propio</option>
-              <option value="Utilitario / Camioneta propia">
-                Utilitario / Camioneta propia
-              </option>
+              {fldOptions(
+                "movilidadPropia",
+                [
+                  "No posee / Transporte público",
+                  "Bicicleta",
+                  "Moto propia",
+                  "Auto propio",
+                  "Utilitario / Camioneta propia",
+                ],
+                movilidadPropia
+              ).map((opt) => (
+                <option key={`mov-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("disponibilidadViajarRotar") && (
           <div>
-            <label className={labelCls}>Disponibilidad para rotar / viajar</label>
+            <label className={labelCls}>{fldLabel("disponibilidadViajarRotar", "Disponibilidad para rotar / viajar")}</label>
             <select
               className={inputCls}
+              required={isReq("disponibilidadViajarRotar")}
               value={disponibilidadViajarRotar}
               onChange={(e) => setDisponibilidadViajarRotar(e.target.value)}
             >
-              <option value="Sí">Sí</option>
-              <option value="Eventualmente">Eventualmente</option>
-              <option value="No">No</option>
+              {fldOptions("disponibilidadViajarRotar", ["Sí", "Eventualmente", "No"], disponibilidadViajarRotar).map((opt) => (
+                <option key={`dvr-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("pretensionSalarial") && (
           <div>
-            <label className={labelCls}>Pretensión Salarial Mensual *</label>
+            <label className={labelCls}>{fldLabel("pretensionSalarial", "Pretensión Salarial Mensual")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("pretensionSalarial")}
               value={pretensionSalarial}
               onChange={(e) => setPretensionSalarial(e.target.value)}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("pretensionSalarial")}>
                 Seleccionar...
               </option>
-              <option value="Según convenio / A convenir">
-                Según convenio / A convenir
-              </option>
-              <option value="Part Time — Acorde a media jornada">
-                Part Time — Acorde a media jornada
-              </option>
-              <option value="Hasta $ 700.000 netos">Hasta $ 700.000 netos</option>
-              <option value="$ 700.000 a $ 1.000.000 netos">
-                $ 700.000 a $ 1.000.000 netos
-              </option>
-              <option value="$ 1.000.000 a $ 1.500.000 netos">
-                $ 1.000.000 a $ 1.500.000 netos
-              </option>
-              <option value="Más de $ 1.500.000 netos">Más de $ 1.500.000 netos</option>
+              {fldOptions(
+                "pretensionSalarial",
+                [
+                  "Según convenio / A convenir",
+                  "Part Time — Acorde a media jornada",
+                  "Hasta $ 700.000 netos",
+                  "$ 700.000 a $ 1.000.000 netos",
+                  "$ 1.000.000 a $ 1.500.000 netos",
+                  "Más de $ 1.500.000 netos",
+                ],
+                pretensionSalarial
+              ).map((opt) => (
+                <option key={`sal-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("presentacion") && (
           <div className="sm:col-span-2">
-            <label className={labelCls}>Breve Presentación Personal / Objetivo</label>
+            <label className={labelCls}>{fldLabel("presentacion", "Breve Presentación Personal / Objetivo")}</label>
             <textarea
               rows={2}
               className={inputCls}
+              required={isReq("presentacion")}
               value={presentacion}
               onChange={handleUpperChange(setPresentacion)}
-              placeholder="Contanos brevemente sobre tu perfil, fortalezas y motivación para sumarte al equipo..."
+              placeholder={fldPlaceholder(
+                "presentacion",
+                "Contanos brevemente sobre tu perfil, fortalezas y motivación para sumarte al equipo..."
+              )}
             />
           </div>
+          )}
+          {renderCustomFieldsForSection("postulacion")}
         </div>
       </section>
 
@@ -1574,165 +1756,320 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </h2>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {isEnabled("nivelEstudios") && (
           <div>
-            <label className={labelCls}>Nivel Máximo de Estudios *</label>
+            <label className={labelCls}>{fldLabel("nivelEstudios", "Nivel Máximo de Estudios")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("nivelEstudios")}
               value={nivelEstudios}
               onChange={(e) => setNivelEstudios(e.target.value)}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("nivelEstudios")}>
                 Seleccionar...
               </option>
-              <option value="Primario">Primario</option>
-              <option value="Secundario">Secundario</option>
-              <option value="Terciario / Tecnicatura">Terciario / Tecnicatura</option>
-              <option value="Universitario">Universitario</option>
-              <option value="Posgrado / Especialización">
-                Posgrado / Especialización
-              </option>
+              {fldOptions(
+                "nivelEstudios",
+                ["Primario", "Secundario", "Terciario / Tecnicatura", "Universitario", "Posgrado / Especialización"],
+                nivelEstudios
+              ).map((opt) => (
+                <option key={`ne-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("estadoEstudios") && (
           <div>
-            <label className={labelCls}>Estado de Estudios *</label>
+            <label className={labelCls}>{fldLabel("estadoEstudios", "Estado de Estudios")}</label>
             <select
               className={inputCls}
-              required
+              required={isReq("estadoEstudios")}
               value={estadoEstudios}
               onChange={(e) => setEstadoEstudios(e.target.value)}
             >
-              <option value="" disabled>
+              <option value="" disabled={isReq("estadoEstudios")}>
                 Seleccionar...
               </option>
-              <option value="Completo / Graduado">Completo / Graduado</option>
-              <option value="En curso">En curso</option>
-              <option value="Incompleto">Incompleto</option>
+              {fldOptions("estadoEstudios", ["Completo / Graduado", "En curso", "Incompleto"], estadoEstudios).map((opt) => (
+                <option key={`ee-${opt}`} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+          )}
 
+          {isEnabled("tituloCarrera") && (
           <div>
-            <label className={labelCls}>Título / Orientación / Carrera *</label>
+            <label className={labelCls}>{fldLabel("tituloCarrera", "Título / Orientación / Carrera")}</label>
             <input
               className={inputCls}
-              required
+              required={isReq("tituloCarrera")}
               value={tituloCarrera}
               onChange={handleUpperChange(setTituloCarrera)}
-              placeholder="Ej: Bachiller en Economía / Contador"
+              placeholder={fldPlaceholder("tituloCarrera", "Ej: Bachiller en Economía / Contador")}
             />
           </div>
+          )}
 
+          {isEnabled("institucion") && (
           <div>
-            <label className={labelCls}>Institución Educativa *</label>
+            <label className={labelCls}>{fldLabel("institucion", "Institución Educativa")}</label>
             <input
               className={inputCls}
-              required
+              required={isReq("institucion")}
               value={institucion}
               onChange={handleUpperChange(setInstitucion)}
-              placeholder="Ej: UNRC / Instituto..."
+              placeholder={fldPlaceholder("institucion", "Ej: UNRC / Instituto...")}
             />
           </div>
+          )}
 
-          <div>
-            <label className={labelCls}>Sistemas de Caja POS / Facturación *</label>
-            <select
-              className={inputCls}
-              required
-              value={nivelPosFacturacion}
-              onChange={(e) => setNivelPosFacturacion(e.target.value)}
-            >
-              <option value="" disabled>
-                Seleccionar...
-              </option>
-              <option value="Sin experiencia previa">Sin experiencia previa</option>
-              <option value="Básico">Básico</option>
-              <option value="Intermedio">Intermedio</option>
-              <option value="Avanzado">Avanzado</option>
-            </select>
-          </div>
+          {(isEnabled("nivelPosFacturacion") ||
+            isEnabled("nivelExcel") ||
+            isEnabled("nivelAtencionDigital")) && (
+            <div className="grid items-end gap-4 sm:col-span-2 sm:grid-cols-3 lg:col-span-4">
+              {isEnabled("nivelPosFacturacion") && (
+                <div>
+                  <label className={labelCls}>
+                    {fldLabel("nivelPosFacturacion", "Sistemas de Caja POS / Facturación")}
+                  </label>
+                  <select
+                    className={inputCls}
+                    required={isReq("nivelPosFacturacion")}
+                    value={nivelPosFacturacion}
+                    onChange={(e) => setNivelPosFacturacion(e.target.value)}
+                  >
+                    <option value="" disabled={isReq("nivelPosFacturacion")}>
+                      Seleccionar...
+                    </option>
+                    {fldOptions(
+                      "nivelPosFacturacion",
+                      ["Sin experiencia previa", "Básico", "Intermedio", "Avanzado"],
+                      nivelPosFacturacion
+                    ).map((opt) => (
+                      <option key={`pos-${opt}`} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-          <div>
-            <label className={labelCls}>Excel / Planillas de Cálculo *</label>
-            <select
-              className={inputCls}
-              required
-              value={nivelExcel}
-              onChange={(e) => setNivelExcel(e.target.value)}
-            >
-              <option value="" disabled>
-                Seleccionar...
-              </option>
-              <option value="Sin manejo">Sin manejo</option>
-              <option value="Básico">Básico</option>
-              <option value="Intermedio">Intermedio</option>
-              <option value="Avanzado">Avanzado</option>
-            </select>
-          </div>
+              {isEnabled("nivelExcel") && (
+                <div>
+                  <label className={labelCls}>
+                    {fldLabel("nivelExcel", "Excel / Planillas de Cálculo")}
+                  </label>
+                  <select
+                    className={inputCls}
+                    required={isReq("nivelExcel")}
+                    value={nivelExcel}
+                    onChange={(e) => setNivelExcel(e.target.value)}
+                  >
+                    <option value="" disabled={isReq("nivelExcel")}>
+                      Seleccionar...
+                    </option>
+                    {fldOptions(
+                      "nivelExcel",
+                      ["Sin manejo", "Básico", "Intermedio", "Avanzado"],
+                      nivelExcel
+                    ).map((opt) => (
+                      <option key={`exc-${opt}`} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-          <div>
-            <label className={labelCls}>WhatsApp Comercial / Redes / Web *</label>
-            <select
-              className={inputCls}
-              required
-              value={nivelAtencionDigital}
-              onChange={(e) => setNivelAtencionDigital(e.target.value)}
-            >
-              <option value="" disabled>
-                Seleccionar...
-              </option>
-              <option value="Básico">Básico</option>
-              <option value="Intermedio">Intermedio</option>
-              <option value="Avanzado">Avanzado</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelCls}>Idioma Extra *</label>
-              <select
-                className={inputCls}
-                required
-                value={idiomaPrincipal}
-                onChange={(e) => setIdiomaPrincipal(e.target.value)}
-              >
-                <option value="" disabled>
-                  Seleccionar...
-                </option>
-                <option value="Ninguno">Ninguno</option>
-                <option value="Inglés">Inglés</option>
-                <option value="Portugués">Portugués</option>
-                <option value="Italiano">Italiano</option>
-                <option value="Francés">Francés</option>
-              </select>
+              {isEnabled("nivelAtencionDigital") && (
+                <div>
+                  <label className={labelCls}>
+                    {fldLabel("nivelAtencionDigital", "WhatsApp Comercial / Redes / Web")}
+                  </label>
+                  <select
+                    className={inputCls}
+                    required={isReq("nivelAtencionDigital")}
+                    value={nivelAtencionDigital}
+                    onChange={(e) => setNivelAtencionDigital(e.target.value)}
+                  >
+                    <option value="" disabled={isReq("nivelAtencionDigital")}>
+                      Seleccionar...
+                    </option>
+                    {fldOptions(
+                      "nivelAtencionDigital",
+                      ["Básico", "Intermedio", "Avanzado"],
+                      nivelAtencionDigital
+                    ).map((opt) => (
+                      <option key={`dig-${opt}`} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
-            <div>
-              <label className={labelCls}>Nivel</label>
-              <select
-                className={inputCls}
-                disabled={!idiomaPrincipal || idiomaPrincipal === "Ninguno"}
-                required={Boolean(idiomaPrincipal && idiomaPrincipal !== "Ninguno")}
-                value={nivelIdioma}
-                onChange={(e) => setNivelIdioma(e.target.value)}
-              >
-                <option value="Básico">Básico</option>
-                <option value="Intermedio">Intermedio</option>
-                <option value="Avanzado">Avanzado</option>
-                <option value="Nativo / Bilingüe">Nativo</option>
-              </select>
-            </div>
-          </div>
+          )}
 
+          {isEnabled("idiomaPrincipal") && (
+            <div className="rounded-2xl border border-[#112D3A]/12 bg-[#f7fafb] p-4 sm:col-span-2 lg:col-span-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="block text-xs font-bold uppercase tracking-wide text-[#112D3A]/85">
+                    {fldLabel("idiomaPrincipal", "Idioma Extra")}
+                  </span>
+                  <span className="text-[11px] text-[#112D3A]/60">
+                    Si hablás más de un idioma, podés sumar todos los que domines con su nivel.
+                  </span>
+                </div>
+                {idiomas[0]?.idioma &&
+                  idiomas[0].idioma !== "Ninguno" &&
+                  idiomas.length < 10 && (
+                    <button
+                      type="button"
+                      onClick={addIdiomaRow}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#112D3A] px-3.5 py-2 text-xs font-extrabold text-[#56D7A1] shadow-sm transition hover:brightness-110"
+                    >
+                      + Agregar otro idioma
+                    </button>
+                  )}
+              </div>
+
+              <div className="space-y-3">
+                {idiomas.map((row, idx) => {
+                  const chosenElsewhere = new Set(
+                    idiomas
+                      .filter((_, i) => i !== idx)
+                      .map((r) => r.idioma)
+                      .filter(Boolean)
+                  );
+                  const hasLang = Boolean(row.idioma && row.idioma !== "Ninguno");
+                  const otherLangsMerged = [
+                    ...OTHER_WORLD_LANGUAGES,
+                    ...extraCustomLanguages,
+                  ];
+                  const isLegacyUnknown =
+                    Boolean(row.idioma) &&
+                    row.idioma !== "Ninguno" &&
+                    !ALL_WORLD_LANGUAGES.includes(row.idioma) &&
+                    !extraCustomLanguages.includes(row.idioma);
+                  const levelOpts = fldOptions(
+                    "nivelIdioma",
+                    [...LANGUAGE_LEVEL_OPTIONS],
+                    row.nivel
+                  );
+
+                  return (
+                    <div
+                      key={`idioma-row-${idx}`}
+                      className={
+                        idiomas.length > 1
+                          ? "grid items-end gap-3 sm:grid-cols-[1fr_210px_auto]"
+                          : "grid items-end gap-3 sm:grid-cols-[1fr_220px]"
+                      }
+                    >
+                      <div>
+                        <label className={labelCls}>
+                          {idx === 0
+                            ? `Idioma${isReq("idiomaPrincipal") ? " *" : ""}`
+                            : `Idioma #${idx + 1} *`}
+                        </label>
+                        <select
+                          className={inputCls}
+                          required={idx === 0 ? isReq("idiomaPrincipal") : true}
+                          value={row.idioma}
+                          onChange={(e) => updateIdioma(idx, e.target.value)}
+                        >
+                          <option value="" disabled={idx === 0 ? isReq("idiomaPrincipal") : true}>
+                            Seleccionar idioma...
+                          </option>
+                          {idx === 0 && (
+                            <option value="Ninguno">Ninguno (solo español)</option>
+                          )}
+                          {isLegacyUnknown && (
+                            <option value={row.idioma}>{row.idioma}</option>
+                          )}
+                          <optgroup label="Más frecuentes">
+                            {COMMON_WORLD_LANGUAGES.map((lang) => (
+                              <option
+                                key={`c-${idx}-${lang}`}
+                                value={lang}
+                                disabled={chosenElsewhere.has(lang)}
+                              >
+                                {lang}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Todos los idiomas del mundo (A–Z)">
+                            {otherLangsMerged.map((lang) => (
+                              <option
+                                key={`w-${idx}-${lang}`}
+                                value={lang}
+                                disabled={chosenElsewhere.has(lang)}
+                              >
+                                {lang}
+                              </option>
+                            ))}
+                          </optgroup>
+                        </select>
+                      </div>
+
+                      {isEnabled("nivelIdioma") && (
+                        <div>
+                          <label className={labelCls}>
+                            {fieldMap.nivelIdioma?.label || "Nivel"}
+                          </label>
+                          <select
+                            className={inputCls}
+                            disabled={!hasLang}
+                            required={hasLang}
+                            value={row.nivel}
+                            onChange={(e) => updateIdiomaNivel(idx, e.target.value)}
+                          >
+                            {levelOpts.map((opt) => (
+                              <option key={`nidi-${idx}-${opt}`} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {idiomas.length > 1 && (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => removeIdiomaRow(idx)}
+                            className="h-[42px] w-full rounded-xl border border-[#dc2626]/30 bg-[#FFFFFF] px-3.5 text-xs font-extrabold text-[#dc2626] transition hover:bg-[#fef2f2] sm:w-auto"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {isEnabled("cursosAdicionales") && (
           <div className="sm:col-span-2 lg:col-span-4">
-            <label className={labelCls}>Cursos, Certificaciones o Carnets (ej. Manipulación de Alimentos)</label>
+            <label className={labelCls}>{fldLabel("cursosAdicionales", "Cursos, Certificaciones o Carnets")}</label>
             <input
               className={inputCls}
+              required={isReq("cursosAdicionales")}
               value={cursosAdicionales}
               onChange={handleUpperChange(setCursosAdicionales)}
-              placeholder="Ej: Carnet de Manipulación de Alimentos vigente, Curso Atención al Cliente, Liquidación..."
+              placeholder={fldPlaceholder(
+                "cursosAdicionales",
+                "Ej: Carnet de Manipulación de Alimentos vigente, Curso Atención al Cliente, Liquidación..."
+              )}
             />
           </div>
+          )}
+          {renderCustomFieldsForSection("formacion")}
         </div>
       </section>
 
@@ -1748,6 +2085,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             </h2>
           </div>
 
+          {isEnabled("experiencias") && (
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#112D3A]/5 px-3.5 py-2 text-xs font-bold text-[#112D3A]">
             <input
               type="checkbox"
@@ -1763,9 +2101,10 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             />
             Postulación a Primer Empleo (sin experiencia laboral previa)
           </label>
+          )}
         </div>
 
-        {!sinExperienciaPrevia && (
+        {isEnabled("experiencias") && !sinExperienciaPrevia && (
           <div className="space-y-4">
             {experiencias.map((exp, idx) => (
               <div
@@ -1794,37 +2133,39 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                     <label className={labelCls}>Empresa / Comercio *</label>
                     <input
                       className={inputCls}
-                      required
+                      required={isReq("experiencias")}
                       value={exp.empresa}
                       onChange={(e) => updateExpField(idx, "empresa", e.target.value)}
                       placeholder="Nombre del comercio"
                     />
                   </div>
+                  {isEnabled("expRubroEmpresa") && (
                   <div>
-                    <label className={labelCls}>Rubro de la Empresa *</label>
+                    <label className={labelCls}>{fldLabel("expRubroEmpresa", "Rubro de la Empresa")}</label>
                     <select
                       className={inputCls}
-                      required
+                      required={isReq("experiencias") && isReq("expRubroEmpresa")}
                       value={exp.rubroEmpresa}
                       onChange={(e) =>
                         updateExpField(idx, "rubroEmpresa", e.target.value)
                       }
                     >
-                      <option value="" disabled>
+                      <option value="" disabled={isReq("expRubroEmpresa")}>
                         Seleccionar...
                       </option>
-                      {RUBROS_EMPRESA_OPTIONS.map((r) => (
+                      {fldOptions("expRubroEmpresa", RUBROS_EMPRESA_OPTIONS, exp.rubroEmpresa).map((r) => (
                         <option key={r} value={r}>
                           {r}
                         </option>
                       ))}
                     </select>
                   </div>
+                  )}
                   <div>
                     <label className={labelCls}>Puesto Ocupado *</label>
                     <input
                       className={inputCls}
-                      required
+                      required={isReq("experiencias")}
                       value={exp.puesto}
                       onChange={(e) => updateExpField(idx, "puesto", e.target.value)}
                       placeholder="Ej: Cajera / Vendedor"
@@ -1835,7 +2176,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                       <label className={labelCls}>Desde *</label>
                       <select
                         className={inputCls}
-                        required
+                        required={isReq("experiencias")}
                         value={exp.desdeAnio}
                         onChange={(e) =>
                           updateExpField(idx, "desdeAnio", e.target.value)
@@ -1855,7 +2196,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                       <label className={labelCls}>Hasta *</label>
                       <select
                         className={inputCls}
-                        required
+                        required={isReq("experiencias")}
                         value={exp.hastaAnio}
                         onChange={(e) =>
                           updateExpField(idx, "hastaAnio", e.target.value)
@@ -1874,55 +2215,65 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                     </div>
                   </div>
 
+                  {isEnabled("expAntiguedad") && (
                   <div>
-                    <label className={labelCls}>Duración / Antigüedad *</label>
+                    <label className={labelCls}>{fldLabel("expAntiguedad", "Duración / Antigüedad")}</label>
                     <select
                       className={inputCls}
-                      required
+                      required={isReq("experiencias") && isReq("expAntiguedad")}
                       value={exp.antiguedad}
                       onChange={(e) =>
                         updateExpField(idx, "antiguedad", e.target.value)
                       }
                     >
-                      <option value="" disabled>
+                      <option value="" disabled={isReq("expAntiguedad")}>
                         Seleccionar...
                       </option>
-                      <option value="Temporada / Menos de 6 meses">
-                        Temporada / Menos de 6 meses
-                      </option>
-                      <option value="6 meses a 1 año">6 meses a 1 año</option>
-                      <option value="1 a 2 años">1 a 2 años</option>
-                      <option value="3 a 5 años">3 a 5 años</option>
-                      <option value="Más de 5 años">Más de 5 años</option>
+                      {fldOptions(
+                        "expAntiguedad",
+                        [
+                          "Temporada / Menos de 6 meses",
+                          "6 meses a 1 año",
+                          "1 a 2 años",
+                          "3 a 5 años",
+                          "Más de 5 años",
+                        ],
+                        exp.antiguedad
+                      ).map((opt) => (
+                        <option key={`ant-${opt}`} value={opt}>{opt}</option>
+                      ))}
                     </select>
                   </div>
+                  )}
 
+                  {isEnabled("expMotivoEgreso") && (
                   <div>
-                    <label className={labelCls}>Motivo de Desvinculación *</label>
+                    <label className={labelCls}>{fldLabel("expMotivoEgreso", "Motivo de Desvinculación")}</label>
                     <select
                       className={inputCls}
-                      required
+                      required={isReq("experiencias") && isReq("expMotivoEgreso")}
                       value={exp.motivoEgreso}
                       onChange={(e) =>
                         updateExpField(idx, "motivoEgreso", e.target.value)
                       }
                     >
-                      <option value="" disabled>
+                      <option value="" disabled={isReq("expMotivoEgreso")}>
                         Seleccionar...
                       </option>
-                      {MOTIVOS_EGRESO_OPTIONS.map((m) => (
+                      {fldOptions("expMotivoEgreso", MOTIVOS_EGRESO_OPTIONS, exp.motivoEgreso).map((m) => (
                         <option key={m} value={m}>
                           {m}
                         </option>
                       ))}
                     </select>
                   </div>
+                  )}
 
                   <div>
                     <label className={labelCls}>Contacto de Referencia *</label>
                     <input
                       className={inputCls}
-                      required
+                      required={isReq("experiencias")}
                       value={exp.referenciaNombre}
                       onChange={(e) =>
                         updateExpField(idx, "referenciaNombre", e.target.value)
@@ -1935,7 +2286,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                     <label className={labelCls}>Teléfono de Referencia *</label>
                     <input
                       className={inputCls}
-                      required
+                      required={isReq("experiencias")}
                       value={exp.referenciaTelefono}
                       onChange={(e) =>
                         updateExpField(idx, "referenciaTelefono", e.target.value)
@@ -1948,7 +2299,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
                     <label className={labelCls}>Principales Tareas Realizadas *</label>
                     <input
                       className={inputCls}
-                      required
+                      required={isReq("experiencias")}
                       value={exp.tareas}
                       onChange={(e) => updateExpField(idx, "tareas", e.target.value)}
                       placeholder="Ej: Apertura y cierre de caja, atención al público, control de stock..."
@@ -1972,12 +2323,19 @@ export default function PublicCvForm(props: PublicCvFormProps) {
           </div>
         )}
 
+        {resolvedConfig.fields.some((f) => f.isCustom && f.enabled && f.section === "experiencia") && (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {renderCustomFieldsForSection("experiencia")}
+          </div>
+        )}
+
         {/* ADJUNTO CV EN PDF */}
+        {isEnabled("pdfAdjunto") && (
         <div className="mt-6 rounded-2xl border-2 border-[#56D7A1] bg-[#112D3A]/[0.03] p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h3 className="text-base font-extrabold text-[#112D3A]">
-                📄 Adjuntar Curriculum Vitae en PDF (Opcional / Recomendado)
+                📄 {fieldMap.pdfAdjunto?.label || "Adjuntar Curriculum Vitae en PDF"} {isReq("pdfAdjunto") ? "*" : "(Opcional / Recomendado)"}
               </h3>
               <p className="text-xs text-[#112D3A]/70">
                 Podés adjuntar tu archivo PDF original (máximo 3 MB) para respaldar tu
@@ -2029,6 +2387,7 @@ export default function PublicCvForm(props: PublicCvFormProps) {
             </div>
           )}
         </div>
+        )}
 
         <div className="mt-7 flex flex-col items-end gap-2">
           <button

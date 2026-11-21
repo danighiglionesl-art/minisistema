@@ -9,7 +9,7 @@
   'use strict';
 
   var STATE_CV = {
-    activeView: 'menu', // 'menu' | 'recibidos' | 'previsualizados' | 'portal' | 'detail'
+    activeView: 'menu', // 'menu' | 'recibidos' | 'previsualizados' | 'portal' | 'tablas' | 'detail'
     previousListView: 'recibidos',
     publicCvUrl: '/cv',
     stats: {
@@ -26,7 +26,14 @@
     filterMinRating: 0,
     filterSearch: '',
     filterDni: '',
-    sortBy: 'recent' // 'recent' | 'rating_desc'
+    sortBy: 'recent', // 'recent' | 'rating_desc'
+    formConfig: null,
+    configDirty: false,
+    configSectionFilter: 'all',
+    configSearch: '',
+    configModalMode: null, // null | 'edit' | 'new'
+    configEditingKey: null,
+    configDraft: null
   };
 
   function esc(str) {
@@ -73,7 +80,8 @@
       uMods.indexOf('administracion_personal') !== -1 ||
       uMods.indexOf('cv') !== -1 ||
       uMods.indexOf('cv:recibidos') !== -1 ||
-      uMods.indexOf('cv:previsualizados') !== -1
+      uMods.indexOf('cv:previsualizados') !== -1 ||
+      uMods.indexOf('cv:tablas') !== -1
     );
   }
 
@@ -149,6 +157,15 @@
               '</svg>' +
             '</div>' +
             '<h3>Enlace y Código QR (/cv)</h3>' +
+          '</article>' +
+          '<article class="module-card" role="button" tabindex="0" data-cv-sub="tablas">' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                '<circle cx="12" cy="12" r="3"></circle>' +
+                '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>' +
+              '</svg>' +
+            '</div>' +
+            '<h3>Configuración de Tablas</h3>' +
           '</article>' +
         '</div>';
 
@@ -244,6 +261,7 @@
       recibidos: 'CV recibidos (sin previsualizar)',
       previsualizados: 'CV previsualizados (Valoración 1 a 10)',
       portal: 'Enlace Público y Código QR (/cv)',
+      tablas: 'Configuración de Tablas',
       detail: 'Ficha Completa del Postulante'
     };
 
@@ -286,6 +304,9 @@
         STATE_CV.stats = res.stats || STATE_CV.stats;
         STATE_CV.recibidos = Array.isArray(res.recibidos) ? res.recibidos : [];
         STATE_CV.previsualizados = Array.isArray(res.previsualizados) ? res.previsualizados : [];
+        if (res.formConfig && Array.isArray(res.formConfig.fields) && !STATE_CV.configDirty) {
+          STATE_CV.formConfig = res.formConfig;
+        }
         syncCountersUi();
       }
     } catch (_e) {}
@@ -861,11 +882,21 @@
       ' · Digital/WA: ' +
       esc(fh.nivelAtencionDigital || '') +
       '</div>' +
-      '<div><strong>Idioma Extra:</strong> ' +
-      esc(fh.idiomaPrincipal || 'Ninguno') +
-      (fh.idiomaPrincipal && fh.idiomaPrincipal !== 'Ninguno' && fh.nivelIdioma
-        ? ' (' + esc(fh.nivelIdioma) + ')'
-        : '') +
+      '<div><strong>Idiomas:</strong> ' +
+      (Array.isArray(fh.idiomas) && fh.idiomas.length > 0
+        ? fh.idiomas
+            .map(function (it) {
+              return (
+                esc(it.idioma || '') +
+                (it.nivel ? ' (' + esc(it.nivel) + ')' : '')
+              );
+            })
+            .filter(Boolean)
+            .join(' · ')
+        : esc(fh.idiomaPrincipal || 'Ninguno') +
+          (fh.idiomaPrincipal && fh.idiomaPrincipal !== 'Ninguno' && fh.nivelIdioma
+            ? ' (' + esc(fh.nivelIdioma) + ')'
+            : '')) +
       '</div>' +
       (fh.cursosAdicionales
         ? '<div><strong>Cursos / Carnets:</strong> ' + esc(fh.cursosAdicionales) + '</div>'
@@ -878,6 +909,14 @@
         ? '<div class="ms-sa-card"><h4 style="margin-top:0;">📝 Presentación del Postulante</h4><p style="margin:0;font-size:0.86rem;line-height:1.5;">' +
           esc(post.presentacion) +
           '</p></div>'
+        : '') +
+
+      (Array.isArray(cv.customFields) && cv.customFields.length > 0
+        ? '<div class="ms-sa-card"><h4 style="margin-top:0;">📋 Campos Adicionales del Formulario</h4><div style="display:grid;gap:0.35rem;font-size:0.84rem;">' +
+          cv.customFields.map(function (cf) {
+            return '<div><strong>' + esc(cf.label || cf.key) + ':</strong> ' + esc(cf.value || '') + '</div>';
+          }).join('') +
+          '</div></div>'
         : '') +
 
       '<div class="ms-sa-card">' +
@@ -942,6 +981,257 @@
     );
   }
 
+  var CV_SECTION_NAMES = {
+    personal: 'Paso 1 · Datos Personales',
+    ubicacion: 'Paso 2 · Ubicación y Contacto',
+    postulacion: 'Paso 3 · Puesto y Pretensión',
+    formacion: 'Paso 4 · Estudios y Sistemas',
+    experiencia: 'Paso 5 · Experiencia y PDF'
+  };
+
+  var CV_TYPE_NAMES = {
+    text: 'Texto corto',
+    textarea: 'Texto largo',
+    number: 'Número',
+    date: 'Fecha',
+    email: 'Email',
+    tel: 'Teléfono',
+    select: 'Desplegable'
+  };
+
+  function cloneField(f) {
+    return {
+      key: String(f.key || ''),
+      label: String(f.label || ''),
+      section: String(f.section || 'postulacion'),
+      type: String(f.type || 'text'),
+      enabled: f.enabled !== false,
+      required: Boolean(f.required),
+      isCustom: Boolean(f.isCustom),
+      locked: Boolean(f.locked),
+      placeholder: f.placeholder ? String(f.placeholder) : '',
+      options: Array.isArray(f.options) ? f.options.slice() : []
+    };
+  }
+
+  function renderConfigTablasView() {
+    var cfg = STATE_CV.formConfig;
+    var fields = (cfg && Array.isArray(cfg.fields)) ? cfg.fields : [];
+    var secFilter = STATE_CV.configSectionFilter || 'all';
+    var q = String(STATE_CV.configSearch || '').trim().toLowerCase();
+
+    var filtered = fields.filter(function (f) {
+      if (secFilter === 'selects' && f.type !== 'select') return false;
+      if (secFilter === 'custom' && !f.isCustom) return false;
+      if (
+        secFilter !== 'all' &&
+        secFilter !== 'selects' &&
+        secFilter !== 'custom' &&
+        f.section !== secFilter
+      ) {
+        return false;
+      }
+      if (q) {
+        var hay = (
+          String(f.label || '') +
+          ' ' +
+          String(f.key || '') +
+          ' ' +
+          (Array.isArray(f.options) ? f.options.join(' ') : '')
+        ).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    var rowsHtml = filtered.length === 0
+      ? '<tr><td colspan="6" style="padding:1.5rem;text-align:center;color:#64748b;">No se encontraron campos para ese filtro.</td></tr>'
+      : filtered.map(function (f) {
+          var isSelect = f.type === 'select';
+          var optsCount = Array.isArray(f.options) ? f.options.length : 0;
+          var optsPreview = isSelect && optsCount > 0
+            ? '<div style="font-size:0.73rem;color:#64748b;margin-top:0.2rem;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+              esc(f.options.slice(0, 3).join(' · ')) +
+              (optsCount > 3 ? ' (+' + (optsCount - 3) + ' más)' : '') +
+              '</div>'
+            : '';
+
+          return (
+            '<tr style="border-bottom:1px solid #e2ecf0;opacity:' + (f.enabled ? '1' : '0.58') + ';">' +
+              '<td style="padding:0.6rem;font-size:0.76rem;white-space:nowrap;">' +
+                '<span style="display:inline-block;background:#f1f5f9;color:#112D3A;padding:0.2rem 0.5rem;border-radius:999px;font-weight:700;">' +
+                  esc(CV_SECTION_NAMES[f.section] || f.section) +
+                '</span>' +
+              '</td>' +
+              '<td style="padding:0.6rem;">' +
+                '<div style="font-weight:800;color:#112D3A;font-size:0.86rem;">' +
+                  esc(f.label) +
+                  (f.isCustom ? ' <span style="background:#e0f2fe;color:#0369a1;font-size:0.68rem;font-weight:800;padding:0.12rem 0.45rem;border-radius:999px;margin-left:0.25rem;">Personalizado</span>' : '') +
+                  (f.locked ? ' <span style="background:#fef3c7;color:#92400e;font-size:0.68rem;font-weight:800;padding:0.12rem 0.45rem;border-radius:999px;margin-left:0.25rem;">Base</span>' : '') +
+                '</div>' +
+                optsPreview +
+              '</td>' +
+              '<td style="padding:0.6rem;font-size:0.8rem;white-space:nowrap;">' +
+                '<span style="font-weight:700;color:#334155;">' + esc(CV_TYPE_NAMES[f.type] || f.type) + '</span>' +
+                (isSelect ? ' <small style="color:#047857;font-weight:800;">(' + optsCount + ')</small>' : '') +
+              '</td>' +
+              '<td style="padding:0.6rem;text-align:center;">' +
+                '<input type="checkbox" data-cv-cfg-enabled="' + esc(f.key) + '" ' +
+                  (f.enabled ? 'checked' : '') +
+                  (f.locked ? ' disabled title="Campo obligatorio del sistema"' : '') +
+                  ' style="width:17px;height:17px;accent-color:#112D3A;cursor:' + (f.locked ? 'not-allowed' : 'pointer') + ';">' +
+              '</td>' +
+              '<td style="padding:0.6rem;text-align:center;">' +
+                '<input type="checkbox" data-cv-cfg-req="' + esc(f.key) + '" ' +
+                  (f.enabled && f.required ? 'checked' : '') +
+                  (f.locked || !f.enabled ? ' disabled' : '') +
+                  ' style="width:17px;height:17px;accent-color:#112D3A;cursor:' + (f.locked || !f.enabled ? 'not-allowed' : 'pointer') + ';">' +
+              '</td>' +
+              '<td style="padding:0.6rem;text-align:right;white-space:nowrap;">' +
+                '<button type="button" class="ms-sa-btn ' + (isSelect ? '' : 'ms-sa-btn--outline') + '" style="padding:0.32rem 0.65rem;font-size:0.75rem;margin-right:0.25rem;" data-cv-cfg-edit="' + esc(f.key) + '">' +
+                  (isSelect ? '📋 Opciones / Editar' : '✏️ Editar') +
+                '</button>' +
+                (f.isCustom
+                  ? '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.32rem 0.55rem;font-size:0.75rem;border-color:#dc2626;color:#dc2626;" data-cv-cfg-del="' + esc(f.key) + '" title="Eliminar campo personalizado">🗑</button>'
+                  : '') +
+              '</td>' +
+            '</tr>'
+          );
+        }).join('');
+
+    var modalHtml = '';
+    if (STATE_CV.configModalMode && STATE_CV.configDraft) {
+      var d = STATE_CV.configDraft;
+      var isNew = STATE_CV.configModalMode === 'new';
+      var isSel = d.type === 'select';
+      var optRows = (d.options || []).map(function (opt, idx) {
+        return (
+          '<div class="ms-cv-opt-row" style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.45rem;border-bottom:1px solid #e2ecf0;background:#ffffff;">' +
+            '<span style="font-size:0.72rem;font-weight:800;color:#64748b;min-width:22px;text-align:center;">' + (idx + 1) + '</span>' +
+            '<input type="text" class="ms-sa-input ms-cv-opt-inp" data-opt-idx="' + idx + '" value="' + esc(opt) + '" style="flex:1;padding:0.38rem 0.6rem;font-size:0.84rem;">' +
+            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-opt-up="' + idx + '" ' + (idx === 0 ? 'disabled style="opacity:0.35;padding:0.28rem 0.45rem;font-size:0.75rem;"' : 'style="padding:0.28rem 0.45rem;font-size:0.75rem;"') + ' title="Subir">↑</button>' +
+            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-opt-down="' + idx + '" ' + (idx === d.options.length - 1 ? 'disabled style="opacity:0.35;padding:0.28rem 0.45rem;font-size:0.75rem;"' : 'style="padding:0.28rem 0.45rem;font-size:0.75rem;"') + ' title="Bajar">↓</button>' +
+            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-opt-del="' + idx + '" style="padding:0.28rem 0.5rem;font-size:0.75rem;border-color:#dc2626;color:#dc2626;" title="Quitar opción">✕</button>' +
+          '</div>'
+        );
+      }).join('');
+
+      modalHtml =
+        '<div id="ms-cv-cfg-modal-backdrop" role="dialog" aria-modal="true" style="position:fixed;inset:0;z-index:9999;background:rgba(17,45,58,0.68);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;">' +
+          '<div style="width:100%;max-width:640px;max-height:92vh;display:flex;flex-direction:column;background:#ffffff;border-radius:18px;border:2px solid #56D7A1;box-shadow:0 24px 60px rgba(0,0,0,0.32);overflow:hidden;">' +
+            '<div style="background:#112D3A;color:#ffffff;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-shrink:0;">' +
+              '<div>' +
+                '<div style="font-size:0.7rem;font-weight:900;text-transform:uppercase;letter-spacing:0.06em;color:#56D7A1;">Curriculum Vitae · Configuración de Tablas</div>' +
+                '<h3 style="margin:0.15rem 0 0;font-size:1.08rem;color:#ffffff;">' + (isNew ? '➕ Agregar Nuevo Campo al Formulario' : '✏️ Editar Campo: ' + esc(d.label)) + '</h3>' +
+              '</div>' +
+              '<button type="button" id="ms-cv-cfg-modal-close" aria-label="Cerrar" style="background:rgba(255,255,255,0.12);border:none;color:#ffffff;width:34px;height:34px;border-radius:10px;cursor:pointer;font-size:1rem;font-weight:900;">✕</button>' +
+            '</div>' +
+            '<form id="ms-cv-cfg-modal-form" style="padding:1.25rem;display:grid;gap:0.9rem;overflow-y:auto;">' +
+              '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">' +
+                '<div style="grid-column:1 / -1;">' +
+                  '<label class="ms-sa-label">Nombre / Etiqueta del Campo *</label>' +
+                  '<input class="ms-sa-input" id="ms-cv-cfg-label" required value="' + esc(d.label) + '" placeholder="Ej: Disponibilidad para horas extras, Pretensión Salarial...">' +
+                '</div>' +
+                '<div>' +
+                  '<label class="ms-sa-label">Sección del Formulario</label>' +
+                  '<select class="ms-sa-select" id="ms-cv-cfg-section" ' + (!isNew && !d.isCustom ? 'disabled' : '') + '>' +
+                    Object.keys(CV_SECTION_NAMES).map(function (sk) {
+                      return '<option value="' + sk + '" ' + (d.section === sk ? 'selected' : '') + '>' + esc(CV_SECTION_NAMES[sk]) + '</option>';
+                    }).join('') +
+                  '</select>' +
+                '</div>' +
+                '<div>' +
+                  '<label class="ms-sa-label">Tipo de Campo</label>' +
+                  '<select class="ms-sa-select" id="ms-cv-cfg-type" ' + (!isNew && !d.isCustom ? 'disabled' : '') + '>' +
+                    Object.keys(CV_TYPE_NAMES).map(function (tk) {
+                      return '<option value="' + tk + '" ' + (d.type === tk ? 'selected' : '') + '>' + esc(CV_TYPE_NAMES[tk]) + '</option>';
+                    }).join('') +
+                  '</select>' +
+                '</div>' +
+                (!isSel
+                  ? '<div style="grid-column:1 / -1;">' +
+                      '<label class="ms-sa-label">Texto de ayuda (placeholder)</label>' +
+                      '<input class="ms-sa-input" id="ms-cv-cfg-placeholder" value="' + esc(d.placeholder || '') + '" placeholder="Ejemplo que verá el postulante dentro del campo">' +
+                    '</div>'
+                  : '') +
+              '</div>' +
+
+              '<div style="display:flex;flex-wrap:wrap;gap:1.25rem;padding:0.65rem 0.9rem;border-radius:10px;background:#f8fbfc;border:1px solid #dbe7ec;font-size:0.84rem;font-weight:700;">' +
+                '<label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:' + (d.locked ? 'not-allowed' : 'pointer') + ';"><input type="checkbox" id="ms-cv-cfg-enabled" ' + (d.enabled ? 'checked' : '') + (d.locked ? ' disabled' : '') + '> ✅ Campo habilitado en /cv</label>' +
+                '<label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:' + (d.locked || !d.enabled ? 'not-allowed' : 'pointer') + ';"><input type="checkbox" id="ms-cv-cfg-required" ' + (d.enabled && d.required ? 'checked' : '') + (d.locked || !d.enabled ? ' disabled' : '') + '> ★ Obligatorio</label>' +
+              '</div>' +
+
+              (isSel
+                ? '<div>' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem;">' +
+                      '<label class="ms-sa-label" style="margin:0;">Opciones del Desplegable (' + (d.options || []).length + ')</label>' +
+                      '<small style="color:#64748b;font-weight:600;">Editá los textos, reordená o agregá nuevas opciones</small>' +
+                    '</div>' +
+                    '<div id="ms-cv-opt-list" style="max-height:240px;overflow-y:auto;border:1px solid #cbd5e1;border-radius:10px;background:#ffffff;">' +
+                      (optRows || '<div style="padding:0.9rem;text-align:center;color:#64748b;font-size:0.82rem;">Aún no hay opciones. Agregá al menos una abajo.</div>') +
+                    '</div>' +
+                    '<div style="display:flex;gap:0.45rem;margin-top:0.55rem;">' +
+                      '<input type="text" class="ms-sa-input" id="ms-cv-opt-new-inp" placeholder="Nueva opción (ej: $ 1.500.000 a $ 2.000.000 netos)..." style="flex:1;">' +
+                      '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-cv-opt-add-btn" style="white-space:nowrap;">➕ Agregar opción</button>' +
+                    '</div>' +
+                  '</div>'
+                : '') +
+
+              '<div style="display:flex;justify-content:flex-end;gap:0.55rem;padding-top:0.4rem;border-top:1px solid #e2ecf0;">' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-cv-cfg-modal-cancel">Cancelar</button>' +
+                '<button type="submit" class="ms-sa-btn">💾 ' + (isNew ? 'Agregar y Guardar' : 'Aplicar y Guardar') + '</button>' +
+              '</div>' +
+            '</form>' +
+          '</div>' +
+        '</div>';
+    }
+
+    return (
+      '<div style="display:grid;gap:1rem;">' +
+        '<div class="ms-sa-card">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.7rem;margin-bottom:0.85rem;">' +
+            '<div>' +
+              '<h4 style="margin:0;">⚙️ Configuración de Tablas y Campos del Formulario (/cv)</h4>' +
+              '<div style="font-size:0.78rem;color:#64748b;margin-top:0.2rem;">Habilitá o deshabilitá campos, agregá nuevos campos y actualizá las opciones desplegables (como pretensión salarial, puestos o rubros).</div>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-cv-cfg-new-btn">➕ Nuevo Campo</button>' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-cv-cfg-reset-btn">↺ Restablecer</button>' +
+              '<button type="button" class="ms-sa-btn" id="ms-cv-cfg-save-btn" style="' + (STATE_CV.configDirty ? 'background:#56D7A1;color:#112D3A;' : '') + '">💾 ' + (STATE_CV.configDirty ? 'Guardar Cambios *' : 'Guardar Cambios') + '</button>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-bottom:0.85rem;">' +
+            '<select class="ms-sa-select" id="ms-cv-cfg-filter-sec" style="max-width:300px;">' +
+              '<option value="all" ' + (secFilter === 'all' ? 'selected' : '') + '>Todos los campos (' + fields.length + ')</option>' +
+              '<option value="selects" ' + (secFilter === 'selects' ? 'selected' : '') + '>📋 Solo Desplegables (Pretensión salarial, Puestos...)</option>' +
+              '<option value="custom" ' + (secFilter === 'custom' ? 'selected' : '') + '>✨ Solo Campos Personalizados</option>' +
+              Object.keys(CV_SECTION_NAMES).map(function (sk) {
+                return '<option value="' + sk + '" ' + (secFilter === sk ? 'selected' : '') + '>' + esc(CV_SECTION_NAMES[sk]) + '</option>';
+              }).join('') +
+            '</select>' +
+            '<input class="ms-sa-input" id="ms-cv-cfg-search" style="max-width:280px;" value="' + esc(STATE_CV.configSearch) + '" placeholder="Buscar campo u opción (ej: salarial)...">' +
+          '</div>' +
+
+          '<div style="overflow-x:auto;">' +
+            '<table style="width:100%;border-collapse:collapse;">' +
+              '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;font-size:0.78rem;">' +
+                '<th style="padding:0.5rem;">Sección</th>' +
+                '<th style="padding:0.5rem;">Campo / Etiqueta</th>' +
+                '<th style="padding:0.5rem;">Tipo</th>' +
+                '<th style="padding:0.5rem;text-align:center;">Habilitado</th>' +
+                '<th style="padding:0.5rem;text-align:center;">Obligatorio</th>' +
+                '<th style="padding:0.5rem;text-align:right;">Acciones</th>' +
+              '</tr></thead>' +
+              '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      modalHtml
+    );
+  }
+
   function renderCvWorkspace() {
     var bodyEl = document.getElementById('ms-cv-body');
     if (!bodyEl) return;
@@ -954,6 +1244,8 @@
       bodyEl.innerHTML = renderCvDetailView();
     } else if (STATE_CV.activeView === 'portal') {
       bodyEl.innerHTML = renderPortalQrView();
+    } else if (STATE_CV.activeView === 'tablas') {
+      bodyEl.innerHTML = renderConfigTablasView();
     }
 
     bindCvWorkspaceEvents(bodyEl);
@@ -1121,6 +1413,305 @@
         }
       });
     }
+
+    // --- Submódulo: Configuración de Tablas ---
+    var persistCvFormConfig = async function () {
+      if (!STATE_CV.formConfig) return;
+      var res = await apiCv('POST', {
+        action: 'save_form_config',
+        formConfig: STATE_CV.formConfig
+      });
+      if (res && res.ok) {
+        STATE_CV.formConfig = res.formConfig || STATE_CV.formConfig;
+        STATE_CV.configDirty = false;
+        showCvToast(res.message || 'Configuración guardada.', false);
+        renderCvWorkspace();
+      } else {
+        showCvToast((res && res.message) || 'Error guardando configuración.', true);
+      }
+    };
+
+    var syncCfgDraftFromModal = function () {
+      if (!STATE_CV.configDraft) return;
+      var lblEl = bodyEl.querySelector('#ms-cv-cfg-label');
+      if (lblEl) STATE_CV.configDraft.label = lblEl.value;
+      var secEl = bodyEl.querySelector('#ms-cv-cfg-section');
+      if (secEl) STATE_CV.configDraft.section = secEl.value;
+      var typeEl = bodyEl.querySelector('#ms-cv-cfg-type');
+      if (typeEl) STATE_CV.configDraft.type = typeEl.value;
+      var phEl = bodyEl.querySelector('#ms-cv-cfg-placeholder');
+      if (phEl) STATE_CV.configDraft.placeholder = phEl.value;
+      var enEl = bodyEl.querySelector('#ms-cv-cfg-enabled');
+      if (enEl && !STATE_CV.configDraft.locked) STATE_CV.configDraft.enabled = enEl.checked;
+      var reqEl = bodyEl.querySelector('#ms-cv-cfg-required');
+      if (reqEl && !STATE_CV.configDraft.locked) {
+        STATE_CV.configDraft.required = STATE_CV.configDraft.enabled && reqEl.checked;
+      }
+      var optInps = bodyEl.querySelectorAll('.ms-cv-opt-inp');
+      if (optInps.length > 0) {
+        var opts = [];
+        optInps.forEach(function (inp) { opts.push(inp.value); });
+        STATE_CV.configDraft.options = opts;
+      }
+    };
+
+    var cfgSecSel = bodyEl.querySelector('#ms-cv-cfg-filter-sec');
+    if (cfgSecSel) {
+      cfgSecSel.addEventListener('change', function () {
+        STATE_CV.configSectionFilter = cfgSecSel.value;
+        renderCvWorkspace();
+      });
+    }
+
+    var cfgSearch = bodyEl.querySelector('#ms-cv-cfg-search');
+    if (cfgSearch) {
+      cfgSearch.addEventListener('input', function () {
+        STATE_CV.configSearch = cfgSearch.value;
+        renderCvWorkspace();
+        var nextEl = document.getElementById('ms-cv-cfg-search');
+        if (nextEl) {
+          nextEl.focus();
+          nextEl.setSelectionRange(nextEl.value.length, nextEl.value.length);
+        }
+      });
+    }
+
+    bodyEl.querySelectorAll('[data-cv-cfg-enabled]').forEach(function (chk) {
+      chk.addEventListener('change', function () {
+        var key = chk.getAttribute('data-cv-cfg-enabled');
+        var fields = (STATE_CV.formConfig && STATE_CV.formConfig.fields) || [];
+        var f = fields.find(function (x) { return x.key === key; });
+        if (!f || f.locked) return;
+        f.enabled = chk.checked;
+        if (!f.enabled) f.required = false;
+        STATE_CV.configDirty = true;
+        renderCvWorkspace();
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-cv-cfg-req]').forEach(function (chk) {
+      chk.addEventListener('change', function () {
+        var key = chk.getAttribute('data-cv-cfg-req');
+        var fields = (STATE_CV.formConfig && STATE_CV.formConfig.fields) || [];
+        var f = fields.find(function (x) { return x.key === key; });
+        if (!f || f.locked || !f.enabled) return;
+        f.required = chk.checked;
+        STATE_CV.configDirty = true;
+        renderCvWorkspace();
+      });
+    });
+
+    var cfgSaveBtn = bodyEl.querySelector('#ms-cv-cfg-save-btn');
+    if (cfgSaveBtn) {
+      cfgSaveBtn.addEventListener('click', persistCvFormConfig);
+    }
+
+    var cfgResetBtn = bodyEl.querySelector('#ms-cv-cfg-reset-btn');
+    if (cfgResetBtn) {
+      cfgResetBtn.addEventListener('click', async function () {
+        if (!window.confirm('¿Restablecer todos los campos y desplegables del formulario /cv a sus valores predeterminados? Se quitarán los campos personalizados.')) {
+          return;
+        }
+        var res = await apiCv('POST', { action: 'reset_form_config' });
+        if (res && res.ok) {
+          STATE_CV.formConfig = res.formConfig;
+          STATE_CV.configDirty = false;
+          STATE_CV.configModalMode = null;
+          STATE_CV.configDraft = null;
+          showCvToast(res.message || 'Configuración restablecida.', false);
+          renderCvWorkspace();
+        }
+      });
+    }
+
+    var cfgNewBtn = bodyEl.querySelector('#ms-cv-cfg-new-btn');
+    if (cfgNewBtn) {
+      cfgNewBtn.addEventListener('click', function () {
+        STATE_CV.configModalMode = 'new';
+        STATE_CV.configEditingKey = null;
+        STATE_CV.configDraft = {
+          key: 'custom_' + Date.now(),
+          label: '',
+          section: 'postulacion',
+          type: 'text',
+          enabled: true,
+          required: false,
+          isCustom: true,
+          locked: false,
+          placeholder: '',
+          options: ['Opción 1', 'Opción 2']
+        };
+        renderCvWorkspace();
+        var l = document.getElementById('ms-cv-cfg-label');
+        if (l) l.focus();
+      });
+    }
+
+    bodyEl.querySelectorAll('[data-cv-cfg-edit]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-cv-cfg-edit');
+        var fields = (STATE_CV.formConfig && STATE_CV.formConfig.fields) || [];
+        var f = fields.find(function (x) { return x.key === key; });
+        if (!f) return;
+        STATE_CV.configModalMode = 'edit';
+        STATE_CV.configEditingKey = key;
+        STATE_CV.configDraft = cloneField(f);
+        renderCvWorkspace();
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-cv-cfg-del]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var key = btn.getAttribute('data-cv-cfg-del');
+        if (!window.confirm('¿Eliminar este campo personalizado del formulario /cv?')) return;
+        if (!STATE_CV.formConfig || !Array.isArray(STATE_CV.formConfig.fields)) return;
+        STATE_CV.formConfig.fields = STATE_CV.formConfig.fields.filter(function (x) {
+          return x.key !== key;
+        });
+        await persistCvFormConfig();
+      });
+    });
+
+    var closeCfgModal = function () {
+      STATE_CV.configModalMode = null;
+      STATE_CV.configEditingKey = null;
+      STATE_CV.configDraft = null;
+      renderCvWorkspace();
+    };
+    var cfgModalBackdrop = bodyEl.querySelector('#ms-cv-cfg-modal-backdrop');
+    if (cfgModalBackdrop) {
+      cfgModalBackdrop.addEventListener('click', function (ev) {
+        if (ev.target === cfgModalBackdrop) closeCfgModal();
+      });
+    }
+    var cfgModalClose = bodyEl.querySelector('#ms-cv-cfg-modal-close');
+    if (cfgModalClose) cfgModalClose.addEventListener('click', closeCfgModal);
+    var cfgModalCancel = bodyEl.querySelector('#ms-cv-cfg-modal-cancel');
+    if (cfgModalCancel) cfgModalCancel.addEventListener('click', closeCfgModal);
+
+    var cfgTypeSel = bodyEl.querySelector('#ms-cv-cfg-type');
+    if (cfgTypeSel) {
+      cfgTypeSel.addEventListener('change', function () {
+        syncCfgDraftFromModal();
+        if (STATE_CV.configDraft && STATE_CV.configDraft.type === 'select' && (!STATE_CV.configDraft.options || STATE_CV.configDraft.options.length === 0)) {
+          STATE_CV.configDraft.options = ['Opción 1', 'Opción 2'];
+        }
+        renderCvWorkspace();
+      });
+    }
+
+    var cfgModalEnabled = bodyEl.querySelector('#ms-cv-cfg-enabled');
+    if (cfgModalEnabled) {
+      cfgModalEnabled.addEventListener('change', function () {
+        syncCfgDraftFromModal();
+        renderCvWorkspace();
+      });
+    }
+
+    var addOptionAction = function () {
+      syncCfgDraftFromModal();
+      var newInp = bodyEl.querySelector('#ms-cv-opt-new-inp');
+      var txt = newInp ? String(newInp.value || '').trim() : '';
+      if (!txt || !STATE_CV.configDraft) return;
+      if (!Array.isArray(STATE_CV.configDraft.options)) STATE_CV.configDraft.options = [];
+      STATE_CV.configDraft.options.push(txt);
+      renderCvWorkspace();
+      var nextInp = document.getElementById('ms-cv-opt-new-inp');
+      if (nextInp) nextInp.focus();
+    };
+    var optAddBtn = bodyEl.querySelector('#ms-cv-opt-add-btn');
+    if (optAddBtn) optAddBtn.addEventListener('click', addOptionAction);
+    var optNewInp = bodyEl.querySelector('#ms-cv-opt-new-inp');
+    if (optNewInp) {
+      optNewInp.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          addOptionAction();
+        }
+      });
+    }
+
+    bodyEl.querySelectorAll('[data-opt-up]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        syncCfgDraftFromModal();
+        var i = Number(b.getAttribute('data-opt-up'));
+        var arr = STATE_CV.configDraft && STATE_CV.configDraft.options;
+        if (!arr || i <= 0) return;
+        var tmp = arr[i - 1];
+        arr[i - 1] = arr[i];
+        arr[i] = tmp;
+        renderCvWorkspace();
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-opt-down]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        syncCfgDraftFromModal();
+        var i = Number(b.getAttribute('data-opt-down'));
+        var arr = STATE_CV.configDraft && STATE_CV.configDraft.options;
+        if (!arr || i >= arr.length - 1) return;
+        var tmp = arr[i + 1];
+        arr[i + 1] = arr[i];
+        arr[i] = tmp;
+        renderCvWorkspace();
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-opt-del]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        syncCfgDraftFromModal();
+        var i = Number(b.getAttribute('data-opt-del'));
+        var arr = STATE_CV.configDraft && STATE_CV.configDraft.options;
+        if (!arr) return;
+        arr.splice(i, 1);
+        renderCvWorkspace();
+      });
+    });
+
+    var cfgModalForm = bodyEl.querySelector('#ms-cv-cfg-modal-form');
+    if (cfgModalForm) {
+      cfgModalForm.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        syncCfgDraftFromModal();
+        var d = STATE_CV.configDraft;
+        if (!d || !STATE_CV.formConfig || !Array.isArray(STATE_CV.formConfig.fields)) return;
+        d.label = String(d.label || '').trim();
+        if (!d.label) {
+          showCvToast('Ingresá un nombre para el campo.', true);
+          return;
+        }
+        if (d.type === 'select') {
+          var newOptEl = bodyEl.querySelector('#ms-cv-opt-new-inp');
+          if (newOptEl && String(newOptEl.value || '').trim()) {
+            d.options.push(String(newOptEl.value || '').trim());
+          }
+          d.options = (d.options || [])
+            .map(function (x) { return String(x || '').trim(); })
+            .filter(function (x, idx, arr) { return Boolean(x) && arr.indexOf(x) === idx; });
+          if (d.options.length === 0) {
+            showCvToast('Agregá al menos una opción para el campo desplegable.', true);
+            return;
+          }
+        } else {
+          delete d.options;
+        }
+
+        if (STATE_CV.configModalMode === 'new') {
+          STATE_CV.formConfig.fields.push(cloneField(d));
+        } else {
+          var idx = STATE_CV.formConfig.fields.findIndex(function (x) {
+            return x.key === STATE_CV.configEditingKey;
+          });
+          if (idx >= 0) {
+            STATE_CV.formConfig.fields[idx] = cloneField(d);
+          }
+        }
+        STATE_CV.configModalMode = null;
+        STATE_CV.configEditingKey = null;
+        STATE_CV.configDraft = null;
+        await persistCvFormConfig();
+      });
+    }
   }
 
   function bindGlobalCvNavReset() {
@@ -1159,6 +1750,15 @@
       },
       true
     );
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Escape') return;
+      if (STATE_CV.activeView === 'tablas' && STATE_CV.configModalMode) {
+        STATE_CV.configModalMode = null;
+        STATE_CV.configEditingKey = null;
+        STATE_CV.configDraft = null;
+        renderCvWorkspace();
+      }
+    });
   }
 
   var initialBadgeLoaded = false;

@@ -107,6 +107,7 @@ export interface CvRecord {
     nivelAtencionDigital: string;
     idiomaPrincipal: string;
     nivelIdioma: string;
+    idiomas?: Array<{ idioma: string; nivel: string }>;
     cursosAdicionales: string;
   };
   experiencias: CvExperienceItem[];
@@ -320,7 +321,39 @@ export async function handlePublicCvSubmission(
   const nivelPosFacturacion = String(body.nivelPosFacturacion || "").trim();
   const nivelExcel = String(body.nivelExcel || "").trim();
   const nivelAtencionDigital = String(body.nivelAtencionDigital || "").trim();
-  const idiomaPrincipal = String(body.idiomaPrincipal || "").trim();
+  const rawIdiomas = Array.isArray(body.idiomas) ? body.idiomas : [];
+  const idiomasParsed: Array<{ idioma: string; nivel: string }> = [];
+  const seenLangs = new Set<string>();
+  for (const item of rawIdiomas) {
+    if (!item || typeof item !== "object") continue;
+    const lang = String((item as AnyObj).idioma || "").trim();
+    const lvl = String((item as AnyObj).nivel || "Básico").trim() || "Básico";
+    if (!lang || lang.toLowerCase() === "ninguno") continue;
+    const key = lang.toLowerCase();
+    if (seenLangs.has(key)) continue;
+    seenLangs.add(key);
+    idiomasParsed.push({ idioma: lang, nivel: lvl });
+    if (idiomasParsed.length >= 10) break;
+  }
+  const rawIdiomaPrincipal = String(body.idiomaPrincipal || "").trim();
+  if (
+    idiomasParsed.length === 0 &&
+    rawIdiomaPrincipal &&
+    rawIdiomaPrincipal.toLowerCase() !== "ninguno"
+  ) {
+    idiomasParsed.push({
+      idioma: rawIdiomaPrincipal,
+      nivel: String(body.nivelIdioma || "Básico").trim() || "Básico",
+    });
+  }
+  const idiomaPrincipal =
+    idiomasParsed.length > 0 ? idiomasParsed[0].idioma : rawIdiomaPrincipal;
+  const nivelIdiomaFinal =
+    idiomasParsed.length > 0
+      ? idiomasParsed[0].nivel
+      : idiomaPrincipal === "Ninguno"
+      ? ""
+      : String(body.nivelIdioma || "").trim();
 
   const { payload: db } = await getTenantDoc<CvDbDoc>(tenant, "cv_db", emptyCvDb());
   if (!Array.isArray(db.items)) db.items = [];
@@ -752,8 +785,9 @@ export async function handlePublicCvSubmission(
       nivelPosFacturacion,
       nivelExcel,
       nivelAtencionDigital,
-      idiomaPrincipal,
-      nivelIdioma: idiomaPrincipal === "Ninguno" ? "" : String(body.nivelIdioma || "").trim(),
+      idiomaPrincipal: idiomaPrincipal || "Ninguno",
+      nivelIdioma: nivelIdiomaFinal,
+      idiomas: idiomasParsed,
       cursosAdicionales: up(body.cursosAdicionales),
     },
     experiencias,
