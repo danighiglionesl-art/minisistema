@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { extractErpSessionFromRequest } from "../erp-session";
+import { lookupExternalArgentinePersonByDni } from "../external-dni-lookup";
 import { getTenantDoc, putTenantDoc } from "../supabase-server";
 import { enforceOptionBranding } from "../tenant-service";
 import {
@@ -197,7 +198,16 @@ export async function lookupPersonByDni(
   dniRaw: string
 ): Promise<{
   found: boolean;
-  source: "pacientes_turnero" | "clientes_erp" | "cv_erp" | null;
+  source:
+    | "pacientes_turnero"
+    | "usuarios_web"
+    | "clientes_erp"
+    | "cv_erp"
+    | "cuitonline"
+    | "bcra_oficial"
+    | "buscador_publico"
+    | null;
+  sourceLabel?: string;
   paciente: Partial<PacienteRecord> | null;
 }> {
   const target = normalizeDni(dniRaw);
@@ -210,7 +220,41 @@ export async function lookupPersonByDni(
     (p) => p.activo !== false && normalizeDni(p.dni) === target
   );
   if (existingPac) {
-    return { found: true, source: "pacientes_turnero", paciente: existingPac };
+    return {
+      found: true,
+      source: "pacientes_turnero",
+      sourceLabel: "Padrón de Pacientes",
+      paciente: existingPac,
+    };
+  }
+
+  // 1b. Buscar en Usuarios Web registrados (Gestión Web /cemep)
+  try {
+    const { payload: webDb } = await getTenantDoc<AnyObj>(tenant, "gestion_web_db", {
+      webUsers: [],
+    });
+    const wu = (Array.isArray(webDb?.webUsers) ? webDb.webUsers : []).find(
+      (u: AnyObj) => u.activo !== false && normalizeDni(String(u.dni || "")) === target
+    );
+    if (wu) {
+      return {
+        found: true,
+        source: "usuarios_web",
+        sourceLabel: "Portal de Pacientes Web",
+        paciente: {
+          dni: target,
+          apellidos: String(wu.apellidos || "").trim(),
+          nombres: String(wu.nombres || "").trim(),
+          nombreCompleto: String(wu.nombreCompleto || "").trim(),
+          fechaNacimiento: String(wu.fechaNacimiento || ""),
+          whatsapp: String(wu.whatsapp || ""),
+          email: String(wu.email || ""),
+          nroAfiliado: String(wu.nroAfiliado || ""),
+        },
+      };
+    }
+  } catch {
+    // Ignorar si gestion_web_db no existe aún
   }
 
   // 2. Buscar en Clientes del ERP del comercio (clientes_db)
@@ -278,6 +322,30 @@ export async function lookupPersonByDni(
     }
   } catch {
     // Ignorar si cv_db no existe
+  }
+
+  // 4. Motor de búsqueda externo (CUITOnline / Padrón ARCA público / BCRA Oficial / Buscadores públicos)
+  try {
+    const ext = await lookupExternalArgentinePersonByDni(target);
+    if (ext && (ext.apellidos || ext.nombres)) {
+      return {
+        found: true,
+        source: ext.source,
+        sourceLabel: ext.sourceLabel,
+        paciente: {
+          dni: target,
+          apellidos: ext.apellidos,
+          nombres: ext.nombres,
+          nombreCompleto: ext.nombreCompleto,
+          genero: ext.genero || "",
+          domicilio: ext.domicilio || "",
+          localidad: ext.localidad || "",
+          provincia: ext.provincia || "",
+        },
+      };
+    }
+  } catch {
+    // Fallback silencioso si falla red externa
   }
 
   return { found: false, source: null, paciente: null };
