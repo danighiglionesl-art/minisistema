@@ -72825,26 +72825,45 @@ function initApp() {
       if (fileInp) fileInp.value = '';
     }
 
-    function openCrmReportModal(report) {
+    let activeCrmDialogReportId = null;
+
+    function openCrmReportModal(report, options = {}) {
       const dlg = document.getElementById('crm-screenshot-dialog');
       if (!dlg || !report) return;
+      const isAdminManage = Boolean(options && options.adminManage);
+      activeCrmDialogReportId = isAdminManage ? String(report.id || '') : null;
+
       const badge = document.getElementById('crm-dialog-badge');
       const title = document.getElementById('crm-screenshot-dialog-title');
       const meta = document.getElementById('crm-dialog-meta');
       const desc = document.getElementById('crm-dialog-desc');
       const imgWrap = document.getElementById('crm-dialog-img-wrap');
+      const noImg = document.getElementById('crm-dialog-no-img');
       const img = document.getElementById('crm-dialog-img');
+      const adminPanel = document.getElementById('crm-dialog-admin-panel');
+      const estadoSel = document.getElementById('crm-dialog-estado-sel');
+      const respInp = document.getElementById('crm-dialog-resp-inp');
+      const confirmStatus = document.getElementById('crm-dialog-confirm-status');
+      const btnSave = document.getElementById('btn-crm-dialog-save');
+      const btnDelete = document.getElementById('btn-crm-dialog-delete');
 
       const tipoInfo = CRM_TIPO_META[report.tipo] || CRM_TIPO_META.MEJORA;
+      const prioInfo = CRM_PRIORIDAD_META[report.prioridad] || CRM_PRIORIDAD_META.NORMAL;
       const estInfo = CRM_ESTADO_META[report.estado] || CRM_ESTADO_META.PENDIENTE;
       if (badge) badge.textContent = report.codigo || report.id || 'CRM';
       if (title) title.textContent = report.titulo || 'Detalle de Reporte CRM';
       if (meta) {
-        meta.innerHTML = `<strong>Fecha y Hora:</strong> ${escapeHtml(report.fechaHora || '—')} · <strong>Usuario:</strong> ${escapeHtml(report.usuario || '—')} (@${escapeHtml(report.username || '—')}) · <strong>Módulo:</strong> ${escapeHtml(report.moduloLabel || 'General')} · <strong>Tipo:</strong> ${escapeHtml(tipoInfo.label)} · <strong>Estado:</strong> ${escapeHtml(estInfo.label)}`;
+        meta.innerHTML =
+          `<span><strong>Fecha y Hora:</strong> ${escapeHtml(report.fechaHora || '—')}</span>` +
+          `<span><strong>Usuario:</strong> ${escapeHtml(report.usuario || '—')} (@${escapeHtml(report.username || '—')}${report.sucursal ? ' · ' + escapeHtml(report.sucursal) : ''})</span>` +
+          `<span><strong>Módulo:</strong> ${escapeHtml(report.moduloLabel || 'General')}</span>` +
+          `<span class="badge" style="background:${tipoInfo.bg}; color:${tipoInfo.color}; border:1px solid ${tipoInfo.border}; font-size:0.74rem;">${escapeHtml(tipoInfo.label)}</span>` +
+          `<span class="badge" style="background:${prioInfo.bg}; color:${prioInfo.color}; font-size:0.74rem;">${escapeHtml(prioInfo.label)}</span>` +
+          `<span class="badge" style="background:${estInfo.bg}; color:${estInfo.color}; border:1px solid ${estInfo.border}; font-size:0.74rem;">${escapeHtml(estInfo.label)}</span>`;
       }
       if (desc) {
-        let fullText = report.descripcion || '';
-        if (report.respuestaAdmin) {
+        let fullText = report.descripcion || 'Sin descripción adicional.';
+        if (!isAdminManage && report.respuestaAdmin) {
           fullText += `\n\n────────────────────────────────────────\n📌 RESPUESTA ADMINISTRADOR GENERAL:\n${report.respuestaAdmin}`;
         }
         desc.textContent = fullText;
@@ -72853,11 +72872,61 @@ function initApp() {
         if (report.capturaBase64) {
           img.src = report.capturaBase64;
           imgWrap.hidden = false;
+          imgWrap.style.display = 'flex';
+          if (noImg) {
+            noImg.hidden = true;
+            noImg.style.display = 'none';
+          }
         } else {
           img.src = '';
           imgWrap.hidden = true;
+          imgWrap.style.display = 'none';
+          if (noImg) {
+            noImg.hidden = !isAdminManage;
+            noImg.style.display = isAdminManage ? 'block' : 'none';
+          }
         }
       }
+
+      if (adminPanel) {
+        adminPanel.hidden = !isAdminManage;
+        adminPanel.style.display = isAdminManage ? 'flex' : 'none';
+      }
+      if (btnSave) {
+        btnSave.hidden = !isAdminManage;
+        btnSave.style.display = isAdminManage ? '' : 'none';
+      }
+      if (btnDelete) {
+        btnDelete.hidden = !isAdminManage;
+        btnDelete.style.display = isAdminManage ? '' : 'none';
+      }
+
+      if (isAdminManage) {
+        if (estadoSel) estadoSel.value = report.estado || 'PENDIENTE';
+        if (respInp) respInp.value = report.respuestaAdmin || '';
+        if (confirmStatus) {
+          if (report.confirmadoPorUsuario) {
+            confirmStatus.hidden = false;
+            confirmStatus.style.display = 'block';
+            confirmStatus.style.color = '#15803d';
+            confirmStatus.style.background = 'rgba(22,163,74,0.12)';
+            confirmStatus.style.border = '1px solid rgba(22,163,74,0.35)';
+            confirmStatus.textContent = `✅ Confirmado por el usuario (${report.confirmadoFecha || ''})`;
+          } else if (report.notificacionPendiente) {
+            confirmStatus.hidden = false;
+            confirmStatus.style.display = 'block';
+            confirmStatus.style.color = '#b45309';
+            confirmStatus.style.background = 'rgba(217,119,6,0.12)';
+            confirmStatus.style.border = '1px solid rgba(217,119,6,0.35)';
+            confirmStatus.textContent = '⏳ Ventana emergente pendiente de confirmación por el usuario';
+          } else {
+            confirmStatus.hidden = true;
+            confirmStatus.style.display = 'none';
+            confirmStatus.textContent = '';
+          }
+        }
+      }
+
       if (typeof dlg.showModal === 'function') {
         if (!dlg.open) dlg.showModal();
       } else {
@@ -73010,7 +73079,7 @@ function initApp() {
       });
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">No se encontraron reportes en el CRM con los filtros seleccionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No se encontraron reportes en el CRM con los filtros seleccionados.</td></tr>`;
         return;
       }
 
@@ -73018,13 +73087,13 @@ function initApp() {
         .map((r) => {
           const tipoInfo = CRM_TIPO_META[r.tipo] || CRM_TIPO_META.MEJORA;
           const prioInfo = CRM_PRIORIDAD_META[r.prioridad] || CRM_PRIORIDAD_META.NORMAL;
-          const est = r.estado || 'PENDIENTE';
-          const hasImg = Boolean(r.capturaBase64);
           return `
             <tr data-crm-row-id="${escapeHtml(r.id)}">
               <td style="white-space:nowrap;">
                 <strong style="color:var(--brand-gold); font-size:0.92rem;">${escapeHtml(r.codigo || r.id)}</strong>
-                <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.18rem;">🕒 ${escapeHtml(r.fechaHora || '—')}</div>
+              </td>
+              <td style="white-space:nowrap;">
+                <div style="font-size:0.82rem; color:var(--text-secondary);">🕒 ${escapeHtml(r.fechaHora || '—')}</div>
               </td>
               <td>
                 <div style="font-weight:800; font-size:0.85rem;">${escapeHtml(r.usuario || 'Usuario')}</div>
@@ -73032,174 +73101,31 @@ function initApp() {
                 <div style="font-size:0.74rem; color:var(--text-secondary);">🏢 ${escapeHtml(r.sucursal || 'Casa Central')}</div>
               </td>
               <td>
-                <span class="badge" style="background:${tipoInfo.bg}; color:${tipoInfo.color}; border:1px solid ${tipoInfo.border}; font-size:0.74rem; display:inline-block; margin-bottom:0.3rem;">
+                <span class="badge" style="background:${tipoInfo.bg}; color:${tipoInfo.color}; border:1px solid ${tipoInfo.border}; font-size:0.74rem; display:inline-block;">
                   ${escapeHtml(tipoInfo.label)}
                 </span>
-                <div>
-                  <span class="badge" style="background:${prioInfo.bg}; color:${prioInfo.color}; font-size:0.73rem;">
-                    ${escapeHtml(prioInfo.label)}
-                  </span>
-                </div>
+              </td>
+              <td style="white-space:nowrap;">
+                <span class="badge" style="background:${prioInfo.bg}; color:${prioInfo.color}; font-size:0.74rem; display:inline-block;">
+                  ${escapeHtml(prioInfo.label)}
+                </span>
               </td>
               <td style="font-weight:700; font-size:0.83rem;">${escapeHtml(r.moduloLabel || 'General')}</td>
-              <td style="max-width:340px;">
-                <div style="font-weight:800; color:var(--text-primary); margin-bottom:0.25rem;">${escapeHtml(r.titulo || '—')}</div>
-                <div style="font-size:0.82rem; color:var(--text-secondary); white-space:pre-wrap; line-height:1.38;">${escapeHtml(r.descripcion || '')}</div>
-              </td>
-              <td class="text-center">
-                ${
-                  hasImg
-                    ? `<div style="display:flex; flex-direction:column; align-items:center; gap:0.35rem;">
-                        <img src="${escapeHtml(r.capturaBase64)}" alt="Miniatura captura" class="btn-crm-admin-view-img" data-crm-id="${escapeHtml(r.id)}" style="width:76px; height:52px; object-fit:cover; border-radius:6px; border:1px solid var(--brand-gold); cursor:pointer;">
-                        <button type="button" class="btn-secondary btn-sm btn-crm-admin-view-img" data-crm-id="${escapeHtml(r.id)}" style="width:auto; font-size:0.72rem; padding:0.15rem 0.45rem;">
-                          🔍 Ampliar
-                        </button>
-                      </div>`
-                    : `<span style="font-size:0.75rem; color:var(--text-secondary);">Sin captura</span>`
-                }
-              </td>
-              <td style="min-width:240px;">
-                <div style="display:flex; flex-direction:column; gap:0.4rem;">
-                  <select class="form-select form-input--compact crm-admin-estado-sel" data-crm-id="${escapeHtml(r.id)}" style="font-weight:700; font-size:0.8rem;">
-                    <option value="PENDIENTE" ${est === 'PENDIENTE' ? 'selected' : ''}>🟠 PENDIENTE / NUEVO</option>
-                    <option value="EN_PROCESO" ${est === 'EN_PROCESO' ? 'selected' : ''}>🔵 EN ANÁLISIS / DESARROLLO</option>
-                    <option value="RESUELTO" ${est === 'RESUELTO' ? 'selected' : ''}>🟢 RESUELTO / IMPLEMENTADO</option>
-                    <option value="DESCARTADO" ${est === 'DESCARTADO' ? 'selected' : ''}>⚪ DESCARTADO / CERRADO</option>
-                  </select>
-                  <textarea
-                    class="form-input crm-admin-resp-inp"
-                    data-crm-id="${escapeHtml(r.id)}"
-                    rows="2"
-                    placeholder="Escribir respuesta o nota de resolución para el usuario..."
-                    style="font-size:0.79rem; padding:0.4rem 0.55rem;"
-                  >${escapeHtml(r.respuestaAdmin || '')}</textarea>
-                  ${
-                    r.confirmadoPorUsuario
-                      ? `<div style="font-size:0.73rem; font-weight:700; color:#15803d; background:rgba(22,163,74,0.12); border:1px solid rgba(22,163,74,0.35); border-radius:6px; padding:0.22rem 0.45rem;">✅ Confirmado por el usuario (${escapeHtml(r.confirmadoFecha || '')})</div>`
-                      : r.notificacionPendiente
-                      ? `<div style="font-size:0.73rem; font-weight:700; color:#b45309; background:rgba(217,119,6,0.12); border:1px solid rgba(217,119,6,0.35); border-radius:6px; padding:0.22rem 0.45rem;">⏳ Ventana emergente pendiente de confirmación</div>`
-                      : ''
-                  }
-                </div>
-              </td>
               <td class="text-center" style="white-space:nowrap;">
-                <div style="display:flex; flex-direction:column; gap:0.35rem; align-items:center;">
-                  <button type="button" class="btn-primary btn-sm btn-crm-admin-save" data-crm-id="${escapeHtml(r.id)}" style="width:100%; font-size:0.76rem;">
-                    💾 Guardar
-                  </button>
-                  <button type="button" class="btn-secondary btn-sm btn-crm-admin-view-img" data-crm-id="${escapeHtml(r.id)}" style="width:100%; font-size:0.74rem;">
-                    👁️ Detalle
-                  </button>
-                  <button type="button" class="btn-danger btn-sm btn-crm-admin-delete" data-crm-id="${escapeHtml(r.id)}" style="width:100%; font-size:0.74rem;">
-                    🗑️ Eliminar
-                  </button>
-                </div>
+                <button type="button" class="btn-primary btn-sm btn-crm-admin-open-modal" data-crm-id="${escapeHtml(r.id)}" style="width:auto; min-width:74px; font-weight:800; font-size:0.78rem; padding:0.35rem 0.85rem;">
+                  VER
+                </button>
               </td>
             </tr>
           `;
         })
         .join('');
 
-      tbody.querySelectorAll('.btn-crm-admin-view-img').forEach((el) => {
+      tbody.querySelectorAll('.btn-crm-admin-open-modal').forEach((el) => {
         el.addEventListener('click', () => {
           const id = el.getAttribute('data-crm-id');
           const found = crmReportsList.find((item) => String(item.id) === String(id));
-          if (found) openCrmReportModal(found);
-        });
-      });
-
-      tbody.querySelectorAll('.btn-crm-admin-save').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-crm-id');
-          const row = tbody.querySelector(`tr[data-crm-row-id="${CSS.escape(id)}"]`);
-          const estSel = row?.querySelector('.crm-admin-estado-sel');
-          const respInp = row?.querySelector('.crm-admin-resp-inp');
-          const nuevoEstado = estSel?.value || 'PENDIENTE';
-          const nuevaResp = (respInp?.value || '').trim();
-
-          btn.disabled = true;
-          try {
-            const res = await fetch('api/manual_ai.php', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'update_crm_report',
-                id,
-                estado: nuevoEstado,
-                respuestaAdmin: nuevaResp,
-                resueltoPor: STATE.currentUser?.name || 'Administrador General'
-              })
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.ok && Array.isArray(data.reports)) {
-                crmReportsList = data.reports;
-                saveLocalCrmReports(crmReportsList);
-              }
-            } else {
-              crmReportsList = crmReportsList.map((item) =>
-                String(item.id) === String(id)
-                  ? { ...item, estado: nuevoEstado, respuestaAdmin: nuevaResp, updatedAt: formatNowDateTimeAr() }
-                  : item
-              );
-              saveLocalCrmReports(crmReportsList);
-            }
-            if (typeof showToast === 'function') {
-              const willNotify = ['EN_PROCESO', 'RESUELTO', 'DESCARTADO'].includes(nuevoEstado) || Boolean(nuevaResp);
-              showToast(
-                willNotify
-                  ? '✅ Guardado · Se envió ventana emergente con el informe al usuario'
-                  : '✅ Ticket CRM actualizado correctamente'
-              );
-            }
-          } catch {
-            crmReportsList = crmReportsList.map((item) =>
-              String(item.id) === String(id)
-                ? { ...item, estado: nuevoEstado, respuestaAdmin: nuevaResp, updatedAt: formatNowDateTimeAr() }
-                : item
-            );
-            saveLocalCrmReports(crmReportsList);
-            if (typeof showToast === 'function') {
-              showToast('✅ Ticket CRM actualizado');
-            }
-          } finally {
-            btn.disabled = false;
-            renderCrmAdminSection();
-            renderMyReportsTable();
-          }
-        });
-      });
-
-      tbody.querySelectorAll('.btn-crm-admin-delete').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-crm-id');
-          const found = crmReportsList.find((item) => String(item.id) === String(id));
-          if (!window.confirm(`¿Eliminar el reporte ${found?.codigo || id} del CRM?`)) return;
-          try {
-            const res = await fetch('api/manual_ai.php', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'delete_crm_report', id })
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.ok && Array.isArray(data.reports)) {
-                crmReportsList = data.reports;
-                saveLocalCrmReports(crmReportsList);
-              }
-            } else {
-              crmReportsList = crmReportsList.filter((item) => String(item.id) !== String(id));
-              saveLocalCrmReports(crmReportsList);
-            }
-          } catch {
-            crmReportsList = crmReportsList.filter((item) => String(item.id) !== String(id));
-            saveLocalCrmReports(crmReportsList);
-          }
-          renderCrmAdminSection();
-          renderMyReportsTable();
-          if (typeof showToast === 'function') {
-            showToast('🗑️ Reporte eliminado del CRM');
-          }
+          if (found) openCrmReportModal(found, { adminManage: true });
         });
       });
     }
@@ -73306,6 +73232,103 @@ function initApp() {
       const dlg = document.getElementById('crm-screenshot-dialog');
       document.getElementById('btn-close-crm-dialog')?.addEventListener('click', () => dlg?.close?.());
       document.getElementById('btn-close-crm-dialog-footer')?.addEventListener('click', () => dlg?.close?.());
+
+      document.getElementById('btn-crm-dialog-save')?.addEventListener('click', async () => {
+        const id = activeCrmDialogReportId;
+        if (!id) return;
+        const btnSave = document.getElementById('btn-crm-dialog-save');
+        const estSel = document.getElementById('crm-dialog-estado-sel');
+        const respInp = document.getElementById('crm-dialog-resp-inp');
+        const nuevoEstado = estSel?.value || 'PENDIENTE';
+        const nuevaResp = (respInp?.value || '').trim();
+
+        if (btnSave) btnSave.disabled = true;
+        try {
+          const res = await fetch('api/manual_ai.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'update_crm_report',
+              id,
+              estado: nuevoEstado,
+              respuestaAdmin: nuevaResp,
+              resueltoPor: STATE.currentUser?.name || 'Administrador General'
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.ok && Array.isArray(data.reports)) {
+              crmReportsList = data.reports;
+              saveLocalCrmReports(crmReportsList);
+            }
+          } else {
+            crmReportsList = crmReportsList.map((item) =>
+              String(item.id) === String(id)
+                ? { ...item, estado: nuevoEstado, respuestaAdmin: nuevaResp, updatedAt: formatNowDateTimeAr() }
+                : item
+            );
+            saveLocalCrmReports(crmReportsList);
+          }
+          if (typeof showToast === 'function') {
+            const willNotify = ['EN_PROCESO', 'RESUELTO', 'DESCARTADO'].includes(nuevoEstado) || Boolean(nuevaResp);
+            showToast(
+              willNotify
+                ? '✅ Guardado · Se envió ventana emergente con el informe al usuario'
+                : '✅ Ticket CRM actualizado correctamente'
+            );
+          }
+          dlg?.close?.();
+        } catch {
+          crmReportsList = crmReportsList.map((item) =>
+            String(item.id) === String(id)
+              ? { ...item, estado: nuevoEstado, respuestaAdmin: nuevaResp, updatedAt: formatNowDateTimeAr() }
+              : item
+          );
+          saveLocalCrmReports(crmReportsList);
+          if (typeof showToast === 'function') {
+            showToast('✅ Ticket CRM actualizado');
+          }
+          dlg?.close?.();
+        } finally {
+          if (btnSave) btnSave.disabled = false;
+          renderCrmAdminSection();
+          renderMyReportsTable();
+        }
+      });
+
+      document.getElementById('btn-crm-dialog-delete')?.addEventListener('click', async () => {
+        const id = activeCrmDialogReportId;
+        if (!id) return;
+        const found = crmReportsList.find((item) => String(item.id) === String(id));
+        if (!window.confirm(`¿Eliminar el reporte ${found?.codigo || id} del CRM?`)) return;
+        try {
+          const res = await fetch('api/manual_ai.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete_crm_report', id })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.ok && Array.isArray(data.reports)) {
+              crmReportsList = data.reports;
+              saveLocalCrmReports(crmReportsList);
+            }
+          } else {
+            crmReportsList = crmReportsList.filter((item) => String(item.id) !== String(id));
+            saveLocalCrmReports(crmReportsList);
+          }
+        } catch {
+          crmReportsList = crmReportsList.filter((item) => String(item.id) !== String(id));
+          saveLocalCrmReports(crmReportsList);
+        }
+        activeCrmDialogReportId = null;
+        dlg?.close?.();
+        renderCrmAdminSection();
+        renderMyReportsTable();
+        if (typeof showToast === 'function') {
+          showToast('🗑️ Reporte eliminado del CRM');
+        }
+      });
 
       const resDlg = document.getElementById('crm-user-resolution-dialog');
       if (resDlg) {
