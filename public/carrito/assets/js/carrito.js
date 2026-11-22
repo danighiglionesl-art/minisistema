@@ -4,7 +4,7 @@
   const CATALOG_API_URL = '../sistema/api/catalog.php';
   const CLIENTES_API_URL = '../sistema/api/clientes.php';
   const BANNERS_API_URL = '../sistema/api/banners.php';
-  const SINERGIAL_IMG_BASE = 'https://apisinergial.cn.com.ar/Imagenes/';
+  const SINERGIAL_IMG_BASE = 'https://ghrxmirhilrlveqyyscq.supabase.co/storage/v1/object/public/erp-product-images/';
   const STORE_BRAND = window.ERP_BRAND || {
     isPaseoAlberdi: false,
     storagePrefix: 'cn_',

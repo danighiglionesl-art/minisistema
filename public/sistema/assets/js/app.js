@@ -496,7 +496,7 @@ const GONDOLA_QUEUE_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_gondola_queu
 const GONDOLA_PRINT_HISTORY_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_gondola_print_history_v1';
 const THEME_BY_USER_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_theme_by_user_v1';
 const THEME_DEFAULT_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_theme_default_v1';
-const SINERGIAL_IMG_BASE = 'https://apisinergial.cn.com.ar/Imagenes/';
+const SINERGIAL_IMG_BASE = 'https://ghrxmirhilrlveqyyscq.supabase.co/storage/v1/object/public/erp-product-images/';
 const PAGE_SIZE = 50;
 const FID_PAGE_SIZE = 10;
 
