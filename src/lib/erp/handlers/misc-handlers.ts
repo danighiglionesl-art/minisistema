@@ -886,7 +886,7 @@ export async function handleErpManualAi(
           let addedFromCn = false;
           for (const cnRep of cnData.reports) {
             if (!cnRep || typeof cnRep !== "object") continue;
-            const exists = mergedReports.some(
+            const existingMatch = mergedReports.find(
               (r) =>
                 String(r.id || "") === String(cnRep.id || "") ||
                 (String(r.username || "").toLowerCase() ===
@@ -896,8 +896,22 @@ export async function handleErpManualAi(
                   String(r.descripcion || "").trim() ===
                     String(cnRep.descripcion || "").trim())
             );
-            if (!exists) {
+            if (!existingMatch) {
               mergedReports.unshift(cnRep);
+              addedFromCn = true;
+            } else if (
+              cnRep.confirmadoPorUsuario &&
+              !existingMatch.confirmadoPorUsuario &&
+              Number(cnRep.notificacionVersion || 0) >=
+                Number(existingMatch.notificacionVersion || 0)
+            ) {
+              existingMatch.notificacionPendiente = false;
+              existingMatch.confirmadoPorUsuario = true;
+              existingMatch.confirmadoFecha =
+                String(cnRep.confirmadoFecha || "") || formatNowDateTimeArServer();
+              existingMatch.confirmadoPor = String(
+                cnRep.confirmadoPor || cnRep.usuario || cnRep.username || ""
+              );
               addedFromCn = true;
             }
           }

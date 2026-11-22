@@ -352,7 +352,7 @@ export async function handleErpCatalog(
     }
 
     if (postAction === "save_article_supplier_code") {
-      const id = Number(payload.artId || payload.id || 0);
+      const id = Number(payload.articleId || payload.artId || payload.id || 0);
       const provId = Number(payload.proveedorId || 0);
       const codFab = String(payload.codProveedor || payload.cf || "")
         .trim()
@@ -370,6 +370,59 @@ export async function handleErpCatalog(
       else if (provId > 0) art.pr.push({ p: provId, cf: codFab });
       art.cf = codFab;
       return saveAndReply("save_article_supplier_code", { article: art });
+    }
+
+    if (postAction === "unlink_article_supplier_code") {
+      const artId = Number(payload.articleId || payload.artId || payload.id || 0);
+      const provId = Number(payload.proveedorId || 0);
+      const codProv = String(payload.codProveedor || payload.cf || "")
+        .trim()
+        .toUpperCase();
+      const unlinkedIds: number[] = [];
+      for (const art of db.articulos) {
+        const eId = Number(art.id || 0);
+        const isTargetArt = artId > 0 && eId === artId;
+        const eCf = String(art.cf || "").trim().toUpperCase();
+        const prList: AnyObj[] = Array.isArray(art.pr) ? art.pr : [];
+        let changed = false;
+
+        if (isTargetArt) {
+          if (!codProv || eCf === codProv || (provId > 0 && Number(art.p || 0) === provId)) {
+            if (art.cf) {
+              art.cf = "";
+              changed = true;
+            }
+          }
+          for (const prItem of prList) {
+            const prCf = String(prItem.cf || "").trim().toUpperCase();
+            const prP = Number(prItem.p || 0);
+            if ((codProv && prCf === codProv) || (provId > 0 && prP === provId)) {
+              if (prItem.cf) {
+                prItem.cf = "";
+                changed = true;
+              }
+            }
+          }
+        } else if (codProv) {
+          if (eCf === codProv && (provId <= 0 || Number(art.p || 0) === provId)) {
+            art.cf = "";
+            changed = true;
+          }
+          for (const prItem of prList) {
+            const prCf = String(prItem.cf || "").trim().toUpperCase();
+            const prP = Number(prItem.p || 0);
+            if (prCf === codProv && (provId <= 0 || prP === provId)) {
+              prItem.cf = "";
+              changed = true;
+            }
+          }
+        }
+        if (changed) {
+          art.pr = prList;
+          unlinkedIds.push(eId);
+        }
+      }
+      return saveAndReply("unlink_article_supplier_code", { unlinkedIds });
     }
 
     if (postAction === "create_rubro" || postAction === "save_rubro") {

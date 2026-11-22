@@ -39867,6 +39867,7 @@ function initApp() {
       ordenFactura: Number(ordenFactura) > 0 ? Number(ordenFactura) : 0,
       codProveedor: effectiveCodProv,
       ambiguousCodProv: Boolean(ambiguousCodProv),
+      unlinkedCodProv: false,
       descripcionFactura: String(descripcionFactura || '').trim().toUpperCase(),
       cantidad: round2(Number(cantidad) > 0 ? Number(cantidad) : 1),
       precioUnitario: finalPrecioUnitario,
@@ -39899,15 +39900,153 @@ function initApp() {
     return row;
   }
 
+  function markAmbiguousSupplierCodesOnFpRows(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    const descsByCode = new Map();
+    rows.forEach((r) => {
+      const k = normalizeCodeForMatch(r?.codProveedor);
+      if (!k) return;
+      if (!descsByCode.has(k)) descsByCode.set(k, new Set());
+      descsByCode.get(k).add(normalizeStr(r?.descripcionFactura || ''));
+    });
+    rows.forEach((r) => {
+      const k = normalizeCodeForMatch(r?.codProveedor);
+      if (k && (descsByCode.get(k)?.size || 0) > 1) {
+        r.ambiguousCodProv = true;
+        r.saveCodProvLink = false;
+      }
+    });
+  }
+
+  function unlinkSupplierCodeFromArticleAndRows(art, provId, rawCodProv, targetRow = null) {
+    const pid = Number(provId) || 0;
+    const currentArtCf = art ? (getArtSupplierCodeForProv(art, pid) || art.cf || '') : '';
+    const cleanCf = normalizeCodeForMatch(rawCodProv || currentArtCf);
+    const modifiedArticles = [];
+
+    const clearCodeOnArt = (a, isDirectTarget = false) => {
+      if (!a) return;
+      let changed = false;
+      const aCf = normalizeCodeForMatch(a.cf);
+      if (isDirectTarget && (!cleanCf || aCf === cleanCf || (pid > 0 && Number(a.p) === pid))) {
+        if (a.cf) {
+          a.cf = '';
+          changed = true;
+        }
+      } else if (cleanCf && aCf === cleanCf && (pid <= 0 || Number(a.p) === pid)) {
+        a.cf = '';
+        changed = true;
+      }
+      if (Array.isArray(a.pr)) {
+        a.pr.forEach((prItem) => {
+          const prCf = normalizeCodeForMatch(prItem.cf);
+          const prP = Number(prItem.p) || 0;
+          if (
+            (cleanCf && prCf === cleanCf && (isDirectTarget || pid <= 0 || prP === pid)) ||
+            (isDirectTarget && !cleanCf && pid > 0 && prP === pid)
+          ) {
+            if (prItem.cf) {
+              prItem.cf = '';
+              changed = true;
+            }
+          }
+        });
+      }
+      if (changed && !modifiedArticles.includes(a)) {
+        modifiedArticles.push(a);
+      }
+    };
+
+    if (art) {
+      clearCodeOnArt(art, true);
+    }
+    if (cleanCf) {
+      (STATE.articulos || []).forEach((a) => {
+        if (a && (!art || Number(a.id) !== Number(art.id))) {
+          clearCodeOnArt(a, false);
+        }
+      });
+    }
+
+    if (modifiedArticles.length > 0) {
+      saveLocalFacturaProveedorArticleOverrides(modifiedArticles);
+    }
+    populateFpProveedoresSelect();
+    populateFpsProveedoresSelect();
+
+    fetch('api/catalog.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'unlink_article_supplier_code',
+        articleId: art ? Number(art.id) : 0,
+        proveedorId: pid,
+        codProveedor: cleanCf
+      })
+    }).catch(() => {});
+
+    // Actualizar los renglones en Factura Proveedor (Stock y Precios) que tenían ese código o ese producto
+    if (Array.isArray(FP_STATE.rows) && FP_STATE.rows.length > 0) {
+      FP_STATE.rows.forEach((r) => {
+        const rowCf = normalizeCodeForMatch(r.codProveedor);
+        const isClickedRow = targetRow && r.rowId === targetRow.rowId;
+        const sharesUnlinkedCode = Boolean(cleanCf && rowCf === cleanCf);
+        const wasMatchedToArt = Boolean(art && Number(r.matchedArtId) === Number(art.id));
+
+        if (isClickedRow || sharesUnlinkedCode) {
+          r.unlinkedCodProv = true;
+          r.saveCodProvLink = false;
+        }
+
+        if (isClickedRow || (sharesUnlinkedCode && wasMatchedToArt)) {
+          r.matchedArtId = null;
+          r.matchedArt = null;
+          r.manualSysCode = '';
+          r.matchSource = 'none';
+
+          // Si no es la fila donde el usuario tocó explícitamente para cambiar de producto, o si la descripción coincide con otro artículo distinto, vincular por descripción
+          if (r.descripcionFactura) {
+            const descHit = findArticleByDescriptionAI(r.descripcionFactura, pid);
+            if (descHit && descHit.art && (!isClickedRow || !art || Number(descHit.art.id) !== Number(art.id))) {
+              r.matchedArtId = descHit.art.id;
+              r.matchSource = descHit.matchSource;
+            }
+          }
+          recalculateFpRow(r);
+        }
+      });
+      renderFpInvoiceTableAndAlerts();
+    }
+
+    // Actualizar también si se ejecutó desde Factura Proveedor (Solo Stock)
+    if (Array.isArray(FPS_STATE.rows) && FPS_STATE.rows.length > 0) {
+      FPS_STATE.rows.forEach((r) => {
+        const rowCf = normalizeCodeForMatch(r.codProveedor);
+        const isClickedRow = targetRow && r.rowId === targetRow.rowId;
+        const sharesUnlinkedCode = Boolean(cleanCf && rowCf === cleanCf);
+        if (isClickedRow || sharesUnlinkedCode) {
+          r.assignedArtId = null;
+          r.matchedArtId = null;
+          r.matchedArt = null;
+          r.willSaveNewCodProv = false;
+          recalculateFpsRow(r);
+        }
+      });
+      renderFpsInvoiceTableAndAlerts();
+    }
+  }
+
   function recalculateAllFpRows() {
     const provObj = getSelectedFpProveedorObj();
     const provId = provObj ? Number(provObj.id) : 0;
     const forceNoCode = Boolean(document.getElementById('fp-sin-cod-proveedor-chk')?.checked);
 
+    markAmbiguousSupplierCodesOnFpRows(FP_STATE.rows);
+
     FP_STATE.rows.forEach((row) => {
       if (row.matchSource !== 'manual_cod_sistema') {
         let hit = null;
-        if (!forceNoCode && row.codProveedor && !row.ambiguousCodProv) {
+        if (!forceNoCode && row.codProveedor && !row.ambiguousCodProv && !row.unlinkedCodProv) {
           hit = findArticleBySupplierCodeAI(row.codProveedor, provId);
         }
         if (!hit && row.descripcionFactura) {
@@ -40265,7 +40404,9 @@ function initApp() {
         matchBadge.textContent =
           row.matchSource === 'manual_cod_sistema'
             ? '✓ Cód. Sistema Manual'
-            : '🤖 IA Cód. Proveedor';
+            : row.matchSource && row.matchSource.startsWith('ia_descripcion')
+              ? '🤖 IA Descripción'
+              : '🤖 IA Cód. Proveedor';
         matchedHeader.appendChild(matchBadge);
 
         sysStack.appendChild(matchedHeader);
@@ -40278,13 +40419,15 @@ function initApp() {
         artNameEl.addEventListener('click', () => openArticleModal(art));
         sysStack.appendChild(artNameEl);
 
+        const provIdNow = provObj ? Number(provObj.id) : 0;
+        const registeredCf = getArtSupplierCodeForProv(art, provIdNow) || art.cf || '';
         const subInfo = document.createElement('span');
         subInfo.className = 'price-neto-val';
-        subInfo.textContent = `Cód. Prov. actual: ${art.cf || 'S/D'}`;
+        subInfo.textContent = `Cód. Prov. actual: ${registeredCf || 'S/D'}`;
         sysStack.appendChild(subInfo);
 
         // Si se vinculó manualmente por Código de Sistema y la factura traía un Cód. Proveedor nuevo, permitir guardarlo
-        if (row.matchSource === 'manual_cod_sistema' && row.codProveedor) {
+        if (row.matchSource === 'manual_cod_sistema' && row.codProveedor && !row.unlinkedCodProv) {
           const learnLbl = document.createElement('label');
           learnLbl.style.display = 'inline-flex';
           learnLbl.style.alignItems = 'center';
@@ -40303,6 +40446,13 @@ function initApp() {
           learnTxt.textContent = `Guardar cód. prov. "${row.codProveedor}" en este artículo`;
           learnLbl.appendChild(learnTxt);
           sysStack.appendChild(learnLbl);
+        } else if (row.unlinkedCodProv && row.codProveedor) {
+          const unlinkedNote = document.createElement('span');
+          unlinkedNote.style.fontSize = '0.72rem';
+          unlinkedNote.style.fontWeight = '700';
+          unlinkedNote.style.color = '#b45309';
+          unlinkedNote.textContent = `🔓 Cód. prov. "${row.codProveedor}" desvinculado de este producto`;
+          sysStack.appendChild(unlinkedNote);
         }
       } else {
         const alertTag = document.createElement('span');
@@ -40388,6 +40538,24 @@ function initApp() {
           openArticleModal(art);
         });
         manualBox.appendChild(btnEditRowArt);
+
+        const provIdNow = provObj ? Number(provObj.id) : 0;
+        const codeForUnlink = row.codProveedor || getArtSupplierCodeForProv(art, provIdNow) || art.cf || '';
+        const btnUnlinkCodProv = document.createElement('button');
+        btnUnlinkCodProv.type = 'button';
+        btnUnlinkCodProv.className = 'btn-secondary btn-sm';
+        btnUnlinkCodProv.style.padding = '0.22rem 0.5rem';
+        btnUnlinkCodProv.style.fontSize = '0.74rem';
+        btnUnlinkCodProv.style.color = 'var(--danger, #dc2626)';
+        btnUnlinkCodProv.style.borderColor = 'rgba(220, 38, 38, 0.35)';
+        btnUnlinkCodProv.textContent = '🔓 Desvincular Cód. Prov.';
+        btnUnlinkCodProv.title = codeForUnlink
+          ? `Desvincular el Código de Proveedor "${codeForUnlink}" de "${art.n}" para que el sistema no reemplace otros renglones con ese código por este producto`
+          : `Desvincular "${art.n}" de este renglón y quitar su Código de Proveedor asociado`;
+        btnUnlinkCodProv.addEventListener('click', () => {
+          unlinkSupplierCodeFromArticleAndRows(art, provIdNow, codeForUnlink, row);
+        });
+        manualBox.appendChild(btnUnlinkCodProv);
       }
 
       sysStack.appendChild(manualBox);
@@ -42750,7 +42918,16 @@ function initApp() {
       }
 
       if (snapshotRows.length > 0) {
+        const descsBySnapCode = new Map();
+        snapshotRows.forEach((snap) => {
+          const k = normalizeCodeForMatch(snap?.codProveedor);
+          if (!k) return;
+          if (!descsBySnapCode.has(k)) descsBySnapCode.set(k, new Set());
+          descsBySnapCode.get(k).add(normalizeStr(snap?.descripcionFactura || ''));
+        });
         FP_STATE.rows = snapshotRows.map((snap, idx) => {
+          const kSnap = normalizeCodeForMatch(snap?.codProveedor);
+          const isAmbiguousSnap = Boolean(kSnap && (descsBySnapCode.get(kSnap)?.size || 0) > 1);
           const r = createFpInvoiceRow({
             codProveedor: snap.codProveedor || '',
             descripcionFactura: snap.descripcionFactura || '',
@@ -42761,7 +42938,8 @@ function initApp() {
             bonifPct: Number(snap.bonifPct) || 0,
             subtotalFactura: Number(snap.subtotalFactura) || 0,
             hasExplicitSubtotalCol: Boolean(snap.hasExplicitSubtotalCol),
-            pxqVerified: Boolean(snap.pxqVerified)
+            pxqVerified: Boolean(snap.pxqVerified),
+            ambiguousCodProv: isAmbiguousSnap
           });
           if (snap.matchedArtId) {
             const artHit = STATE.articulos.find((a) => Number(a.id) === Number(snap.matchedArtId));
@@ -43113,8 +43291,8 @@ function initApp() {
         }
       }
 
-      // 3. Si tenía código de proveedor nuevo y se vinculó manualmente por Código de Sistema, asociarlo
-      if (row.codProveedor && row.saveCodProvLink !== false) {
+      // 3. Si tenía código de proveedor nuevo y se vinculó manualmente por Código de Sistema, asociarlo (salvo que esté desvinculado o compartido entre distintos productos)
+      if (row.codProveedor && row.saveCodProvLink !== false && !row.ambiguousCodProv && !row.unlinkedCodProv) {
         if (!Array.isArray(art.pr)) art.pr = [];
         const cleanCf = row.codProveedor.trim();
         const existingPr = art.pr.find((x) => Number(x.p) === Number(provObj.id));
@@ -44520,6 +44698,22 @@ function initApp() {
         btnEditFpsArt.title = 'Editar nombre, gramaje, rubro o datos de este artículo';
         btnEditFpsArt.addEventListener('click', () => openArticleModal(art));
         rowActionsWrap.appendChild(btnEditFpsArt);
+
+        const btnUnlinkFpsCod = document.createElement('button');
+        btnUnlinkFpsCod.type = 'button';
+        btnUnlinkFpsCod.className = 'btn-secondary btn-sm';
+        btnUnlinkFpsCod.style.width = 'fit-content';
+        btnUnlinkFpsCod.style.padding = '0.18rem 0.5rem';
+        btnUnlinkFpsCod.style.fontSize = '0.72rem';
+        btnUnlinkFpsCod.style.color = 'var(--danger, #dc2626)';
+        btnUnlinkFpsCod.style.borderColor = 'rgba(220, 38, 38, 0.35)';
+        btnUnlinkFpsCod.textContent = '🔓 Desvincular Cód. Prov.';
+        btnUnlinkFpsCod.title = 'Desvincular este producto del Código de Proveedor';
+        btnUnlinkFpsCod.addEventListener('click', () => {
+          const codeToUnlink = row.codProveedor || getArtSupplierCodeForProv(art, provId) || art.cf || '';
+          unlinkSupplierCodeFromArticleAndRows(art, provId, codeToUnlink, row);
+        });
+        rowActionsWrap.appendChild(btnUnlinkFpsCod);
 
         artStack.appendChild(rowActionsWrap);
       } else if (art && !row.codProveedor) {
