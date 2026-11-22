@@ -161,6 +161,7 @@ export async function handleErpVentas(
           let stockChanged = false;
           const ym = fechaIso.slice(0, 7);
           for (const it of items) {
+            if (it.isService || it.itemType === "service") continue;
             const artId = Number(it.artId || it.id || 0);
             const qty = Number(it.cantidad || it.qty || 0);
             if (!qty || artId === 4407) continue;

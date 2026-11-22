@@ -297,7 +297,7 @@ export function renderErpHtmlResponse(params: {
     );
     html = html.replace(
       "</body>",
-      `  <script src="/sistema/assets/js/superadmin-panel.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/cv-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/asistencia-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/personal-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/turnos-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-consultorios-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-web-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/inmobiliaria-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/mi-contador-module.js?v=${assetVer}"></script>\n</body>`
+      `  <script src="/sistema/assets/js/superadmin-panel.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/cv-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/asistencia-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/personal-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/turnos-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-consultorios-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-web-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/inmobiliaria-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/mi-contador-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/servicios-module.js?v=${assetVer}"></script>\n</body>`
     );
   }
 

@@ -215,6 +215,22 @@ const ALL_SYSTEM_MODULES = [
       { key: 'mi_contador:config', label: 'Configuración Fiscal', selector: '#sec-menu-micontador [data-mc-sub="config"]', sections: [] }
     ]
   },
+  {
+    key: 'servicios',
+    label: 'Gestión de Servicios',
+    sections: ['sec-menu-servicios', 'sec-servicios-workspace'],
+    submodules: [
+      { key: 'servicios:panel', label: 'Panel de Servicios', selector: '#sec-menu-servicios [data-srv-sub="panel"]', sections: [] },
+      { key: 'servicios:catalogo', label: 'Catálogo de Servicios', selector: '#sec-menu-servicios [data-srv-sub="catalogo"]', sections: [] },
+      { key: 'servicios:presupuestos', label: 'Presupuestos', selector: '#sec-menu-servicios [data-srv-sub="presupuestos"]', sections: [] },
+      { key: 'servicios:ordenes', label: 'Órdenes de Trabajo', selector: '#sec-menu-servicios [data-srv-sub="ordenes"]', sections: [] },
+      { key: 'servicios:partes', label: 'Partes de Servicio', selector: '#sec-menu-servicios [data-srv-sub="partes"]', sections: [] },
+      { key: 'servicios:documentos', label: 'Documentación Técnica', selector: '#sec-menu-servicios [data-srv-sub="documentos"]', sections: [] },
+      { key: 'servicios:agenda', label: 'Agenda y Personal', selector: '#sec-menu-servicios [data-srv-sub="agenda"]', sections: [] },
+      { key: 'servicios:abonos', label: 'Abonos Recurrentes', selector: '#sec-menu-servicios [data-srv-sub="abonos"]', sections: [] },
+      { key: 'servicios:informes', label: 'Informes de Servicios', selector: '#sec-menu-servicios [data-srv-sub="informes"]', sections: [] }
+    ]
+  },
   { key: 'perfil', label: 'Perfil de Usuario', sections: ['sec-perfil-usuario'], submodules: [] },
   {
     key: 'ayuda',
@@ -6678,9 +6694,13 @@ function scoreCtaCteEntityMatch(c, q, tokens) {
 }
 
 function getFilteredCuentasCorrientesUnificadasList() {
+  if (typeof window.__MS_ENSURE_CTACTE_ORIGEN_FILTER__ === 'function') {
+    window.__MS_ENSURE_CTACTE_ORIGEN_FILTER__();
+  }
   const qRaw = String(document.getElementById('ctacte-filter-q')?.value || '').trim();
   const q = normalizeStr(qRaw);
   const rol = document.getElementById('ctacte-filter-rol')?.value || 'todos';
+  const origenFilter = String(document.getElementById('ctacte-filter-origen')?.value || 'todos').toUpperCase();
   const estado = document.getElementById('ctacte-filter-estado')?.value || 'con_movimientos';
   const orden = document.getElementById('ctacte-filter-orden')?.value || 'mayor_saldo';
   const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
@@ -6700,6 +6720,18 @@ function getFilteredCuentasCorrientesUnificadasList() {
     if (rol === 'duales' && !(c.esCliente && c.esProveedor)) return false;
     if (rol === 'clientes' && !c.esCliente) return false;
     if (rol === 'proveedores' && !c.esProveedor) return false;
+
+    if (origenFilter !== 'TODOS') {
+      const cliMovs = Array.isArray(STATE.movimientosPorCliente?.[String(c.id)])
+        ? STATE.movimientosPorCliente[String(c.id)]
+        : [];
+      const hasMatchingOrigin = cliMovs.some((m) => {
+        const orig = String(m?.origen || 'VENTA').toUpperCase();
+        if (origenFilter === 'SERVICIOS') return orig === 'SERVICIOS' || orig === 'MIXTA';
+        return orig === origenFilter;
+      });
+      if (!hasMatchingOrigin) return false;
+    }
 
     if (estado === 'con_movimientos' && Math.abs(saldo) < 0.01 && movs === 0) return false;
     if (estado === 'deudores' && saldo <= 0.009) return false;
@@ -13342,9 +13374,14 @@ function initApp() {
       const refreshRowAndTotals = () => {
         const lineTotal = calcRowLineTotal();
         tdTotal.innerHTML = `<span class="price-final-val">${formatArs(lineTotal)}</span>`;
-        const hasStock = isGeneric ? true : Number(item.stock) >= item.cantidad;
+        const isServiceItem = Boolean(item.isService || item.itemType === 'service');
+        const hasStock = isGeneric || isServiceItem ? true : Number(item.stock) >= item.cantidad;
         dot.className = 'fact-stock-dot ' + (hasStock ? 'fact-stock-dot--ok' : 'fact-stock-dot--low');
-        dot.title = isGeneric ? 'Artículo de carga manual' : `Existencia en depósito: ${item.stock}`;
+        dot.title = isServiceItem
+          ? 'Servicio (sin stock físico)'
+          : isGeneric
+            ? 'Artículo de carga manual'
+            : `Existencia en depósito: ${item.stock}`;
         dot.textContent = hasStock ? '✓' : '↓';
         updateInvoiceTotalsDOM();
       };
@@ -13799,7 +13836,7 @@ function initApp() {
       if (prevList !== targetList || STATE.factItems.length > 0) {
         // Recalcular precios de ítems según la lista del cliente (excepto Artículo Genérico 00020)
         STATE.factItems.forEach((it) => {
-          if (it.isGeneric || isGenericArticleCode(it.codigo)) return;
+          if (it.isGeneric || it.isService || it.itemType === 'service' || isGenericArticleCode(it.codigo)) return;
           const art = STATE.articulos.find((a) => a.id === it.artId);
           if (art) it.precioFinal = getArticleUnitPriceForActiveList(art);
         });
@@ -14086,6 +14123,119 @@ function initApp() {
       focusFirstCodeInput();
     }
   }
+
+  // Puentes públicos de integración para Módulo de Gestión de Servicios (sin duplicar Clientes, POS ARCA ni Cta. Cte.)
+  window.__MS_OPEN_CLIENT_MODAL__ = function (clientId) {
+    if (typeof openClientModal === 'function') {
+      openClientModal(clientId || null);
+    }
+  };
+
+  window.__MS_OPEN_ERP_SECTION__ = function (secId) {
+    if (secId && typeof switchSection === 'function') {
+      switchSection(secId);
+    }
+  };
+
+  window.__MS_ENSURE_CTACTE_ORIGEN_FILTER__ = function () {
+    const rolSel = document.getElementById('ctacte-filter-rol');
+    if (!rolSel || document.getElementById('ctacte-filter-origen')) return;
+    const parent = rolSel.closest('.toolbar-filter') || rolSel.parentElement;
+    if (!parent || !parent.parentElement) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'toolbar-filter';
+    wrap.innerHTML =
+      '<label for="ctacte-filter-origen" class="toolbar-label">Origen</label>' +
+      '<select id="ctacte-filter-origen" class="form-select">' +
+      '<option value="todos" selected>Todos (Comercio + Servicios)</option>' +
+      '<option value="SERVICIOS">Servicios</option>' +
+      '<option value="MIXTA">Mixta (Productos + Servicios)</option>' +
+      '<option value="VENTA">Comercio (Ventas)</option>' +
+      '<option value="COMPRA">Compras / Proveedores</option>' +
+      '</select>';
+    parent.parentElement.insertBefore(wrap, parent.nextSibling);
+    wrap.querySelector('#ctacte-filter-origen')?.addEventListener('change', () => {
+      if (typeof renderCuentasCorrientesSection === 'function') {
+        renderCuentasCorrientesSection();
+      }
+    });
+  };
+
+  window.__MS_OPEN_CTACTE_ORIGIN__ = function (originVal) {
+    window.__MS_ENSURE_CTACTE_ORIGEN_FILTER__();
+    const sel = document.getElementById('ctacte-filter-origen');
+    if (sel && originVal) sel.value = originVal;
+    switchSection('sec-cuentas-corrientes');
+    if (typeof renderCuentasCorrientesSection === 'function') {
+      renderCuentasCorrientesSection();
+    }
+  };
+
+  window.__MS_LOAD_SERVICES_INTO_POS__ = async function (payload) {
+    if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) return false;
+    await loadClientesDatabase(true);
+    await loadCatalogDatabase();
+    await loadVentasDatabase();
+
+    // Elegir caja abierta o Caja 3 (A4 ideal para facturas de servicios)
+    const preferredCaja =
+      payload.cajaId ||
+      (STATE.currentUser && STATE.currentUser.cajaAbierta) ||
+      'caja3';
+
+    // Ocultar secciones de servicios antes de abrir el facturador nativo
+    const srvMenu = document.getElementById('sec-menu-servicios');
+    const srvWs = document.getElementById('sec-servicios-workspace');
+    if (srvMenu) srvMenu.hidden = true;
+    if (srvWs) srvWs.hidden = true;
+
+    const applyPayloadItems = () => {
+      if (!payload.appendToExisting) {
+        STATE.factItems = [];
+      }
+      if (payload.billingClientId) {
+        const cli = (STATE.clientes || []).find(
+          (c) => Number(c.id) === Number(payload.billingClientId)
+        );
+        if (cli) selectClientForInvoice(cli);
+      }
+      if (payload.tipoComp) {
+        const tipoCompEl = document.getElementById('pos-tipo-comp');
+        if (tipoCompEl) tipoCompEl.value = payload.tipoComp;
+      }
+      payload.items.forEach((it) => {
+        STATE.factItems.push({
+          uid: Date.now() + Math.random(),
+          artId: 0,
+          codigo: String(it.codigo || 'SRV').toUpperCase(),
+          nombre: String(it.nombre || 'SERVICIO PRESTADO'),
+          isGeneric: true,
+          isService: true,
+          itemType: 'service',
+          isScaleTicket: false,
+          scaleBarcode: null,
+          cantidad: Math.max(0.001, Number(it.cantidad) || 1),
+          precioFinal: Math.max(0, Number(it.precioFinal) || 0),
+          descPct: Math.min(100, Math.max(0, Number(it.descPct) || 0)),
+          ivaPct: Number.isFinite(Number(it.ivaPct)) ? Number(it.ivaPct) : 21,
+          stock: 999999,
+          unidadMedida: String(it.unidadMedida || 'Unidad'),
+          serviceLink: it.serviceLink || null
+        });
+      });
+      STATE.pendingServiceBillingContext = payload.context || null;
+      const obsEl = document.getElementById('fact-obs') || document.getElementById('pos-observacion');
+      if (obsEl && payload.observacion) {
+        obsEl.value = String(payload.observacion);
+      }
+      updateFactLetraAndNumber();
+      renderFactItemsAndTotals();
+    };
+
+    openCajaPos(preferredCaja, true);
+    applyPayloadItems();
+    return true;
+  };
 
   function renderCajaPosView() {
     const cajaId = STATE.activeCajaId;
@@ -23042,6 +23192,11 @@ function initApp() {
           })
           .catch(() => {});
 
+        const hasServiceItems = itemsSnapshot.some((it) => Boolean(it && (it.isService || it.itemType === 'service')));
+        const hasProductItems = itemsSnapshot.some((it) => Boolean(it && !it.isService && it.itemType !== 'service'));
+        const origenPosOperacion = hasServiceItems && hasProductItems ? 'MIXTA' : hasServiceItems ? 'SERVICIOS' : 'VENTA';
+        const pendingSrvCtx = STATE.pendingServiceBillingContext || null;
+
         if (method === 'ctacte' && selectedCliIdSnapshot) {
           const tcaPos =
             tipoBase === 'Nota de Crédito'
@@ -23071,6 +23226,7 @@ function initApp() {
                 dh,
                 comprobante: compFormatted,
                 importe,
+                origen: origenPosOperacion,
                 obs: fullObs,
                 uid: saleRecord.uid || '',
                 cae: saleRecord.cae || '',
@@ -23080,6 +23236,22 @@ function initApp() {
             })
           }).catch(() => {});
         }
+
+        if (hasServiceItems && typeof window.__MS_ON_POS_SALE_COMPLETED__ === 'function') {
+          try {
+            window.__MS_ON_POS_SALE_COMPLETED__(
+              {
+                ...saleRecord,
+                origenOperacion: origenPosOperacion,
+                billingClientId: selectedCliIdSnapshot || 0,
+                billingClientNombre: selectedCliObj ? String(selectedCliObj.nombre || '') : '',
+                items: itemsSnapshot
+              },
+              pendingSrvCtx
+            );
+          } catch (_e) {}
+        }
+        STATE.pendingServiceBillingContext = null;
 
         if (
           tipoBase !== 'Nota de Crédito' &&

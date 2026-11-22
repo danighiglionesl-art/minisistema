@@ -18,6 +18,7 @@ import {
   handleErpWhatsappCloud,
 } from "@/lib/erp/handlers/misc-handlers";
 import { handleErpMiContador } from "@/lib/erp/handlers/mi-contador-handler";
+import { handleErpServicios } from "@/lib/erp/handlers/servicios-handler";
 import { handleErpSuperAdmin } from "@/lib/erp/handlers/superadmin-handler";
 import { handleErpTurnos } from "@/lib/erp/handlers/turnos-handler";
 import { handleErpVentas } from "@/lib/erp/handlers/ventas-handler";
@@ -105,6 +106,10 @@ export async function dispatchErpEndpoint(
       case "mi_contador":
       case "micontador":
         res = await handleErpMiContador(req, tenant);
+        break;
+      case "servicios":
+      case "gestion_servicios":
+        res = await handleErpServicios(req, tenant);
         break;
       default:
         res = NextResponse.json(
