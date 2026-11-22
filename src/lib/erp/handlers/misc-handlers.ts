@@ -1187,6 +1187,8 @@ export async function handleErpManualAi(
             String(rep.username || "").toLowerCase() === matchUsername &&
             String(rep.titulo || "").trim() === matchTitulo);
         if (isMatch) {
+          const prevEstado = String(rep.estado || "PENDIENTE").trim().toUpperCase();
+          const prevResp = String(rep.respuestaAdmin || "").trim();
           if (payload.estado !== undefined) {
             rep.estado = String(payload.estado).trim().toUpperCase();
           }
@@ -1199,10 +1201,42 @@ export async function handleErpManualAi(
           if (payload.resueltoPor !== undefined) {
             rep.resueltoPor = String(payload.resueltoPor).trim();
           }
+          const newEstado = String(rep.estado || "PENDIENTE").trim().toUpperCase();
+          const newResp = String(rep.respuestaAdmin || "").trim();
           rep.updatedAt = formatNowDateTimeArServer();
-          if (rep.estado === "RESUELTO" && !rep.resueltoFecha) {
+          if (newEstado === "RESUELTO" && !rep.resueltoFecha) {
             rep.resueltoFecha = formatNowDateTimeArServer();
           }
+
+          const notifyStates = ["EN_PROCESO", "RESUELTO", "DESCARTADO"];
+          if (payload.notificacionPendiente !== undefined) {
+            rep.notificacionPendiente = Boolean(payload.notificacionPendiente);
+            if (payload.notificacionVersion !== undefined) {
+              rep.notificacionVersion = Number(payload.notificacionVersion || 0);
+            }
+            if (payload.confirmadoPorUsuario !== undefined) {
+              rep.confirmadoPorUsuario = Boolean(payload.confirmadoPorUsuario);
+            }
+            if (payload.confirmadoFecha !== undefined) {
+              rep.confirmadoFecha = String(payload.confirmadoFecha || "").trim();
+            }
+            if (payload.confirmadoPor !== undefined) {
+              rep.confirmadoPor = String(payload.confirmadoPor || "").trim();
+            }
+          } else if (
+            notifyStates.includes(newEstado) ||
+            (newResp !== "" && newResp !== prevResp)
+          ) {
+            const prevVer = Number(rep.notificacionVersion || 0);
+            rep.notificacionPendiente = true;
+            rep.notificacionVersion = prevVer + 1;
+            rep.confirmadoPorUsuario = false;
+            rep.confirmadoFecha = "";
+            rep.confirmadoPor = "";
+          } else if (newEstado === "PENDIENTE" && prevEstado !== "PENDIENTE") {
+            rep.notificacionPendiente = false;
+          }
+
           updatedItem = rep;
           break;
         }
@@ -1226,6 +1260,11 @@ export async function handleErpManualAi(
             prioridad: updatedItem.prioridad,
             respuestaAdmin: updatedItem.respuestaAdmin,
             resueltoPor: updatedItem.resueltoPor,
+            notificacionPendiente: Boolean(updatedItem.notificacionPendiente),
+            notificacionVersion: Number(updatedItem.notificacionVersion || 0),
+            confirmadoPorUsuario: Boolean(updatedItem.confirmadoPorUsuario),
+            confirmadoFecha: String(updatedItem.confirmadoFecha || ""),
+            confirmadoPor: String(updatedItem.confirmadoPor || ""),
           },
           Boolean(payload._fromMinisistemaHub)
         );
@@ -1235,6 +1274,69 @@ export async function handleErpManualAi(
         {
           ok: true,
           report: updatedItem,
+          reports,
+        },
+        { headers: corsHeaders }
+      );
+    }
+
+    if (action === "confirm_crm_notification") {
+      const id = String(payload.id || "").trim();
+      const codigo = String(payload.codigo || "").trim();
+      const confirmadoPor = String(
+        payload.confirmadoPor || payload.usuario || payload.username || actor
+      ).trim();
+      const confirmadoFecha =
+        String(payload.confirmadoFecha || "").trim() ||
+        formatNowDateTimeArServer();
+
+      if (!id && !codigo) {
+        return NextResponse.json(
+          { ok: false, message: "ID de reporte inválido." },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+      const { baseTenant, reports } = await getCentralCrmReports();
+      let confirmedItem: AnyObj | null = null;
+      for (const rep of reports) {
+        if (!rep || typeof rep !== "object") continue;
+        const isMatch =
+          (id &&
+            (String(rep.id || "") === id || String(rep.codigo || "") === id)) ||
+          (codigo && String(rep.codigo || "") === codigo);
+        if (isMatch) {
+          rep.notificacionPendiente = false;
+          rep.confirmadoPorUsuario = true;
+          rep.confirmadoFecha = confirmadoFecha;
+          rep.confirmadoPor = confirmadoPor;
+          confirmedItem = rep;
+          break;
+        }
+      }
+      await saveCentralCrmReports(
+        baseTenant,
+        reports,
+        confirmadoPor || actor,
+        "confirm_crm_notification"
+      );
+
+      if (confirmedItem) {
+        await mirrorCrmActionToCasaNuevaIfNeeded(
+          {
+            action: "confirm_crm_notification",
+            id: confirmedItem.id,
+            codigo: confirmedItem.codigo,
+            confirmadoPor,
+            confirmadoFecha,
+          },
+          Boolean(payload._fromMinisistemaHub)
+        );
+      }
+
+      return NextResponse.json(
+        {
+          ok: true,
+          report: confirmedItem,
           reports,
         },
         { headers: corsHeaders }

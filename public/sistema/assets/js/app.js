@@ -72345,7 +72345,198 @@ function initApp() {
       if (typeof window.__SUPERADMIN_REFRESH_CRM_BADGE__ === 'function') {
         window.__SUPERADMIN_REFRESH_CRM_BADGE__(crmReportsList);
       }
+      checkAndShowPendingCrmUserNotification();
       return crmReportsList;
+    }
+
+    const sessionConfirmedNotifKeys = new Set();
+    let activeUserNotifReport = null;
+
+    function getPendingUserCrmNotifications() {
+      const uKey = String(STATE.currentUser?.username || '').trim().toLowerCase();
+      if (!uKey) return [];
+      const dashView = document.getElementById('dashboard-view');
+      if (dashView && dashView.hidden) return [];
+      const notifyStates = new Set(['EN_PROCESO', 'RESUELTO', 'DESCARTADO']);
+      return crmReportsList.filter((r) => {
+        if (!r || typeof r !== 'object') return false;
+        if (String(r.username || '').trim().toLowerCase() !== uKey) return false;
+        const est = String(r.estado || 'PENDIENTE').trim().toUpperCase();
+        if (!notifyStates.has(est)) return false;
+        if (!r.notificacionPendiente || r.confirmadoPorUsuario) return false;
+        const verKey = `${String(r.id || '')}::v${Number(r.notificacionVersion || 0)}`;
+        if (sessionConfirmedNotifKeys.has(verKey)) return false;
+        return true;
+      });
+    }
+
+    function openCrmUserResolutionDialog(report, totalPendingCount) {
+      const dlg = document.getElementById('crm-user-resolution-dialog');
+      if (!dlg || !report) return;
+      activeUserNotifReport = report;
+
+      const logoEl = document.getElementById('crm-res-brand-logo');
+      if (logoEl) {
+        const brandLogo =
+          ACTIVE_BRAND?.assets?.logoHorizontal ||
+          ACTIVE_BRAND?.assets?.logo1x1 ||
+          'assets/img/logo-full.png?v=75';
+        logoEl.src = brandLogo;
+        logoEl.alt = ACTIVE_BRAND?.name || 'Sistema ERP';
+      }
+
+      const estKey = String(report.estado || 'EN_PROCESO').toUpperCase();
+      const estInfo = CRM_ESTADO_META[estKey] || CRM_ESTADO_META.EN_PROCESO;
+
+      const queueBadge = document.getElementById('crm-res-queue-badge');
+      if (queueBadge) {
+        if (totalPendingCount > 1) {
+          queueBadge.hidden = false;
+          queueBadge.textContent = `1 de ${totalPendingCount} informes pendientes`;
+        } else {
+          queueBadge.hidden = true;
+        }
+      }
+
+      const titleEl = document.getElementById('crm-res-dialog-title');
+      if (titleEl) {
+        titleEl.textContent =
+          estKey === 'RESUELTO'
+            ? 'Tu reporte fue Resuelto / Implementado'
+            : estKey === 'EN_PROCESO'
+            ? 'Tu reporte está En Análisis / Desarrollo'
+            : 'Actualización sobre tu Reporte de Mejora';
+      }
+
+      const codeEl = document.getElementById('crm-res-ticket-code');
+      const dateEl = document.getElementById('crm-res-orig-date');
+      const modEl = document.getElementById('crm-res-modulo');
+      const estBadge = document.getElementById('crm-res-estado-badge');
+      const origTitle = document.getElementById('crm-res-orig-title');
+      const origDesc = document.getElementById('crm-res-orig-desc');
+      const progMeta = document.getElementById('crm-res-programmer-meta');
+      const progMsg = document.getElementById('crm-res-programmer-msg');
+
+      if (codeEl) codeEl.textContent = report.codigo || report.id || 'CRM';
+      if (dateEl) dateEl.textContent = report.fechaHora || '—';
+      if (modEl) modEl.textContent = report.moduloLabel || 'General';
+      if (estBadge) {
+        estBadge.textContent = estInfo.label;
+        estBadge.style.background = estInfo.bg;
+        estBadge.style.color = estInfo.color;
+        estBadge.style.border = `1px solid ${estInfo.border}`;
+      }
+      if (origTitle) origTitle.textContent = report.titulo || '—';
+      if (origDesc) origDesc.textContent = report.descripcion || '—';
+      if (progMeta) {
+        progMeta.textContent = `${report.resueltoPor || 'Programador'} · ${report.updatedAt || formatNowDateTimeAr()}`;
+      }
+      if (progMsg) {
+        const defaultMsg =
+          estKey === 'RESUELTO'
+            ? 'Tu solicitud fue resuelta / implementada por el Programador. Si ya estás operando, presioná "Actualizar" cuando aparezca el aviso de nueva versión.'
+            : estKey === 'EN_PROCESO'
+            ? 'Tu reporte fue recibido por el Programador y se encuentra actualmente En Análisis / Desarrollo. Te avisaremos nuevamente apenas esté finalizado.'
+            : 'Tu reporte fue revisado y cerrado por el Programador.';
+        progMsg.textContent = (report.respuestaAdmin || '').trim() || defaultMsg;
+      }
+
+      if (typeof dlg.showModal === 'function') {
+        if (!dlg.open) dlg.showModal();
+      } else {
+        dlg.setAttribute('open', 'open');
+      }
+    }
+
+    function checkAndShowPendingCrmUserNotification() {
+      const dlg = document.getElementById('crm-user-resolution-dialog');
+      if (!dlg || dlg.open) return;
+      const pending = getPendingUserCrmNotifications();
+      if (pending.length === 0) return;
+      openCrmUserResolutionDialog(pending[0], pending.length);
+    }
+
+    async function confirmActiveCrmUserNotification() {
+      const report = activeUserNotifReport;
+      const dlg = document.getElementById('crm-user-resolution-dialog');
+      const btn = document.getElementById('btn-crm-confirm-user-notif');
+      if (!report) {
+        dlg?.close?.();
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+      const verKey = `${String(report.id || '')}::v${Number(report.notificacionVersion || 0)}`;
+      sessionConfirmedNotifKeys.add(verKey);
+
+      const confirmPayload = {
+        action: 'confirm_crm_notification',
+        id: report.id,
+        codigo: report.codigo || '',
+        confirmadoPor: STATE.currentUser?.name || STATE.currentUser?.username || 'Usuario',
+        confirmadoFecha: formatNowDateTimeAr()
+      };
+
+      // Actualizar estado local inmediatamente
+      crmReportsList = crmReportsList.map((item) =>
+        String(item.id || '') === String(report.id || '')
+          ? {
+              ...item,
+              notificacionPendiente: false,
+              confirmadoPorUsuario: true,
+              confirmadoFecha: confirmPayload.confirmadoFecha,
+              confirmadoPor: confirmPayload.confirmadoPor
+            }
+          : item
+      );
+      saveLocalCrmReports(crmReportsList);
+
+      try {
+        if (!window.location.hostname.includes('minisistema')) {
+          fetch(MINISISTEMA_CRM_HUB_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(confirmPayload)
+          }).catch(() => {});
+        }
+      } catch {}
+
+      try {
+        const res = await fetch('api/manual_ai.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(confirmPayload)
+        });
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (data && data.ok && Array.isArray(data.reports)) {
+            crmReportsList = data.reports;
+            saveLocalCrmReports(crmReportsList);
+          }
+        }
+      } catch {}
+
+      activeUserNotifReport = null;
+      if (btn) btn.disabled = false;
+      if (dlg) {
+        if (typeof dlg.close === 'function') dlg.close();
+        else dlg.removeAttribute('open');
+      }
+
+      if (!document.getElementById('sec-reporte-mejoras')?.hidden) {
+        renderMyReportsTable();
+      }
+      if (!document.getElementById('sec-crm')?.hidden) {
+        renderCrmAdminSection();
+      }
+      if (typeof showToast === 'function') {
+        showToast('✅ Lectura confirmada correctamente');
+      }
+
+      // Si el usuario tiene otro informe pendiente sin confirmar, abrir el siguiente
+      setTimeout(() => {
+        checkAndShowPendingCrmUserNotification();
+      }, 220);
     }
 
     function updateCrmPendingBadgeUI() {
@@ -72576,6 +72767,13 @@ function initApp() {
                     ? `<div style="padding:0.45rem 0.6rem; border-radius:6px; background:rgba(212,160,23,0.1); border:1px solid rgba(212,160,23,0.35); font-size:0.81rem; white-space:pre-wrap;">${escapeHtml(r.respuestaAdmin)}</div>`
                     : `<span style="font-size:0.78rem; color:var(--text-secondary); font-style:italic;">Aguardando revisión del Administrador General</span>`
                 }
+                ${
+                  r.confirmadoPorUsuario
+                    ? `<div style="margin-top:0.35rem; font-size:0.72rem; font-weight:700; color:#15803d;">✅ Lectura confirmada (${escapeHtml(r.confirmadoFecha || '')})</div>`
+                    : r.notificacionPendiente
+                    ? `<div style="margin-top:0.35rem; font-size:0.72rem; font-weight:700; color:#b45309;">📩 Informe pendiente de confirmación</div>`
+                    : ''
+                }
               </td>
             </tr>
           `;
@@ -72703,6 +72901,13 @@ function initApp() {
                     placeholder="Escribir respuesta o nota de resolución para el usuario..."
                     style="font-size:0.79rem; padding:0.4rem 0.55rem;"
                   >${escapeHtml(r.respuestaAdmin || '')}</textarea>
+                  ${
+                    r.confirmadoPorUsuario
+                      ? `<div style="font-size:0.73rem; font-weight:700; color:#15803d; background:rgba(22,163,74,0.12); border:1px solid rgba(22,163,74,0.35); border-radius:6px; padding:0.22rem 0.45rem;">✅ Confirmado por el usuario (${escapeHtml(r.confirmadoFecha || '')})</div>`
+                      : r.notificacionPendiente
+                      ? `<div style="font-size:0.73rem; font-weight:700; color:#b45309; background:rgba(217,119,6,0.12); border:1px solid rgba(217,119,6,0.35); border-radius:6px; padding:0.22rem 0.45rem;">⏳ Ventana emergente pendiente de confirmación</div>`
+                      : ''
+                  }
                 </div>
               </td>
               <td class="text-center" style="white-space:nowrap;">
@@ -72768,7 +72973,12 @@ function initApp() {
               saveLocalCrmReports(crmReportsList);
             }
             if (typeof showToast === 'function') {
-              showToast('✅ Ticket CRM actualizado correctamente');
+              const willNotify = ['EN_PROCESO', 'RESUELTO', 'DESCARTADO'].includes(nuevoEstado) || Boolean(nuevaResp);
+              showToast(
+                willNotify
+                  ? '✅ Guardado · Se envió ventana emergente con el informe al usuario'
+                  : '✅ Ticket CRM actualizado correctamente'
+              );
             }
           } catch {
             crmReportsList = crmReportsList.map((item) =>
@@ -72924,6 +73134,17 @@ function initApp() {
       const dlg = document.getElementById('crm-screenshot-dialog');
       document.getElementById('btn-close-crm-dialog')?.addEventListener('click', () => dlg?.close?.());
       document.getElementById('btn-close-crm-dialog-footer')?.addEventListener('click', () => dlg?.close?.());
+
+      const resDlg = document.getElementById('crm-user-resolution-dialog');
+      if (resDlg) {
+        // Impedir cierre con Escape para garantizar que el usuario confirme la lectura del informe del Programador
+        resDlg.addEventListener('cancel', (ev) => {
+          ev.preventDefault();
+        });
+      }
+      document.getElementById('btn-crm-confirm-user-notif')?.addEventListener('click', () => {
+        confirmActiveCrmUserNotification();
+      });
 
       form?.addEventListener('submit', async (e) => {
         e.preventDefault();
