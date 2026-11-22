@@ -209,6 +209,7 @@
               '</svg>' +
             '</div>' +
             '<h3>CRM · Reporte de Mejoras</h3>' +
+            '<span id="badge-sa-crm-pendientes" class="badge badge--gold" style="font-size:0.72rem;" hidden></span>' +
           '</article>' +
         '</div>';
 
@@ -290,9 +291,9 @@
         });
         var crmSec = document.getElementById('sec-crm');
         if (crmSec) crmSec.hidden = false;
-        if (typeof window.initOrRefreshCrmSection === 'function') {
-          window.initOrRefreshCrmSection();
-        }
+      }
+      if (typeof window.initOrRefreshCrmSection === 'function') {
+        window.initOrRefreshCrmSection();
       }
       return;
     }
@@ -325,6 +326,9 @@
     if (STATE_SA.activeView === 'menu') {
       secs.menuSec.hidden = false;
       secs.detailSec.hidden = true;
+      if (typeof window.__SUPERADMIN_REFRESH_CRM_BADGE__ === 'function') {
+        window.__SUPERADMIN_REFRESH_CRM_BADGE__();
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       // Pre-cargar datos en segundo plano
       if (!STATE_SA.data) {
@@ -2706,6 +2710,24 @@
       existingCard.style.display = allowed ? '' : 'none';
     }
   }
+
+  window.__SUPERADMIN_REFRESH_CRM_BADGE__ = function (reportsList) {
+    var saBadge = document.getElementById('badge-sa-crm-pendientes');
+    var homeBadge = document.getElementById('badge-inicio-crm-pendientes');
+    if (Array.isArray(reportsList)) {
+      var pend = reportsList.filter(function (r) {
+        return !r || (r.estado || 'PENDIENTE') === 'PENDIENTE';
+      }).length;
+      var txt = pend > 0 ? pend + (pend === 1 ? ' pendiente' : ' pendientes') : '';
+      if (saBadge) {
+        saBadge.hidden = pend === 0;
+        saBadge.textContent = txt;
+      }
+    } else if (saBadge && homeBadge) {
+      saBadge.hidden = homeBadge.hidden;
+      saBadge.textContent = homeBadge.textContent;
+    }
+  };
 
   setInterval(syncSuperAdminEntrypointVisibility, 900);
   document.addEventListener('DOMContentLoaded', syncSuperAdminEntrypointVisibility);

@@ -208,6 +208,7 @@ export async function loadGestionWebDb(
       payload?.googleClientId ||
       process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
       process.env.GOOGLE_CLIENT_ID ||
+      initial.googleClientId ||
       "",
     publishedAt: payload?.publishedAt || initial.publishedAt,
     publishedBy: payload?.publishedBy || initial.publishedBy,
@@ -1277,18 +1278,27 @@ export async function handlePublicCemepPost(
   if (action === "patient_google_login") {
     let googleEmail = "";
     let googleName = "";
+    let googleGivenName = "";
+    let googleFamilyName = "";
+    let googlePicture = "";
     let googleSub = "";
 
     const credential = String(body.credential || "").trim();
+    const accessToken = String(body.accessToken || "").trim();
+
     if (credential && credential.split(".").length === 3) {
       try {
         const verifyResp = await fetch(
-          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
+          { signal: AbortSignal.timeout(5000) }
         );
         if (verifyResp.ok) {
           const info = (await verifyResp.json()) as AnyObj;
           googleEmail = String(info.email || "").trim().toLowerCase();
           googleName = String(info.name || info.given_name || "").trim();
+          googleGivenName = String(info.given_name || "").trim();
+          googleFamilyName = String(info.family_name || "").trim();
+          googlePicture = String(info.picture || "").trim();
           googleSub = String(info.sub || "").trim();
         }
       } catch {
@@ -1301,15 +1311,39 @@ export async function handlePublicCemepPost(
           ) as AnyObj;
           googleEmail = String(decoded.email || "").trim().toLowerCase();
           googleName = String(decoded.name || "").trim();
+          googleGivenName = String(decoded.given_name || "").trim();
+          googleFamilyName = String(decoded.family_name || "").trim();
+          googlePicture = String(decoded.picture || "").trim();
           googleSub = String(decoded.sub || "").trim();
         } catch {
           // ignore
         }
       }
-    } else if (body.fallbackEmail && String(body.fallbackEmail).includes("@")) {
-      googleEmail = String(body.fallbackEmail).trim().toLowerCase();
-      googleName = String(body.fallbackName || googleEmail.split("@")[0]).trim();
-      googleSub = `quick_${crypto.createHash("sha256").update(googleEmail).digest("hex").slice(0, 12)}`;
+    } else if (accessToken) {
+      try {
+        const uRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!uRes.ok) {
+          return NextResponse.json(
+            { ok: false, message: "No se pudo verificar tu cuenta de Google. Intentá nuevamente." },
+            { status: 401 }
+          );
+        }
+        const uData = (await uRes.json()) as AnyObj;
+        googleEmail = String(uData.email || "").trim().toLowerCase();
+        googleName = String(uData.name || "").trim();
+        googleGivenName = String(uData.given_name || "").trim();
+        googleFamilyName = String(uData.family_name || "").trim();
+        googlePicture = String(uData.picture || "").trim();
+        googleSub = String(uData.sub || "").trim();
+      } catch {
+        return NextResponse.json(
+          { ok: false, message: "Error al obtener tu perfil de Google." },
+          { status: 502 }
+        );
+      }
     }
 
     if (!googleEmail || !googleEmail.includes("@")) {
@@ -1319,20 +1353,27 @@ export async function handlePublicCemepPost(
       );
     }
 
+    const parts = googleName.split(/\s+/).filter(Boolean);
+    const resolvedNombres =
+      googleGivenName ||
+      (parts.length > 1 ? parts.slice(0, -1).join(" ") : parts[0] || "Paciente");
+    const resolvedApellidos =
+      googleFamilyName || (parts.length > 1 ? parts.slice(-1).join(" ") : "");
+
     let user = webDb.webUsers.find((u) => u.email.toLowerCase() === googleEmail);
     if (!user) {
-      const parts = googleName.split(/\s+/).filter(Boolean);
-      const nombres = parts.length > 1 ? parts.slice(0, -1).join(" ") : (parts[0] || "Paciente");
-      const apellidos = parts.length > 1 ? parts.slice(-1).join(" ") : "";
       user = {
         id: `usr_${crypto.randomUUID().slice(0, 10)}`,
         email: googleEmail,
         authProvider: "google",
         googleSub,
+        fotoUrl: googlePicture || undefined,
         dni: normalizeDni(body.dni),
-        apellidos,
-        nombres,
-        nombreCompleto: apellidos ? `${apellidos}, ${nombres}` : nombres,
+        apellidos: resolvedApellidos,
+        nombres: resolvedNombres,
+        nombreCompleto: resolvedApellidos
+          ? `${resolvedApellidos}, ${resolvedNombres}`
+          : resolvedNombres,
         whatsapp: String(body.whatsapp || "").trim(),
         esAfiliadoCemepPlus: false,
         activo: true,
@@ -1349,6 +1390,12 @@ export async function handlePublicCemepPost(
         );
       }
       user.googleSub = googleSub || user.googleSub;
+      if (googlePicture) user.fotoUrl = googlePicture;
+      if (!user.nombres && resolvedNombres) user.nombres = resolvedNombres;
+      if (!user.apellidos && resolvedApellidos) user.apellidos = resolvedApellidos;
+      user.nombreCompleto = user.apellidos
+        ? `${user.apellidos}, ${user.nombres}`
+        : user.nombres || user.email;
       user.ultimoAccesoAt = nowIso;
       user.updatedAt = nowIso;
     }
@@ -1356,10 +1403,14 @@ export async function handlePublicCemepPost(
     webDb.updatedAt = nowIso;
     await putTenantDoc(tenant, GESTION_WEB_DOC_KEY, webDb, googleEmail, "cemep_patient_google_login");
 
+    const needsProfileCompletion = !user.dni || !user.whatsapp;
     const token = signToken({ userId: user.id, tenantSlug: tenant.slug, email: user.email });
     const res = NextResponse.json({
       ok: true,
-      message: `Sesión iniciada con Google (${googleEmail}).`,
+      needsProfileCompletion,
+      message: needsProfileCompletion
+        ? "Ingresaste con Google. Revisá tus datos y completá los campos faltantes en Mi Perfil."
+        : `Sesión iniciada con Google (${googleEmail}).`,
       ...buildPatientPortalBundle(user, hc, turnosDb),
     });
     res.cookies.set(PATIENT_SESSION_COOKIE, token, {

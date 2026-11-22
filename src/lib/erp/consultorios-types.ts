@@ -145,11 +145,15 @@ export interface HistoriaClinicaDbDoc {
 // MÓDULO "GESTIÓN WEB" — USUARIOS REGISTRADOS, PROFESIONALES Y CMS PUBLICABLE
 // ----------------------------------------------------------------------------
 
+export const DEFAULT_CEMEP_GOOGLE_CLIENT_ID =
+  "384115038053-ktejh22ce4f9hkun4nba8qajnf3g0euh.apps.googleusercontent.com";
+
 export interface CemepWebUserRecord {
   id: string;
   email: string;
   authProvider: "email" | "google";
   googleSub?: string;
+  fotoUrl?: string;
   passwordHash?: string;
   resetCode?: string | null;
   resetCodeExpiresAt?: string | null;
@@ -576,7 +580,10 @@ export function buildInitialGestionWebDb(): GestionWebDbDoc {
   const initialContent = buildDefaultCemepWebContent();
   return {
     updatedAt: nowIso,
-    googleClientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "",
+    googleClientId:
+      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+      process.env.GOOGLE_CLIENT_ID ||
+      DEFAULT_CEMEP_GOOGLE_CLIENT_ID,
     publishedAt: nowIso,
     publishedBy: "Sistema",
     hasUnpublishedChanges: false,

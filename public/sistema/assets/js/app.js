@@ -71872,6 +71872,10 @@ function initApp() {
         renderManualUsuarioSection();
       }
     };
+
+    if (!document.getElementById('sec-manual-usuario')?.hidden) {
+      window.initOrRefreshManualUsuarioSection();
+    }
   })();
 
   // =========================================================================
@@ -71945,9 +71949,16 @@ function initApp() {
     }
 
     function saveLocalCrmReports(list) {
+      const arr = Array.isArray(list) ? list : [];
       try {
-        localStorage.setItem(CRM_LOCAL_STORAGE_KEY, JSON.stringify(Array.isArray(list) ? list : []));
-      } catch {}
+        localStorage.setItem(CRM_LOCAL_STORAGE_KEY, JSON.stringify(arr));
+      } catch {
+        // Si supera la cuota de localStorage por las capturas en base64, guardar los metadatos livianos
+        try {
+          const lite = arr.map((it) => (it && typeof it === 'object' ? { ...it, capturaBase64: '' } : it));
+          localStorage.setItem(CRM_LOCAL_STORAGE_KEY, JSON.stringify(lite));
+        } catch {}
+      }
     }
 
     const MINISISTEMA_CRM_HUB_URL = 'https://www.minisistema.com.ar/sistema/api/manual_ai.php';
@@ -72131,24 +72142,32 @@ function initApp() {
       }
 
       updateCrmPendingBadgeUI();
+      if (!document.getElementById('sec-crm')?.hidden) {
+        renderCrmAdminSection();
+      }
+      if (!document.getElementById('sec-reporte-mejoras')?.hidden) {
+        renderMyReportsTable();
+      }
       if (typeof window.__SUPERADMIN_REFRESH_CRM_BADGE__ === 'function') {
-        window.__SUPERADMIN_REFRESH_CRM_BADGE__();
+        window.__SUPERADMIN_REFRESH_CRM_BADGE__(crmReportsList);
       }
       return crmReportsList;
     }
 
     function updateCrmPendingBadgeUI() {
-      const badge = document.getElementById('badge-inicio-crm-pendientes');
       const pendingCount = crmReportsList.filter((r) => (r.estado || 'PENDIENTE') === 'PENDIENTE').length;
-      if (badge) {
+      const badgeText = pendingCount > 0 ? `${pendingCount} ${pendingCount === 1 ? 'pendiente' : 'pendientes'}` : '';
+      ['badge-inicio-crm-pendientes', 'badge-sa-crm-pendientes'].forEach((badgeId) => {
+        const badge = document.getElementById(badgeId);
+        if (!badge) return;
         if (pendingCount > 0) {
           badge.hidden = false;
-          badge.textContent = `${pendingCount} ${pendingCount === 1 ? 'pendiente' : 'pendientes'}`;
+          badge.textContent = badgeText;
         } else {
           badge.hidden = true;
           badge.textContent = '';
         }
-      }
+      });
     }
 
     function updateReporteClockAndUserFields() {
@@ -72832,12 +72851,40 @@ function initApp() {
     window.initOrRefreshReporteMejorasSection = async function () {
       bindReporteMejorasAndCrmEvents();
       updateReporteClockAndUserFields();
+      if (crmReportsList.length === 0) {
+        const cached = loadLocalCrmReports();
+        if (cached.length > 0) {
+          crmReportsList = cached;
+          renderMyReportsTable();
+        } else {
+          const tbody = document.getElementById('crm-my-reports-tbody');
+          if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="7" class="empty-state">⏳ Cargando reportes sincronizados...</td></tr>`;
+          }
+        }
+      } else {
+        renderMyReportsTable();
+      }
       await fetchCrmReportsFromServer();
       renderMyReportsTable();
     };
 
     window.initOrRefreshCrmSection = async function () {
       bindReporteMejorasAndCrmEvents();
+      if (crmReportsList.length === 0) {
+        const cached = loadLocalCrmReports();
+        if (cached.length > 0) {
+          crmReportsList = cached;
+          renderCrmAdminSection();
+        } else {
+          const tbody = document.getElementById('crm-admin-tbody');
+          if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-state">⏳ Cargando bandeja CRM desde el servidor...</td></tr>`;
+          }
+        }
+      } else {
+        renderCrmAdminSection();
+      }
       await fetchCrmReportsFromServer();
       renderCrmAdminSection();
     };
@@ -72846,10 +72893,17 @@ function initApp() {
       fetchCrmReportsFromServer();
     };
 
-    // Cargar conteo inicial de tickets pendientes para el Administrador General
-    setTimeout(() => {
-      fetchCrmReportsFromServer();
-    }, 1200);
+    // Enlazar eventos y verificar de inmediato si showDashboard() ya había restaurado #sec-reporte-mejoras o #sec-crm (ej: tras F5 o actualización)
+    bindReporteMejorasAndCrmEvents();
+    if (!document.getElementById('sec-reporte-mejoras')?.hidden) {
+      window.initOrRefreshReporteMejorasSection();
+    } else if (!document.getElementById('sec-crm')?.hidden) {
+      window.initOrRefreshCrmSection();
+    } else {
+      setTimeout(() => {
+        fetchCrmReportsFromServer();
+      }, 600);
+    }
   })();
 
   // PWA Install button

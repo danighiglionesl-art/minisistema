@@ -86,7 +86,10 @@
       var isErpApi = false;
 
       // Redirigir cualquier respaldo residual de cn.com.ar hacia nuestra API local en Supabase (salvo puentes explícitos CRM _direct_cn=1)
-      if (urlStr.indexOf('cn.com.ar') !== -1 && urlStr.indexOf('/sistema/api/') !== -1 && urlStr.indexOf('_direct_cn=1') === -1) {
+      if (urlStr.indexOf('_direct_cn=1') !== -1) {
+        return origFetch(input, init);
+      }
+      if (urlStr.indexOf('cn.com.ar') !== -1 && urlStr.indexOf('/sistema/api/') !== -1) {
         var afterApi = urlStr.split('/sistema/api/')[1] || '';
         urlStr = '/sistema/api/' + afterApi;
         input = urlStr;
