@@ -234,6 +234,16 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "mi_contador:gastos_retiros",
   "mi_contador:finanzas_stock",
   "mi_contador:config",
+  "servicios",
+  "servicios:panel",
+  "servicios:catalogo",
+  "servicios:presupuestos",
+  "servicios:ordenes",
+  "servicios:partes",
+  "servicios:documentos",
+  "servicios:agenda",
+  "servicios:abonos",
+  "servicios:informes",
   "perfil",
   "ayuda",
   "ayuda:atajos",
@@ -244,7 +254,7 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
 export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   {
     key: "facturacion",
-    name: "Facturación POS y Electrónica ARCA",
+    name: "Facturación Electrónica ARCA",
     description: "Cajas 1, 2 y 3, Facturador A4, Recibos, Apertura/Retiro/Cierre de turno, POS Móvil y WSFEv1 ARCA.",
     defaultMonthlyArs: 22000,
     erpModuleKeys: [
@@ -264,7 +274,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "articulos",
-    name: "Artículos, Listas de Precios y Ofertas",
+    name: "Artículos, Stock y Precios",
     description: "Padrón de artículos, listas minorista/mayorista, etiquetas de góndola, stock negativo, ofertas y carga rápida.",
     defaultMonthlyArs: 16000,
     erpModuleKeys: [
@@ -299,7 +309,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "proveedores",
-    name: "Proveedores, Compras y Pedidos",
+    name: "Proveedores y Ventas",
     description: "Cuentas corrientes de proveedores, lectura de facturas de compra, reposición, stock negativo y pedidos.",
     defaultMonthlyArs: 14000,
     erpModuleKeys: [
@@ -318,7 +328,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "fondos",
-    name: "Fondos, Tesorería y Bancos",
+    name: "Fondos",
     description: "Caja Central, Tesorería, Recibo de Pago, Orden de Pago, cuentas bancarias, conciliación de cierres y stock valorizado.",
     defaultMonthlyArs: 14000,
     erpModuleKeys: [
@@ -333,7 +343,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "carrito",
-    name: "Tienda Online / Carrito Web",
+    name: "Carrito Web",
     description: "Catálogo público autogestionable, pedidos web, banners promocionales y popups.",
     defaultMonthlyArs: 20000,
     erpModuleKeys: [
@@ -348,7 +358,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "fidelizacion",
-    name: "Club de Fidelización y Puntos",
+    name: "Fidelización de Clientes",
     description: "Suma automática de puntos por compra, catálogo de canjes, notificaciones WhatsApp/Email, canjes efectuados y QR.",
     defaultMonthlyArs: 12000,
     erpModuleKeys: [
@@ -363,14 +373,14 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "whatsapp",
-    name: "WhatsApp Cloud & Campañas",
+    name: "WhatsApp Oficial",
     description: "Envío de comprobantes, avisos automáticos y campañas segmentadas por WhatsApp.",
     defaultMonthlyArs: 12000,
     erpModuleKeys: ["whatsapp"],
   },
   {
     key: "estadisticas",
-    name: "Estadísticas y Rentabilidad Gerencial",
+    name: "Estadísticas",
     description: "Evolución de facturación, ranking de productos, medios de cobro, márgenes netos y listado artículo genérico.",
     defaultMonthlyArs: 12000,
     erpModuleKeys: [
@@ -385,15 +395,22 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     ],
   },
   {
+    key: "tema",
+    name: "Fondo Claro / Fondo Oscuro",
+    description: "Selector de tema claro y oscuro en la pantalla principal del ERP (disponible sin costo).",
+    defaultMonthlyArs: 0,
+    erpModuleKeys: ["tema"],
+  },
+  {
     key: "verificador",
-    name: "Verificador de Precios en Salón",
+    name: "Verificador de Precios",
     description: "Pantalla interactiva para lectores de código de barras en góndola / salón comercial.",
     defaultMonthlyArs: 8000,
     erpModuleKeys: ["verificador"],
   },
   {
     key: "cv",
-    name: "Administración de Personal (Curriculum Vitae + Control de Asistencias)",
+    name: "Administración de Personal",
     description: "Módulo integral de Administración de Personal: Curriculum Vitae (portal público /cv con foto y PDF, bandeja recibidos/previsualizados y valoración 1 a 10) + Control de Asistencias.",
     defaultMonthlyArs: 12000,
     erpModuleKeys: [
@@ -406,7 +423,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "turnos",
-    name: "Gestión Consultorios (Turnero Web + Historia Clínica)",
+    name: "Gestión Consultorios",
     description:
       "Módulo unificado Gestión Consultorios: Turnero Web 24 hs con Videollamada y Split Mercado Pago + Sistema integral de Historia Clínica (fichas médicas, evoluciones SOAP, signos vitales, estudios adjuntos y recetas digitales).",
     defaultMonthlyArs: 28000,
@@ -431,7 +448,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "gestion_web",
-    name: "Gestión Web (Portal /cemep, Usuarios, CMS y Recetas Digitales)",
+    name: "Gestión Web",
     description:
       "Administración del portal web institucional (/cemep), listado de usuarios registrados (Google/Email), editor de contenidos publicables en vivo, accesos de profesionales y carga de recetas digitales.",
     defaultMonthlyArs: 18000,
@@ -445,7 +462,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "mi_contador",
-    name: "Mi Contador (ARCA F.2051 / F.2083 / F.5663 + CFO IA)",
+    name: "Mi Contador",
     description: "Pre-liquidación asistida de IVA Simple F.2051, Libro IVA Digital F.2083 (TXT ARCA), IIBB Córdoba F.5663, Monitor Monotributo, Control de Gastos/Retiros, Stock Muerto, Rotación ABC y Asesor Empresarial con IA.",
     defaultMonthlyArs: 22000,
     erpModuleKeys: [
@@ -460,7 +477,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "inmobiliaria",
-    name: "Inmobiliaria & Marketplace Propiedades (IA, Contratos y Split)",
+    name: "Inmobiliaria",
     description:
       "Portal público /inmobiliaria con banners 1530×370, destacadas, pestañas Ventas/Alquileres/Temporarios, Google Maps, carteles cruzados, buscador rápido e IA, Portal de Clientes (Google/Email) con PDFs, cuenta corriente y Split Propietario/Inmobiliaria.",
     defaultMonthlyArs: 28000,
@@ -477,11 +494,30 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     ],
   },
   {
+    key: "servicios",
+    name: "Gestión de Servicios",
+    description:
+      "Módulo integral de servicios integrado a Clientes, Facturación ARCA (individual, parcial, lote y mixta) y Cuenta Corriente única: catálogo configurable, presupuestos PDF, órdenes de trabajo, partes con conformidad, documentación técnica, agenda/personal, abonos recurrentes e informes.",
+    defaultMonthlyArs: 26000,
+    erpModuleKeys: [
+      "servicios",
+      "servicios:panel",
+      "servicios:catalogo",
+      "servicios:presupuestos",
+      "servicios:ordenes",
+      "servicios:partes",
+      "servicios:documentos",
+      "servicios:agenda",
+      "servicios:abonos",
+      "servicios:informes",
+    ],
+  },
+  {
     key: "manual_usuario",
-    name: "Manual del Usuario (Procesos, IA y PDF)",
+    name: "Ayuda",
     description: "Guía interactiva paso a paso por rol, asistente con Inteligencia Artificial, registro de actualizaciones y exportación PDF.",
     defaultMonthlyArs: 0,
-    erpModuleKeys: ["manual_usuario"],
+    erpModuleKeys: ["ayuda", "ayuda:atajos", "ayuda:manual_usuario", "ayuda:reporte_mejoras", "manual_usuario"],
   },
 ];
 
