@@ -4,6 +4,10 @@ import { getPlatformSecretsMap } from "@/lib/erp/tenant-service";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const gtmId = (process.env.NEXT_PUBLIC_GTM_ID || "GTM-T3QW98PK")
+    .trim()
+    .toUpperCase();
+
   const envId = (
     process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ||
     process.env.GA_MEASUREMENT_ID ||
@@ -12,9 +16,9 @@ export async function GET() {
     .trim()
     .toUpperCase();
 
-  if (/^G-[A-Z0-9]{4,16}$/.test(envId)) {
+  if (/^(G|GT|AW)-[A-Z0-9]{4,16}$/.test(envId)) {
     return NextResponse.json(
-      { ok: true, measurementId: envId, source: "env" },
+      { ok: true, gtmId, measurementId: envId, source: "env" },
       { headers: { "Cache-Control": "public, max-age=60, s-maxage=60" } }
     );
   }
@@ -24,18 +28,18 @@ export async function GET() {
     const dbId = String(secrets.ga_measurement_id || "")
       .trim()
       .toUpperCase();
-    if (/^G-[A-Z0-9]{4,16}$/.test(dbId)) {
+    if (/^(G|GT|AW)-[A-Z0-9]{4,16}$/.test(dbId)) {
       return NextResponse.json(
-        { ok: true, measurementId: dbId, source: "platform_secrets" },
+        { ok: true, gtmId, measurementId: dbId, source: "platform_secrets" },
         { headers: { "Cache-Control": "no-store" } }
       );
     }
   } catch {
-    // Si aún no está configurado en Supabase, retornar vacío sin bloquear la página
+    // Retornar contenedor GTM activo sin bloquear
   }
 
   return NextResponse.json(
-    { ok: true, measurementId: "", source: "unconfigured" },
-    { headers: { "Cache-Control": "no-store" } }
+    { ok: true, gtmId, measurementId: "", source: "gtm_active" },
+    { headers: { "Cache-Control": "public, max-age=60, s-maxage=60" } }
   );
 }

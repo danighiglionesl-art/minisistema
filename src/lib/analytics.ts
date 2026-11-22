@@ -2,15 +2,26 @@
 
 declare global {
   interface Window {
-    dataLayer?: unknown[];
+    dataLayer?: Array<Record<string, unknown> | unknown>;
     gtag?: (...args: unknown[]) => void;
     __MS_GA_ID__?: string;
+    __MS_GTM_ID__?: string;
   }
 }
 
+export const DEFAULT_GTM_ID = "GTM-T3QW98PK";
+
 export function normalizeGaMeasurementId(raw?: string | null): string {
   const clean = String(raw || "").trim().toUpperCase();
-  if (/^G-[A-Z0-9]{4,16}$/.test(clean)) {
+  if (/^(G|GT|AW)-[A-Z0-9]{4,16}$/.test(clean)) {
+    return clean;
+  }
+  return "";
+}
+
+export function normalizeGtmId(raw?: string | null): string {
+  const clean = String(raw || "").trim().toUpperCase();
+  if (/^GTM-[A-Z0-9]{4,16}$/.test(clean)) {
     return clean;
   }
   return "";
@@ -30,13 +41,17 @@ export function trackGaEvent(
     }
   }
 
-  if (typeof window.gtag === "function") {
-    window.gtag("event", eventName, cleanParams);
-    return;
-  }
-
   window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push(["event", eventName, cleanParams]);
+  // Formato nativo de Google Tag Manager (dataLayer event object) para disparadores de GTM / GA4 / Google Ads
+  window.dataLayer.push({
+    event: eventName,
+    ...cleanParams,
+  });
+
+  // Si además existe un ID directo G-... configurado vía gtag.js, enviar también por gtag()
+  if (window.__MS_GA_ID__ && typeof window.gtag === "function") {
+    window.gtag("event", eventName, cleanParams);
+  }
 }
 
 export function trackConsultaConversion(params: {
@@ -52,7 +67,7 @@ export function trackConsultaConversion(params: {
     params.page_path ||
     (typeof window !== "undefined" ? window.location.pathname : "/");
 
-  // Evento estándar oficial de Google Analytics 4 para conversiones de consultas/leads
+  // Evento estándar oficial de Google Analytics 4 / GTM para conversiones de consultas y leads
   trackGaEvent("generate_lead", {
     lead_source: params.lead_source,
     inquiry_id: params.inquiry_id,
@@ -65,7 +80,7 @@ export function trackConsultaConversion(params: {
     value: 1,
   });
 
-  // Evento descriptivo en español para lectura directa en paneles de GA4
+  // Evento descriptivo en español para lectura y activación rápida de conversiones en GTM / GA4 / Google Ads
   trackGaEvent("consulta_recibida", {
     origen_consulta: params.lead_source,
     comprobante_id: params.inquiry_id,

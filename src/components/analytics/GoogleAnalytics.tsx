@@ -3,22 +3,32 @@
 import React, { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
-import { normalizeGaMeasurementId, trackGaEvent } from "@/lib/analytics";
+import {
+  DEFAULT_GTM_ID,
+  normalizeGaMeasurementId,
+  normalizeGtmId,
+  trackGaEvent,
+} from "@/lib/analytics";
 
 interface GoogleAnalyticsProps {
   envMeasurementId?: string;
+  envGtmId?: string;
 }
 
-export function GoogleAnalytics({ envMeasurementId = "" }: GoogleAnalyticsProps) {
-  const initialId = normalizeGaMeasurementId(envMeasurementId);
-  const [measurementId, setMeasurementId] = useState<string>(initialId);
+export function GoogleAnalytics({
+  envMeasurementId = "",
+  envGtmId = DEFAULT_GTM_ID,
+}: GoogleAnalyticsProps) {
+  const initialGaId = normalizeGaMeasurementId(envMeasurementId);
+  const resolvedGtmId = normalizeGtmId(envGtmId) || DEFAULT_GTM_ID;
+  const [measurementId, setMeasurementId] = useState<string>(initialGaId);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const lastTrackedUrlRef = useRef<string>("");
 
-  // Si no vino por NEXT_PUBLIC_GA_MEASUREMENT_ID en build-time, consultar configuración dinámica (Vercel / Credenciales API)
+  // Consultar ID G-... adicional si se configuró en Credenciales API
   useEffect(() => {
-    if (initialId) return;
+    if (initialGaId) return;
     let cancelled = false;
     fetch("/api/public/analytics", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -33,31 +43,44 @@ export function GoogleAnalytics({ envMeasurementId = "" }: GoogleAnalyticsProps)
     return () => {
       cancelled = true;
     };
-  }, [initialId]);
+  }, [initialGaId]);
 
-  // Sincronizar ID activo en window y registrar page_view en navegaciones SPA
+  // Registrar cambios de ruta SPA en dataLayer (GTM) y en gtag (si hay G-...)
   useEffect(() => {
-    if (!measurementId) return;
-    window.__MS_GA_ID__ = measurementId;
+    if (resolvedGtmId) {
+      window.__MS_GTM_ID__ = resolvedGtmId;
+    }
+    if (measurementId) {
+      window.__MS_GA_ID__ = measurementId;
+    }
 
     const qs = searchParams?.toString();
     const pagePath = qs ? `${pathname}?${qs}` : pathname || "/";
     if (lastTrackedUrlRef.current === pagePath) return;
+    const isInitialLoad = lastTrackedUrlRef.current === "";
     lastTrackedUrlRef.current = pagePath;
 
-    if (typeof window.gtag === "function") {
+    if (!isInitialLoad) {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: "virtual_page_view",
+        page_path: pagePath,
+        page_location: window.location.href,
+        page_title: document.title,
+      });
+    }
+
+    if (measurementId && typeof window.gtag === "function") {
       window.gtag("config", measurementId, {
         page_path: pagePath,
         page_location: window.location.href,
         page_title: document.title,
       });
     }
-  }, [measurementId, pathname, searchParams]);
+  }, [resolvedGtmId, measurementId, pathname, searchParams]);
 
   // Delegación global para medir automáticamente clics de consulta por WhatsApp, teléfono y correo en todo minisistema.com.ar
   useEffect(() => {
-    if (!measurementId) return;
-
     const handleDocumentClick = (ev: MouseEvent) => {
       const target = ev.target as Element | null;
       if (!target || typeof target.closest !== "function") return;
@@ -113,7 +136,7 @@ export function GoogleAnalytics({ envMeasurementId = "" }: GoogleAnalyticsProps)
     return () => {
       document.removeEventListener("click", handleDocumentClick, true);
     };
-  }, [measurementId]);
+  }, []);
 
   if (!measurementId) return null;
 

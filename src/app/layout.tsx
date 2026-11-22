@@ -94,9 +94,35 @@ export default function RootLayout({
     ],
   };
 
+  const gtmId = (process.env.NEXT_PUBLIC_GTM_ID || "GTM-T3QW98PK").trim();
+
   return (
     <html lang="es-AR" className={`${outfit.variable} ${plusJakarta.variable}`}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+            `,
+          }}
+        />
+        <script
+          async
+          src={`https://www.googletagmanager.com/gtm.js?id=${gtmId}`}
+        />
+      </head>
       <body className="min-h-dvh bg-[var(--color-petroleo)] text-[var(--color-blanco)] antialiased">
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${gtmId}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
@@ -104,6 +130,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <GoogleAnalytics
             envMeasurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || ""}
+            envGtmId={gtmId}
           />
         </Suspense>
         {children}
