@@ -1,6 +1,8 @@
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getErpAppVersion } from "../erp-version";
 import { lookupExternalArgentinePersonByDni } from "../external-dni-lookup";
+import { jsonResponseMaybeGzip } from "../json-response";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
   getTenantDbStatusMap,
@@ -400,6 +402,90 @@ export async function handleErpBanners(
   return NextResponse.json({ ok: false }, { status: 405 });
 }
 
+function formatArDateTimeSeconds(): string {
+  return new Date().toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Cordoba",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function resolveArcaCbteCode(tipoBase: string, letra: string): number {
+  const tb = String(tipoBase || "Factura").toLowerCase();
+  const l = String(letra || "B").toUpperCase();
+  if (tb.includes("crédito") || tb.includes("credito")) {
+    return l === "A" ? 3 : l === "C" ? 13 : 8;
+  }
+  if (tb.includes("débito") || tb.includes("debito")) {
+    return l === "A" ? 2 : l === "C" ? 12 : 7;
+  }
+  return l === "A" ? 1 : l === "C" ? 11 : 6;
+}
+
+function generateArcaAuthorization(comp: AnyObj, tenant: ErpTenantRecord) {
+  const pvNum = Math.max(1, Number(String(comp.pv || "2").replace(/\D/g, "")) || 2);
+  const nro = Math.max(1, Number(comp.nro || 1) || 1);
+  const letra = String(comp.letra || "B").trim().toUpperCase();
+  const tipoBase = String(comp.tipoBase || "Factura").trim() || "Factura";
+  const codArca = resolveArcaCbteCode(tipoBase, letra);
+
+  const seed = String((pvNum * 1_000_000 + nro) % 100_000_000).padStart(8, "0");
+  const cae = `864518${seed}`.slice(0, 14);
+
+  const vtoDate = new Date(Date.now() + 10 * 86400_000);
+  const caeVto = vtoDate.toLocaleDateString("es-AR", {
+    timeZone: "America/Argentina/Cordoba",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const tenantCuitDigits = String(tenant.branding?.cuitFmt || "").replace(/\D/g, "");
+  const emisorCuit = tenantCuitDigits.length === 11 ? Number(tenantCuitDigits) : 27054570509;
+  const docRecDigits = String(comp.clienteDoc || comp.docNro || "").replace(/\D/g, "");
+  const tipoDocRec = docRecDigits.length === 11 ? 80 : docRecDigits.length >= 7 ? 96 : 99;
+  const nroDocRec = docRecDigits ? Number(docRecDigits) : 0;
+
+  let fechaIso = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Argentina/Cordoba",
+  });
+  const rawFecha = String(comp.fecha || "").trim();
+  const mDmy = rawFecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mDmy) {
+    fechaIso = `${mDmy[3]}-${mDmy[2].padStart(2, "0")}-${mDmy[1].padStart(2, "0")}`;
+  } else if (/^\d{4}-\d{2}-\d{2}/.test(rawFecha)) {
+    fechaIso = rawFecha.slice(0, 10);
+  }
+
+  const qrPayload = {
+    ver: 1,
+    fecha: fechaIso,
+    cuit: emisorCuit,
+    ptoVta: pvNum,
+    tipoCmp: codArca,
+    nroCmp: nro,
+    importe: Math.round((Number(comp.total || 0) || 0) * 100) / 100,
+    moneda: "PES",
+    ctz: 1,
+    tipoDocRec,
+    nroDocRec,
+    tipoCodAut: "E",
+    codAut: Number(cae),
+  };
+  const b64 = Buffer.from(JSON.stringify(qrPayload), "utf8").toString("base64");
+  const arcaQrUrl = `https://www.afip.gob.ar/fe/qr/?p=${encodeURIComponent(b64)}`;
+  const qrImgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&ecc=M&margin=2&data=${encodeURIComponent(
+    arcaQrUrl
+  )}`;
+
+  return { codArca, cae, caeVto, arcaQrUrl, qrImgSrc };
+}
+
 export async function handleErpArcaComprobantes(
   req: NextRequest,
   tenant: ErpTenantRecord
@@ -414,10 +500,21 @@ export async function handleErpArcaComprobantes(
   if (!Array.isArray(db.comprobantes)) db.comprobantes = [];
   if (!Array.isArray(db.auditoria)) db.auditoria = [];
 
+  const findExistingArcaIdx = (uid: string, numeroCompleto: string, letra: string, tipoBase: string) =>
+    db.comprobantes.findIndex((existing: AnyObj) => {
+      const exTipoBase = String(existing?.tipoBase || "Factura").trim() || "Factura";
+      return (
+        String(existing?.uid || "") === uid ||
+        (String(existing?.numeroCompleto || "") === numeroCompleto &&
+          String(existing?.letra || "").toUpperCase() === letra &&
+          exTipoBase === tipoBase)
+      );
+    });
+
   if (req.method === "GET") {
-    return NextResponse.json({
+    return jsonResponseMaybeGzip(req, {
       ok: true,
-      servicioArcaEstado: db.servicioArcaEstado || "contingencia",
+      servicioArcaEstado: db.servicioArcaEstado || "online",
       certificado: db.certificado || fallback.certificado,
       comprobantes: db.comprobantes,
       auditoria: db.auditoria.slice(0, 120),
@@ -432,13 +529,14 @@ export async function handleErpArcaComprobantes(
     if (action === "set_servicio_estado") {
       db.servicioArcaEstado = payload.estado === "contingencia" ? "contingencia" : "online";
       db.auditoria.unshift({
-        fechaHora: new Date().toLocaleString("es-AR"),
+        fechaHora: formatArDateTimeSeconds(),
         operacion: "FEDummy / Estado Servicio",
         comprobante: "WSFEv1 ARCA",
         resultado: db.servicioArcaEstado === "contingencia" ? "CONTINGENCIA" : "ONLINE",
         detalle: `Estado ARCA actualizado a ${db.servicioArcaEstado.toUpperCase()}`,
         usuario,
       });
+      db.auditoria = db.auditoria.slice(0, 500);
       await putTenantDoc(tenant, "arca_comprobantes_db", db, usuario, action);
       return NextResponse.json({
         ok: true,
@@ -448,42 +546,116 @@ export async function handleErpArcaComprobantes(
     }
 
     if (action === "register_comprobante") {
-      const comp = (payload.comprobante || {}) as AnyObj;
+      const comp = { ...((payload.comprobante || {}) as AnyObj) };
       const pv = String(comp.pv || "0002").replace(/\D/g, "").padStart(4, "0");
       const nro = Number(comp.nro || 1);
-      const letra = String(comp.letra || "B").toUpperCase();
-      const tipoBase = String(comp.tipoBase || "Factura");
+      const letra = String(comp.letra || "B").trim().toUpperCase();
+      const tipoBase = String(comp.tipoBase || "Factura").trim() || "Factura";
+      const numeroCompleto = `${pv}-${String(nro).padStart(8, "0")}`;
+      const uid = `${pv}-${tipoBase}-${letra}-${String(nro).padStart(8, "0")}`;
+      const esPendiente = comp.estadoArca === "pendiente" || !comp.cae;
       comp.pv = pv;
       comp.nro = nro;
-      comp.numeroCompleto = `${pv}-${String(nro).padStart(8, "0")}`;
-      comp.uid = `${pv}-${tipoBase}-${letra}-${String(nro).padStart(8, "0")}`;
-      comp.estadoArca = comp.cae ? "informado" : "pendiente";
-      db.comprobantes.unshift(comp);
+      comp.letra = letra;
+      comp.tipoBase = tipoBase;
+      comp.numeroCompleto = numeroCompleto;
+      comp.uid = uid;
+      comp.estadoArca = esPendiente ? "pendiente" : "informado";
+
+      const foundIdx = findExistingArcaIdx(uid, numeroCompleto, letra, tipoBase);
+      if (foundIdx >= 0) {
+        db.comprobantes[foundIdx] = { ...db.comprobantes[foundIdx], ...comp };
+      } else {
+        db.comprobantes.unshift(comp);
+      }
+
+      db.auditoria.unshift({
+        fechaHora: formatArDateTimeSeconds(),
+        operacion: esPendiente
+          ? "Contingencia (Pendiente ARCA)"
+          : "FECAESolicitar (Directo Caja)",
+        comprobante: `${tipoBase.toUpperCase()} ${letra} ${numeroCompleto}`,
+        resultado: esPendiente ? "PENDIENTE" : "AUTORIZADO",
+        detalle: esPendiente
+          ? "Servicio ARCA sin respuesta al momento de la venta. Guardado como Pendiente de informar."
+          : `CAE otorgado: ${comp.cae || ""} · Vto: ${comp.caeVto || ""}`,
+        usuario,
+      });
+      db.auditoria = db.auditoria.slice(0, 500);
+
       await putTenantDoc(tenant, "arca_comprobantes_db", db, usuario, action);
       return NextResponse.json({ ok: true, comprobante: comp });
     }
 
     if (action === "informar_comprobantes") {
       const items = Array.isArray(payload.comprobantes) ? payload.comprobantes : [];
-      const vto = new Date(Date.now() + 10 * 86400_000).toLocaleDateString("es-AR");
-      const informados: AnyObj[] = [];
-      for (const it of items) {
-        const seed = String(
-          ((Number(it.pv || 2) * 1_000_000 + Number(it.nro || 1)) % 100_000_000)
-        ).padStart(8, "0");
-        const cae = `864518${seed}`.slice(0, 14);
-        const found = db.comprobantes.find((c: AnyObj) => c.uid === it.uid || c.numeroCompleto === it.numeroCompleto);
-        if (found) {
-          found.cae = cae;
-          found.caeVto = vto;
-          found.estadoArca = "informado";
-          informados.push(found);
-        }
+      if (items.length === 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "Seleccioná al menos un comprobante pendiente para informar a ARCA.",
+          },
+          { status: 400 }
+        );
       }
+
       db.servicioArcaEstado = "online";
+      const informados: AnyObj[] = [];
+
+      for (const it of items) {
+        if (!it || typeof it !== "object") continue;
+        const pv = String(it.pv || "0004").replace(/\D/g, "").padStart(4, "0");
+        const nro = Number(it.nro || 0);
+        if (nro <= 0) continue;
+        const letra = String(it.letra || "B").trim().toUpperCase();
+        const tipoBase = String(it.tipoBase || "Factura").trim() || "Factura";
+        const numeroCompleto = `${pv}-${String(nro).padStart(8, "0")}`;
+        const uid = `${pv}-${tipoBase}-${letra}-${String(nro).padStart(8, "0")}`;
+
+        const auth = generateArcaAuthorization(it, tenant);
+        const nowStr = formatArDateTimeSeconds();
+        const updatedComp: AnyObj = {
+          ...it,
+          uid,
+          pv,
+          nro,
+          letra,
+          tipoBase,
+          numeroCompleto,
+          estadoArca: "informado",
+          codArca: auth.codArca,
+          cae: auth.cae,
+          caeVto: auth.caeVto,
+          arcaQrUrl: auth.arcaQrUrl,
+          qrImgSrc: auth.qrImgSrc,
+          fechaInformado: nowStr,
+          informadoPor: usuario,
+        };
+
+        const foundIdx = findExistingArcaIdx(uid, numeroCompleto, letra, tipoBase);
+        if (foundIdx >= 0) {
+          db.comprobantes[foundIdx] = { ...db.comprobantes[foundIdx], ...updatedComp };
+        } else {
+          db.comprobantes.unshift(updatedComp);
+        }
+        informados.push(updatedComp);
+
+        db.auditoria.unshift({
+          fechaHora: nowStr,
+          operacion: "FECAESolicitar (Reproceso)",
+          comprobante: `${tipoBase.toUpperCase()} ${letra} ${numeroCompleto}`,
+          resultado: "AUTORIZADO",
+          detalle: `Emisión finalizada en ARCA · CAE: ${auth.cae} · Vto: ${auth.caeVto}`,
+          usuario,
+        });
+      }
+
+      db.auditoria = db.auditoria.slice(0, 500);
       await putTenantDoc(tenant, "arca_comprobantes_db", db, usuario, action);
-      return NextResponse.json({
+      return jsonResponseMaybeGzip(req, {
         ok: true,
+        servicioArcaEstado: db.servicioArcaEstado,
         informados,
         comprobantes: db.comprobantes,
         auditoria: db.auditoria.slice(0, 120),
@@ -491,32 +663,96 @@ export async function handleErpArcaComprobantes(
     }
 
     if (action === "marcar_no_informado") {
-      const uid = String(payload.uid || payload.numeroCompleto || "");
-      const found = db.comprobantes.find(
-        (c: AnyObj) => c.uid === uid || c.numeroCompleto === uid
-      );
-      if (found) {
-        found.cae = "";
-        found.caeVto = "";
-        found.estadoArca = "pendiente";
+      const items = Array.isArray(payload.comprobantes) ? payload.comprobantes : [];
+      const actualizados: AnyObj[] = [];
+
+      if (items.length > 0) {
+        for (const it of items) {
+          if (!it || typeof it !== "object") continue;
+          const pv = String(it.pv || "0004").replace(/\D/g, "").padStart(4, "0");
+          const nro = Number(it.nro || 0);
+          if (nro <= 0) continue;
+          const letra = String(it.letra || "B").trim().toUpperCase();
+          const tipoBase = String(it.tipoBase || "Factura").trim() || "Factura";
+          const numeroCompleto = `${pv}-${String(nro).padStart(8, "0")}`;
+          const uid = `${pv}-${tipoBase}-${letra}-${String(nro).padStart(8, "0")}`;
+
+          const updatedComp: AnyObj = {
+            ...it,
+            uid,
+            pv,
+            nro,
+            letra,
+            tipoBase,
+            numeroCompleto,
+            estadoArca: "pendiente",
+            cae: "",
+            caeVto: "",
+            arcaQrUrl: "",
+            qrImgSrc: "",
+          };
+
+          const foundIdx = findExistingArcaIdx(uid, numeroCompleto, letra, tipoBase);
+          if (foundIdx >= 0) {
+            db.comprobantes[foundIdx] = { ...db.comprobantes[foundIdx], ...updatedComp };
+          } else {
+            db.comprobantes.unshift(updatedComp);
+          }
+          actualizados.push(updatedComp);
+
+          db.auditoria.unshift({
+            fechaHora: formatArDateTimeSeconds(),
+            operacion: "Marcar como no informado",
+            comprobante: `${tipoBase.toUpperCase()} ${letra} ${numeroCompleto}`,
+            resultado: "PENDIENTE",
+            detalle:
+              "Comprobante marcado manualmente como Pendiente de informar para reprocesar en ARCA.",
+            usuario,
+          });
+        }
+      } else {
+        const uid = String(payload.uid || payload.numeroCompleto || "");
+        const found = db.comprobantes.find(
+          (c: AnyObj) => c.uid === uid || c.numeroCompleto === uid
+        );
+        if (found) {
+          found.cae = "";
+          found.caeVto = "";
+          found.arcaQrUrl = "";
+          found.qrImgSrc = "";
+          found.estadoArca = "pendiente";
+          actualizados.push(found);
+        }
       }
+
+      db.auditoria = db.auditoria.slice(0, 500);
       await putTenantDoc(tenant, "arca_comprobantes_db", db, usuario, action);
-      return NextResponse.json({
+      return jsonResponseMaybeGzip(req, {
         ok: true,
-        comprobante: found || null,
+        actualizados,
+        comprobante: actualizados[0] || null,
         comprobantes: db.comprobantes,
+        auditoria: db.auditoria.slice(0, 120),
       });
     }
 
     if (action === "registrar_consulta_ultimo") {
+      const pv = String(payload.pv || "0004").replace(/\D/g, "").padStart(4, "0");
+      const tipoBase = String(payload.tipoBase || payload.tipo || "Factura").trim();
+      const letra = String(payload.letra || "B").trim().toUpperCase();
+      const ultimoNro = Number(payload.ultimoNro ?? 0);
       db.auditoria.unshift({
-        fechaHora: new Date().toLocaleString("es-AR"),
+        fechaHora: formatArDateTimeSeconds(),
         operacion: "FECompUltimoAutorizado",
-        comprobante: `${payload.pv || "0002"} · ${payload.tipo || "Factura B"}`,
+        comprobante: `${tipoBase.toUpperCase()} ${letra} · PV ${pv}`,
         resultado: "OK",
-        detalle: `Último autorizado consultado (${payload.ultimoNro ?? 0})`,
+        detalle: `Último comprobante autorizado en ARCA: ${pv}-${String(ultimoNro).padStart(
+          8,
+          "0"
+        )} (Próximo: ${ultimoNro + 1})`,
         usuario,
       });
+      db.auditoria = db.auditoria.slice(0, 500);
       await putTenantDoc(tenant, "arca_comprobantes_db", db, usuario, action);
       return NextResponse.json({
         ok: true,
@@ -525,7 +761,7 @@ export async function handleErpArcaComprobantes(
     }
 
     await putTenantDoc(tenant, "arca_comprobantes_db", db, usuario, action || "arca_update");
-    return NextResponse.json({ ok: true, ...db });
+    return jsonResponseMaybeGzip(req, { ok: true, ...db });
   }
 
   return NextResponse.json({ ok: false }, { status: 405 });
@@ -613,60 +849,612 @@ export async function handleErpPadronArca(
   });
 }
 
+interface MpPointApiResponse {
+  httpCode: number;
+  data: AnyObj | null;
+  error: string | null;
+}
+
+async function mpPointApiRequest(
+  method: string,
+  apiPath: string,
+  accessToken: string,
+  body?: AnyObj | null,
+  idempotencyKey?: string
+): Promise<MpPointApiResponse> {
+  const url = `https://api.mercadopago.com${apiPath}`;
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (idempotencyKey) {
+    headers["X-Idempotency-Key"] = idempotencyKey;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20_000);
+  try {
+    const res = await fetch(url, {
+      method: method.toUpperCase(),
+      headers,
+      body: body !== undefined && body !== null ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    const raw = await res.text();
+    let parsed: AnyObj | null = null;
+    try {
+      parsed = raw ? (JSON.parse(raw) as AnyObj) : null;
+    } catch {
+      parsed = null;
+    }
+    return { httpCode: res.status, data: parsed, error: null };
+  } catch (err) {
+    return {
+      httpCode: 0,
+      data: null,
+      error: err instanceof Error ? err.message : "Error de red con Mercado Pago",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function mpExtractOrderSummary(ord: AnyObj) {
+  const orderId = String(ord?.id || "");
+  const status = String(ord?.status || "unknown").toLowerCase();
+  const detail = String(ord?.status_detail || "").toLowerCase();
+  const payments = Array.isArray(ord?.transactions?.payments)
+    ? ord.transactions.payments
+    : [];
+  const payment = (payments[0] || null) as AnyObj | null;
+
+  const payStatus = String(payment?.status || "").toLowerCase();
+  const payDetail = String(payment?.status_detail || "").toLowerCase();
+  const paymentId = String(payment?.reference_id || payment?.id || "");
+  const payMethod = String(
+    payment?.payment_method?.id || payment?.payment_method?.type || ""
+  );
+  const amount = String(payment?.amount ?? ord?.total_amount ?? "0.00");
+
+  const isApproved =
+    status === "processed" || payStatus === "processed" || payStatus === "approved";
+  const isRejected =
+    ["canceled", "cancelled", "failed", "expired"].includes(status) ||
+    ["canceled", "cancelled", "failed", "rejected"].includes(payStatus);
+  const isActionRequired = status === "action_required";
+
+  return {
+    order_id: orderId,
+    status,
+    status_detail: detail || payDetail,
+    payment_status: payStatus,
+    payment_id: paymentId,
+    payment_method: payMethod,
+    amount,
+    external_ref: String(ord?.external_reference || ""),
+    is_approved: isApproved,
+    is_rejected: isRejected,
+    is_action_required: isActionRequired,
+    is_final: isApproved || isRejected,
+  };
+}
+
+function trimMpOrdersMap(orders: Record<string, AnyObj>): Record<string, AnyObj> {
+  const keys = Object.keys(orders || {});
+  if (keys.length <= 120) return orders || {};
+  const kept: Record<string, AnyObj> = {};
+  for (const k of keys.slice(-120)) {
+    kept[k] = orders[k];
+  }
+  return kept;
+}
+
 export async function handleErpMercadoPagoPoint(
   req: NextRequest,
   tenant: ErpTenantRecord
 ): Promise<NextResponse> {
-  const fallback = {
+  const defaultCajas: Record<string, AnyObj> = {
+    caja1: {
+      enabled: false,
+      caja_nombre: "Caja 1",
+      terminal_id: "",
+      serial_short: "",
+      pos_id: 0,
+      external_pos_id: "",
+      label: "Sin terminal Point asignada",
+    },
+    caja2: {
+      enabled: false,
+      caja_nombre: "Caja 2",
+      terminal_id: "",
+      serial_short: "",
+      pos_id: 0,
+      external_pos_id: "",
+      label: "Sin terminal Point asignada",
+    },
+    caja3: {
+      enabled: false,
+      caja_nombre: "Caja 3",
+      terminal_id: "",
+      serial_short: "",
+      pos_id: 0,
+      external_pos_id: "",
+      label: "Sin terminal Point asignada",
+    },
+  };
+
+  const fallback: AnyObj = {
     mode: "simulated",
-    accessToken: "",
-    devices: { caja1: "", caja2: "", caja3: "" },
-    orders: {} as AnyObj,
+    user_id: "",
+    store_id: "",
+    public_key: "",
+    access_token: "",
+    client_id: "",
+    client_secret: "",
+    cajas: defaultCajas,
+    active_by_caja: {} as Record<string, string>,
+    orders: {} as Record<string, AnyObj>,
     updatedAt: new Date().toISOString(),
   };
   const { payload: db } = await getTenantDoc<AnyObj>(tenant, "mp_point_db", fallback);
+  if (!db.cajas || typeof db.cajas !== "object") db.cajas = { ...defaultCajas };
+  if (!db.active_by_caja || typeof db.active_by_caja !== "object") db.active_by_caja = {};
+  if (!db.orders || typeof db.orders !== "object") db.orders = {};
 
+  const accessToken = String(db.access_token || db.accessToken || "").trim();
+  const isLive = Boolean(accessToken) && db.mode !== "simulated";
+  const queryAction = (req.nextUrl.searchParams.get("action") || "").trim();
+
+  // 1. GET status / check_order
   if (req.method === "GET") {
+    if (queryAction === "check_order") {
+      const orderId = String(
+        req.nextUrl.searchParams.get("order_id") ||
+          req.nextUrl.searchParams.get("orderId") ||
+          ""
+      ).replace(/[^A-Za-z0-9_-]/g, "");
+      if (!orderId) {
+        return NextResponse.json(
+          { ok: false, message: "Falta order_id" },
+          { status: 400 }
+        );
+      }
+
+      if (isLive && !orderId.startsWith("mp_sim_")) {
+        const res = await mpPointApiRequest(
+          "GET",
+          `/v1/orders/${encodeURIComponent(orderId)}`,
+          accessToken
+        );
+        if (res.httpCode >= 200 && res.httpCode < 300 && res.data) {
+          const summary = mpExtractOrderSummary(res.data);
+          db.orders[orderId] = summary;
+          if (summary.is_final) {
+            for (const [ck, activeOid] of Object.entries(db.active_by_caja)) {
+              if (activeOid === orderId) delete db.active_by_caja[ck];
+            }
+          }
+          db.orders = trimMpOrdersMap(db.orders);
+          db.updatedAt = new Date().toISOString();
+          await putTenantDoc(tenant, "mp_point_db", db, "pos", "check_order");
+          return NextResponse.json({
+            ok: true,
+            status: summary.status,
+            order: summary,
+          });
+        }
+
+        const errMsg = String(
+          res.data?.errors?.[0]?.message ||
+            res.data?.message ||
+            res.error ||
+            "No se pudo consultar el estado de la orden en Mercado Pago."
+        );
+        return NextResponse.json(
+          { ok: false, message: errMsg, http_code: res.httpCode },
+          { status: res.httpCode > 0 ? res.httpCode : 502 }
+        );
+      }
+
+      const simOrd = db.orders[orderId] || {
+        order_id: orderId,
+        status: "processed",
+        is_approved: true,
+        is_rejected: false,
+        is_action_required: false,
+        is_final: true,
+      };
+      return NextResponse.json({ ok: true, status: simOrd.status, order: simOrd });
+    }
+
+    // Default GET: status of cajas & live terminals
+    const liveModes: Record<string, string> = {};
+    if (isLive) {
+      const res = await mpPointApiRequest("GET", "/terminals/v1/list?limit=50", accessToken);
+      const terminals = res.data?.data?.terminals;
+      if (res.httpCode >= 200 && res.httpCode < 300 && Array.isArray(terminals)) {
+        for (const t of terminals) {
+          const tid = String(t?.id || "");
+          if (tid) liveModes[tid] = String(t?.operating_mode || "PDV");
+        }
+      }
+    }
+
+    const cajasPublic: Record<string, AnyObj> = {};
+    for (const [cajaKey, cInfo] of Object.entries(db.cajas as Record<string, AnyObj>)) {
+      const tid = String(cInfo?.terminal_id || "");
+      cajasPublic[cajaKey] = {
+        enabled: Boolean(cInfo?.enabled),
+        caja_nombre: String(cInfo?.caja_nombre || cajaKey),
+        terminal_id: tid,
+        serial_short: String(cInfo?.serial_short || ""),
+        pos_id: Number(cInfo?.pos_id || 0),
+        label: String(cInfo?.label || ""),
+        operating_mode: tid && liveModes[tid] ? liveModes[tid] : "PDV",
+      };
+    }
+
     return NextResponse.json({
       ok: true,
-      mode: db.mode || "simulated",
-      devices: db.devices || { caja1: "", caja2: "", caja3: "" },
+      mode: isLive ? "live" : "simulated",
+      store_id: String(db.store_id || ""),
+      cajas: cajasPublic,
     });
   }
 
   if (req.method === "POST") {
     const body = ((await req.json().catch(() => ({}))) || {}) as AnyObj;
-    const action = String(body.action || "");
-    if (action === "create_order") {
-      const orderId = `mp_pt_${Date.now()}`;
-      db.orders = db.orders || {};
-      db.orders[orderId] = {
-        id: orderId,
-        status: db.mode === "simulated" ? "approved" : "action_required",
-        amount: Number(body.amount || 0),
-        createdAt: new Date().toISOString(),
-      };
-      await putTenantDoc(tenant, "mp_point_db", db, "pos", "create_order");
-      return NextResponse.json({ ok: true, orderId, order: db.orders[orderId] });
-    }
-    if (action === "check_order") {
-      const ord = db.orders?.[String(body.orderId || "")] || { status: "approved" };
-      return NextResponse.json({ ok: true, status: ord.status, order: ord });
-    }
-    if (action === "cancel_order") {
-      if (db.orders?.[String(body.orderId || "")]) {
-        db.orders[String(body.orderId)].status = "canceled";
-        await putTenantDoc(tenant, "mp_point_db", db, "pos", "cancel_order");
+    const action = queryAction || String(body.action || "");
+
+    // Webhook receiver from Mercado Pago
+    if (action === "webhook") {
+      const dataId = String(body?.data?.id || body?.id || "");
+      if (isLive && dataId && dataId.startsWith("ORD")) {
+        const res = await mpPointApiRequest(
+          "GET",
+          `/v1/orders/${encodeURIComponent(dataId)}`,
+          accessToken
+        );
+        if (res.httpCode >= 200 && res.httpCode < 300 && res.data) {
+          db.orders[dataId] = mpExtractOrderSummary(res.data);
+          db.orders = trimMpOrdersMap(db.orders);
+          db.updatedAt = new Date().toISOString();
+          await putTenantDoc(tenant, "mp_point_db", db, "mp_webhook", "webhook");
+        }
       }
       return NextResponse.json({ ok: true });
     }
+
+    // Save tenant MP Point credentials/cajas config (never leaks tokens)
+    if (action === "save_config") {
+      if (body.mode !== undefined) {
+        db.mode = body.mode === "live" ? "live" : "simulated";
+      }
+      for (const field of [
+        "user_id",
+        "store_id",
+        "public_key",
+        "access_token",
+        "client_id",
+        "client_secret",
+      ]) {
+        if (typeof body[field] === "string" && body[field].trim() !== "") {
+          db[field] = body[field].trim();
+        }
+      }
+      if (body.cajas && typeof body.cajas === "object") {
+        db.cajas = { ...db.cajas, ...body.cajas };
+      }
+      db.updatedAt = new Date().toISOString();
+      await putTenantDoc(tenant, "mp_point_db", db, "admin", "save_config");
+      return NextResponse.json({ ok: true, mode: db.mode, store_id: db.store_id || "" });
+    }
+
+    // Create payment order on Newland N950 terminal
+    if (action === "create_order") {
+      const cajaId = String(body.caja_id || body.cajaId || "caja1").trim().toLowerCase();
+      const cajaCfg = (db.cajas?.[cajaId] || null) as AnyObj | null;
+      const rawAmount = Number(body.amount || 0);
+
+      if (!isLive) {
+        const orderId = `mp_sim_${Date.now()}`;
+        const summary = {
+          order_id: orderId,
+          status: "processed",
+          status_detail: "accredited",
+          payment_status: "approved",
+          payment_id: orderId,
+          payment_method: String(body.payment_type || "debito"),
+          amount: rawAmount.toFixed(2),
+          external_ref: String(body.external_reference || orderId),
+          is_approved: true,
+          is_rejected: false,
+          is_action_required: false,
+          is_final: true,
+        };
+        db.orders[orderId] = summary;
+        db.orders = trimMpOrdersMap(db.orders);
+        await putTenantDoc(tenant, "mp_point_db", db, "pos", "create_order_sim");
+        return NextResponse.json({
+          ok: true,
+          caja_id: cajaId,
+          orderId,
+          order: summary,
+        });
+      }
+
+      if (!cajaCfg || !cajaCfg.enabled || !cajaCfg.terminal_id) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Esta caja aún no tiene una terminal Mercado Pago Point activa.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!Number.isFinite(rawAmount) || rawAmount < 15.0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "El monto mínimo permitido por Mercado Pago Point para cobros integrados es de $ 15,00.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const amountFormatted = (Math.round(rawAmount * 100) / 100).toFixed(2);
+      const elecType = String(body.payment_type || "debito").trim().toLowerCase();
+      const defaultTypeMap: Record<string, string> = {
+        debito: "debit_card",
+        credito: "credit_card",
+        qr: "qr",
+      };
+      const mpDefaultType = defaultTypeMap[elecType] || "debit_card";
+      const printMode = body.print_on_terminal ? "seller_ticket" : "no_ticket";
+
+      let rawRef = String(body.external_reference || "").replace(/[^A-Za-z0-9_-]/g, "");
+      if (!rawRef) {
+        rawRef = `${cajaId.toUpperCase()}-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+      }
+      const externalRef = rawRef.slice(0, 60);
+      const defaultDesc = `Compra ${tenant.fantasy_name || tenant.business_name || "Comercio"}`;
+      const description = (String(body.description || "").trim() || defaultDesc).slice(0, 120);
+      const terminalId = String(cajaCfg.terminal_id);
+
+      const orderPayload = {
+        type: "point",
+        external_reference: externalRef,
+        description,
+        expiration_time: "PT10M",
+        config: {
+          point: {
+            terminal_id: terminalId,
+            print_on_terminal: printMode,
+          },
+          payment_method: {
+            default_type: mpDefaultType,
+          },
+        },
+        transactions: {
+          payments: [{ amount: amountFormatted }],
+        },
+      };
+
+      const sleepMs = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+      if (body.force_clear_previous && db.active_by_caja[cajaId]) {
+        const prevOid = String(db.active_by_caja[cajaId]);
+        await mpPointApiRequest(
+          "POST",
+          `/v1/orders/${encodeURIComponent(prevOid)}/cancel`,
+          accessToken,
+          null,
+          crypto.randomUUID()
+        );
+        delete db.active_by_caja[cajaId];
+        await sleepMs(350);
+      }
+
+      let res = await mpPointApiRequest(
+        "POST",
+        "/v1/orders",
+        accessToken,
+        orderPayload,
+        crypto.randomUUID()
+      );
+
+      // Auto-recover if terminal had a previous queued order from this ERP
+      if (res.httpCode >= 400 && db.active_by_caja[cajaId]) {
+        const prevOid = String(db.active_by_caja[cajaId]);
+        await mpPointApiRequest(
+          "POST",
+          `/v1/orders/${encodeURIComponent(prevOid)}/cancel`,
+          accessToken,
+          null,
+          crypto.randomUUID()
+        );
+        delete db.active_by_caja[cajaId];
+        await sleepMs(400);
+        res = await mpPointApiRequest(
+          "POST",
+          "/v1/orders",
+          accessToken,
+          orderPayload,
+          crypto.randomUUID()
+        );
+      }
+
+      if (res.httpCode >= 200 && res.httpCode < 300 && res.data?.id) {
+        const summary = mpExtractOrderSummary(res.data);
+        db.active_by_caja[cajaId] = summary.order_id;
+        db.orders[summary.order_id] = summary;
+        db.orders = trimMpOrdersMap(db.orders);
+        db.updatedAt = new Date().toISOString();
+        await putTenantDoc(tenant, "mp_point_db", db, "pos", "create_order");
+
+        return NextResponse.json({
+          ok: true,
+          caja_id: cajaId,
+          terminal_id: terminalId,
+          serial: String(cajaCfg.serial_short || ""),
+          orderId: summary.order_id,
+          order: summary,
+        });
+      }
+
+      const apiErrCode = String(res.data?.errors?.[0]?.code || "");
+      const apiErrMsg = String(
+        res.data?.errors?.[0]?.message ||
+          res.data?.message ||
+          res.error ||
+          "Error al enviar orden al Posnet"
+      );
+      const apiDetails = Array.isArray(res.data?.errors?.[0]?.details)
+        ? res.data.errors[0].details.join(" | ")
+        : "";
+      const combinedErr = `${apiErrCode} ${apiErrMsg} ${apiDetails}`.toLowerCase();
+
+      let friendly = apiErrMsg;
+      if (
+        combinedErr.includes("already_queued") ||
+        combinedErr.includes("busy") ||
+        combinedErr.includes("in_process")
+      ) {
+        friendly =
+          "El Posnet ya tiene un cobro pendiente en pantalla. Cancelalo en la pantalla del Posnet (botón rojo / X) y volvé a enviar.";
+      } else if (
+        combinedErr.includes("standalone") ||
+        combinedErr.includes("operating_mode")
+      ) {
+        friendly =
+          "El Posnet figura en modo Manual (STANDALONE). Cambialo a Modo Integrado (PDV) y reinicialo.";
+      }
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error_code: apiErrCode,
+          message: friendly,
+          raw_detail: apiDetails || apiErrMsg,
+        },
+        { status: res.httpCode >= 400 ? res.httpCode : 502 }
+      );
+    }
+
+    // Check order via POST fallback
+    if (action === "check_order") {
+      const orderId = String(body.order_id || body.orderId || "").replace(/[^A-Za-z0-9_-]/g, "");
+      const ord = db.orders?.[orderId] || { order_id: orderId, status: "processed", is_approved: true, is_final: true };
+      return NextResponse.json({ ok: true, status: ord.status, order: ord });
+    }
+
+    // Cancel active order on terminal
+    if (action === "cancel_order") {
+      let orderId = String(body.order_id || body.orderId || "").replace(/[^A-Za-z0-9_-]/g, "");
+      const cajaId = String(body.caja_id || body.cajaId || "").trim().toLowerCase();
+
+      if (!orderId && cajaId && db.active_by_caja[cajaId]) {
+        orderId = String(db.active_by_caja[cajaId]);
+      }
+
+      if (!orderId) {
+        return NextResponse.json({
+          ok: true,
+          message: "No había orden activa para cancelar.",
+        });
+      }
+
+      let httpCode = 200;
+      let okCancel = true;
+      let msg = "Orden cancelada.";
+
+      if (isLive && !orderId.startsWith("mp_sim_")) {
+        const res = await mpPointApiRequest(
+          "POST",
+          `/v1/orders/${encodeURIComponent(orderId)}/cancel`,
+          accessToken,
+          null,
+          crypto.randomUUID()
+        );
+        httpCode = res.httpCode;
+        okCancel =
+          (res.httpCode >= 200 && res.httpCode < 300) ||
+          res.httpCode === 404 ||
+          res.httpCode === 409;
+        if (!okCancel && res.data?.errors?.[0]?.message) {
+          msg = String(res.data.errors[0].message);
+        }
+      }
+
+      for (const [ck, activeOid] of Object.entries(db.active_by_caja)) {
+        if (activeOid === orderId) delete db.active_by_caja[ck];
+      }
+      if (db.orders[orderId]) {
+        db.orders[orderId].status = "canceled";
+        db.orders[orderId].is_rejected = true;
+        db.orders[orderId].is_final = true;
+      }
+      db.updatedAt = new Date().toISOString();
+      await putTenantDoc(tenant, "mp_point_db", db, "pos", "cancel_order");
+
+      return NextResponse.json({
+        ok: okCancel,
+        order_id: orderId,
+        http_code: httpCode,
+        message: msg,
+      });
+    }
+
+    // Switch terminal operating_mode between PDV and STANDALONE
     if (action === "set_mode") {
+      const cajaId = String(body.caja_id || body.cajaId || "caja1").trim().toLowerCase();
+      const rawMode = String(body.operating_mode || "").trim().toUpperCase();
+
+      if (isLive && (rawMode === "PDV" || rawMode === "STANDALONE")) {
+        const cajaCfg = (db.cajas?.[cajaId] || null) as AnyObj | null;
+        if (!cajaCfg || !cajaCfg.terminal_id) {
+          return NextResponse.json(
+            { ok: false, message: "Caja sin terminal configurada." },
+            { status: 400 }
+          );
+        }
+        const tid = String(cajaCfg.terminal_id);
+        const res = await mpPointApiRequest("PATCH", "/terminals/v1/setup", accessToken, {
+          terminals: [{ id: tid, operating_mode: rawMode }],
+        });
+        if (res.httpCode >= 200 && res.httpCode < 300) {
+          return NextResponse.json({
+            ok: true,
+            terminal_id: tid,
+            operating_mode: rawMode,
+            message: `Modo actualizado a ${rawMode}. Recordá reiniciar físicamente el Posnet si cambiaste de modo.`,
+          });
+        }
+        const errMsg = String(
+          res.data?.errors?.[0]?.message ||
+            res.data?.message ||
+            "No se pudo cambiar el modo de operación."
+        );
+        return NextResponse.json(
+          { ok: false, message: errMsg },
+          { status: res.httpCode >= 400 ? res.httpCode : 502 }
+        );
+      }
+
       db.mode = body.mode === "live" ? "live" : "simulated";
-      if (body.devices) db.devices = body.devices;
+      if (body.cajas) db.cajas = { ...db.cajas, ...body.cajas };
+      db.updatedAt = new Date().toISOString();
       await putTenantDoc(tenant, "mp_point_db", db, "admin", "set_mode");
       return NextResponse.json({ ok: true, mode: db.mode });
     }
-    return NextResponse.json({ ok: true });
+
+    return NextResponse.json(
+      { ok: false, message: "Acción desconocida" },
+      { status: 400 }
+    );
   }
 
   return NextResponse.json({ ok: false }, { status: 405 });

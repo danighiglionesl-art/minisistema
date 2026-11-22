@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { jsonResponseMaybeGzip } from "../json-response";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import { getTenantDoc, putTenantDoc } from "../supabase-server";
 import type { ErpTenantRecord } from "../types";
@@ -36,7 +37,7 @@ export async function handleErpVentas(
         (mx: number, c: AnyObj) => Math.max(mx, Number(c?.numeroPlanilla || 0)),
         0
       );
-      return NextResponse.json({
+      return jsonResponseMaybeGzip(req, {
         ok: true,
         nextNumero: maxPlanilla > 0 ? maxPlanilla + 1 : 1,
         cierres: cierresList,
@@ -53,7 +54,7 @@ export async function handleErpVentas(
       });
     }
 
-    return NextResponse.json(db);
+    return jsonResponseMaybeGzip(req, db);
   }
 
   if (req.method === "POST") {

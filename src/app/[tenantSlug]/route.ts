@@ -34,5 +34,6 @@ export async function GET(
     kind: "sistema",
     tenant,
     siteOrigin: `${proto}://${host}`,
+    useSubpathRouting: true,
   });
 }

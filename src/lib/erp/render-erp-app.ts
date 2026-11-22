@@ -37,6 +37,11 @@ function replaceVisibleCopy(str: string, tenant: ErpTenantRecord): string {
   const upperFantasy = fantasy.toUpperCase();
   const erpTitle = tenant.is_base ? "MiniSistema ERP" : `${fantasy} · ERP`;
 
+  const cleanDomain = (tenant.custom_domain || "www.minisistema.com.ar")
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/+$/, "");
+  const bareDomain = cleanDomain.replace(/^www\./i, "");
+
   return str
     .replace(/CASA NUEVA SUPERMERCADO/g, upperFantasy)
     .replace(/Casa Nueva Supermercado/g, fantasy)
@@ -59,9 +64,9 @@ function replaceVisibleCopy(str: string, tenant: ErpTenantRecord): string {
       /Riveros Gigena N° 50 - Alcira Gigena \(Córdoba\)/g,
       brand.address
     )
-    .replace(/www\.cn\.com\.ar/gi, tenant.custom_domain || "www.minisistema.com.ar")
-    .replace(/https?:\/\/cn\.com\.ar/gi, "https://www.minisistema.com.ar")
-    .replace(/\bcn\.com\.ar/gi, "minisistema.com.ar");
+    .replace(/www\.cn\.com\.ar/gi, cleanDomain)
+    .replace(/https?:\/\/cn\.com\.ar/gi, `https://${cleanDomain}`)
+    .replace(/\bcn\.com\.ar/gi, bareDomain);
 }
 
 function transformHtmlOutsideScripts(
@@ -92,8 +97,9 @@ export function renderErpHtmlResponse(params: {
   kind: "sistema" | "carrito" | "verificador";
   tenant: ErpTenantRecord;
   siteOrigin: string;
+  useSubpathRouting?: boolean;
 }): NextResponse {
-  const { kind, tenant, siteOrigin } = params;
+  const { kind, tenant, siteOrigin, useSubpathRouting = false } = params;
 
   // Validar si el módulo carrito / verificador está contratado en este comercio
   if (
@@ -131,42 +137,28 @@ export function renderErpHtmlResponse(params: {
   const accentHex = brand.accentHex || MS_COLORS.accentHex;
   const baseHref = kind === "carrito" ? "/carrito/" : "/sistema/";
 
-  const erpPath =
-    tenant.option_type === 2 && !tenant.is_base
-      ? `/${tenant.slug}`
-      : "/sistema";
-  const carritoPath =
-    tenant.option_type === 2 && !tenant.is_base
-      ? `/${tenant.slug}/carrito`
-      : "/carrito";
-  const verificadorPath =
-    tenant.option_type === 2 && !tenant.is_base
-      ? `/${tenant.slug}/verificador`
-      : "/verificador";
-  const turnosPath =
-    tenant.option_type === 2 && !tenant.is_base
-      ? `/${tenant.slug}/turnos`
-      : "/turnos";
-  const cemepPath =
-    tenant.option_type === 2 && !tenant.is_base
-      ? `/${tenant.slug}/cemep`
-      : "/cemep";
-  const inmobiliariaPath =
-    tenant.option_type === 2 && !tenant.is_base
-      ? `/${tenant.slug}/inmobiliaria`
-      : "/inmobiliaria";
-  const asistenciaPath =
-    tenant.option_type === 2 && !tenant.is_base
-      ? `/${tenant.slug}/asistencia`
-      : "/asistencia";
+  const subpathMode = !tenant.is_base && (tenant.option_type === 2 || useSubpathRouting);
+  const erpPath = subpathMode ? `/${tenant.slug}` : "/sistema";
+  const carritoPath = subpathMode ? `/${tenant.slug}/carrito` : "/carrito";
+  const verificadorPath = subpathMode ? `/${tenant.slug}/verificador` : "/verificador";
+  const turnosPath = subpathMode ? `/${tenant.slug}/turnos` : "/turnos";
+  const cemepPath = subpathMode ? `/${tenant.slug}/cemep` : "/cemep";
+  const inmobiliariaPath = subpathMode ? `/${tenant.slug}/inmobiliaria` : "/inmobiliaria";
+  const asistenciaPath = subpathMode ? `/${tenant.slug}/asistencia` : "/asistencia";
 
   const assetVer = getErpAssetVersion();
   const appVersion = getErpAppVersion();
+  const actividadNegocio =
+    tenant.deployment?.actividadNegocio === "servicios" ||
+    tenant.deployment?.actividadNegocio === "mixta"
+      ? tenant.deployment.actividadNegocio
+      : "comercial";
 
   const bootPayload = {
     slug: tenant.slug,
     isBase: tenant.is_base,
     optionType: tenant.option_type,
+    actividadNegocio,
     businessName: tenant.business_name,
     fantasyName: tenant.fantasy_name,
     status: tenant.status,
@@ -230,7 +222,7 @@ export function renderErpHtmlResponse(params: {
   } else {
     html = html.replace(
       /<html\b[^>]*>/i,
-      '<html lang="es-AR" data-brand="minisistema">'
+      `<html lang="es-AR" data-brand="minisistema" data-actividad="${actividadNegocio}">`
     );
   }
 

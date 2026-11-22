@@ -36,5 +36,6 @@ export async function GET(
     kind: cleanSub as "sistema" | "carrito" | "verificador",
     tenant,
     siteOrigin: `${proto}://${host}`,
+    useSubpathRouting: true,
   });
 }

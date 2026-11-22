@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { jsonResponseMaybeGzip } from "../json-response";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
   getTenantDoc,
@@ -62,7 +63,7 @@ export async function handleErpCatalog(
           ptsCanje: Number(a.ptsCanje ?? a.pfid ?? 0),
         }));
 
-      return NextResponse.json({
+      return jsonResponseMaybeGzip(req, {
         ok: true,
         updatedAt: db.updatedAt || new Date().toISOString(),
         totalArticulos: storeArts.length,
@@ -87,7 +88,7 @@ export async function handleErpCatalog(
       return NextResponse.json({ ok: true, candidates });
     }
 
-    return NextResponse.json(db);
+    return jsonResponseMaybeGzip(req, db);
   }
 
   if (req.method === "POST") {

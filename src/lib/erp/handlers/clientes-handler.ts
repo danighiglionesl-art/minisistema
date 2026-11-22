@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { jsonResponseMaybeGzip } from "../json-response";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import { getTenantDoc, putTenantDoc } from "../supabase-server";
 import type { ErpTenantRecord } from "../types";
@@ -90,7 +91,7 @@ export async function handleErpClientes(
     const { payload: db } = await getTenantDoc<AnyObj>(tenant, "clientes_db", fallback);
 
     if (action === "all") {
-      return NextResponse.json(db);
+      return jsonResponseMaybeGzip(req, db);
     }
 
     if (action === "movimientos") {

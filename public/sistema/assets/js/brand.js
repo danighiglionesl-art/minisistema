@@ -12,18 +12,22 @@
   var storagePrefix = 'ms_' + slug + '_';
   var sessKey = storagePrefix + 'erp_active_admin_v1';
 
+  var isPaseoSlug = slug === 'paseoalberdi' || slug === 'paseo-alberdi';
+  var isCasaNuevaSlug = slug === 'casanueva' || slug === 'casa-nueva';
+  var parsedCuitNum = Number(String(boot.cuitFmt || '').replace(/\D/g, '')) || 0;
+
   var BRAND = {
     id: slug,
     slug: slug,
     isBase: Boolean(boot.isBase),
     optionType: Number(boot.optionType || 1),
-    isPaseoAlberdi: false,
-    isCasaNueva: false,
-    isMiniSistema: true,
+    isPaseoAlberdi: isPaseoSlug,
+    isCasaNueva: isCasaNuevaSlug,
+    isMiniSistema: !isPaseoSlug && !isCasaNuevaSlug,
     storagePrefix: storagePrefix,
-    primaryAdmin: 'danielg',
-    primaryAdminDisplay: 'danielg',
-    defaultBranch: fantasyName,
+    primaryAdmin: isPaseoSlug ? 'danicenteno' : 'danielg',
+    primaryAdminDisplay: isPaseoSlug ? 'DaniCenteno' : 'danielg',
+    defaultBranch: isCasaNuevaSlug ? 'Casa Central' : fantasyName,
     name: fantasyName,
     upperName: fantasyName.toUpperCase(),
     fullName: businessName,
@@ -32,7 +36,7 @@
     erpTitle: boot.isBase ? 'MiniSistema ERP' : fantasyName + ' · ERP',
     clubName: boot.clubName || 'Club MiniSistema',
     clubUpper: String(boot.clubName || 'CLUB MINISISTEMA').toUpperCase(),
-    clubQrPrefix: 'MS',
+    clubQrPrefix: isPaseoSlug ? 'CPA' : isCasaNuevaSlug ? 'CCN' : 'MS',
     domain: typeof window !== 'undefined' ? window.location.host : 'www.minisistema.com.ar',
     origin: typeof window !== 'undefined' ? window.location.origin : 'https://www.minisistema.com.ar',
     erpUrl: boot.erpUrl || '/sistema',
@@ -44,7 +48,7 @@
     whatsappDigits: boot.whatsappDigits || '5493585095475',
     whatsappUrl: 'https://wa.me/' + String(boot.whatsappDigits || '5493585095475').replace(/\D/g, ''),
     whatsappDisplay: boot.whatsappDisplay || '+54 9 358 509-5475',
-    whatsappLocalExample: '3585095475',
+    whatsappLocalExample: String(boot.whatsappDigits || '5493585095475').replace(/^549/, ''),
     defaultLocalidad: boot.localidad || 'RÍO CUARTO',
     defaultCp: boot.cp || '5800',
     themeColor: boot.primaryHex || '#112D3A',
@@ -54,7 +58,7 @@
     fiscal: {
       titular: businessName.toUpperCase(),
       fantasia: fantasyName.toUpperCase(),
-      cuitNum: 0,
+      cuitNum: parsedCuitNum,
       cuitFmt: boot.cuitFmt || 'A CONFIGURAR',
       iibb: boot.iibb || '—',
       condIva: boot.condIva || 'IVA RESPONSABLE INSCRIPTO',
