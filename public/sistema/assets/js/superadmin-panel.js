@@ -21,6 +21,7 @@
     quoteGlobalFixed: 0,
     quoteTempMonths: 3,
     newOptionType: 1,
+    newActividadNegocio: 'comercial',
     newLogo1x1Data: '',
     newLogoHorizData: '',
     managingUsersSlug: null,
@@ -568,6 +569,12 @@
           '<div><strong>BD Supabase independiente:</strong> <code>' +
           esc(t.db_schema) +
           '</code></div>' +
+          '<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;"><strong>Actividad Operativa:</strong> ' +
+          '<select class="ms-sa-select" data-tenant-actividad="' + esc(t.slug) + '" style="width:auto;padding:0.2rem 0.5rem;font-size:0.76rem;min-height:28px;">' +
+          '<option value="comercial"' + (((dep.actividadNegocio || 'comercial') === 'comercial') ? ' selected' : '') + '>Comercial (Retail / Cajas)</option>' +
+          '<option value="servicios"' + ((dep.actividadNegocio === 'servicios') ? ' selected' : '') + '>Servicios (Facturación Directa sin Caja)</option>' +
+          '<option value="mixta"' + ((dep.actividadNegocio === 'mixta') ? ' selected' : '') + '>Mixta (Comercial + Servicios)</option>' +
+          '</select></div>' +
           '<div><strong>URL Sistema:</strong> <a href="' +
           esc(dep.publicErpUrl || '/sistema') +
           '" target="_blank" style="color:#56D7A1;font-weight:800;">' +
@@ -850,7 +857,20 @@
       '</div>' +
       '</div>' +
       '<div class="ms-sa-card">' +
-      '<h4 style="margin-top:0;margin-bottom:0.85rem;">3. Módulos Contratados y Descuento del Abono</h4>' +
+      '<h4 style="margin-top:0;margin-bottom:0.55rem;">3. Perfil de Actividad, Módulos Contratados y Descuento del Abono</h4>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:0.55rem;align-items:center;margin-bottom:0.95rem;padding:0.75rem;border-radius:10px;background:rgba(17,45,58,0.04);border:1px solid rgba(17,45,58,0.12);">' +
+      '<strong style="font-size:0.82rem;margin-right:0.25rem;">Actividad del Negocio:</strong>' +
+      '<button type="button" class="ms-sa-btn ' + (STATE_SA.newActividadNegocio === 'comercial' ? '' : 'ms-sa-btn--outline') + '" data-pick-actividad="comercial" style="padding:0.38rem 0.85rem;font-size:0.8rem;">🏪 Comercial</button>' +
+      '<button type="button" class="ms-sa-btn ' + (STATE_SA.newActividadNegocio === 'servicios' ? '' : 'ms-sa-btn--outline') + '" data-pick-actividad="servicios" style="padding:0.38rem 0.85rem;font-size:0.8rem;">🔧 Servicios (Directo sin Caja)</button>' +
+      '<button type="button" class="ms-sa-btn ' + (STATE_SA.newActividadNegocio === 'mixta' ? '' : 'ms-sa-btn--outline') + '" data-pick-actividad="mixta" style="padding:0.38rem 0.85rem;font-size:0.8rem;">🔀 Mixta (Comercial + Servicios)</button>' +
+      '<span style="font-size:0.75rem;opacity:0.78;margin-left:auto;">' +
+      (STATE_SA.newActividadNegocio === 'servicios'
+        ? 'Panel limpio: Gestión de Servicios + Facturación directa sin apertura/cierre de caja + Clientes (4 submódulos).'
+        : STATE_SA.newActividadNegocio === 'mixta'
+          ? 'Permite vender productos en Caja POS y prestar/facturar servicios integrados en el mismo ERP.'
+          : 'Configuración comercial estándar con Cajas, Stock, Proveedores y Clientes.') +
+      '</span>' +
+      '</div>' +
       '<div class="modules-grid" style="margin-bottom:1.1rem;">' +
       modsCardsHtml +
       '</div>' +
@@ -2118,12 +2138,55 @@
       });
     });
 
+    bodyEl.querySelectorAll('[data-tenant-actividad]').forEach(function (sel) {
+      sel.addEventListener('change', async function () {
+        var slug = sel.getAttribute('data-tenant-actividad');
+        var act = sel.value;
+        sel.disabled = true;
+        var res = await apiSuperAdmin('POST', {
+          action: 'update_tenant',
+          slug: slug,
+          actividadNegocio: act
+        });
+        sel.disabled = false;
+        if (res && res.ok) {
+          showFeedback('Actividad de "' + slug + '" actualizada a ' + act.toUpperCase() + ' sin pérdida de datos.', false);
+          if (window.__ERP_TENANT_BOOT__ && window.__ERP_TENANT_BOOT__.slug === slug) {
+            window.__ERP_TENANT_BOOT__.actividadNegocio = act;
+            if (typeof window.__MS_APPLY_ACTIVIDAD_MODE__ === 'function') {
+              window.__MS_APPLY_ACTIVIDAD_MODE__(act);
+            }
+          }
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo actualizar la actividad.', true);
+        }
+      });
+    });
+
     // Tab 2: New Tenant
     bodyEl.querySelectorAll('[data-pick-opt]').forEach(function (card) {
       card.addEventListener('click', function () {
         var opt = Number(card.getAttribute('data-pick-opt')) === 1 ? 1 : 2;
         STATE_SA.newOptionType = opt;
         STATE_SA.quoteOptionType = opt;
+        renderBody();
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-pick-actividad]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var act = btn.getAttribute('data-pick-actividad') || 'comercial';
+        STATE_SA.newActividadNegocio = act;
+        var nextSel = {};
+        if (act === 'servicios') {
+          nextSel = { servicios: true, facturacion: true, clientes: true, tema: true, manual_usuario: true };
+        } else if (act === 'mixta') {
+          nextSel = { servicios: true, facturacion: true, articulos: true, clientes: true, proveedores: true, fondos: true, tema: true, manual_usuario: true };
+        } else {
+          nextSel = { facturacion: true, articulos: true, clientes: true, proveedores: true, fondos: true, tema: true, manual_usuario: true };
+        }
+        STATE_SA.quoteSelected = nextSel;
         renderBody();
       });
     });
@@ -2197,6 +2260,7 @@
         var payload = {
           action: 'provision_tenant',
           optionType: STATE_SA.newOptionType,
+          actividadNegocio: STATE_SA.newActividadNegocio || 'comercial',
           slug: fd.get('slug'),
           fantasyName: fd.get('fantasyName'),
           businessName: fd.get('businessName'),

@@ -549,6 +549,10 @@ export async function handleErpSuperAdmin(
         const created = await provisionNewCommerceTenant({
           slug: String(body.slug || ""),
           optionType: Number(body.optionType) === 1 ? 1 : 2,
+          actividadNegocio:
+            body.actividadNegocio === "servicios" || body.actividadNegocio === "mixta"
+              ? body.actividadNegocio
+              : "comercial",
           businessName: String(body.businessName || ""),
           fantasyName: String(body.fantasyName || body.businessName || ""),
           customDomain: String(body.customDomain || ""),
@@ -695,6 +699,19 @@ export async function handleErpSuperAdmin(
         ? "active"
         : body.status || existing.status;
 
+      const requestedActividad =
+        body.actividadNegocio === "comercial" ||
+        body.actividadNegocio === "servicios" ||
+        body.actividadNegocio === "mixta"
+          ? body.actividadNegocio
+          : undefined;
+      const nextDeployment = requestedActividad
+        ? {
+            ...(existing.deployment || {}),
+            actividadNegocio: requestedActividad,
+          }
+        : existing.deployment;
+
       const patch: Partial<ErpTenantRecord> = {
         option_type: nextOptionType,
         business_name: String(
@@ -711,6 +728,7 @@ export async function handleErpSuperAdmin(
         branding: nextBranding,
         enabled_modules: nextEnabledModules,
         subscription: nextSubscription,
+        ...(requestedActividad ? { deployment: nextDeployment } : {}),
         updated_at: new Date().toISOString(),
       };
 
@@ -726,6 +744,33 @@ export async function handleErpSuperAdmin(
           { ok: false, message: error.message },
           { status: 400 }
         );
+      }
+
+      if (requestedActividad && updated) {
+        try {
+          const { payload: srvDoc } = await getTenantDoc<AnyObj>(
+            updated as ErpTenantRecord,
+            "servicios_db",
+            {}
+          );
+          if (srvDoc && typeof srvDoc === "object") {
+            const nextCfg = {
+              ...(srvDoc.config || {}),
+              actividadNegocio: requestedActividad,
+              updatedAt: new Date().toISOString(),
+              updatedBy: GENERAL_ADMIN_USERNAME,
+            };
+            await putTenantDoc(
+              updated as ErpTenantRecord,
+              "servicios_db",
+              { ...srvDoc, config: nextCfg },
+              GENERAL_ADMIN_USERNAME,
+              "sync_actividad_negocio"
+            );
+          }
+        } catch {
+          // Non-fatal: tenant record already holds deployment.actividadNegocio
+        }
       }
 
       return NextResponse.json({

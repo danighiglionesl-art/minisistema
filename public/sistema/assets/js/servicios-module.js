@@ -11,7 +11,8 @@
   'use strict';
 
   var STATE = {
-    view: 'menu', // 'menu' | 'panel' | 'catalogo' | 'presupuestos' | 'ordenes' | 'partes' | 'documentos' | 'agenda' | 'abonos' | 'informes'
+    view: 'menu', // 'menu' | 'panel' | 'catalogo' | 'presupuestos' | 'ordenes' | 'partes' | 'documentos' | 'agenda' | 'abonos' | 'informes' | 'facturar_directo' | 'cobranza_directa'
+    returnTo: 'servicios', // 'servicios' | 'sec-menu-facturacion'
     loading: false,
     db: null,
     unidades: [],
@@ -32,8 +33,41 @@
     editingAbono: null,
     billingModalOtId: null,
     retencionModalFacturaId: null,
-    abonoPeriod: new Date().toISOString().slice(0, 7)
+    abonoPeriod: new Date().toISOString().slice(0, 7),
+    directInvoice: null,
+    lastEmittedInvoice: null,
+    directCobranza: null,
+    lastEmittedRecibo: null
   };
+
+  function getActiveActividadMode() {
+    var m =
+      (STATE.db && STATE.db.config && STATE.db.config.actividadNegocio) ||
+      (window.__ERP_TENANT_BOOT__ && window.__ERP_TENANT_BOOT__.actividadNegocio) ||
+      document.documentElement.getAttribute('data-actividad') ||
+      'comercial';
+    if (m === 'servicios' || m === 'mixta' || m === 'comercial') return m;
+    return 'comercial';
+  }
+
+  function applyActividadModeUi(modeOverride) {
+    var mode =
+      modeOverride === 'servicios' || modeOverride === 'mixta' || modeOverride === 'comercial'
+        ? modeOverride
+        : getActiveActividadMode();
+    if (document.documentElement.getAttribute('data-actividad') !== mode) {
+      document.documentElement.setAttribute('data-actividad', mode);
+    }
+    if (window.__ERP_TENANT_BOOT__) {
+      window.__ERP_TENANT_BOOT__.actividadNegocio = mode;
+    }
+    var factBc = document.querySelector('#sec-menu-facturacion .module-breadcrumb strong');
+    if (factBc) {
+      factBc.textContent =
+        mode === 'servicios' ? 'Facturación de Servicios (ARCA)' : 'Facturación Electrónica ARCA';
+    }
+  }
+  window.__MS_APPLY_ACTIVIDAD_MODE__ = applyActividadModeUi;
 
   var fmtArs = new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -169,7 +203,9 @@
       documentos: 'Documentación Técnica',
       agenda: 'Agenda y Personal',
       abonos: 'Abonos Recurrentes',
-      informes: 'Informes e Indicadores'
+      informes: 'Informes e Indicadores',
+      facturar_directo: 'Emitir Comprobante de Servicios',
+      cobranza_directa: 'Registrar Cobranza / Recibo'
     };
     return map[v] || 'Gestión de Servicios';
   }
@@ -359,7 +395,17 @@
 
       erpMain.appendChild(wsSec);
       wsSec.querySelector('#ms-srv-back-menu').addEventListener('click', function () {
-        openServiciosView('menu');
+        if (STATE.returnTo === 'sec-menu-facturacion') {
+          wsSec.hidden = true;
+          STATE.returnTo = 'servicios';
+          if (typeof window.__MS_OPEN_ERP_SECTION__ === 'function') {
+            window.__MS_OPEN_ERP_SECTION__('sec-menu-facturacion');
+          } else {
+            closeToHome();
+          }
+        } else {
+          openServiciosView('menu');
+        }
       });
       wsSec.querySelector('#ms-srv-quick-client').addEventListener('click', function () {
         if (typeof window.__MS_OPEN_CLIENT_MODAL__ === 'function') {
@@ -391,6 +437,9 @@
         STATE.clientes = Array.isArray(res.clientes) ? res.clientes : [];
         STATE.empleadosAsistencia = Array.isArray(res.empleadosAsistencia) ? res.empleadosAsistencia : [];
         STATE.informes = res.informes || null;
+        if (STATE.db && STATE.db.config && STATE.db.config.actividadNegocio) {
+          applyActividadModeUi(STATE.db.config.actividadNegocio);
+        }
         if (renderAfter && STATE.view !== 'menu') renderWorkspace();
       }
     } catch (_e) {
@@ -399,10 +448,12 @@
     }
   }
 
-  async function openServiciosView(viewKey) {
+  async function openServiciosView(viewKey, opts) {
     var secs = ensureSectionsMounted();
     if (!secs) return;
+    opts = opts || {};
     STATE.view = viewKey || 'menu';
+    STATE.returnTo = opts.returnTo || 'servicios';
     STATE.search = '';
     STATE.statusFilter = 'ALL';
     STATE.editingService = null;
@@ -413,11 +464,17 @@
     STATE.editingAbono = null;
     STATE.billingModalOtId = null;
     STATE.retencionModalFacturaId = null;
+    if (!opts.keepDirectDraft) {
+      STATE.lastEmittedInvoice = null;
+      STATE.lastEmittedRecibo = null;
+    }
 
     hideAllErpSections();
+    var parentLabel =
+      STATE.returnTo === 'sec-menu-facturacion' ? 'Facturación de Servicios' : 'Gestión de Servicios';
     updateTopbar(
       true,
-      STATE.view === 'menu' ? 'Gestión de Servicios' : 'Gestión de Servicios · ' + getViewLabel(STATE.view)
+      STATE.view === 'menu' ? 'Gestión de Servicios' : parentLabel + ' · ' + getViewLabel(STATE.view)
     );
 
     if (STATE.view === 'menu') {
@@ -430,12 +487,28 @@
 
     secs.menuSec.hidden = true;
     secs.wsSec.hidden = false;
-    var bc = document.getElementById('ms-srv-ws-breadcrumb');
-    if (bc) bc.textContent = getViewLabel(STATE.view);
+    var backBtn = document.getElementById('ms-srv-back-menu');
+    if (backBtn) {
+      backBtn.textContent =
+        STATE.returnTo === 'sec-menu-facturacion'
+          ? '← Volver a Facturación'
+          : '← Volver a Gestión de Servicios';
+    }
+    var bcWrap = secs.wsSec.querySelector('.module-breadcrumb');
+    if (bcWrap) {
+      bcWrap.innerHTML =
+        esc(parentLabel) + ' · <strong id="ms-srv-ws-breadcrumb">' + esc(getViewLabel(STATE.view)) + '</strong>';
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     if (!STATE.db) {
       await reloadData(false);
+    }
+    if (STATE.view === 'facturar_directo' && !STATE.directInvoice) {
+      STATE.directInvoice = buildEmptyDirectInvoice();
+    }
+    if (STATE.view === 'cobranza_directa' && !STATE.directCobranza) {
+      STATE.directCobranza = buildEmptyDirectCobranza();
     }
     renderWorkspace();
   }
@@ -545,11 +618,177 @@
   }
 
   // =========================================================================
-  // FACTURACIÓN INTEGRADA DIRECTO EN POS / ARCA NATIVO
+  // FACTURACIÓN DIRECTA DE SERVICIOS (SIN CAJA) + IMPRESIÓN PDF A4
+  // =========================================================================
+  function suggestLetraForClient(clientId) {
+    var cli = (STATE.clientes || []).find(function (c) { return Number(c.id) === Number(clientId); });
+    var resp = String((cli && cli.respIva) || '').toUpperCase();
+    var brandCond = String((window.ERP_BRAND && window.ERP_BRAND.condIva) || '').toUpperCase();
+    if (brandCond.indexOf('MONOTRIBUTO') >= 0) return 'C';
+    if (resp.indexOf('RESPONSABLE INSCRIPTO') >= 0 || resp.indexOf('MONOTRIBUTO') >= 0) return 'A';
+    return 'B';
+  }
+
+  function buildEmptyDirectInvoice() {
+    var firstCli = (STATE.clientes || []).find(function (c) { return Number(c.id) !== 1; }) || (STATE.clientes || [])[0];
+    var cid = firstCli ? Number(firstCli.id) : 1;
+    var letra = suggestLetraForClient(cid);
+    return {
+      billingClientId: cid,
+      tipoBase: 'Factura',
+      letra: letra,
+      pv: '0004',
+      fechaIso: todayIso(),
+      medioPago: 'CUENTA CORRIENTE',
+      autorizarArca: letra !== 'X',
+      observacion: '',
+      items: [],
+      context: { sourceType: 'directo', links: [] }
+    };
+  }
+
+  function buildEmptyDirectCobranza() {
+    var withDebt = (STATE.clientes || []).find(function (c) { return Number(c.saldoActual || 0) > 0.01; });
+    var firstCli = withDebt || (STATE.clientes || []).find(function (c) { return Number(c.id) !== 1; }) || (STATE.clientes || [])[0];
+    return {
+      clientId: firstCli ? Number(firstCli.id) : 1,
+      fechaIso: todayIso(),
+      importeCobrado: withDebt ? Number(withDebt.saldoActual || 0) : 0,
+      medioPago: 'TRANSFERENCIA BANCARIA',
+      referencia: '',
+      retencionTipo: '',
+      retencionImporte: 0,
+      retencionCertificado: '',
+      facturaId: '',
+      observaciones: ''
+    };
+  }
+
+  function openDirectServiceInvoice(payload, returnToOverride) {
+    var base = buildEmptyDirectInvoice();
+    if (payload) {
+      var cid = Number(payload.billingClientId || base.billingClientId || 1);
+      base.billingClientId = cid;
+      base.letra = payload.letra || suggestLetraForClient(cid);
+      base.autorizarArca = base.letra !== 'X';
+      base.observacion = String(payload.observacion || '');
+      base.items = Array.isArray(payload.items)
+        ? payload.items.map(function (it) {
+            return {
+              codigo: String(it.codigo || 'SRV'),
+              nombre: String(it.nombre || 'Servicio'),
+              unidadMedida: String(it.unidadMedida || 'Unidad'),
+              cantidad: Number(it.cantidad) || 1,
+              precioFinal: Number(it.precioFinal) || 0,
+              descPct: Number(it.descPct) || 0,
+              ivaPct: it.ivaPct != null ? Number(it.ivaPct) : 21,
+              isService: true,
+              itemType: 'service',
+              serviceLink: it.serviceLink || null
+            };
+          })
+        : [];
+      base.context = payload.context || { sourceType: 'directo', links: [] };
+    }
+    STATE.directInvoice = base;
+    STATE.lastEmittedInvoice = null;
+    openServiciosView('facturar_directo', {
+      returnTo: returnToOverride || (STATE.returnTo === 'sec-menu-facturacion' ? 'sec-menu-facturacion' : 'servicios'),
+      keepDirectDraft: true
+    });
+  }
+
+  function printDirectInvoicePdf(inv) {
+    if (!inv) return;
+    var brand = window.ERP_BRAND || {};
+    var logo = brand.logoHorizontalUrl || '/sistema/assets/img/minisistema/logo-horizontal.png';
+    var rows = (inv.items || [])
+      .map(function (it) {
+        var qty = Number(it.cantidad) || 1;
+        var unit = Number(it.precioFinal) || 0;
+        var disc = Number(it.descPct) || 0;
+        var sub = Math.round(qty * unit * (1 - disc / 100) * 100) / 100;
+        return (
+          '<tr>' +
+            '<td>' + esc(it.codigo || 'SRV') + '</td>' +
+            '<td><strong>' + esc(it.nombre) + '</strong>' + (it.unidadMedida ? ' <small>(' + esc(it.unidadMedida) + ')</small>' : '') + '</td>' +
+            '<td style="text-align:center;">' + esc(qty) + '</td>' +
+            '<td style="text-align:right;">' + esc(fmtArs.format(unit)) + '</td>' +
+            '<td style="text-align:center;">' + esc(it.ivaPct != null ? it.ivaPct : 21) + '%</td>' +
+            '<td style="text-align:right;font-weight:700;">' + esc(fmtArs.format(sub)) + '</td>' +
+          '</tr>'
+        );
+      })
+      .join('');
+    var html =
+      '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>' + esc(inv.tipoBase) + ' ' + esc(inv.letra) + ' ' + esc(inv.numeroCompleto) + '</title>' +
+      '<style>body{font-family:Segoe UI,Arial,sans-serif;color:#112D3A;margin:24px;}header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #56D7A1;padding-bottom:12px;margin-bottom:16px;}.letra-box{border:2px solid #112D3A;border-radius:10px;padding:6px 16px;text-align:center;font-size:24px;font-weight:900;background:#f8fafc;}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;}th,td{border:1px solid #cbd5e1;padding:7px;}th{background:#112D3A;color:#fff;text-align:left;}.box{background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;}.tot{max-width:340px;margin-left:auto;border:2px solid #112D3A;border-radius:8px;padding:10px 14px;}@media print{.no-print{display:none;}}</style></head><body>' +
+      '<header>' +
+        '<div><img src="' + esc(logo) + '" style="height:44px;object-fit:contain;"><div style="font-size:11px;margin-top:4px;"><strong>' + esc(brand.fantasyName || brand.businessName || 'MiniSistema') + '</strong><br>' + esc(brand.address || '') + '<br>CUIT: ' + esc(brand.cuitFmt || '—') + ' · ' + esc(brand.condIva || '') + '</div></div>' +
+        '<div class="letra-box">' + esc(inv.letra) + '<div style="font-size:9px;font-weight:700;">' + esc(inv.letra === 'X' ? 'NO FISCAL' : 'COD. ARCA') + '</div></div>' +
+        '<div style="text-align:right;"><h2 style="margin:0;">' + esc(String(inv.tipoBase || 'Factura').toUpperCase()) + ' ' + esc(inv.letra) + '</h2><div style="font-size:15px;font-weight:900;">N° ' + esc(inv.numeroCompleto) + '</div><div style="font-size:12px;">Fecha: ' + esc(inv.fechaIso) + '</div><div style="font-size:11px;">Cond. Pago: <strong>' + esc(inv.medioPago) + '</strong></div></div>' +
+      '</header>' +
+      '<div class="box"><strong>Cliente:</strong> ' + esc(inv.billingClientNombre) +
+      (inv.clienteDoc ? ' · <strong>CUIT / DNI:</strong> ' + esc(inv.clienteDoc) : '') +
+      (inv.clienteRespIva ? ' · <strong>IVA:</strong> ' + esc(inv.clienteRespIva) : '') +
+      (inv.observacion ? '<br><strong>Referencia / OC:</strong> ' + esc(inv.observacion) : '') + '</div>' +
+      '<table><thead><tr><th>Cód.</th><th>Concepto / Servicio</th><th>Cant.</th><th>Precio Unit.</th><th>IVA</th><th>Subtotal</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<div class="tot">' +
+        '<div style="display:flex;justify-content:space-between;font-size:12px;"><span>Neto Gravado:</span><strong>' + esc(fmtArs.format(inv.neto || 0)) + '</strong></div>' +
+        '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;"><span>IVA Discriminado:</span><strong>' + esc(fmtArs.format(inv.iva || 0)) + '</strong></div>' +
+        '<div style="display:flex;justify-content:space-between;font-size:16px;font-weight:900;border-top:2px solid #112D3A;margin-top:8px;padding-top:6px;"><span>TOTAL:</span><span>' + esc(fmtArs.format(inv.importe || 0)) + '</span></div>' +
+      '</div>' +
+      (inv.cae
+        ? '<div class="box" style="margin-top:14px;border-color:#56D7A1;"><strong>🏛️ Comprobante Electrónico Autorizado ARCA (WSFEv1)</strong><br>CAE N°: <strong>' + esc(inv.cae) + '</strong> · Vencimiento CAE: <strong>' + esc(inv.caeVto || '—') + '</strong></div>'
+        : '<div class="box" style="margin-top:14px;"><strong>Estado ARCA:</strong> ' + (inv.letra === 'X' ? 'Comprobante interno no fiscal' : 'Registrado en Administración Comprobantes Electrónicos (Pendiente de informar CAE)') + '</div>') +
+      '<div class="no-print" style="margin-top:16px;text-align:center;"><button onclick="window.print()" style="padding:10px 20px;background:#112D3A;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button></div>' +
+      '</body></html>';
+    var w = window.open('', '_blank', 'width=940,height=780');
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+    }
+  }
+
+  function printDirectReciboPdf(rec) {
+    if (!rec) return;
+    var brand = window.ERP_BRAND || {};
+    var logo = brand.logoHorizontalUrl || '/sistema/assets/img/minisistema/logo-horizontal.png';
+    var html =
+      '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Recibo ' + esc(rec.numero) + '</title>' +
+      '<style>body{font-family:Segoe UI,Arial,sans-serif;color:#112D3A;margin:24px;}header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #56D7A1;padding-bottom:12px;margin-bottom:16px;}.box{background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:13px;}table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;}th,td{border:1px solid #cbd5e1;padding:8px;}th{background:#112D3A;color:#fff;text-align:left;}@media print{.no-print{display:none;}}</style></head><body>' +
+      '<header><div><img src="' + esc(logo) + '" style="height:44px;object-fit:contain;"><div style="font-size:11px;margin-top:4px;"><strong>' + esc(brand.fantasyName || brand.businessName || 'MiniSistema') + '</strong> · CUIT: ' + esc(brand.cuitFmt || '—') + '</div></div>' +
+      '<div style="text-align:right;"><h2 style="margin:0;">RECIBO DE COBRANZA</h2><div style="font-size:14px;font-weight:900;">N° ' + esc(rec.numero) + '</div><div style="font-size:12px;">Fecha: ' + esc(rec.fechaIso) + '</div></div></header>' +
+      '<div class="box"><strong>Recibimos de:</strong> ' + esc(rec.clientNombre) + (rec.clientDoc ? ' (CUIT/DNI: ' + esc(rec.clientDoc) + ')' : '') +
+      '<br><strong>Medio de Pago:</strong> ' + esc(rec.medioPago) + (rec.referencia ? ' · Ref.: ' + esc(rec.referencia) : '') +
+      (rec.observaciones ? '<br><strong>Observaciones:</strong> ' + esc(rec.observaciones) : '') + '</div>' +
+      '<table><thead><tr><th>Concepto</th><th style="text-align:right;">Importe</th></tr></thead><tbody>' +
+        '<tr><td>Cobranza de Servicios (' + esc(rec.medioPago) + ')</td><td style="text-align:right;font-weight:700;">' + esc(fmtArs.format(rec.importeCobrado || 0)) + '</td></tr>' +
+        (rec.retencionImporte > 0
+          ? '<tr><td>Retención Impositiva (' + esc(rec.retencionTipo || 'IMPUESTO') + (rec.retencionCertificado ? ' · Cert. ' + esc(rec.retencionCertificado) : '') + ')</td><td style="text-align:right;font-weight:700;">' + esc(fmtArs.format(rec.retencionImporte)) + '</td></tr>'
+          : '') +
+        '<tr style="background:#ecfdf5;"><td><strong>TOTAL ACREDITADO EN CUENTA CORRIENTE</strong></td><td style="text-align:right;font-size:16px;font-weight:900;color:#065f46;">' + esc(fmtArs.format(rec.totalAcreditado || 0)) + '</td></tr>' +
+      '</tbody></table>' +
+      '<div class="box"><strong>Saldo restante en Cuenta Corriente del Cliente:</strong> ' + esc(fmtArs.format(rec.saldoPosterior || 0)) + '</div>' +
+      '<div class="no-print" style="margin-top:16px;text-align:center;"><button onclick="window.print()" style="padding:10px 20px;background:#112D3A;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button></div>' +
+      '</body></html>';
+    var w = window.open('', '_blank', 'width=860,height=720');
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+    }
+  }
+
+  // =========================================================================
+  // FACTURACIÓN INTEGRADA: DIRECTA EN MODO SERVICIOS / POS NATIVO EN MIXTA
   // =========================================================================
   function sendToNativePosBilling(payload) {
+    if (getActiveActividadMode() === 'servicios') {
+      openDirectServiceInvoice(payload, 'servicios');
+      return;
+    }
     if (typeof window.__MS_LOAD_SERVICES_INTO_POS__ !== 'function') {
-      showToast('El facturador POS nativo todavía no terminó de inicializarse.', true);
+      openDirectServiceInvoice(payload, 'servicios');
       return;
     }
     window.__MS_LOAD_SERVICES_INTO_POS__(payload);
@@ -1652,6 +1891,275 @@
     );
   }
 
+  function computeDirectInvoiceTotals(items) {
+    var neto = 0;
+    var iva = 0;
+    var total = 0;
+    (items || []).forEach(function (it) {
+      var qty = Number(it.cantidad) || 0;
+      var unit = Number(it.precioFinal) || 0;
+      var disc = Number(it.descPct) || 0;
+      var sub = Math.round(qty * unit * (1 - disc / 100) * 100) / 100;
+      var ivaRate = Number(it.ivaPct != null ? it.ivaPct : 21) / 100;
+      var subNeto = ivaRate > 0 ? Math.round((sub / (1 + ivaRate)) * 100) / 100 : sub;
+      var subIva = Math.round((sub - subNeto) * 100) / 100;
+      neto += subNeto;
+      iva += subIva;
+      total += sub;
+    });
+    return {
+      neto: Math.round(neto * 100) / 100,
+      iva: Math.round(iva * 100) / 100,
+      total: Math.round(total * 100) / 100
+    };
+  }
+
+  function renderFacturarDirectoView() {
+    var db = STATE.db;
+    if (!STATE.directInvoice) STATE.directInvoice = buildEmptyDirectInvoice();
+    var inv = STATE.directInvoice;
+    var cli = (STATE.clientes || []).find(function (c) { return Number(c.id) === Number(inv.billingClientId); });
+    var totals = computeDirectInvoiceTotals(inv.items);
+
+    var pendingOts = (db.ordenesTrabajo || []).filter(function (o) {
+      return o.estado !== 'cancelada' && o.estadoFacturacion !== 'facturada';
+    });
+    var readyPres = (db.presupuestos || []).filter(function (p) {
+      return p.estado === 'aprobado' || p.estado === 'enviado' || p.estado === 'borrador';
+    });
+    var partesList = db.partesServicio || [];
+    var abonosList = (db.abonos || []).filter(function (a) { return a.estado === 'activo'; });
+
+    var successBanner = STATE.lastEmittedInvoice
+      ? '<div class="ms-sa-card" style="border:2px solid #56D7A1;background:rgba(86,215,161,0.12);margin-bottom:0.85rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">' +
+          '<div>' +
+            '<div style="font-size:0.74rem;font-weight:900;color:#065f46;">✅ COMPROBANTE EMITIDO SIN APERTURA DE CAJA</div>' +
+            '<div style="font-size:1.05rem;font-weight:900;">' + esc(STATE.lastEmittedInvoice.tipoBase) + ' ' + esc(STATE.lastEmittedInvoice.letra) + ' N° ' + esc(STATE.lastEmittedInvoice.numeroCompleto) + ' · ' + esc(fmtArs.format(STATE.lastEmittedInvoice.importe || 0)) + '</div>' +
+            '<div style="font-size:0.78rem;opacity:0.85;">Cliente: <strong>' + esc(STATE.lastEmittedInvoice.billingClientNombre) + '</strong>' + (STATE.lastEmittedInvoice.cae ? ' · CAE ARCA: <strong>' + esc(STATE.lastEmittedInvoice.cae) + '</strong>' : '') + '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:0.45rem;flex-wrap:wrap;">' +
+            '<button type="button" class="ms-sa-btn" id="ms-df-print-last">🖨️ Imprimir / PDF A4</button>' +
+            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-df-go-emitidos">📋 Ver Comprobantes Emitidos</button>' +
+            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-df-new-blank">➕ Nuevo Comprobante</button>' +
+          '</div>' +
+        '</div>'
+      : '';
+
+    var linesHtml = (inv.items || []).length === 0
+      ? '<tr><td colspan="8" style="text-align:center;padding:1.25rem;opacity:0.75;">Traé una <strong>Orden de Trabajo</strong>, <strong>Presupuesto</strong>, <strong>Parte</strong> o <strong>Abono</strong> arriba en 1 clic, o presioná <strong>+ Agregar Servicio</strong>.</td></tr>'
+      : inv.items
+          .map(function (it, idx) {
+            var sub = Math.round((Number(it.cantidad) || 0) * (Number(it.precioFinal) || 0) * (1 - (Number(it.descPct) || 0) / 100) * 100) / 100;
+            return (
+              '<tr class="ms-df-row" data-idx="' + idx + '">' +
+                '<td><input class="ms-sa-input ms-df-cod" value="' + esc(it.codigo || 'SRV') + '" style="min-width:74px;"></td>' +
+                '<td><input class="ms-sa-input ms-df-nom" value="' + esc(it.nombre) + '" placeholder="Descripción del servicio" style="min-width:220px;"></td>' +
+                '<td><input class="ms-sa-input ms-df-uni" value="' + esc(it.unidadMedida || 'Unidad') + '" style="width:96px;"></td>' +
+                '<td><input type="number" step="0.01" class="ms-sa-input ms-df-qty" value="' + esc(it.cantidad) + '" style="width:76px;"></td>' +
+                '<td><input type="number" step="0.01" class="ms-sa-input ms-df-price" value="' + esc(it.precioFinal) + '" style="width:118px;"></td>' +
+                '<td><input type="number" step="0.01" class="ms-sa-input ms-df-iva" value="' + esc(it.ivaPct != null ? it.ivaPct : 21) + '" style="width:68px;"></td>' +
+                '<td style="text-align:right;font-weight:800;white-space:nowrap;">' + esc(fmtArs.format(sub)) + '</td>' +
+                '<td><button type="button" class="ms-sa-btn ms-sa-btn--outline" data-df-del-line="' + idx + '" style="padding:0.25rem 0.5rem;">✕</button></td>' +
+              '</tr>'
+            );
+          })
+          .join('');
+
+    return (
+      '<div style="display:grid;gap:1rem;">' +
+        successBanner +
+        '<div class="ms-sa-card">' +
+          '<h4 style="margin:0 0 0.65rem;">📥 Traer Servicios desde Gestión de Servicios (Sin Apertura ni Cierre de Caja)</h4>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0.65rem;">' +
+            '<div style="display:grid;gap:0.35rem;">' +
+              '<label class="ms-sa-label">Orden de Trabajo Pendiente</label>' +
+              '<select class="ms-sa-select" id="ms-df-pick-ot"><option value="">— Elegir OT (' + pendingOts.length + ') —</option>' +
+                pendingOts.map(function (o) {
+                  return '<option value="' + esc(o.id) + '">' + esc(o.numero) + ' · ' + esc(o.clientNombre) + ' (' + esc(fmtArs.format(o.saldoPendienteFacturar || o.totalPrevisto || 0)) + ')</option>';
+                }).join('') +
+              '</select>' +
+              '<div style="display:flex;gap:0.35rem;">' +
+                '<button type="button" class="ms-sa-btn" id="ms-df-load-ot-full" style="padding:0.34rem 0.65rem;font-size:0.76rem;flex:1;">📥 Traer OT</button>' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-df-load-ot-pct" style="padding:0.34rem 0.65rem;font-size:0.76rem;">% Parcial</button>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:grid;gap:0.35rem;">' +
+              '<label class="ms-sa-label">Presupuesto</label>' +
+              '<select class="ms-sa-select" id="ms-df-pick-pres"><option value="">— Elegir Presupuesto (' + readyPres.length + ') —</option>' +
+                readyPres.map(function (p) {
+                  return '<option value="' + esc(p.id) + '">' + esc(p.numero) + ' · ' + esc(p.clientNombre) + ' (' + esc(fmtMoney(p.total, p.moneda)) + ')</option>';
+                }).join('') +
+              '</select>' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-df-load-pres" style="padding:0.34rem 0.65rem;font-size:0.76rem;">📥 Traer Presupuesto</button>' +
+            '</div>' +
+            '<div style="display:grid;gap:0.35rem;">' +
+              '<label class="ms-sa-label">Parte de Servicio Ejecutado</label>' +
+              '<select class="ms-sa-select" id="ms-df-pick-parte"><option value="">— Elegir Parte (' + partesList.length + ') —</option>' +
+                partesList.map(function (p) {
+                  return '<option value="' + esc(p.id) + '">' + esc(p.numero) + ' (' + esc(p.otNumero) + ') · ' + esc(p.clientNombre) + '</option>';
+                }).join('') +
+              '</select>' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-df-load-parte" style="padding:0.34rem 0.65rem;font-size:0.76rem;">📥 Traer Parte</button>' +
+            '</div>' +
+            '<div style="display:grid;gap:0.35rem;">' +
+              '<label class="ms-sa-label">Abono Recurrente (' + esc(STATE.abonoPeriod) + ')</label>' +
+              '<select class="ms-sa-select" id="ms-df-pick-abono"><option value="">— Elegir Abono (' + abonosList.length + ') —</option>' +
+                abonosList.map(function (a) {
+                  return '<option value="' + esc(a.id) + '">' + esc(a.codigo) + ' · ' + esc(a.clientNombre) + ' (' + esc(fmtArs.format(a.importe)) + ')</option>';
+                }).join('') +
+              '</select>' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-df-load-abono" style="padding:0.34rem 0.65rem;font-size:0.76rem;">📥 Traer Abono</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<form id="ms-df-form" class="ms-sa-card" style="display:grid;gap:0.9rem;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">' +
+            '<h4 style="margin:0;">🧾 Datos del Comprobante de Servicios</h4>' +
+            '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;">' +
+              '<select class="ms-sa-select" id="ms-df-cat-picker" style="width:auto;min-width:210px;font-size:0.8rem;"><option value="">+ Agregar desde Catálogo de Servicios...</option>' +
+                (db.catalogo || []).filter(function (s) { return s.activo !== false; }).map(function (s) {
+                  return '<option value="' + esc(s.id) + '">' + esc(s.codigo) + ' — ' + esc(s.nombre) + ' (' + esc(fmtMoney(s.precioBase, s.moneda)) + ')</option>';
+                }).join('') +
+              '</select>' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-df-add-blank-line" style="padding:0.35rem 0.7rem;font-size:0.78rem;">+ Ítem Manual</button>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0.65rem;">' +
+            '<div style="grid-column:span 2;"><label class="ms-sa-label">Cliente Destinatario de Factura</label><select class="ms-sa-select" name="billingClientId" id="ms-df-client">' + renderClientOptions(inv.billingClientId) + '</select>' +
+              (cli ? '<div style="font-size:0.73rem;opacity:0.78;margin-top:0.2rem;">CUIT/DNI: <strong>' + esc(cli.nroDoc || 'S/D') + '</strong> · IVA: <strong>' + esc(cli.respIva || '—') + '</strong> · Saldo Cta. Cte.: <strong>' + esc(fmtArs.format(cli.saldoActual || 0)) + '</strong></div>' : '') +
+            '</div>' +
+            '<div><label class="ms-sa-label">Tipo Comprobante</label><select class="ms-sa-select" name="tipoBase">' +
+              ['Factura', 'Nota de Crédito', 'Nota de Débito', 'Comprobante Interno'].map(function (t) {
+                return '<option value="' + t + '"' + (inv.tipoBase === t ? ' selected' : '') + '>' + t + '</option>';
+              }).join('') +
+            '</select></div>' +
+            '<div><label class="ms-sa-label">Letra</label><select class="ms-sa-select" name="letra" id="ms-df-letra">' +
+              ['A', 'B', 'C', 'X'].map(function (l) {
+                return '<option value="' + l + '"' + (inv.letra === l ? ' selected' : '') + '>' + l + (l === 'X' ? ' (Interno)' : '') + '</option>';
+              }).join('') +
+            '</select></div>' +
+            '<div><label class="ms-sa-label">Punto de Venta</label><input class="ms-sa-input" name="pv" value="' + esc(inv.pv || '0004') + '" maxlength="4"></div>' +
+            '<div><label class="ms-sa-label">Fecha</label><input type="date" class="ms-sa-input" name="fechaIso" value="' + esc(inv.fechaIso || todayIso()) + '"></div>' +
+            '<div><label class="ms-sa-label">Condición / Medio de Pago</label><select class="ms-sa-select" name="medioPago">' +
+              ['CUENTA CORRIENTE', 'TRANSFERENCIA BANCARIA', 'EFECTIVO', 'CHEQUE / ECHEQ', 'MERCADO PAGO'].map(function (mp) {
+                return '<option value="' + mp + '"' + (inv.medioPago === mp ? ' selected' : '') + '>' + mp + '</option>';
+              }).join('') +
+            '</select></div>' +
+            '<div style="grid-column:span 2;"><label class="ms-sa-label">Referencia / Orden de Compra / Observaciones</label><input class="ms-sa-input" name="observacion" value="' + esc(inv.observacion || '') + '" placeholder="Ej: OT-0001 · OC Cliente #450012"></div>' +
+          '</div>' +
+
+          '<div style="overflow-x:auto;"><table class="ms-sa-table" data-excel-table-key="srv-direct-invoice" style="width:100%;"><thead><tr><th>Cód.</th><th>Concepto / Servicio</th><th>Unidad</th><th>Cant.</th><th>Precio Unit. (c/IVA)</th><th>IVA %</th><th style="text-align:right;">Subtotal</th><th></th></tr></thead><tbody>' + linesHtml + '</tbody></table></div>' +
+
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;padding:0.85rem;border-radius:10px;background:rgba(17,45,58,0.04);border:1px solid rgba(17,45,58,0.12);">' +
+            '<label style="display:flex;align-items:center;gap:0.45rem;font-size:0.84rem;font-weight:700;cursor:pointer;">' +
+              '<input type="checkbox" name="autorizarArca" id="ms-df-arca-chk"' + (inv.autorizarArca && inv.letra !== 'X' ? ' checked' : '') + '> 🏛️ Solicitar autorización electrónica ARCA (WSFEv1 / CAE) al emitir' +
+            '</label>' +
+            '<div style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;">' +
+              '<div style="font-size:0.82rem;">Neto: <strong id="ms-df-tot-neto">' + esc(fmtArs.format(totals.neto)) + '</strong> · IVA: <strong id="ms-df-tot-iva">' + esc(fmtArs.format(totals.iva)) + '</strong></div>' +
+              '<div style="font-size:1.3rem;font-weight:900;">TOTAL: <span id="ms-df-tot-final">' + esc(fmtArs.format(totals.total)) + '</span></div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:flex;justify-content:flex-end;gap:0.55rem;flex-wrap:wrap;">' +
+            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-df-clear">Limpiar</button>' +
+            '<button type="submit" class="ms-sa-btn" id="ms-df-emit-btn" style="padding:0.65rem 1.35rem;font-size:0.92rem;">🧾 Emitir Comprobante de Servicios</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>'
+    );
+  }
+
+  function renderCobranzaDirectaView() {
+    var db = STATE.db;
+    if (!STATE.directCobranza) STATE.directCobranza = buildEmptyDirectCobranza();
+    var cob = STATE.directCobranza;
+    var cli = (STATE.clientes || []).find(function (c) { return Number(c.id) === Number(cob.clientId); });
+    var cliFacts = (db.facturasVinculadas || []).filter(function (f) {
+      return Number(f.billingClientId) === Number(cob.clientId) && !f.esNotaCredito;
+    });
+
+    var recBanner = STATE.lastEmittedRecibo
+      ? '<div class="ms-sa-card" style="border:2px solid #56D7A1;background:rgba(86,215,161,0.12);margin-bottom:0.85rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">' +
+          '<div>' +
+            '<div style="font-size:0.74rem;font-weight:900;color:#065f46;">✅ COBRANZA REGISTRADA EN CUENTA CORRIENTE</div>' +
+            '<div style="font-size:1.05rem;font-weight:900;">Recibo ' + esc(STATE.lastEmittedRecibo.numero) + ' · Acreditado: ' + esc(fmtArs.format(STATE.lastEmittedRecibo.totalAcreditado || 0)) + '</div>' +
+            '<div style="font-size:0.78rem;opacity:0.85;">Cliente: <strong>' + esc(STATE.lastEmittedRecibo.clientNombre) + '</strong> · Saldo restante: <strong>' + esc(fmtArs.format(STATE.lastEmittedRecibo.saldoPosterior || 0)) + '</strong></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:0.45rem;flex-wrap:wrap;">' +
+            '<button type="button" class="ms-sa-btn" id="ms-dc-print-last">🖨️ Imprimir Recibo PDF</button>' +
+            '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-dc-open-ctacte">📒 Ver Cuenta Corriente</button>' +
+          '</div>' +
+        '</div>'
+      : '';
+
+    return (
+      '<div style="display:grid;gap:1rem;">' +
+        recBanner +
+        '<div class="ms-sa-grid">' +
+          '<form id="ms-dc-form" class="ms-sa-card" style="display:grid;gap:0.75rem;">' +
+            '<h4 style="margin:0;">💵 Registrar Cobranza / Recibo de Servicios</h4>' +
+            '<div><label class="ms-sa-label">Cliente</label><select class="ms-sa-select" name="clientId" id="ms-dc-client">' + renderClientOptions(cob.clientId) + '</select>' +
+              (cli ? '<div style="font-size:0.8rem;margin-top:0.28rem;">Saldo Actual en Cuenta Corriente: <strong style="color:' + (Number(cli.saldoActual || 0) > 0 ? '#b91c1c' : '#065f46') + ';">' + esc(fmtArs.format(cli.saldoActual || 0)) + '</strong></div>' : '') +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.65rem;">' +
+              '<div><label class="ms-sa-label">Fecha de Cobro</label><input type="date" class="ms-sa-input" name="fechaIso" value="' + esc(cob.fechaIso || todayIso()) + '"></div>' +
+              '<div><label class="ms-sa-label">Medio de Cobro</label><select class="ms-sa-select" name="medioPago">' +
+                ['TRANSFERENCIA BANCARIA', 'EFECTIVO', 'CHEQUE / ECHEQ', 'MERCADO PAGO', 'COMPENSACIÓN'].map(function (m) {
+                  return '<option value="' + m + '"' + (cob.medioPago === m ? ' selected' : '') + '>' + m + '</option>';
+                }).join('') +
+              '</select></div>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.65rem;">' +
+              '<div><label class="ms-sa-label">Importe Cobrado ($)</label><input type="number" step="0.01" min="0" class="ms-sa-input" name="importeCobrado" id="ms-dc-imp" value="' + esc(cob.importeCobrado || 0) + '" required></div>' +
+              '<div><label class="ms-sa-label">N° Referencia / Comprobante Bancario</label><input class="ms-sa-input" name="referencia" value="' + esc(cob.referencia || '') + '" placeholder="Ej: Transf. #892140"></div>' +
+            '</div>' +
+            '<div style="padding:0.75rem;border-radius:10px;background:rgba(17,45,58,0.04);border:1px solid rgba(17,45,58,0.12);display:grid;gap:0.55rem;">' +
+              '<strong style="font-size:0.8rem;">🏛️ Retenciones Impositivas Sufridas (Opcional)</strong>' +
+              '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.55rem;">' +
+                '<div><label class="ms-sa-label">Tipo</label><select class="ms-sa-select" name="retencionTipo">' +
+                  ['', 'IIBB', 'Ganancias', 'SUSS', 'IVA'].map(function (r) {
+                    return '<option value="' + r + '"' + (cob.retencionTipo === r ? ' selected' : '') + '>' + (r || 'Sin retención') + '</option>';
+                  }).join('') +
+                '</select></div>' +
+                '<div><label class="ms-sa-label">Importe Retenido ($)</label><input type="number" step="0.01" min="0" class="ms-sa-input" name="retencionImporte" value="' + esc(cob.retencionImporte || 0) + '"></div>' +
+                '<div><label class="ms-sa-label">N° Certificado</label><input class="ms-sa-input" name="retencionCertificado" value="' + esc(cob.retencionCertificado || '') + '" placeholder="Cert. retención"></div>' +
+              '</div>' +
+              '<div><label class="ms-sa-label">Vincular a Factura de Servicios (opcional)</label><select class="ms-sa-select" name="facturaId"><option value="">— Sin vincular a factura puntual —</option>' +
+                cliFacts.map(function (f) {
+                  return '<option value="' + esc(f.id) + '"' + (cob.facturaId === f.id ? ' selected' : '') + '>' + esc(f.tipoBase) + ' ' + esc(f.letra) + ' ' + esc(f.numeroCompleto) + ' (' + esc(fmtArs.format(f.montoFacturado)) + ')</option>';
+                }).join('') +
+              '</select></div>' +
+            '</div>' +
+            '<div><label class="ms-sa-label">Observaciones</label><input class="ms-sa-input" name="observaciones" value="' + esc(cob.observaciones || '') + '" placeholder="Ej: Cancelación parcial / total factura servicios"></div>' +
+            '<div style="display:flex;justify-content:flex-end;gap:0.5rem;">' +
+              '<button type="submit" class="ms-sa-btn" id="ms-dc-submit-btn">💵 Emitir Recibo y Acreditar Cta. Cte.</button>' +
+            '</div>' +
+          '</form>' +
+
+          '<div class="ms-sa-card">' +
+            '<h4 style="margin:0 0 0.65rem;">🧾 Facturas de Servicios del Cliente</h4>' +
+            '<table class="ms-sa-table" data-excel-table-key="srv-cob-facts" style="width:100%;"><thead><tr><th>Fecha</th><th>Comprobante</th><th>Monto</th><th>Acción</th></tr></thead><tbody>' +
+              (cliFacts.length === 0
+                ? '<tr><td colspan="4" style="text-align:center;opacity:0.7;padding:1rem;">Sin facturas de servicios registradas para este cliente.</td></tr>'
+                : cliFacts.slice(0, 20).map(function (f) {
+                    return (
+                      '<tr>' +
+                        '<td>' + esc(f.fechaIso) + '</td>' +
+                        '<td><strong>' + esc(f.tipoBase) + ' ' + esc(f.letra) + ' ' + esc(f.numeroCompleto) + '</strong></td>' +
+                        '<td><strong>' + esc(fmtArs.format(f.montoFacturado)) + '</strong></td>' +
+                        '<td><button type="button" class="ms-sa-btn ms-sa-btn--outline" data-dc-pick-fact="' + esc(f.id) + '" data-dc-pick-amt="' + esc(f.montoFacturado) + '" style="padding:0.24rem 0.55rem;font-size:0.74rem;">Usar Monto</button></td>' +
+                      '</tr>'
+                    );
+                  }).join('')) +
+            '</tbody></table>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
   function renderWorkspace() {
     var bodyEl = document.getElementById('ms-srv-body');
     if (!bodyEl || !STATE.db) return;
@@ -1666,6 +2174,8 @@
     else if (STATE.view === 'agenda') html = renderAgendaPersonalView();
     else if (STATE.view === 'abonos') html = renderAbonosView();
     else if (STATE.view === 'informes') html = renderInformesView();
+    else if (STATE.view === 'facturar_directo') html = renderFacturarDirectoView();
+    else if (STATE.view === 'cobranza_directa') html = renderCobranzaDirectaView();
 
     bodyEl.innerHTML = html;
     bindWorkspaceEvents(bodyEl);
@@ -2556,10 +3066,661 @@
         });
       });
     });
+
+    // --- FACTURACIÓN DIRECTA DE SERVICIOS (SIN CAJA) ---
+    var dfForm = bodyEl.querySelector('#ms-df-form');
+    if (dfForm && STATE.directInvoice) {
+      var readDfFromDom = function () {
+        var inv = STATE.directInvoice;
+        var fd = new FormData(dfForm);
+        inv.billingClientId = Number(fd.get('billingClientId') || inv.billingClientId || 1);
+        inv.tipoBase = String(fd.get('tipoBase') || 'Factura');
+        inv.letra = String(fd.get('letra') || 'B').toUpperCase();
+        inv.pv = String(fd.get('pv') || '0004').replace(/\D/g, '').padStart(4, '0');
+        inv.fechaIso = String(fd.get('fechaIso') || todayIso());
+        inv.medioPago = String(fd.get('medioPago') || 'CUENTA CORRIENTE');
+        inv.observacion = String(fd.get('observacion') || '');
+        var arcaEl = dfForm.querySelector('#ms-df-arca-chk');
+        inv.autorizarArca = Boolean(arcaEl && arcaEl.checked) && inv.letra !== 'X';
+        var rows = dfForm.querySelectorAll('.ms-df-row');
+        if (rows.length > 0) {
+          inv.items = Array.prototype.map.call(rows, function (row, i) {
+            var prev = (inv.items && inv.items[i]) || {};
+            return {
+              codigo: String((row.querySelector('.ms-df-cod') && row.querySelector('.ms-df-cod').value) || 'SRV'),
+              nombre: String((row.querySelector('.ms-df-nom') && row.querySelector('.ms-df-nom').value) || 'Servicio'),
+              unidadMedida: String((row.querySelector('.ms-df-uni') && row.querySelector('.ms-df-uni').value) || 'Unidad'),
+              cantidad: Math.max(0.01, Number((row.querySelector('.ms-df-qty') && row.querySelector('.ms-df-qty').value) || 1)),
+              precioFinal: Math.max(0, Number((row.querySelector('.ms-df-price') && row.querySelector('.ms-df-price').value) || 0)),
+              descPct: Number(prev.descPct || 0),
+              ivaPct: Math.max(0, Number((row.querySelector('.ms-df-iva') && row.querySelector('.ms-df-iva').value) || 21)),
+              isService: true,
+              itemType: 'service',
+              serviceLink: prev.serviceLink || null
+            };
+          });
+        }
+        return inv;
+      };
+
+      var refreshDfTotals = function () {
+        var inv = readDfFromDom();
+        var t = computeDirectInvoiceTotals(inv.items);
+        var eN = dfForm.querySelector('#ms-df-tot-neto');
+        var eI = dfForm.querySelector('#ms-df-tot-iva');
+        var eF = dfForm.querySelector('#ms-df-tot-final');
+        if (eN) eN.textContent = fmtArs.format(t.neto);
+        if (eI) eI.textContent = fmtArs.format(t.iva);
+        if (eF) eF.textContent = fmtArs.format(t.total);
+      };
+
+      dfForm.querySelectorAll('.ms-df-qty, .ms-df-price, .ms-df-iva').forEach(function (inp) {
+        inp.addEventListener('input', refreshDfTotals);
+      });
+
+      var dfCliSel = dfForm.querySelector('#ms-df-client');
+      if (dfCliSel) {
+        dfCliSel.addEventListener('change', function () {
+          var inv = readDfFromDom();
+          inv.letra = suggestLetraForClient(inv.billingClientId);
+          inv.autorizarArca = inv.letra !== 'X';
+          renderWorkspace();
+        });
+      }
+
+      var dfLetraSel = dfForm.querySelector('#ms-df-letra');
+      if (dfLetraSel) {
+        dfLetraSel.addEventListener('change', function () {
+          var inv = readDfFromDom();
+          inv.autorizarArca = inv.letra !== 'X';
+          renderWorkspace();
+        });
+      }
+
+      var dfCatPick = dfForm.querySelector('#ms-df-cat-picker');
+      if (dfCatPick) {
+        dfCatPick.addEventListener('change', function () {
+          var sid = dfCatPick.value;
+          if (!sid) return;
+          var inv = readDfFromDom();
+          var srv = (STATE.db.catalogo || []).find(function (s) { return s.id === sid; });
+          if (srv) {
+            var sp = getClientSpecialPrice(inv.billingClientId, srv.id);
+            var basePrice = sp ? Number(sp.precioEspecial) : Number(srv.precioBase || 0);
+            var iva = Number(srv.ivaPct != null ? srv.ivaPct : 21);
+            var unitConIva = Math.round(basePrice * (1 + iva / 100) * 100) / 100;
+            inv.items.push({
+              codigo: srv.codigo || 'SRV',
+              nombre: srv.nombre,
+              unidadMedida: srv.unidadMedida || 'Unidad',
+              cantidad: 1,
+              precioFinal: unitConIva,
+              descPct: 0,
+              ivaPct: iva,
+              isService: true,
+              itemType: 'service',
+              serviceLink: { servicioId: srv.id }
+            });
+            renderWorkspace();
+          }
+        });
+      }
+
+      var dfAddBlank = dfForm.querySelector('#ms-df-add-blank-line');
+      if (dfAddBlank) {
+        dfAddBlank.addEventListener('click', function () {
+          var inv = readDfFromDom();
+          inv.items.push({
+            codigo: 'SRV',
+            nombre: '',
+            unidadMedida: 'Unidad',
+            cantidad: 1,
+            precioFinal: 0,
+            descPct: 0,
+            ivaPct: (STATE.db && STATE.db.config && STATE.db.config.ivaDefaultPct) || 21,
+            isService: true,
+            itemType: 'service',
+            serviceLink: null
+          });
+          renderWorkspace();
+        });
+      }
+
+      dfForm.querySelectorAll('[data-df-del-line]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var idx = Number(btn.getAttribute('data-df-del-line'));
+          var inv = readDfFromDom();
+          inv.items.splice(idx, 1);
+          renderWorkspace();
+        });
+      });
+
+      var dfClear = dfForm.querySelector('#ms-df-clear');
+      if (dfClear) {
+        dfClear.addEventListener('click', function () {
+          STATE.directInvoice = buildEmptyDirectInvoice();
+          STATE.lastEmittedInvoice = null;
+          renderWorkspace();
+        });
+      }
+
+      var loadOtDirect = function (mode, pct) {
+        var otSel = bodyEl.querySelector('#ms-df-pick-ot');
+        var otId = otSel ? otSel.value : '';
+        if (!otId) { showToast('Elegí primero una Orden de Trabajo pendiente.', true); return; }
+        var ot = (STATE.db.ordenesTrabajo || []).find(function (o) { return o.id === otId; });
+        if (!ot) return;
+        var built = buildOtBillingLines(ot, mode, pct);
+        if (built.lines.length === 0) {
+          showToast('No quedan cantidades pendientes de facturar en ' + ot.numero + '.', true);
+          return;
+        }
+        var inv = readDfFromDom();
+        inv.billingClientId = Number(ot.billingClientId || ot.clientId || inv.billingClientId || 1);
+        inv.letra = suggestLetraForClient(inv.billingClientId);
+        inv.autorizarArca = inv.letra !== 'X';
+        inv.observacion = inv.observacion
+          ? inv.observacion + ' · ' + ot.numero
+          : ot.numero + (ot.ordenCompraCliente ? ' · OC ' + ot.ordenCompraCliente : '');
+        built.lines.forEach(function (l) { inv.items.push(l); });
+        inv.context = inv.context || { sourceType: 'ot', links: [] };
+        inv.context.links = (inv.context.links || []).concat(built.links);
+        showToast('Se cargaron ' + built.lines.length + ' concepto(s) de ' + ot.numero + '.', false);
+        renderWorkspace();
+      };
+
+      var btnLoadOtFull = bodyEl.querySelector('#ms-df-load-ot-full');
+      if (btnLoadOtFull) btnLoadOtFull.addEventListener('click', function () { loadOtDirect('full'); });
+      var btnLoadOtPct = bodyEl.querySelector('#ms-df-load-ot-pct');
+      if (btnLoadOtPct) {
+        btnLoadOtPct.addEventListener('click', function () {
+          var pct = Number(window.prompt('Porcentaje de avance / anticipo a facturar (1 a 100):', '50') || 0);
+          if (pct > 0 && pct <= 100) loadOtDirect('partial_pct', pct);
+        });
+      }
+
+      var btnLoadPres = bodyEl.querySelector('#ms-df-load-pres');
+      if (btnLoadPres) {
+        btnLoadPres.addEventListener('click', function () {
+          var sel = bodyEl.querySelector('#ms-df-pick-pres');
+          var pid = sel ? sel.value : '';
+          if (!pid) { showToast('Elegí primero un Presupuesto.', true); return; }
+          var pres = (STATE.db.presupuestos || []).find(function (p) { return p.id === pid; });
+          if (!pres) return;
+          var inv = readDfFromDom();
+          inv.billingClientId = Number(pres.billingClientId || pres.clientId || 1);
+          inv.letra = suggestLetraForClient(inv.billingClientId);
+          inv.autorizarArca = inv.letra !== 'X';
+          inv.observacion = pres.numero + (pres.establecimientoNombre ? ' · ' + pres.establecimientoNombre : '');
+          (pres.items || []).forEach(function (l) {
+            var unitConIva = Math.round(Number(l.precioUnitario || 0) * (1 + (Number(l.ivaPct) || 0) / 100) * 100) / 100;
+            inv.items.push({
+              codigo: l.codigo || 'SRV',
+              nombre: '[' + pres.numero + '] ' + l.nombre,
+              unidadMedida: l.unidadMedida || 'Unidad',
+              cantidad: Number(l.cantidad) || 1,
+              precioFinal: unitConIva,
+              descPct: Number(l.descuentoPct) || 0,
+              ivaPct: l.ivaPct != null ? Number(l.ivaPct) : 21,
+              isService: true,
+              itemType: 'service',
+              serviceLink: { servicioId: l.servicioId, lineId: l.id }
+            });
+          });
+          showToast('Presupuesto ' + pres.numero + ' cargado en el comprobante.', false);
+          renderWorkspace();
+        });
+      }
+
+      var btnLoadParte = bodyEl.querySelector('#ms-df-load-parte');
+      if (btnLoadParte) {
+        btnLoadParte.addEventListener('click', function () {
+          var sel = bodyEl.querySelector('#ms-df-pick-parte');
+          var pid = sel ? sel.value : '';
+          if (!pid) { showToast('Elegí primero un Parte de Servicio.', true); return; }
+          var p = (STATE.db.partesServicio || []).find(function (x) { return x.id === pid; });
+          if (!p) return;
+          var ot = (STATE.db.ordenesTrabajo || []).find(function (o) { return o.id === p.otId; });
+          var inv = readDfFromDom();
+          inv.billingClientId = Number((ot && (ot.billingClientId || ot.clientId)) || p.clientId || 1);
+          inv.letra = suggestLetraForClient(inv.billingClientId);
+          inv.autorizarArca = inv.letra !== 'X';
+          inv.observacion = 'Parte ' + p.numero + ' (' + p.otNumero + ')';
+          inv.context = inv.context || { sourceType: 'parte', links: [] };
+          (p.itemsEjecutados || []).forEach(function (it) {
+            var unitConIva = Math.round(Number(it.precioUnitario || 0) * (1 + (Number(it.ivaPct) || 0) / 100) * 100) / 100;
+            var monto = Math.round((Number(it.cantidadEjecutada) || 1) * unitConIva * 100) / 100;
+            inv.items.push({
+              codigo: it.codigo || 'SRV',
+              nombre: '[' + p.numero + '/' + p.otNumero + '] ' + it.nombre,
+              unidadMedida: it.unidadMedida || 'Unidad',
+              cantidad: Number(it.cantidadEjecutada) || 1,
+              precioFinal: unitConIva,
+              descPct: 0,
+              ivaPct: it.ivaPct != null ? Number(it.ivaPct) : 21,
+              isService: true,
+              itemType: 'service',
+              serviceLink: { otId: p.otId, parteId: p.id, lineId: it.otLineId, servicioId: it.servicioId }
+            });
+            inv.context.links.push({
+              otId: p.otId,
+              parteId: p.id,
+              lineId: it.otLineId,
+              servicioId: it.servicioId,
+              descripcion: it.nombre,
+              cantidad: Number(it.cantidadEjecutada) || 1,
+              monto: monto
+            });
+          });
+          showToast('Parte ' + p.numero + ' cargado con cantidades ejecutadas reales.', false);
+          renderWorkspace();
+        });
+      }
+
+      var btnLoadAbono = bodyEl.querySelector('#ms-df-load-abono');
+      if (btnLoadAbono) {
+        btnLoadAbono.addEventListener('click', function () {
+          var sel = bodyEl.querySelector('#ms-df-pick-abono');
+          var aid = sel ? sel.value : '';
+          if (!aid) { showToast('Elegí primero un Abono Activo.', true); return; }
+          var ab = (STATE.db.abonos || []).find(function (a) { return a.id === aid; });
+          if (!ab) return;
+          var inv = readDfFromDom();
+          inv.billingClientId = Number(ab.billingClientId || ab.clientId || 1);
+          inv.letra = suggestLetraForClient(inv.billingClientId);
+          inv.autorizarArca = inv.letra !== 'X';
+          inv.observacion = 'Abono ' + ab.codigo + ' · Período ' + STATE.abonoPeriod;
+          var unitConIva = Math.round(Number(ab.importe || 0) * (1 + (Number(ab.ivaPct) || 0) / 100) * 100) / 100;
+          inv.items.push({
+            codigo: ab.codigo,
+            nombre: ab.servicioNombre + ' (Período ' + STATE.abonoPeriod + ')',
+            unidadMedida: 'Abono mensual',
+            cantidad: 1,
+            precioFinal: unitConIva,
+            descPct: 0,
+            ivaPct: ab.ivaPct != null ? Number(ab.ivaPct) : 21,
+            isService: true,
+            itemType: 'service',
+            serviceLink: { abonoId: ab.id, periodo: STATE.abonoPeriod, lineId: ab.id }
+          });
+          inv.context = inv.context || { sourceType: 'abono', links: [] };
+          inv.context.links.push({
+            abonoId: ab.id,
+            periodo: STATE.abonoPeriod,
+            lineId: ab.id,
+            descripcion: ab.servicioNombre,
+            cantidad: 1,
+            monto: unitConIva
+          });
+          showToast('Abono ' + ab.codigo + ' cargado para el período ' + STATE.abonoPeriod + '.', false);
+          renderWorkspace();
+        });
+      }
+
+      dfForm.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        var inv = readDfFromDom();
+        if (!inv.items || inv.items.length === 0) {
+          showToast('Agregá al menos un servicio o traé una Orden de Trabajo / Presupuesto antes de emitir.', true);
+          return;
+        }
+        var totals = computeDirectInvoiceTotals(inv.items);
+        if (totals.total <= 0) {
+          showToast('El importe total del comprobante debe ser mayor a $ 0.', true);
+          return;
+        }
+        var cli = (STATE.clientes || []).find(function (c) { return Number(c.id) === Number(inv.billingClientId); });
+        var cliNombre = (cli && cli.nombre) || 'CONSUMIDOR FINAL';
+        var isNC = /cr[eé]dito/i.test(inv.tipoBase);
+        var isND = /d[eé]bito/i.test(inv.tipoBase);
+
+        var emitBtn = dfForm.querySelector('#ms-df-emit-btn');
+        if (emitBtn) { emitBtn.disabled = true; emitBtn.textContent = 'Emitiendo comprobante...'; }
+
+        try {
+          // 1. Registrar venta en ventas_db (sin apertura/cierre de caja y sin descontar stock)
+          var salePayload = {
+            action: 'record_pos_sale',
+            usuario: getActorName(),
+            sale: {
+              cajaId: 'caja3',
+              pv: inv.pv,
+              letra: inv.letra,
+              tipoBase: inv.tipoBase,
+              fechaIso: inv.fechaIso,
+              importe: totals.total,
+              neto: totals.neto,
+              iva: totals.iva,
+              medioPago: inv.medioPago,
+              billingClientId: inv.billingClientId,
+              billingClientNombre: cliNombre,
+              clienteId: inv.billingClientId,
+              clienteNombre: cliNombre,
+              clienteDoc: (cli && cli.nroDoc) || '',
+              origenOperacion: 'SERVICIOS',
+              sinCajaServicios: true,
+              observacion: inv.observacion,
+              items: inv.items.map(function (it) {
+                return Object.assign({}, it, { isService: true, itemType: 'service' });
+              })
+            }
+          };
+          var vRes = await fetch('/sistema/api/ventas.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(salePayload)
+          }).then(function (r) { return r.json(); });
+
+          if (!vRes || !vRes.ok || !vRes.sale) {
+            throw new Error((vRes && vRes.message) || 'No se pudo registrar el comprobante.');
+          }
+          var saleRec = vRes.sale;
+
+          // 2. Registrar en ARCA Comprobantes Electrónicos (si es comprobante fiscal A/B/C)
+          var cae = '';
+          var caeVto = '';
+          if (inv.letra !== 'X') {
+            var regRes = await fetch('/sistema/api/arca_comprobantes.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'register_comprobante',
+                usuario: getActorName(),
+                comprobante: {
+                  pv: saleRec.pv,
+                  nro: saleRec.nro,
+                  letra: saleRec.letra,
+                  tipoBase: saleRec.tipoBase,
+                  fechaIso: saleRec.fechaIso,
+                  fechaHora: saleRec.fechaHora,
+                  clienteId: inv.billingClientId,
+                  clienteNombre: cliNombre,
+                  clienteDoc: (cli && cli.nroDoc) || '',
+                  importe: totals.total,
+                  neto: totals.neto,
+                  iva: totals.iva,
+                  medioPago: inv.medioPago,
+                  origen: 'SERVICIOS',
+                  observacion: inv.observacion
+                }
+              })
+            }).then(function (r) { return r.json(); }).catch(function () { return null; });
+
+            if (inv.autorizarArca && regRes && regRes.ok && regRes.comprobante) {
+              var infRes = await fetch('/sistema/api/arca_comprobantes.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'informar_comprobantes',
+                  usuario: getActorName(),
+                  comprobantes: [regRes.comprobante]
+                })
+              }).then(function (r) { return r.json(); }).catch(function () { return null; });
+              if (infRes && infRes.ok && Array.isArray(infRes.informados) && infRes.informados[0]) {
+                cae = infRes.informados[0].cae || '';
+                caeVto = infRes.informados[0].caeVto || '';
+              }
+            }
+          }
+
+          // 3. Impactar Cuenta Corriente Unificada (si es Cuenta Corriente o Nota de Crédito)
+          if (inv.medioPago === 'CUENTA CORRIENTE' || isNC) {
+            await fetch('/sistema/api/clientes.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'add_ctacte_movement',
+                usuario: getActorName(),
+                idCliente: inv.billingClientId,
+                movement: {
+                  cId: inv.billingClientId,
+                  fi: saleRec.fechaIso,
+                  f: saleRec.fechaIso.split('-').reverse().join('/'),
+                  tcn: String(saleRec.tipoBase || 'FACTURA').toUpperCase() + ' SERVICIOS',
+                  tca: isNC ? 'NC' : isND ? 'ND' : 'FC',
+                  l: saleRec.letra,
+                  n: saleRec.numeroCompleto,
+                  dh: isNC ? -1 : 1,
+                  imp: totals.total,
+                  obs: inv.observacion || 'Facturación de Servicios',
+                  origen: 'SERVICIOS',
+                  items: inv.items
+                }
+              })
+            }).catch(function () {});
+          }
+
+          // 4. Registrar trazabilidad anti-doble-facturación en servicios_db
+          var linksToSave = [];
+          inv.items.forEach(function (it) {
+            var sl = it.serviceLink || {};
+            var sub = Math.round((Number(it.cantidad) || 1) * (Number(it.precioFinal) || 0) * (1 - (Number(it.descPct) || 0) / 100) * 100) / 100;
+            linksToSave.push({
+              otId: sl.otId || undefined,
+              parteId: sl.parteId || undefined,
+              abonoId: sl.abonoId || undefined,
+              periodo: sl.periodo || undefined,
+              lineId: sl.lineId || '',
+              servicioId: sl.servicioId || '',
+              descripcion: it.nombre || 'Servicio',
+              cantidad: Number(it.cantidad) || 1,
+              monto: sub
+            });
+          });
+
+          var linkRes = await apiServicios('POST', {
+            action: 'register_invoice_link',
+            invoice: {
+              saleId: saleRec.id,
+              numeroCompleto: saleRec.numeroCompleto,
+              tipoBase: saleRec.tipoBase,
+              letra: saleRec.letra,
+              fechaIso: saleRec.fechaIso,
+              billingClientId: inv.billingClientId,
+              billingClientNombre: cliNombre,
+              montoFacturado: totals.total,
+              origenOperacion: 'SERVICIOS',
+              esNotaCredito: isNC,
+              lineasFacturadas: linksToSave
+            }
+          });
+
+          if (linkRes && linkRes.ok === false && linkRes.message) {
+            showToast('Comprobante emitido con aviso de trazabilidad: ' + linkRes.message, true);
+          } else {
+            showToast('✅ ' + saleRec.tipoBase + ' ' + saleRec.letra + ' ' + saleRec.numeroCompleto + ' emitida correctamente' + (cae ? ' (CAE ' + cae + ')' : '') + '.', false);
+          }
+
+          STATE.lastEmittedInvoice = {
+            tipoBase: saleRec.tipoBase,
+            letra: saleRec.letra,
+            numeroCompleto: saleRec.numeroCompleto,
+            fechaIso: saleRec.fechaIso,
+            medioPago: inv.medioPago,
+            billingClientNombre: cliNombre,
+            clienteDoc: (cli && cli.nroDoc) || '',
+            clienteRespIva: (cli && cli.respIva) || '',
+            observacion: inv.observacion,
+            items: inv.items.slice(),
+            neto: totals.neto,
+            iva: totals.iva,
+            importe: totals.total,
+            cae: cae,
+            caeVto: caeVto
+          };
+          STATE.directInvoice = buildEmptyDirectInvoice();
+          await reloadData(true);
+          printDirectInvoicePdf(STATE.lastEmittedInvoice);
+        } catch (err) {
+          showToast((err && err.message) || 'Error al emitir comprobante.', true);
+          if (emitBtn) { emitBtn.disabled = false; emitBtn.textContent = '🧾 Emitir Comprobante de Servicios'; }
+        }
+      });
+    }
+
+    var dfPrintLast = bodyEl.querySelector('#ms-df-print-last');
+    if (dfPrintLast && STATE.lastEmittedInvoice) {
+      dfPrintLast.addEventListener('click', function () { printDirectInvoicePdf(STATE.lastEmittedInvoice); });
+    }
+    var dfGoEmitidos = bodyEl.querySelector('#ms-df-go-emitidos');
+    if (dfGoEmitidos) {
+      dfGoEmitidos.addEventListener('click', function () {
+        var ws = document.getElementById('sec-servicios-workspace');
+        if (ws) ws.hidden = true;
+        if (typeof window.__MS_OPEN_ERP_SECTION__ === 'function') {
+          window.__MS_OPEN_ERP_SECTION__('sec-comprobantes-emitidos');
+        }
+      });
+    }
+    var dfNewBlank = bodyEl.querySelector('#ms-df-new-blank');
+    if (dfNewBlank) {
+      dfNewBlank.addEventListener('click', function () {
+        STATE.directInvoice = buildEmptyDirectInvoice();
+        STATE.lastEmittedInvoice = null;
+        renderWorkspace();
+      });
+    }
+
+    // --- COBRANZA / RECIBO DIRECTO DE SERVICIOS ---
+    var dcForm = bodyEl.querySelector('#ms-dc-form');
+    if (dcForm && STATE.directCobranza) {
+      var dcCliSel = dcForm.querySelector('#ms-dc-client');
+      if (dcCliSel) {
+        dcCliSel.addEventListener('change', function () {
+          var nextCid = Number(dcCliSel.value || 1);
+          var c = (STATE.clientes || []).find(function (x) { return Number(x.id) === nextCid; });
+          STATE.directCobranza.clientId = nextCid;
+          STATE.directCobranza.importeCobrado = c && Number(c.saldoActual) > 0 ? Number(c.saldoActual) : 0;
+          STATE.directCobranza.facturaId = '';
+          renderWorkspace();
+        });
+      }
+
+      bodyEl.querySelectorAll('[data-dc-pick-fact]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          STATE.directCobranza.facturaId = btn.getAttribute('data-dc-pick-fact') || '';
+          STATE.directCobranza.importeCobrado = Number(btn.getAttribute('data-dc-pick-amt') || 0);
+          renderWorkspace();
+        });
+      });
+
+      dcForm.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        var fd = new FormData(dcForm);
+        var cid = Number(fd.get('clientId') || 0);
+        var fechaIso = String(fd.get('fechaIso') || todayIso());
+        var medioPago = String(fd.get('medioPago') || 'TRANSFERENCIA BANCARIA');
+        var importeCobrado = Math.max(0, Number(fd.get('importeCobrado') || 0));
+        var referencia = String(fd.get('referencia') || '').trim();
+        var retTipo = String(fd.get('retencionTipo') || '').trim();
+        var retImp = Math.max(0, Number(fd.get('retencionImporte') || 0));
+        var retCert = String(fd.get('retencionCertificado') || '').trim();
+        var facturaId = String(fd.get('facturaId') || '').trim();
+        var obs = String(fd.get('observaciones') || '').trim();
+        var totalAcreditado = Math.round((importeCobrado + (retTipo ? retImp : 0)) * 100) / 100;
+
+        if (!cid || totalAcreditado <= 0) {
+          showToast('Seleccioná un cliente e ingresá un importe cobrado mayor a $ 0.', true);
+          return;
+        }
+
+        var submitBtn = dcForm.querySelector('#ms-dc-submit-btn');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Registrando recibo...'; }
+
+        try {
+          var cli = (STATE.clientes || []).find(function (c) { return Number(c.id) === cid; });
+          var obsParts = ['Cobro ' + medioPago + ': ' + fmtArs.format(importeCobrado)];
+          if (referencia) obsParts.push('Ref: ' + referencia);
+          if (retTipo && retImp > 0) {
+            obsParts.push('Ret. ' + retTipo + (retCert ? ' Cert. ' + retCert : '') + ': ' + fmtArs.format(retImp));
+          }
+          if (obs) obsParts.push(obs);
+          var nroRecibo = 'RC-SRV-' + String(Date.now()).slice(-6);
+
+          var rcRes = await fetch('/sistema/api/clientes.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'add_ctacte_movement',
+              usuario: getActorName(),
+              idCliente: cid,
+              movement: {
+                cId: cid,
+                fi: fechaIso,
+                f: fechaIso.split('-').reverse().join('/'),
+                tcn: 'RECIBO DE SERVICIOS',
+                tca: 'RC',
+                l: 'X',
+                n: nroRecibo,
+                dh: -1,
+                imp: totalAcreditado,
+                obs: obsParts.join(' · '),
+                origen: 'SERVICIOS'
+              }
+            })
+          }).then(function (r) { return r.json(); });
+
+          if (!rcRes || !rcRes.ok) {
+            throw new Error((rcRes && rcRes.message) || 'No se pudo registrar el recibo en Cuenta Corriente.');
+          }
+
+          if (retTipo && retImp > 0 && facturaId) {
+            await apiServicios('POST', {
+              action: 'update_invoice_admin_retencion',
+              facturaId: facturaId,
+              aprobacionAdminEstado: 'aprobada',
+              retencion: { tipo: retTipo, importe: retImp, certificado: retCert, fecha: fechaIso }
+            }).catch(function () {});
+          }
+
+          var saldoPosterior = rcRes.client && rcRes.client.saldoActual != null
+            ? Number(rcRes.client.saldoActual)
+            : Math.round(((cli && Number(cli.saldoActual)) || 0) - totalAcreditado);
+
+          STATE.lastEmittedRecibo = {
+            numero: (rcRes.movimiento && rcRes.movimiento.n) || nroRecibo,
+            fechaIso: fechaIso,
+            clientNombre: (cli && cli.nombre) || 'Cliente #' + cid,
+            clientDoc: (cli && cli.nroDoc) || '',
+            medioPago: medioPago,
+            referencia: referencia,
+            importeCobrado: importeCobrado,
+            retencionTipo: retTipo,
+            retencionImporte: retTipo ? retImp : 0,
+            retencionCertificado: retCert,
+            totalAcreditado: totalAcreditado,
+            saldoPosterior: saldoPosterior,
+            observaciones: obs
+          };
+          STATE.directCobranza = buildEmptyDirectCobranza();
+          showToast('✅ Recibo ' + STATE.lastEmittedRecibo.numero + ' acreditado en Cuenta Corriente.', false);
+          await reloadData(true);
+          printDirectReciboPdf(STATE.lastEmittedRecibo);
+        } catch (err) {
+          showToast((err && err.message) || 'Error al registrar cobranza.', true);
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '💵 Emitir Recibo y Acreditar Cta. Cte.'; }
+        }
+      });
+    }
+
+    var dcPrintLast = bodyEl.querySelector('#ms-dc-print-last');
+    if (dcPrintLast && STATE.lastEmittedRecibo) {
+      dcPrintLast.addEventListener('click', function () { printDirectReciboPdf(STATE.lastEmittedRecibo); });
+    }
+    var dcOpenCta = bodyEl.querySelector('#ms-dc-open-ctacte');
+    if (dcOpenCta) {
+      dcOpenCta.addEventListener('click', function () {
+        var ws = document.getElementById('sec-servicios-workspace');
+        if (ws) ws.hidden = true;
+        if (typeof window.__MS_OPEN_CTACTE_ORIGIN__ === 'function') {
+          window.__MS_OPEN_CTACTE_ORIGIN__('SERVICIOS');
+        }
+      });
+    }
   }
 
   // =========================================================================
-  // NAVEGACIÓN GLOBAL ("ATRÁS" Y TARJETA EN #sec-inicio)
+  // NAVEGACIÓN GLOBAL ("ATRÁS" Y TARJETAS EN #sec-inicio Y #sec-menu-facturacion)
   // =========================================================================
   var navBound = false;
   function bindGlobalNav() {
@@ -2576,7 +3737,17 @@
         if (wsSec && !wsSec.hidden) {
           ev.preventDefault();
           ev.stopPropagation();
-          openServiciosView('menu');
+          if (STATE.returnTo === 'sec-menu-facturacion') {
+            wsSec.hidden = true;
+            STATE.returnTo = 'servicios';
+            if (typeof window.__MS_OPEN_ERP_SECTION__ === 'function') {
+              window.__MS_OPEN_ERP_SECTION__('sec-menu-facturacion');
+            } else {
+              closeToHome();
+            }
+          } else {
+            openServiciosView('menu');
+          }
           return;
         }
         if (menuSec && !menuSec.hidden) {
@@ -2597,9 +3768,78 @@
     }, true);
   }
 
+  function syncFacturacionServicesCards(allowed) {
+    var factGrid = document.querySelector('#sec-menu-facturacion .modules-grid');
+    if (!factGrid) return;
+    var emitirCard = document.getElementById('ms-srv-fact-emitir-card');
+    var reciboCard = document.getElementById('ms-srv-fact-recibo-card');
+
+    if (allowed && !emitirCard) {
+      emitirCard = document.createElement('article');
+      emitirCard.id = 'ms-srv-fact-emitir-card';
+      emitirCard.className = 'module-card ms-srv-fact-card';
+      emitirCard.setAttribute('role', 'button');
+      emitirCard.setAttribute('tabindex', '0');
+      emitirCard.innerHTML =
+        '<div class="module-icon" aria-hidden="true">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>' +
+            '<polyline points="14 2 14 8 20 8"></polyline>' +
+            '<line x1="12" y1="18" x2="12" y2="12"></line>' +
+            '<line x1="9" y1="15" x2="15" y2="15"></line>' +
+          '</svg>' +
+        '</div>' +
+        '<h3>Emitir Comprobante de Servicios</h3>';
+      var openEmitir = function () {
+        STATE.directInvoice = null;
+        openServiciosView('facturar_directo', { returnTo: 'sec-menu-facturacion' });
+      };
+      emitirCard.addEventListener('click', openEmitir);
+      emitirCard.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openEmitir(); }
+      });
+
+      reciboCard = document.createElement('article');
+      reciboCard.id = 'ms-srv-fact-recibo-card';
+      reciboCard.className = 'module-card ms-srv-fact-card';
+      reciboCard.setAttribute('role', 'button');
+      reciboCard.setAttribute('tabindex', '0');
+      reciboCard.innerHTML =
+        '<div class="module-icon" aria-hidden="true">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<rect x="2" y="5" width="20" height="14" rx="2"></rect>' +
+            '<line x1="2" y1="10" x2="22" y2="10"></line>' +
+            '<line x1="6" y1="15" x2="10" y2="15"></line>' +
+          '</svg>' +
+        '</div>' +
+        '<h3>Registrar Cobranza / Recibo</h3>';
+      var openRecibo = function () {
+        STATE.directCobranza = null;
+        openServiciosView('cobranza_directa', { returnTo: 'sec-menu-facturacion' });
+      };
+      reciboCard.addEventListener('click', openRecibo);
+      reciboCard.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openRecibo(); }
+      });
+
+      var compEmitidosCard = factGrid.querySelector('[data-open-section="sec-comprobantes-emitidos"]');
+      if (compEmitidosCard) {
+        factGrid.insertBefore(emitirCard, compEmitidosCard);
+        factGrid.insertBefore(reciboCard, compEmitidosCard);
+      } else {
+        factGrid.appendChild(emitirCard);
+        factGrid.appendChild(reciboCard);
+      }
+    }
+    if (emitirCard) emitirCard.hidden = !allowed;
+    if (reciboCard) reciboCard.hidden = !allowed;
+  }
+
   function syncHomeCard() {
     bindGlobalNav();
+    applyActividadModeUi();
     var allowed = isServiciosAllowed();
+    syncFacturacionServicesCards(allowed);
     var inicioGrid = document.querySelector('#sec-inicio .modules-grid');
     var existing = document.getElementById('ms-servicios-home-card');
 
@@ -2624,9 +3864,13 @@
         if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openServiciosView('menu'); }
       });
 
-      var perfilCard = inicioGrid.querySelector('[data-module-key="perfil"]');
-      if (perfilCard) inicioGrid.insertBefore(card, perfilCard);
-      else inicioGrid.appendChild(card);
+      if (getActiveActividadMode() === 'servicios' && inicioGrid.firstElementChild) {
+        inicioGrid.insertBefore(card, inicioGrid.firstElementChild);
+      } else {
+        var perfilCard = inicioGrid.querySelector('[data-module-key="perfil"]');
+        if (perfilCard) inicioGrid.insertBefore(card, perfilCard);
+        else inicioGrid.appendChild(card);
+      }
     } else if (existing) {
       existing.hidden = !allowed;
       existing.style.display = allowed ? '' : 'none';

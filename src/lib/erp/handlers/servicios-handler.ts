@@ -28,7 +28,7 @@ import type {
   TipoDocumentoTecnico,
 } from "../servicios-types";
 import { DEFAULT_UNIDADES_FACTURACION } from "../servicios-types";
-import { getTenantDoc, putTenantDoc } from "../supabase-server";
+import { getPlatformSupabase, getTenantDoc, putTenantDoc } from "../supabase-server";
 import type { ErpTenantRecord } from "../types";
 
 type AnyObj = Record<string, any>;
@@ -456,7 +456,7 @@ export async function handleErpServicios(
   req: NextRequest,
   tenant: ErpTenantRecord
 ): Promise<NextResponse> {
-  const cleanFallback = buildCleanServiciosDb();
+  const cleanFallback = buildCleanServiciosDb(tenant.deployment?.actividadNegocio);
   const seedDocs = buildCleanTenantSeed({ businessName: tenant.business_name }).docs;
 
   if (req.method === "GET") {
@@ -579,6 +579,23 @@ export async function handleErpServicios(
       }
       db.config.updatedAt = now;
       db.config.updatedBy = actor;
+      if (validModes.includes(cfg.actividadNegocio)) {
+        try {
+          const sb = await getPlatformSupabase();
+          await sb
+            .from("erp_tenants")
+            .update({
+              deployment: {
+                ...(tenant.deployment || {}),
+                actividadNegocio: db.config.actividadNegocio,
+              },
+              updated_at: now,
+            })
+            .eq("slug", tenant.slug);
+        } catch {
+          // Non-fatal: servicios_db already stores the canonical mode
+        }
+      }
       return commit("save_config", {
         message: "Configuración de Gestión de Servicios guardada.",
       });

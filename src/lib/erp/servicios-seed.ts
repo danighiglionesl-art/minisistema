@@ -25,12 +25,22 @@ export function buildDefaultServicioConfig(): ServicioConfig {
   };
 }
 
-export function buildCleanServiciosDb(): ServiciosDatabase {
+export function buildCleanServiciosDb(
+  actividadNegocio?: "comercial" | "servicios" | "mixta"
+): ServiciosDatabase {
   const now = new Date().toISOString();
+  const cfg = buildDefaultServicioConfig();
+  if (
+    actividadNegocio === "comercial" ||
+    actividadNegocio === "servicios" ||
+    actividadNegocio === "mixta"
+  ) {
+    cfg.actividadNegocio = actividadNegocio;
+  }
   return {
     version: 1,
     updatedAt: now,
-    config: buildDefaultServicioConfig(),
+    config: cfg,
     clientProfiles: {},
     catalogo: [],
     presupuestos: [],

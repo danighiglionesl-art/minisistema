@@ -1,5 +1,6 @@
 import { hashPassword } from "@/lib/server/crypto-auth";
 import referenceCatalogs from "./reference-catalogs.json";
+import { buildCleanServiciosDb } from "./servicios-seed";
 import {
   ALL_ERP_MODULE_KEYS,
   GENERAL_ADMIN_DEFAULT_PASS,
@@ -8,6 +9,7 @@ import {
 
 export interface CleanSeedOptions {
   businessName: string;
+  actividadNegocio?: "comercial" | "servicios" | "mixta";
   localidad?: string;
   provincia?: string;
   cp?: string;
@@ -424,6 +426,12 @@ export function buildCleanTenantSeed(opts: CleanSeedOptions): {
     }
   }
 
+  const serviciosDb = buildCleanServiciosDb(
+    opts.actividadNegocio === "servicios" || opts.actividadNegocio === "mixta"
+      ? opts.actividadNegocio
+      : "comercial"
+  );
+
   return {
     docs: {
       catalog_db: catalogDb,
@@ -435,6 +443,7 @@ export function buildCleanTenantSeed(opts: CleanSeedOptions): {
       arca_comprobantes_db: arcaComprobantesDb,
       mp_point_db: mpPointDb,
       whatsapp_cloud_db: whatsappCloudDb,
+      servicios_db: serviciosDb,
     },
     users,
   };

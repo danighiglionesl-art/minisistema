@@ -688,3 +688,35 @@ html[data-theme="dark"] .ms-cv-cfg-table tbody td {
     top: 0;
   }
 }
+
+/* ==========================================================================
+   MODO SERVICIOS (html[data-actividad="servicios"])
+   - Facturación directa sin Cajas 1/2/3 ni Apertura/Cierre de Caja
+   - Clientes y Cuentas Corrientes limpio (4 submódulos, sin Carrito Web ni listas retail)
+   ========================================================================== */
+html[data-actividad="servicios"] #sec-menu-facturacion .module-card[data-open-caja] {
+  display: none !important;
+}
+
+html[data-actividad="comercial"] #sec-menu-facturacion .ms-srv-fact-card {
+  display: none !important;
+}
+
+html[data-actividad="servicios"] #sec-menu-clientes #card-online-client-reg,
+html[data-actividad="servicios"] #sec-clientes #btn-open-online-reg,
+html[data-actividad="servicios"] #sec-clientes .kpi-box:has(#kpi-clientes-web),
+html[data-actividad="servicios"] #client-dialog .client-side-col fieldset:has(#cli-es-proveedor),
+html[data-actividad="servicios"] #client-dialog .client-side-col fieldset:has(#cli-lista-precio),
+html[data-actividad="servicios"] #client-dialog .client-side-col fieldset:has(#cli-usuario-web) > p,
+html[data-actividad="servicios"] #client-dialog .client-side-col fieldset:has(#cli-usuario-web) .form-group {
+  display: none !important;
+}
+
+html[data-actividad="servicios"] #client-dialog .client-side-col fieldset:has(#cli-usuario-web) legend {
+  font-size: 0;
+}
+
+html[data-actividad="servicios"] #client-dialog .client-side-col fieldset:has(#cli-usuario-web) legend::after {
+  content: "Estado del Cliente";
+  font-size: 0.85rem;
+}

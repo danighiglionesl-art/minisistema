@@ -72,6 +72,7 @@ export interface ErpTenantSubscription {
 
 export interface ErpTenantDeployment {
   mode: "minisistema_subpath" | "custom_domain_vercel_github";
+  actividadNegocio?: "comercial" | "servicios" | "mixta";
   publicErpUrl: string;
   publicCarritoUrl: string;
   publicVerificadorUrl: string;
@@ -563,7 +564,7 @@ export function normalizeErpRole(rawRole: unknown, username = ""): ErpUserRole {
 }
 
 export function expandCommercialToErpModules(commercialKeys: string[]): string[] {
-  const out = new Set<string>(["tema", "perfil", "atajos", "manual_usuario"]);
+  const out = new Set<string>(["tema", "perfil", "atajos", "ayuda", "ayuda:atajos", "ayuda:manual_usuario", "ayuda:reporte_mejoras", "manual_usuario"]);
   const keySet = new Set(commercialKeys.map((k) => String(k || "").trim().toLowerCase()));
   for (const mod of ERP_COMMERCIAL_MODULES) {
     if (keySet.has(mod.key)) {
