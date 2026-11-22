@@ -1,5 +1,7 @@
+import React, { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -99,6 +101,11 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
+        <Suspense fallback={null}>
+          <GoogleAnalytics
+            envMeasurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || ""}
+          />
+        </Suspense>
         {children}
       </body>
     </html>

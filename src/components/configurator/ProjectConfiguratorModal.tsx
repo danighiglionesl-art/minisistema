@@ -10,6 +10,7 @@ import {
   buildWhatsAppLink,
 } from "@/lib/site-data";
 import { SolutionCategory } from "@/types/minisistema";
+import { trackConsultaConversion, trackGaEvent } from "@/lib/analytics";
 import { WhatsAppIcon } from "@/components/icons/SocialIcons";
 import { BrandWordmark, renderWithBrandWordmark } from "@/components/brand/BrandWordmark";
 import { HumanVerificationCheck } from "@/components/ui/HumanVerificationCheck";
@@ -74,6 +75,10 @@ export function ProjectConfiguratorModal({
 
     if (isOpen && !dialog.open) {
       dialog.showModal();
+      trackGaEvent("abrio_configurador", {
+        categoria_preseleccionada: preselectedCategory?.title || "general",
+        servicio_preseleccionado: preselectedServiceTitle || "ninguno",
+      });
     } else if (!isOpen && dialog.open) {
       dialog.close();
     }
@@ -214,6 +219,13 @@ export function ProjectConfiguratorModal({
       }
 
       setSubmissionCode(data.inquiry.id);
+      trackConsultaConversion({
+        lead_source: "configurador_proyecto",
+        inquiry_id: data.inquiry.id,
+        business_activity: activity,
+        needs_count: selectedNeeds.length,
+        page_path: "/",
+      });
     } catch {
       setErrorMessage("Ocurrió un error de conexión al registrar tu proyecto. Intentá nuevamente.");
     } finally {

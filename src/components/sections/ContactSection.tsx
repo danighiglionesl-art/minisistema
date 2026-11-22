@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { INITIAL_SITE_CONFIG, buildWhatsAppLink } from "@/lib/site-data";
+import { trackConsultaConversion } from "@/lib/analytics";
 import { WhatsAppIcon, InstagramIcon, FacebookIcon } from "@/components/icons/SocialIcons";
 import { BrandWordmark, InverseDot } from "@/components/brand/BrandWordmark";
 import { HumanVerificationCheck } from "@/components/ui/HumanVerificationCheck";
@@ -118,6 +119,12 @@ export function ContactSection({ onOpenConfigurator }: ContactSectionProps) {
         return;
       }
       setSubmittedId(data.inquiry.id);
+      trackConsultaConversion({
+        lead_source: "formulario_contacto",
+        inquiry_id: data.inquiry.id,
+        business_activity: businessName || "Consulta particular",
+        page_path: "/",
+      });
     } catch {
       setSubmitError("Error de conexión al enviar tu consulta. Intentá nuevamente.");
     } finally {

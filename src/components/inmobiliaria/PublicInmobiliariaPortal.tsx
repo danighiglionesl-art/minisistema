@@ -14,6 +14,7 @@ import {
   InstagramIcon,
   WhatsAppIcon,
 } from "@/components/icons/SocialIcons";
+import { trackConsultaConversion } from "@/lib/analytics";
 import InmoClientPortalModal from "./InmoClientPortalModal";
 
 interface PaisItem {
@@ -531,6 +532,13 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
       });
       const data = await res.json();
       if (res.ok && data.ok) {
+        trackConsultaConversion({
+          lead_source: leadFechaVisita
+            ? "inmobiliaria_agendar_visita"
+            : "inmobiliaria_consulta_propiedad",
+          property_code: selectedProp.codigo,
+          property_operation: selectedProp.operacion,
+        });
         setLeadSuccessMsg(data.message);
         setLeadNombre("");
         setLeadWhatsapp("");

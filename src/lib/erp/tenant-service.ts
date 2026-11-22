@@ -526,6 +526,10 @@ export async function getPlatformSecretsMap(): Promise<Record<string, string>> {
     afip_pto_vta: process.env.AFIP_PTO_VTA || "0002",
     afip_cert_pem: process.env.AFIP_CERT_PEM || "",
     afip_key_pem: process.env.AFIP_KEY_PEM || "",
+    ga_measurement_id:
+      process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ||
+      process.env.GA_MEASUREMENT_ID ||
+      "",
   };
   if (Array.isArray(data)) {
     for (const row of data) {
@@ -554,6 +558,7 @@ export async function savePlatformSecretsMap(
     "afip_pto_vta",
     "afip_cert_pem",
     "afip_key_pem",
+    "ga_measurement_id",
   ];
   const rows = [];
   for (const key of allowedKeys) {
@@ -800,6 +805,7 @@ export async function provisionOption1Deployment(params: {
 export async function provisionNewCommerceTenant(input: {
   slug: string;
   optionType: 1 | 2;
+  actividadNegocio?: "comercial" | "servicios" | "mixta";
   businessName: string;
   fantasyName?: string;
   customDomain?: string;
@@ -894,16 +900,25 @@ export async function provisionNewCommerceTenant(input: {
     payerEmail: input.payerEmail || branding.emailInfo,
   });
 
+  const actividadNegocio: "comercial" | "servicios" | "mixta" =
+    input.actividadNegocio === "servicios" || input.actividadNegocio === "mixta"
+      ? input.actividadNegocio
+      : "comercial";
+
   const siteOrigin = input.siteOrigin || "https://www.minisistema.com.ar";
   const deployment: ErpTenantDeployment =
     optionType === 1 && cleanCustomDomain
-      ? await provisionOption1Deployment({
-          slug: cleanSlug,
-          businessName,
-          customDomain: cleanCustomDomain,
-        })
+      ? {
+          ...(await provisionOption1Deployment({
+            slug: cleanSlug,
+            businessName,
+            customDomain: cleanCustomDomain,
+          })),
+          actividadNegocio,
+        }
       : {
           mode: "minisistema_subpath",
+          actividadNegocio,
           publicErpUrl: `${siteOrigin}/${cleanSlug}`,
           publicCarritoUrl: `${siteOrigin}/${cleanSlug}/carrito`,
           publicVerificadorUrl: `${siteOrigin}/${cleanSlug}/verificador`,
@@ -938,6 +953,7 @@ export async function provisionNewCommerceTenant(input: {
   // Provision isolated PostgreSQL schema + clean seed (Art 20 + Consumidor Final + @danielg + optional Admin)
   const cleanSeed = buildCleanTenantSeed({
     businessName,
+    actividadNegocio,
     localidad: branding.localidad,
     provincia: branding.provincia,
     cp: branding.cp,
