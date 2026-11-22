@@ -888,33 +888,9 @@ export default function PublicInmobiliariaPortal(props: PublicInmobiliariaPortal
         {/* 2. CARRUSEL VIVO DE SELECCIÓN DESTACADA (MARQUEE INFINITO ESTILO CAMPODIRECTO.AR) */}
         {destacadasTrack.length > 0 && (
           <section
-            aria-label="Selección Destacada"
+            aria-label="Propiedades Destacadas"
             className="overflow-hidden rounded-2xl border border-[#1F1F1F]/10 bg-[#FFFFFF] p-4 shadow-md sm:rounded-3xl sm:p-5"
           >
-            {/* Cabecera mejorada de Selección Destacada */}
-            <div className="mb-4 flex items-center justify-center sm:mb-5">
-              <div
-                className="inline-flex items-center gap-2.5 rounded-full border-2 px-5 py-2 shadow-sm"
-                style={{ backgroundColor: primary, borderColor: accent }}
-              >
-                <span
-                  className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-black"
-                  style={{ backgroundColor: accent, color: primary }}
-                  aria-hidden="true"
-                >
-                  ★
-                </span>
-                <h2 className="text-xs font-black uppercase tracking-[0.16em] text-[#FFFFFF] sm:text-sm">
-                  Selección Destacada
-                </h2>
-                <span
-                  className="h-2 w-2 rounded-full animate-pulse"
-                  style={{ backgroundColor: accent }}
-                  aria-hidden="true"
-                />
-              </div>
-            </div>
-
             {/* Riel del Carrusel Vivo Infinito con Máscaras de Gradiente Lateral */}
             <div className="inmo-marquee-viewport relative w-full overflow-hidden">
               <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-10 bg-gradient-to-r from-[#FFFFFF] via-[#FFFFFF]/80 to-transparent sm:w-20" />
