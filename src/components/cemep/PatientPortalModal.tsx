@@ -98,9 +98,6 @@ export function PatientPortalModal({
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showGoogleFallback, setShowGoogleFallback] = useState(false);
-  const [googleEmailQuick, setGoogleEmailQuick] = useState("");
-  const [googleNameQuick, setGoogleNameQuick] = useState("");
 
   // Register
   const [regApellidos, setRegApellidos] = useState("");
