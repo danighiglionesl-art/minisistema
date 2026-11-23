@@ -730,12 +730,15 @@ export async function ensureBaseMiniSistemaTenant(): Promise<ErpTenantRecord> {
   })();
 
   try {
-    return await withTimeout(baseTenantPromise, 6_000, "ensureBaseMiniSistemaTenant");
+    return await withTimeout(baseTenantPromise, 3_500, "ensureBaseMiniSistemaTenant");
   } catch (err) {
     console.warn("[TenantService] Fallback resiliente para minisistema:", err instanceof Error ? err.message : err);
     if (cached?.value) return cached.value;
     const fb = buildCoreFallbackTenant("minisistema");
-    if (fb) return fb;
+    if (fb) {
+      tenantBySlugCache.set("minisistema", { value: fb, expiresAt: Date.now() + 20_000 });
+      return fb;
+    }
     throw err;
   } finally {
     baseTenantPromise = null;
@@ -769,7 +772,7 @@ export async function getTenantBySlug(slug: string): Promise<ErpTenantRecord | n
         }
         return (data as ErpTenantRecord | null) || null;
       })(),
-      6_000,
+      3_500,
       `getTenantBySlug(${clean})`
     );
     cacheTenantRecord(rec, clean);
@@ -778,7 +781,10 @@ export async function getTenantBySlug(slug: string): Promise<ErpTenantRecord | n
     console.warn(`[TenantService] Fallback resiliente para slug=${clean}:`, err instanceof Error ? err.message : err);
     if (cached?.value) return cached.value;
     const fb = buildCoreFallbackTenant(clean);
-    if (fb) return fb;
+    if (fb) {
+      tenantBySlugCache.set(clean, { value: fb, expiresAt: Date.now() + 20_000 });
+      return fb;
+    }
     throw err;
   }
 }

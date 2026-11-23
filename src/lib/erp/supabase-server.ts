@@ -71,6 +71,13 @@ export async function getPlatformSupabase(): Promise<SupabaseClient> {
         autoRefreshToken: false,
         detectSessionInUrl: false,
       },
+      global: {
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            signal: init?.signal || AbortSignal.timeout(15_000),
+          }),
+      },
     });
     cachedPrimaryClient = {
       client: directClient,
@@ -138,6 +145,11 @@ export async function getPlatformSupabase(): Promise<SupabaseClient> {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            signal: init?.signal || AbortSignal.timeout(15_000),
+          }),
       },
     });
 
