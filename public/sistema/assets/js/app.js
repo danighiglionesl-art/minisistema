@@ -349,7 +349,7 @@ const PRESET_USER_AVATARS = [
         { id: 'logo-pa-full', label: 'Logo Paseo Alberdi', url: ACTIVE_BRAND.assets.logo1x1 }
       ]
     : [
-        { id: 'cachita', label: 'Cachita (Mascota Oficial)', url: 'assets/img/cachita.jpg' },
+        { id: 'cachita', label: 'Cachita (Mascota Oficial)', url: '/sistema/assets/img/casanueva/cachita.jpg' },
         { id: 'logo-cn', label: 'Logo Casa Nueva', url: ACTIVE_BRAND?.assets?.logo1x1 || '/sistema/assets/img/casanueva/logo-full.png' }
       ]),
   {

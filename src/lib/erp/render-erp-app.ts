@@ -80,7 +80,7 @@ function replaceVisibleCopy(str: string, tenant: ErpTenantRecord): string {
     .replace(/Casa Nueva/g, fantasy)
     .replace(/CLUB CACHITA/g, (brand.clubName || "CLUB MINISISTEMA").toUpperCase())
     .replace(/Club Cachita/g, brand.clubName || "Club MiniSistema")
-    .replace(/Cachita/g, fantasy)
+    .replace(/Cachita/g, tenant.slug === "casanueva" ? "Cachita" : fantasy)
     .replace(/fidelizacion@cn\.com\.ar/gi, brand.emailInfo)
     .replace(/ventas@cn\.com\.ar/gi, brand.emailInfo)
     .replace(/\+54\s*9\s*3584\s*19-8605/g, brand.whatsappDisplay)
@@ -310,12 +310,44 @@ export function renderErpHtmlResponse(params: {
         .replace(/src="[^"]*"/i, `src="${brand.logoHorizontalUrl}"`)
         .replace(/alt="[^"]*"/i, `alt="${tenant.fantasy_name}"`)
   );
+  const verificadorMascotUrl =
+    tenant.slug === "casanueva"
+      ? `/sistema/assets/img/casanueva/cachita.jpg?v=${assetVer}`
+      : brand.logo1x1Url;
+  const clubMascotUrl =
+    tenant.slug === "casanueva"
+      ? `/sistema/assets/img/casanueva/cachita-club.jpg?v=${assetVer}`
+      : brand.logo1x1Url;
   html = html.replace(
-    /<img([^>]*class="[^"]*(?:brand-emblem|club-previo-mascot|verificador-cachita-img)[^"]*"[^>]*)>/gi,
+    /<img([^>]*class="[^"]*brand-emblem[^"]*"[^>]*)>/gi,
     (tag) =>
       tag
         .replace(/src="[^"]*"/i, `src="${brand.logo1x1Url}"`)
         .replace(/alt="[^"]*"/i, `alt="${tenant.fantasy_name}"`)
+  );
+  html = html.replace(
+    /<img([^>]*class="[^"]*verificador-cachita-img[^"]*"[^>]*)>/gi,
+    (tag) =>
+      tag
+        .replace(/src="[^"]*"/i, `src="${verificadorMascotUrl}"`)
+        .replace(
+          /alt="[^"]*"/i,
+          tenant.slug === "casanueva"
+            ? 'alt="Cachita - Mascota de Casa Nueva"'
+            : `alt="${tenant.fantasy_name}"`
+        )
+  );
+  html = html.replace(
+    /<img([^>]*class="[^"]*club-previo-mascot[^"]*"[^>]*)>/gi,
+    (tag) =>
+      tag
+        .replace(/src="[^"]*"/i, `src="${clubMascotUrl}"`)
+        .replace(
+          /alt="[^"]*"/i,
+          tenant.slug === "casanueva"
+            ? 'alt="Fidel - Mascota de Club Fidel"'
+            : `alt="${tenant.fantasy_name}"`
+        )
   );
   html = html.replace(
     /(<div class="footer-brand-row">\s*<img\s+)src="[^"]*"(\s+alt=")[^"]*(")/i,
