@@ -61,6 +61,13 @@ function replaceVisibleCopy(str: string, tenant: ErpTenantRecord): string {
     .replace(/\/+$/, "");
   const bareDomain = cleanDomain.replace(/^www\./i, "");
 
+  // Para Casa Nueva la plantilla ya lleva su propia copia oficial; evitar doble reemplazo ("Supermercadomercado")
+  if (tenant.slug === "casanueva") {
+    return str
+      .replace(/CLUB CACHITA/g, (brand.clubName || "CLUB FIDEL").toUpperCase())
+      .replace(/Club Cachita/g, brand.clubName || "Club Fidel");
+  }
+
   return str
     .replace(/CASA NUEVA SUPERMERCADO/g, upperFantasy)
     .replace(/Casa Nueva Supermercado/g, fantasy)

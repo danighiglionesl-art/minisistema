@@ -1,12 +1,16 @@
+import zlib from "node:zlib";
 import { NextRequest, NextResponse } from "next/server";
 import { jsonResponseMaybeGzip } from "../json-response";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
   getTenantDoc,
+  getTenantDocGzippedSnapshot,
   putTenantDoc,
   putTenantMediaInDb,
 } from "../supabase-server";
 import type { ErpTenantRecord } from "../types";
+
+const storeGzipCache = new Map<string, { rev: number; gzBuf: Buffer }>();
 
 type AnyObj = Record<string, any>;
 
@@ -29,49 +33,6 @@ export async function handleErpCatalog(
 
   if (req.method === "GET") {
     const action = req.nextUrl.searchParams.get("action") || "summary";
-    const { payload: db } = await getTenantDoc<AnyObj>(
-      tenant,
-      "catalog_db",
-      fallback
-    );
-
-    if (action === "store") {
-      const arts = Array.isArray(db.articulos) ? db.articulos : [];
-      const storeArts = arts
-        .filter((a: AnyObj) => {
-          if (!a || typeof a !== "object") return false;
-          const bl = Number(a.bl ?? 0);
-          const cw =
-            a.cw === 0 || a.cw === false || a.cw === "0" ? 0 : 1;
-          return bl !== 1 && cw === 1 && Number(a.id) !== 4407;
-        })
-        .map((a: AnyObj) => ({
-          id: Number(a.id || 0),
-          c: String(a.c ?? a.co ?? ""),
-          n: String(a.n ?? a.no ?? ""),
-          r: Number(a.r ?? a.ru ?? 0),
-          mk: Number(a.mk ?? a.ma ?? 0),
-          bc: Array.isArray(a.bc) ? a.bc : [],
-          bl: 0,
-          cw: 1,
-          sf: round3(a.sf ?? 0),
-          al: Number.isFinite(Number(a.iva)) ? Number(a.iva) : 21,
-          p1f: round2(a.p1f ?? 0),
-          p2f: round2(a.p2f ?? 0),
-          im: String(a.im ?? ""),
-          cfid: Number(a.cfid ?? 0),
-          ptsCanje: Number(a.ptsCanje ?? a.pfid ?? 0),
-        }));
-
-      return jsonResponseMaybeGzip(req, {
-        ok: true,
-        updatedAt: db.updatedAt || new Date().toISOString(),
-        totalArticulos: storeArts.length,
-        rubros: Array.isArray(db.rubros) ? db.rubros : [],
-        marcas: Array.isArray(db.marcas) ? db.marcas : [],
-        articulos: storeArts,
-      });
-    }
 
     if (action === "smart_images") {
       const q = (req.nextUrl.searchParams.get("q") || "").trim();
@@ -88,7 +49,105 @@ export async function handleErpCatalog(
       return NextResponse.json({ ok: true, candidates });
     }
 
-    return jsonResponseMaybeGzip(req, db);
+    const acceptEnc = (req.headers.get("accept-encoding") || "").toLowerCase();
+
+    if (action !== "store") {
+      if (acceptEnc.includes("gzip")) {
+        const snap = await getTenantDocGzippedSnapshot(tenant, "catalog_db", fallback);
+        return new NextResponse(new Uint8Array(snap.gzBuf), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Encoding": "gzip",
+            "Content-Length": String(snap.gzBuf.byteLength),
+            Vary: "Accept-Encoding",
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        });
+      }
+      const { payload: db } = await getTenantDoc<AnyObj>(
+        tenant,
+        "catalog_db",
+        fallback
+      );
+      return jsonResponseMaybeGzip(req, db);
+    }
+
+    const { payload: db, rev } = await getTenantDoc<AnyObj>(
+      tenant,
+      "catalog_db",
+      fallback
+    );
+
+    const storeCacheKey = tenant.db_schema;
+    const cachedStore = storeGzipCache.get(storeCacheKey);
+    if (acceptEnc.includes("gzip") && cachedStore && cachedStore.rev === rev) {
+      return new NextResponse(new Uint8Array(cachedStore.gzBuf), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Encoding": "gzip",
+          "Content-Length": String(cachedStore.gzBuf.byteLength),
+          Vary: "Accept-Encoding",
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      });
+    }
+
+    const arts = Array.isArray(db.articulos) ? db.articulos : [];
+    const storeArts = arts
+      .filter((a: AnyObj) => {
+        if (!a || typeof a !== "object") return false;
+        const bl = Number(a.bl ?? 0);
+        const cw =
+          a.cw === 0 || a.cw === false || a.cw === "0" ? 0 : 1;
+        return bl !== 1 && cw === 1 && Number(a.id) !== 4407;
+      })
+      .map((a: AnyObj) => ({
+        id: Number(a.id || 0),
+        c: String(a.c ?? a.co ?? ""),
+        n: String(a.n ?? a.no ?? ""),
+        r: Number(a.r ?? a.ru ?? 0),
+        mk: Number(a.mk ?? a.ma ?? 0),
+        bc: Array.isArray(a.bc) ? a.bc : [],
+        bl: 0,
+        cw: 1,
+        sf: round3(a.sf ?? 0),
+        al: Number.isFinite(Number(a.iva)) ? Number(a.iva) : 21,
+        p1f: round2(a.p1f ?? 0),
+        p2f: round2(a.p2f ?? 0),
+        im: String(a.im ?? ""),
+        cfid: Number(a.cfid ?? 0),
+        ptsCanje: Number(a.ptsCanje ?? a.pfid ?? 0),
+      }));
+
+    const storePayload = {
+      ok: true,
+      updatedAt: db.updatedAt || new Date().toISOString(),
+      totalArticulos: storeArts.length,
+      rubros: Array.isArray(db.rubros) ? db.rubros : [],
+      marcas: Array.isArray(db.marcas) ? db.marcas : [],
+      articulos: storeArts,
+    };
+
+    if (acceptEnc.includes("gzip")) {
+      const gzBuf = zlib.gzipSync(Buffer.from(JSON.stringify(storePayload), "utf8"), {
+        level: 4,
+      });
+      storeGzipCache.set(storeCacheKey, { rev, gzBuf });
+      return new NextResponse(new Uint8Array(gzBuf), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Encoding": "gzip",
+          "Content-Length": String(gzBuf.byteLength),
+          Vary: "Accept-Encoding",
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      });
+    }
+
+    return jsonResponseMaybeGzip(req, storePayload);
   }
 
   if (req.method === "POST") {
