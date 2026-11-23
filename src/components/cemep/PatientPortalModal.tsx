@@ -19,10 +19,11 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import type {
-  CemepWebUserRecord,
-  EstudioMedicoRecord,
-  RecetaDigitalRecord,
+import {
+  DEFAULT_CEMEP_GOOGLE_CLIENT_ID,
+  type CemepWebUserRecord,
+  type EstudioMedicoRecord,
+  type RecetaDigitalRecord,
 } from "@/lib/erp/consultorios-types";
 import type { TurnoRecord } from "@/lib/erp/turnos-types";
 
@@ -130,12 +131,17 @@ export function PatientPortalModal({
   const [profDni, setProfDni] = useState("");
   const [profApellidos, setProfApellidos] = useState("");
   const [profNombres, setProfNombres] = useState("");
+  const [profFechaNac, setProfFechaNac] = useState("");
   const [profWhatsapp, setProfWhatsapp] = useState("");
   const [profObraSocial, setProfObraSocial] = useState("");
   const [profNroAfiliado, setProfNroAfiliado] = useState("");
   const [profPlus, setProfPlus] = useState(false);
 
   const apiUrl = `/api/cemep?tenant=${encodeURIComponent(tenantSlug)}`;
+  const resolvedGoogleClientId =
+    googleClientId ||
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    DEFAULT_CEMEP_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     if (!bundle?.user) return;
@@ -143,6 +149,7 @@ export function PatientPortalModal({
     setProfDni(u.dni || "");
     setProfApellidos(u.apellidos || "");
     setProfNombres(u.nombres || "");
+    setProfFechaNac(u.fechaNacimiento || "");
     setProfWhatsapp(u.whatsapp || "");
     setProfObraSocial(u.obraSocial || "");
     setProfNroAfiliado(u.nroAfiliado || "");
@@ -151,15 +158,15 @@ export function PatientPortalModal({
     setRecAfiliado(u.nroAfiliado || "");
   }, [bundle?.user]);
 
-  // Google Identity Services
+  // Precargar script oficial de Google Identity Services al abrir el modal
   useEffect(() => {
-    if (!open || bundle || !googleClientId) return;
+    if (!open || bundle || !resolvedGoogleClientId) return;
     const scriptId = "cemep-google-gsi";
     const initGsi = () => {
       const g = (window as unknown as { google?: any }).google;
       if (!g?.accounts?.id) return;
       g.accounts.id.initialize({
-        client_id: googleClientId,
+        client_id: resolvedGoogleClientId,
         callback: async (resp: { credential?: string }) => {
           if (!resp?.credential) return;
           setBusy(true);
@@ -182,6 +189,9 @@ export function PatientPortalModal({
                 recetas: data.recetas || [],
                 resumenClinico: data.resumenClinico || null,
               });
+              if (data.needsProfileCompletion || !data.user?.dni || !data.user?.whatsapp) {
+                setDashTab("perfil");
+              }
               setMsg({ text: data.message || "Sesión iniciada con Google.", isErr: false });
             } else {
               setMsg({ text: data.message || "No se pudo ingresar con Google.", isErr: true });
@@ -191,16 +201,6 @@ export function PatientPortalModal({
           }
         },
       });
-      const slot = document.getElementById("cemep-google-btn-slot");
-      if (slot) {
-        slot.innerHTML = "";
-        g.accounts.id.renderButton(slot, {
-          theme: "outline",
-          size: "large",
-          width: 320,
-          text: "continue_with",
-        });
-      }
     };
 
     if (!document.getElementById(scriptId)) {
@@ -208,12 +208,13 @@ export function PatientPortalModal({
       s.id = scriptId;
       s.src = "https://accounts.google.com/gsi/client";
       s.async = true;
+      s.defer = true;
       s.onload = initGsi;
       document.head.appendChild(s);
     } else {
       setTimeout(initGsi, 120);
     }
-  }, [open, bundle, googleClientId, showGoogleFallback, apiUrl, onBundleChange]);
+  }, [open, bundle, resolvedGoogleClientId, apiUrl, onBundleChange]);
 
   // Cerrar con tecla Escape
   useEffect(() => {
@@ -227,21 +228,116 @@ export function PatientPortalModal({
 
   if (!open) return null;
 
-  function handleGoogleContinueClick() {
+  // Flujo OAuth 2.0 oficial: abre el selector de cuenta de Google y trae nombre, correo y foto
+  async function handleGoogleContinueClick() {
+    setBusy(true);
     setMsg(null);
-    if (googleClientId) {
-      const g = (window as unknown as { google?: any }).google;
-      if (g?.accounts?.id) {
-        try {
-          g.accounts.id.prompt();
-        } catch {
-          // Mostrar botón oficial de Google como respaldo
+    try {
+      await new Promise<void>((resolve, reject) => {
+        if ((window as unknown as { google?: any }).google?.accounts?.oauth2) {
+          resolve();
+          return;
         }
+        const existing = document.getElementById("cemep-google-gsi");
+        if (existing) {
+          existing.addEventListener("load", () => resolve(), { once: true });
+          existing.addEventListener(
+            "error",
+            () => reject(new Error("No se pudo cargar Google Sign-In.")),
+            { once: true }
+          );
+          setTimeout(() => {
+            if ((window as unknown as { google?: any }).google?.accounts?.oauth2) resolve();
+            else reject(new Error("Google Identity Services no terminó de cargar."));
+          }, 3000);
+          return;
+        }
+        const s = document.createElement("script");
+        s.id = "cemep-google-gsi";
+        s.src = "https://accounts.google.com/gsi/client";
+        s.async = true;
+        s.defer = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error("No se pudo cargar la librería de Google Sign-In."));
+        document.head.appendChild(s);
+      });
+
+      const g = (window as unknown as { google?: any }).google;
+      if (!g?.accounts?.oauth2) {
+        throw new Error("La librería de autenticación de Google no está disponible.");
       }
-      setShowGoogleFallback(true);
-      return;
+
+      const tokenClient = g.accounts.oauth2.initTokenClient({
+        client_id: resolvedGoogleClientId,
+        scope: "email profile openid",
+        callback: async (tokenResponse: {
+          access_token?: string;
+          error?: string;
+          error_description?: string;
+        }) => {
+          if (tokenResponse?.error || !tokenResponse?.access_token) {
+            setMsg({
+              text:
+                tokenResponse?.error_description ||
+                "No se completó el inicio de sesión con Google.",
+              isErr: true,
+            });
+            setBusy(false);
+            return;
+          }
+          try {
+            const res = await fetch(apiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "patient_google_login",
+                accessToken: tokenResponse.access_token,
+              }),
+            });
+            const data = await res.json();
+            if (res.ok && data.ok && data.user) {
+              onBundleChange({
+                user: data.user,
+                turnos: data.turnos || [],
+                estudios: data.estudios || [],
+                recetas: data.recetas || [],
+                resumenClinico: data.resumenClinico || null,
+              });
+              if (data.needsProfileCompletion || !data.user.dni || !data.user.whatsapp) {
+                setDashTab("perfil");
+              }
+              setMsg({
+                text: data.message || "Sesión iniciada con Google.",
+                isErr: false,
+              });
+            } else {
+              setMsg({
+                text: data.message || "No se pudo validar tu cuenta de Google.",
+                isErr: true,
+              });
+            }
+          } catch {
+            setMsg({ text: "Error de conexión al validar tu cuenta de Google.", isErr: true });
+          } finally {
+            setBusy(false);
+          }
+        },
+        error_callback: () => {
+          setMsg({
+            text: "No se pudo completar el acceso con Google. Verificá si el navegador bloqueó la ventana emergente e intentá nuevamente.",
+            isErr: true,
+          });
+          setBusy(false);
+        },
+      });
+
+      tokenClient.requestAccessToken({ prompt: "select_account" });
+    } catch (err: unknown) {
+      const errMsg =
+        err instanceof Error ? err.message : "No se pudo abrir el selector de cuentas de Google.";
+      setMsg({ text: errMsg, isErr: true });
+      setBusy(false);
     }
-    setShowGoogleFallback((prev) => !prev);
   }
 
   async function postAction(payload: Record<string, unknown>) {
@@ -337,9 +433,18 @@ export function PatientPortalModal({
             }}
           >
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFFFFF]/15">
-                <UserRound className="h-5 w-5 text-[#A6CA0E]" />
-              </span>
+              {bundle.user.fotoUrl ? (
+                <img
+                  src={bundle.user.fotoUrl}
+                  alt={bundle.user.nombreCompleto}
+                  referrerPolicy="no-referrer"
+                  className="h-11 w-11 shrink-0 rounded-full border-2 border-[#FFFFFF]/85 object-cover shadow-md"
+                />
+              ) : (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FFFFFF]/15">
+                  <UserRound className="h-5 w-5 text-[#A6CA0E]" />
+                </span>
+              )}
               <div>
                 <h2 className="text-lg font-black tracking-tight sm:text-xl">
                   Portal de Pacientes · CEMEP
@@ -527,7 +632,6 @@ export function PatientPortalModal({
                       type="button"
                       onClick={() => {
                         setMsg(null);
-                        setShowGoogleFallback(false);
                         setAuthTab("register");
                       }}
                       className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-[#1B335D] bg-[#A6CA0E]/25 px-4 py-3 text-xs font-bold text-[#1B335D] transition-all hover:bg-[#A6CA0E]/45 sm:text-sm"
@@ -535,50 +639,6 @@ export function PatientPortalModal({
                       <span>Registrarme</span>
                     </button>
                   </div>
-
-                  {/* Acceso rápido con Google (desplegable al hacer clic en Google) */}
-                  {showGoogleFallback && (
-                    <div className="mt-4 rounded-2xl border border-[#0099D8]/25 bg-[#F4F9FC] p-4">
-                      {googleClientId ? (
-                        <div id="cemep-google-btn-slot" className="flex justify-center" />
-                      ) : (
-                        <form
-                          onSubmit={async (e) => {
-                            e.preventDefault();
-                            await postAction({
-                              action: "patient_google_login",
-                              fallbackEmail: googleEmailQuick,
-                              fallbackName: googleNameQuick,
-                            });
-                          }}
-                          className="grid gap-2.5 sm:grid-cols-2"
-                        >
-                          <input
-                            type="email"
-                            required
-                            value={googleEmailQuick}
-                            onChange={(e) => setGoogleEmailQuick(e.target.value)}
-                            placeholder="tu.correo@gmail.com"
-                            className="rounded-xl border border-[#0099D8]/30 bg-[#FFFFFF] px-3.5 py-2.5 text-sm text-[#1B335D] focus:border-[#0099D8] focus:outline-none"
-                          />
-                          <input
-                            type="text"
-                            value={googleNameQuick}
-                            onChange={(e) => setGoogleNameQuick(e.target.value)}
-                            placeholder="Tu Nombre y Apellido"
-                            className="rounded-xl border border-[#0099D8]/30 bg-[#FFFFFF] px-3.5 py-2.5 text-sm text-[#1B335D] focus:border-[#0099D8] focus:outline-none"
-                          />
-                          <button
-                            type="submit"
-                            disabled={busy}
-                            className="cursor-pointer rounded-xl bg-[#0099D8] py-2.5 text-sm font-bold text-[#FFFFFF] transition hover:bg-[#0A74A6] sm:col-span-2"
-                          >
-                            {busy ? "Ingresando..." : "Continuar con cuenta Google"}
-                          </button>
-                        </form>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -747,12 +807,12 @@ export function PatientPortalModal({
                     <button
                       type="button"
                       onClick={() => {
-                        setAuthTab("login");
-                        setShowGoogleFallback(true);
+                        void handleGoogleContinueClick();
                       }}
-                      className="cursor-pointer text-xs font-semibold text-[#1B335D] underline underline-offset-4 hover:text-[#0099D8]"
+                      disabled={busy}
+                      className="cursor-pointer text-xs font-semibold text-[#1B335D] underline underline-offset-4 hover:text-[#0099D8] disabled:opacity-60"
                     >
-                      Google
+                      Ingresar con Google
                     </button>
                   </div>
                 </div>
@@ -1188,87 +1248,147 @@ export function PatientPortalModal({
 
               {/* TAB 4: MI PERFIL */}
               {dashTab === "perfil" && (
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    await postAction({
-                      action: "patient_update_profile",
-                      dni: profDni,
-                      apellidos: profApellidos,
-                      nombres: profNombres,
-                      whatsapp: profWhatsapp,
-                      obraSocial: profObraSocial,
-                      nroAfiliado: profNroAfiliado,
-                      esAfiliadoCemepPlus: profPlus,
-                    });
-                  }}
-                  className="grid gap-3 sm:grid-cols-2"
-                >
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">DNI</label>
-                    <input
-                      value={profDni}
-                      onChange={(e) => setProfDni(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
+                <div className="space-y-4">
+                  {/* Tarjeta de identidad sincronizada (foto de Google + nombre + correo) */}
+                  <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-[#0099D8]/25 bg-[#F4F9FC] p-4">
+                    {bundle.user.fotoUrl ? (
+                      <img
+                        src={bundle.user.fotoUrl}
+                        alt={bundle.user.nombreCompleto}
+                        referrerPolicy="no-referrer"
+                        className="h-16 w-16 shrink-0 rounded-full border-2 border-[#0099D8] object-cover shadow-sm"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-[#0099D8]/40 bg-[#1B335D] text-lg font-black text-[#FFFFFF]">
+                        {(bundle.user.nombres || bundle.user.email || "P").slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-black text-[#1B335D]">
+                          {bundle.user.nombreCompleto}
+                        </h3>
+                        {bundle.user.authProvider === "google" && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-[#0099D8]/30 bg-[#FFFFFF] px-2.5 py-0.5 text-[11px] font-bold text-[#0A74A6]">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-[#34A853]" />
+                            Sincronizado con Google
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs font-semibold text-[#475569]">{bundle.user.email}</p>
+                      {(!bundle.user.dni || !bundle.user.whatsapp) && (
+                        <p className="mt-1 text-xs font-semibold text-[#92400E]">
+                          Completá tu DNI, WhatsApp y cobertura médica para vincular automáticamente
+                          tus turnos, estudios y recetas digitales.
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">WhatsApp</label>
-                    <input
-                      value={profWhatsapp}
-                      onChange={(e) => setProfWhatsapp(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">Apellido/s</label>
-                    <input
-                      value={profApellidos}
-                      onChange={(e) => setProfApellidos(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">Nombre/s</label>
-                    <input
-                      value={profNombres}
-                      onChange={(e) => setProfNombres(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">Obra Social</label>
-                    <input
-                      value={profObraSocial}
-                      onChange={(e) => setProfObraSocial(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[#334155]">Nº Afiliado</label>
-                    <input
-                      value={profNroAfiliado}
-                      onChange={(e) => setProfNroAfiliado(e.target.value)}
-                      className="w-full rounded-xl border border-[#CBD5E1] px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#009EE3]/30 bg-[#EBF9FF] px-3 py-2.5 text-xs font-bold text-[#1B335D] sm:col-span-2">
-                    <input
-                      type="checkbox"
-                      checked={profPlus}
-                      onChange={(e) => setProfPlus(e.target.checked)}
-                    />
-                    <CheckCircle2 className="h-4 w-4 text-[#009EE3]" />
-                    Soy afiliado/a a CEMEP Plus
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-sm font-extrabold text-[#FFFFFF] hover:bg-[#0A74A6] sm:col-span-2"
+
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await postAction({
+                        action: "patient_update_profile",
+                        dni: profDni,
+                        apellidos: profApellidos,
+                        nombres: profNombres,
+                        fechaNacimiento: profFechaNac,
+                        whatsapp: profWhatsapp,
+                        obraSocial: profObraSocial,
+                        nroAfiliado: profNroAfiliado,
+                        esAfiliadoCemepPlus: profPlus,
+                      });
+                    }}
+                    className="grid gap-3 sm:grid-cols-2"
                   >
-                    {busy ? "Guardando..." : "Guardar cambios de perfil"}
-                  </button>
-                </form>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
+                        DNI * (vincula tus estudios y turnos)
+                      </label>
+                      <input
+                        value={profDni}
+                        onChange={(e) => setProfDni(e.target.value)}
+                        placeholder="Ej. 35123456"
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm text-[#1B335D]"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">WhatsApp</label>
+                      <input
+                        value={profWhatsapp}
+                        onChange={(e) => setProfWhatsapp(e.target.value)}
+                        placeholder="Ej. 358..."
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm text-[#1B335D]"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">Apellido/s</label>
+                      <input
+                        value={profApellidos}
+                        onChange={(e) => setProfApellidos(e.target.value)}
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm text-[#1B335D]"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">Nombre/s</label>
+                      <input
+                        value={profNombres}
+                        onChange={(e) => setProfNombres(e.target.value)}
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm text-[#1B335D]"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
+                        Fecha de nacimiento
+                      </label>
+                      <input
+                        type="date"
+                        value={profFechaNac}
+                        onChange={(e) => setProfFechaNac(e.target.value)}
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm text-[#1B335D]"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
+                        Obra Social / Prepaga
+                      </label>
+                      <input
+                        value={profObraSocial}
+                        onChange={(e) => setProfObraSocial(e.target.value)}
+                        placeholder="APROSS, OSDE, PAMI, Particular..."
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm text-[#1B335D]"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="mb-1 block text-xs font-bold text-[#334155]">
+                        Nº de Afiliado
+                      </label>
+                      <input
+                        value={profNroAfiliado}
+                        onChange={(e) => setProfNroAfiliado(e.target.value)}
+                        placeholder="Opcional"
+                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm text-[#1B335D]"
+                      />
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#009EE3]/30 bg-[#EBF9FF] px-3 py-2.5 text-xs font-bold text-[#1B335D] sm:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={profPlus}
+                        onChange={(e) => setProfPlus(e.target.checked)}
+                      />
+                      <CheckCircle2 className="h-4 w-4 text-[#009EE3]" />
+                      Soy afiliado/a a CEMEP Plus
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="w-full cursor-pointer rounded-xl bg-[#1B335D] py-2.5 text-sm font-extrabold text-[#FFFFFF] hover:bg-[#0A74A6] sm:col-span-2"
+                    >
+                      {busy ? "Guardando..." : "Guardar cambios de perfil"}
+                    </button>
+                  </form>
+                </div>
               )}
             </div>
           )}

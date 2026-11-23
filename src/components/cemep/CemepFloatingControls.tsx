@@ -12,6 +12,7 @@ interface CemepFloatingControlsProps {
   plusWhatsappDigits: string;
   plusWhatsappDisplay: string;
   loggedPatientName?: string | null;
+  loggedPatientPhoto?: string | null;
   loggedProfName?: string | null;
   onOpenPatientPortal: () => void;
   onOpenProfPortal: () => void;
@@ -30,6 +31,7 @@ export function CemepFloatingControls({
   plusWhatsappDigits,
   plusWhatsappDisplay,
   loggedPatientName,
+  loggedPatientPhoto,
   loggedProfName,
   onOpenPatientPortal,
   onOpenProfPortal,
@@ -65,14 +67,23 @@ export function CemepFloatingControls({
         className="group flex cursor-pointer items-center gap-2 rounded-full border-2 py-1.5 pr-3 pl-1.5 shadow-xl shadow-[#1B335D]/35 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] sm:pr-3.5"
       >
         <span
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border sm:h-9 sm:w-9"
+          className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border sm:h-9 sm:w-9"
           style={{
             backgroundColor: "#0A74A6",
             borderColor: "rgba(166,202,14,0.65)",
             color: "#FFFFFF",
           }}
         >
-          <UserRound className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+          {loggedPatientPhoto ? (
+            <img
+              src={loggedPatientPhoto}
+              alt={loggedPatientName || "Paciente"}
+              referrerPolicy="no-referrer"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <UserRound className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+          )}
         </span>
 
         <span

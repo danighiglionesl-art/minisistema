@@ -1466,6 +1466,7 @@ export function CemepPublicPortal({
         plusWhatsappDigits={content.cemepPlus.whatsappDigits}
         plusWhatsappDisplay={content.cemepPlus.whatsappDisplay}
         loggedPatientName={patientBundle?.user?.nombres || null}
+        loggedPatientPhoto={patientBundle?.user?.fotoUrl || null}
         loggedProfName={profBundle?.profesional?.nombre || null}
         onOpenPatientPortal={() => setPatientModalOpen(true)}
         onOpenProfPortal={() => setProfModalOpen(true)}
