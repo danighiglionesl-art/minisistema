@@ -35302,9 +35302,15 @@ function initApp() {
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
+    if (!canvas.dataset.baseHeight) {
+      canvas.dataset.baseHeight = String(Number(canvas.getAttribute('height')) || 300);
+    }
+    const baseCssHeight = Math.max(230, Number(canvas.dataset.baseHeight) || 300);
     const rect = canvas.getBoundingClientRect();
-    const cssWidth = Math.max(320, rect.width || canvas.width || 680);
-    const cssHeight = Math.max(230, rect.height || canvas.height || 300);
+    const wrapInnerWidth = canvas.parentElement ? Math.max(0, canvas.parentElement.clientWidth - 24) : 0;
+    const cssWidth = Math.max(320, rect.width || wrapInnerWidth || canvas.width || 680);
+    const cssHeight = Math.max(230, Math.round(rect.height) >= 230 ? Math.min(340, baseCssHeight) : baseCssHeight);
+    canvas.style.height = `${cssHeight}px`;
 
     canvas.width = Math.round(cssWidth * dpr);
     canvas.height = Math.round(cssHeight * dpr);
