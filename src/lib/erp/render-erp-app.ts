@@ -374,9 +374,56 @@ export function renderErpHtmlResponse(params: {
       `src="assets/js/app.js?v=${assetVer}"`
     );
     html = html.replace(
-      "</body>",
-      `  <script src="/sistema/assets/js/superadmin-panel.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/feriarte-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/don-contador-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/cv-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/asistencia-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/personal-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/turnos-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-consultorios-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/gestion-web-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/inmobiliaria-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/mi-contador-module.js?v=${assetVer}"></script>\n  <script src="/sistema/assets/js/servicios-module.js?v=${assetVer}"></script>\n</body>`
+      /\s*<script\s+src="assets\/js\/mi-contador-module\.js[^"]*"[^>]*><\/script>/gi,
+      ""
     );
+
+    const enabledList = Array.isArray(tenant.enabled_modules)
+      ? tenant.enabled_modules
+      : [];
+    const hasMod = (prefix: string) =>
+      tenant.is_base ||
+      enabledList.some((k) => k === prefix || String(k).startsWith(`${prefix}:`));
+
+    const extraScripts: string[] = [];
+    // Panel Maestro Único y productos globales exclusivos de MiniSistema Base (www.minisistema.com.ar/sistema)
+    if (tenant.is_base) {
+      extraScripts.push(`/sistema/assets/js/superadmin-panel.js?v=${assetVer}`);
+      extraScripts.push(`/sistema/assets/js/feriarte-module.js?v=${assetVer}`);
+      extraScripts.push(`/sistema/assets/js/don-contador-module.js?v=${assetVer}`);
+    }
+    if (hasMod("cv") || hasMod("personal")) {
+      extraScripts.push(`/sistema/assets/js/cv-module.js?v=${assetVer}`);
+    }
+    if (hasMod("asistencia") || hasMod("personal")) {
+      extraScripts.push(`/sistema/assets/js/asistencia-module.js?v=${assetVer}`);
+    }
+    if (hasMod("personal") || hasMod("cv") || hasMod("asistencia")) {
+      extraScripts.push(`/sistema/assets/js/personal-module.js?v=${assetVer}`);
+    }
+    if (hasMod("turnos")) {
+      extraScripts.push(`/sistema/assets/js/turnos-module.js?v=${assetVer}`);
+    }
+    if (hasMod("consultorios")) {
+      extraScripts.push(`/sistema/assets/js/gestion-consultorios-module.js?v=${assetVer}`);
+    }
+    if (hasMod("gestion_web")) {
+      extraScripts.push(`/sistema/assets/js/gestion-web-module.js?v=${assetVer}`);
+    }
+    if (hasMod("inmobiliaria")) {
+      extraScripts.push(`/sistema/assets/js/inmobiliaria-module.js?v=${assetVer}`);
+    }
+    if (hasMod("mi_contador")) {
+      extraScripts.push(`/sistema/assets/js/mi-contador-module.js?v=${assetVer}`);
+    }
+    if (hasMod("servicios")) {
+      extraScripts.push(`/sistema/assets/js/servicios-module.js?v=${assetVer}`);
+    }
+
+    const scriptsBlock = extraScripts
+      .map((src) => `  <script src="${src}"></script>`)
+      .join("\n");
+    html = html.replace("</body>", `${scriptsBlock}\n</body>`);
   }
 
   // 6. Reemplazar textos visibles fuera de <script>/<style>

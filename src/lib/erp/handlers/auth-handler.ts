@@ -41,7 +41,9 @@ function buildPublicUserProfile(
 
   let effectiveModules: string[];
   if (cleanRole === "Administrador General") {
-    effectiveModules = [...ALL_ERP_MODULE_KEYS];
+    effectiveModules = tenant.is_base
+      ? [...ALL_ERP_MODULE_KEYS]
+      : Array.from(tenantAllowed);
   } else if (cleanRole === "Administrador") {
     effectiveModules = Array.from(tenantAllowed);
   } else {

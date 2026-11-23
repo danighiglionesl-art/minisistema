@@ -105,6 +105,11 @@
   }
 
   function isDanielGeneralAdmin() {
+    var isBaseTenant = Boolean(
+      (window.__ERP_TENANT_BOOT__ && window.__ERP_TENANT_BOOT__.isBase) ||
+      (window.ERP_BRAND && window.ERP_BRAND.isBase)
+    );
+    if (!isBaseTenant) return false;
     var u = getActiveUser();
     if (!u || !u.username) return false;
     return String(u.username).toLowerCase() === 'danielg' || u.role === 'Administrador General';

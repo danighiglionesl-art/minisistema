@@ -250,32 +250,36 @@ const DEFAULT_MODULE_KEYS = ALL_SYSTEM_MODULES.flatMap((m) => [
 ]);
 
 function normalizeErpUserRole(role, username = '') {
-  const uKey = String(username || '').toLowerCase();
-  if (uKey === PRIMARY_ADMIN_USER || uKey === 'danielg') return 'Administrador General';
+  const uKey = String(username || '').trim().toLowerCase();
+  if (uKey === 'danielg') return 'Administrador General';
   const r = String(role || '').trim().toLowerCase();
-  if (r === 'administrador general' || r === 'admin_general' || r === 'superadmin') return 'Administrador General';
-  return r === 'administrador' ? 'Administrador' : 'Usuario';
+  if (
+    r === 'administrador general' ||
+    r === 'admin_general' ||
+    r === 'superadmin' ||
+    r === 'administrador' ||
+    r === 'admin'
+  ) {
+    return 'Administrador';
+  }
+  return 'Usuario';
 }
 
 function isErpGeneralAdminUser(userOrUsername) {
   if (!userOrUsername) return false;
   const uKey = typeof userOrUsername === 'string'
-    ? userOrUsername.toLowerCase()
-    : String(userOrUsername.username || '').toLowerCase();
-  if (uKey === 'danielg') return true;
-  const dir = ADMIN_DIRECTORY[uKey] || {};
-  const role = typeof userOrUsername === 'object' && userOrUsername.role
-    ? userOrUsername.role
-    : dir.role;
-  return normalizeErpUserRole(role, uKey) === 'Administrador General';
+    ? userOrUsername.trim().toLowerCase()
+    : String(userOrUsername.username || '').trim().toLowerCase();
+  return uKey === 'danielg';
 }
 
 function isErpAdminUser(userOrUsername) {
   if (!userOrUsername) return false;
   const uKey = typeof userOrUsername === 'string'
-    ? userOrUsername.toLowerCase()
-    : String(userOrUsername.username || '').toLowerCase();
-  if (uKey === PRIMARY_ADMIN_USER || uKey === 'danielg') return true;
+    ? userOrUsername.trim().toLowerCase()
+    : String(userOrUsername.username || '').trim().toLowerCase();
+  if (uKey === 'danielg') return true;
+  if (ACTIVE_BRAND.isPaseoAlberdi && uKey === 'danicenteno') return true;
   const dir = ADMIN_DIRECTORY[uKey] || {};
   const role = typeof userOrUsername === 'object' && userOrUsername.role
     ? userOrUsername.role
@@ -1186,12 +1190,27 @@ function applyUserAllowedModules(user) {
   const uKey = String(user?.username || STATE.currentUser?.username || '').toLowerCase();
   const isPrimary = uKey === PRIMARY_ADMIN_USER;
   const isGenAdmin = isPrimary || isErpGeneralAdminUser(user || STATE.currentUser || uKey);
+  const isBaseTenant = Boolean(ACTIVE_BRAND?.isBase);
+  const tenantMods = Array.isArray(ACTIVE_BRAND?.enabledModules) ? ACTIVE_BRAND.enabledModules : [];
+  const hasTenantRestriction = !isBaseTenant && tenantMods.length > 0;
+  const tenantModSet = new Set([
+    ...tenantMods,
+    'perfil',
+    'tema',
+    'ayuda',
+    'atajos',
+    'manual_usuario'
+  ]);
   const allowed = new Set(getUserAllowedModules(uKey));
   document.querySelectorAll('#sec-inicio [data-module-key]').forEach((card) => {
     const modKey = card.getAttribute('data-module-key');
     if (!modKey) return;
     if (modKey === 'crm') {
-      card.hidden = !isGenAdmin;
+      card.hidden = !(isGenAdmin && isBaseTenant);
+      return;
+    }
+    if (hasTenantRestriction && !tenantModSet.has(modKey)) {
+      card.hidden = true;
       return;
     }
     card.hidden = !isPrimary && !allowed.has(modKey);
