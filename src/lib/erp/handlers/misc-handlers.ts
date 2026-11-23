@@ -1029,15 +1029,23 @@ export async function handleErpMercadoPagoPoint(
         );
         if (res.httpCode >= 200 && res.httpCode < 300 && res.data) {
           const summary = mpExtractOrderSummary(res.data);
-          db.orders[orderId] = summary;
-          if (summary.is_final) {
-            for (const [ck, activeOid] of Object.entries(db.active_by_caja)) {
-              if (activeOid === orderId) delete db.active_by_caja[ck];
+          const prevOrd = db.orders[orderId];
+          const changed =
+            !prevOrd ||
+            prevOrd.status !== summary.status ||
+            prevOrd.status_detail !== summary.status_detail ||
+            Boolean(prevOrd.is_final) !== Boolean(summary.is_final);
+          if (changed || summary.is_final) {
+            db.orders[orderId] = summary;
+            if (summary.is_final) {
+              for (const [ck, activeOid] of Object.entries(db.active_by_caja)) {
+                if (activeOid === orderId) delete db.active_by_caja[ck];
+              }
             }
+            db.orders = trimMpOrdersMap(db.orders);
+            db.updatedAt = new Date().toISOString();
+            await putTenantDoc(tenant, "mp_point_db", db, "pos", "check_order");
           }
-          db.orders = trimMpOrdersMap(db.orders);
-          db.updatedAt = new Date().toISOString();
-          await putTenantDoc(tenant, "mp_point_db", db, "pos", "check_order");
           return NextResponse.json({
             ok: true,
             status: summary.status,

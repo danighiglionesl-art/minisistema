@@ -59,6 +59,265 @@ const KNOWN_HOST_SLUGS: Record<string, string> = {
   "www.paseoalberdi.ar": "paseoalberdi",
 };
 
+const CORE_RETAIL_MODULES: string[] = [
+  "facturacion",
+  "facturacion:caja1",
+  "facturacion:caja2",
+  "facturacion:caja3",
+  "facturacion:facturador",
+  "facturacion:recibo",
+  "facturacion:apertura",
+  "facturacion:retiro",
+  "facturacion:cierre",
+  "facturacion:movil",
+  "facturacion:comprobantes",
+  "facturacion:admin_arca",
+  "articulos",
+  "articulos:listado",
+  "articulos:nuevo",
+  "articulos:duplicar",
+  "articulos:config_precios",
+  "articulos:abm_marcas",
+  "articulos:abm_rubros",
+  "articulos:factura_prov",
+  "articulos:carga_rapida",
+  "articulos:control_stock",
+  "articulos:precios_gondola",
+  "articulos:ofertas",
+  "articulos:pedidos",
+  "clientes",
+  "clientes:padron",
+  "clientes:nuevo",
+  "clientes:ctacte",
+  "clientes:detalle_ctacte",
+  "proveedores",
+  "proveedores:padron",
+  "proveedores:nuevo",
+  "proveedores:ctacte",
+  "proveedores:duales",
+  "proveedores:factura_prov",
+  "proveedores:carga_rapida",
+  "proveedores:control_stock",
+  "proveedores:precios_gondola",
+  "proveedores:pedidos",
+  "fondos",
+  "fondos:caja_central",
+  "fondos:caja",
+  "fondos:bancos",
+  "fondos:stock_valorizado",
+  "carrito",
+  "carrito:usuarios",
+  "carrito:articulos",
+  "carrito:banners",
+  "carrito:reg_online",
+  "carrito:abrir_tienda",
+  "fidelizacion",
+  "fidelizacion:operaciones",
+  "fidelizacion:catalogo",
+  "fidelizacion:clientes",
+  "fidelizacion:config",
+  "whatsapp",
+  "estadisticas",
+  "estadisticas:facturacion",
+  "estadisticas:ranking",
+  "estadisticas:medios",
+  "estadisticas:margenes",
+  "mi_contador",
+  "verificador",
+  "personal",
+  "personal:cv",
+  "personal:asistencia",
+  "cv",
+  "asistencia",
+  "tema",
+  "perfil",
+  "atajos",
+  "manual_usuario",
+];
+
+function buildCoreFallbackTenant(slug: string): ErpTenantRecord | null {
+  const clean = slug.trim().toLowerCase();
+  const nowIso = new Date().toISOString();
+  const emptySub: ErpTenantSubscription = {
+    optionType: 1,
+    optionBasePrice: 0,
+    selectedModules: [],
+    globalDiscountType: "permanent",
+    globalDiscountPct: 100,
+    globalDiscountFixed: 0,
+    temporaryMonths: 0,
+    promoStartsAt: null,
+    promoEndsAt: null,
+    monthlyPromoAmount: 0,
+    monthlyRegularAmount: 0,
+    activeMonthlyAmount: 0,
+    currency: "ARS",
+    payerEmail: "",
+    mpPreapprovalId: null,
+    mpInitPoint: null,
+    mpStatus: "authorized",
+    lastSyncAt: nowIso,
+  };
+
+  if (clean === "casanueva") {
+    return {
+      id: "fallback-casanueva",
+      slug: "casanueva",
+      option_type: 1,
+      is_base: false,
+      business_name: "BIANCHI MARIA ESTHER",
+      fantasy_name: "Casa Nueva Supermercado",
+      custom_domain: "www.cn.com.ar",
+      db_schema: "erp_casanueva",
+      external_supabase_url: null,
+      external_supabase_key: null,
+      status: "active",
+      branding: {
+        primaryHex: "#202020",
+        accentHex: "#d4a017",
+        surfaceHex: "#FFFFFF",
+        logo1x1Url: "/sistema/assets/img/casanueva/logo-full.png",
+        logoHorizontalUrl: "/sistema/assets/img/casanueva/logo-full.png",
+        logoSymbolUrl: "/sistema/assets/img/casanueva/icon-192.png",
+        clubName: "Club Fidel",
+        address: "Riveros Gigena N° 50 - Alcira Gigena (Córdoba)",
+        localidad: "ALCIRA GIGENA",
+        provincia: "CÓRDOBA",
+        cp: "5813",
+        whatsappDigits: "5493584198605",
+        whatsappDisplay: "+54 9 3584 19-8605",
+        emailInfo: "ventas@cn.com.ar",
+        cuitFmt: "27-05457050-9",
+        condIva: "IVA RESPONSABLE INSCRIPTO",
+        iibb: "288462551",
+        inicioAct: "02/03/2026",
+      },
+      enabled_modules: CORE_RETAIL_MODULES,
+      subscription: { ...emptySub, payerEmail: "ventas@cn.com.ar" },
+      deployment: {
+        mode: "custom_domain_vercel_github",
+        actividadNegocio: "comercial",
+        publicErpUrl: "https://www.cn.com.ar/sistema",
+        publicCarritoUrl: "https://www.cn.com.ar/carrito",
+        publicVerificadorUrl: "https://www.cn.com.ar/verificador",
+        githubRepoUrl: null,
+        vercelProjectId: "prj_DwQTRgpPgTyuhHGbsAlezTNTvcFE",
+        vercelDomainVerified: true,
+        dnsInstructions: [],
+        provisionedAt: nowIso,
+        notes: "Fallback resiliente Casa Nueva Supermercado",
+      },
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+  }
+
+  if (clean === "paseoalberdi") {
+    return {
+      id: "fallback-paseoalberdi",
+      slug: "paseoalberdi",
+      option_type: 1,
+      is_base: false,
+      business_name: "Paseo Alberdi Supermercado",
+      fantasy_name: "Paseo Alberdi",
+      custom_domain: "www.paseoalberdi.ar",
+      db_schema: "erp_paseoalberdi",
+      external_supabase_url: null,
+      external_supabase_key: null,
+      status: "active",
+      branding: {
+        primaryHex: "#1C1B1E",
+        accentHex: "#BDF200",
+        surfaceHex: "#FFFFFF",
+        logo1x1Url: "/sistema/assets/img/paseo-alberdi/logo-1x1.png",
+        logoHorizontalUrl: "/sistema/assets/img/paseo-alberdi/logo-horizontal.png",
+        logoSymbolUrl: "/sistema/assets/img/paseo-alberdi/logo-symbol.png",
+        clubName: "Club Fidel",
+        address: "Ignacio Pirovano 193, Barrio Alberdi, Río Cuarto",
+        localidad: "RÍO CUARTO",
+        provincia: "CÓRDOBA",
+        cp: "5800",
+        whatsappDigits: "5493584292027",
+        whatsappDisplay: "+54 9 3584 29-2027",
+        emailInfo: "ventas@paseoalberdi.ar",
+        cuitFmt: "A CONFIGURAR",
+        condIva: "IVA RESPONSABLE INSCRIPTO",
+        iibb: "—",
+        inicioAct: "—",
+      },
+      enabled_modules: CORE_RETAIL_MODULES,
+      subscription: { ...emptySub, payerEmail: "ventas@paseoalberdi.ar" },
+      deployment: {
+        mode: "custom_domain_vercel_github",
+        actividadNegocio: "comercial",
+        publicErpUrl: "https://www.paseoalberdi.ar/sistema",
+        publicCarritoUrl: "https://www.paseoalberdi.ar/carrito",
+        publicVerificadorUrl: "https://www.paseoalberdi.ar/verificador",
+        githubRepoUrl: null,
+        vercelProjectId: "prj_DwQTRgpPgTyuhHGbsAlezTNTvcFE",
+        vercelDomainVerified: true,
+        dnsInstructions: [],
+        provisionedAt: nowIso,
+        notes: "Fallback resiliente Paseo Alberdi",
+      },
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+  }
+
+  if (clean === "minisistema") {
+    return {
+      id: "fallback-minisistema",
+      slug: "minisistema",
+      option_type: 1,
+      is_base: true,
+      business_name: "MiniSistema",
+      fantasy_name: "MiniSistema",
+      custom_domain: "www.minisistema.com.ar",
+      db_schema: "erp_minisistema",
+      external_supabase_url: null,
+      external_supabase_key: null,
+      status: "active",
+      branding: buildMiniSistemaBranding(),
+      enabled_modules: ALL_ERP_MODULE_KEYS,
+      subscription: { ...emptySub, payerEmail: "admin@minisistema.com.ar" },
+      deployment: {
+        mode: "custom_domain_vercel_github",
+        actividadNegocio: "comercial",
+        publicErpUrl: "https://www.minisistema.com.ar/sistema",
+        publicCarritoUrl: "https://www.minisistema.com.ar/carrito",
+        publicVerificadorUrl: "https://www.minisistema.com.ar/verificador",
+        publicTurnosUrl: "https://www.minisistema.com.ar/turnos",
+        publicInmobiliariaUrl: "https://www.minisistema.com.ar/inmobiliaria",
+        githubRepoUrl: "https://github.com/danighiglionesl-art/minisistema",
+        vercelProjectId: "prj_DwQTRgpPgTyuhHGbsAlezTNTvcFE",
+        vercelDomainVerified: true,
+        dnsInstructions: [],
+        provisionedAt: nowIso,
+        notes: "Fallback resiliente MiniSistema",
+      },
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+  }
+
+  return null;
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Timeout (${ms}ms) en ${label}`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export function invalidateTenantCache(slug?: string): void {
   if (slug) {
     const clean = slug.trim().toLowerCase();
@@ -471,7 +730,13 @@ export async function ensureBaseMiniSistemaTenant(): Promise<ErpTenantRecord> {
   })();
 
   try {
-    return await baseTenantPromise;
+    return await withTimeout(baseTenantPromise, 6_000, "ensureBaseMiniSistemaTenant");
+  } catch (err) {
+    console.warn("[TenantService] Fallback resiliente para minisistema:", err instanceof Error ? err.message : err);
+    if (cached?.value) return cached.value;
+    const fb = buildCoreFallbackTenant("minisistema");
+    if (fb) return fb;
+    throw err;
   } finally {
     baseTenantPromise = null;
   }
@@ -489,21 +754,33 @@ export async function getTenantBySlug(slug: string): Promise<ErpTenantRecord | n
     return cached.value;
   }
 
-  const sb = await getPlatformSupabase();
-  const { data, error } = await sb
-    .from("erp_tenants")
-    .select("*")
-    .eq("slug", clean)
-    .maybeSingle();
+  try {
+    const rec = await withTimeout(
+      (async () => {
+        const sb = await getPlatformSupabase();
+        const { data, error } = await sb
+          .from("erp_tenants")
+          .select("*")
+          .eq("slug", clean)
+          .maybeSingle();
 
-  if (error) {
-    // Nunca cachear null ni hacer fallback silencioso ante error transitorio de BD
-    throw new Error(`Error consultando comercio "${clean}": ${error.message}`);
+        if (error) {
+          throw new Error(`Error consultando comercio "${clean}": ${error.message}`);
+        }
+        return (data as ErpTenantRecord | null) || null;
+      })(),
+      6_000,
+      `getTenantBySlug(${clean})`
+    );
+    cacheTenantRecord(rec, clean);
+    return rec;
+  } catch (err) {
+    console.warn(`[TenantService] Fallback resiliente para slug=${clean}:`, err instanceof Error ? err.message : err);
+    if (cached?.value) return cached.value;
+    const fb = buildCoreFallbackTenant(clean);
+    if (fb) return fb;
+    throw err;
   }
-
-  const rec = (data as ErpTenantRecord | null) || null;
-  cacheTenantRecord(rec, clean);
-  return rec;
 }
 
 export async function getTenantByHost(rawHost: string): Promise<ErpTenantRecord | null> {
@@ -536,23 +813,34 @@ export async function getTenantByHost(rawHost: string): Promise<ErpTenantRecord 
     }
   }
 
-  const sb = await getPlatformSupabase();
-  const bare = host.replace(/^www\./, "");
-  const candidates = [host, `www.${bare}`, bare];
-  const { data, error } = await sb
-    .from("erp_tenants")
-    .select("*")
-    .in("custom_domain", candidates)
-    .limit(1)
-    .maybeSingle();
+  try {
+    const rec = await withTimeout(
+      (async () => {
+        const sb = await getPlatformSupabase();
+        const bare = host.replace(/^www\./, "");
+        const candidates = [host, `www.${bare}`, bare];
+        const { data, error } = await sb
+          .from("erp_tenants")
+          .select("*")
+          .in("custom_domain", candidates)
+          .limit(1)
+          .maybeSingle();
 
-  if (error) {
-    throw new Error(`Error resolviendo dominio "${host}": ${error.message}`);
+        if (error) {
+          throw new Error(`Error resolviendo dominio "${host}": ${error.message}`);
+        }
+        return (data as ErpTenantRecord | null) || null;
+      })(),
+      6_000,
+      `getTenantByHost(${host})`
+    );
+    cacheTenantRecord(rec, undefined, host);
+    return rec;
+  } catch (err) {
+    console.warn(`[TenantService] Fallback resiliente para host=${host}:`, err instanceof Error ? err.message : err);
+    if (cached?.value) return cached.value;
+    throw err;
   }
-
-  const rec = (data as ErpTenantRecord | null) || null;
-  cacheTenantRecord(rec, undefined, host);
-  return rec;
 }
 
 export async function resolveActiveTenantFromRequest(

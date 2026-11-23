@@ -42,6 +42,10 @@ const externalClientsCache = new Map<string, SupabaseClient>();
 
 function getSupabaseEnv() {
   const url = process.env.SUPABASE_URL || "https://ghrxmirhilrlveqyyscq.supabase.co";
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    "";
   const key =
     process.env.SUPABASE_PUBLISHABLE_KEY ||
     "sb_publishable_ORbjp1JRY95Up_qfZ7atjw_SmcH6SYm";
@@ -49,7 +53,7 @@ function getSupabaseEnv() {
     process.env.ERP_SUPABASE_SERVICE_EMAIL ||
     "erp-backend-service@minisistema.com.ar";
   const password = process.env.ERP_SUPABASE_SERVICE_PASSWORD || "";
-  return { url, key, email, password };
+  return { url, serviceRoleKey, key, email, password };
 }
 
 export async function getPlatformSupabase(): Promise<SupabaseClient> {
@@ -58,37 +62,72 @@ export async function getPlatformSupabase(): Promise<SupabaseClient> {
     return cachedPrimaryClient.client;
   }
 
-  if (pendingPrimaryAuth) {
-    return pendingPrimaryAuth;
-  }
-
-  pendingPrimaryAuth = (async () => {
-    const { url, key, email, password } = getSupabaseEnv();
-    const client = createClient(url, key, {
+  const env = getSupabaseEnv();
+  // Si está configurada la clave service_role/secret, evita por completo signInWithPassword (GoTrue)
+  if (env.serviceRoleKey) {
+    const directClient = createClient(env.url, env.serviceRoleKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
       },
     });
+    cachedPrimaryClient = {
+      client: directClient,
+      expiresAtMs: now + 24 * 60 * 60 * 1000,
+    };
+    return directClient;
+  }
 
+  if (pendingPrimaryAuth) {
+    return pendingPrimaryAuth;
+  }
+
+  pendingPrimaryAuth = (async () => {
+    const { url, key, email, password } = env;
     if (!password) {
       throw new Error(
         "Falta configurar ERP_SUPABASE_SERVICE_PASSWORD en las variables de entorno del servidor."
       );
     }
 
-    const { data, error } = await client.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const attemptSignIn = async (timeoutMs: number) => {
+      const client = createClient(url, key, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+        global: {
+          fetch: (input, init) =>
+            fetch(input, {
+              ...init,
+              signal: init?.signal || AbortSignal.timeout(timeoutMs),
+            }),
+        },
+      });
+      return client.auth.signInWithPassword({ email, password });
+    };
 
-    if (error || !data.session) {
+    let result = await attemptSignIn(8_000).catch((err) => ({
+      data: { session: null },
+      error: { message: err instanceof Error ? err.message : "timeout" },
+    }));
+
+    if (result.error || !result.data.session) {
+      result = await attemptSignIn(10_000).catch((err) => ({
+        data: { session: null },
+        error: { message: err instanceof Error ? err.message : "timeout" },
+      }));
+    }
+
+    if (result.error || !result.data.session) {
       throw new Error(
-        `No se pudo autenticar el servicio backend en Supabase: ${error?.message || "sin sesión"}`
+        `No se pudo autenticar el servicio backend en Supabase: ${result.error?.message || "sin sesión"}`
       );
     }
 
+    const session = result.data.session;
     const authedClient = createClient(url, key, {
       auth: {
         persistSession: false,
@@ -97,13 +136,13 @@ export async function getPlatformSupabase(): Promise<SupabaseClient> {
       },
       global: {
         headers: {
-          Authorization: `Bearer ${data.session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       },
     });
 
-    const expiresAtMs = data.session.expires_at
-      ? data.session.expires_at * 1000
+    const expiresAtMs = session.expires_at
+      ? session.expires_at * 1000
       : Date.now() + 50 * 60 * 1000;
 
     cachedPrimaryClient = {
@@ -216,6 +255,13 @@ async function uploadGzipToStorage(
         contentType: "application/gzip",
         upsert: true,
       });
+    // Limpiar revisiones viejas (rev - 2) en segundo plano para no acumular cientos de snapshots
+    if (rev >= 3) {
+      sb.storage
+        .from(DOC_CACHE_BUCKET)
+        .remove([storageDocPath(schema, docKey, rev - 2)])
+        .catch(() => {});
+    }
   } catch {
     // Non-fatal: L2 cache is best-effort
   }
