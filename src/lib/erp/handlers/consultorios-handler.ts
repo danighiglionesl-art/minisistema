@@ -202,10 +202,18 @@ export async function loadGestionWebDb(
     GESTION_WEB_DOC_KEY,
     initial
   );
+  const LEGACY_GOOGLE_CLIENT_ID =
+    "384115038053-ktejh22ce4f9hkun4nba8qajnf3g0euh.apps.googleusercontent.com";
+  const savedGoogleClientId = String(payload?.googleClientId || "").trim();
+  const effectiveSavedClientId =
+    savedGoogleClientId && savedGoogleClientId !== LEGACY_GOOGLE_CLIENT_ID
+      ? savedGoogleClientId
+      : "";
+
   return {
     updatedAt: payload?.updatedAt || initial.updatedAt,
     googleClientId:
-      payload?.googleClientId ||
+      effectiveSavedClientId ||
       process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
       process.env.GOOGLE_CLIENT_ID ||
       initial.googleClientId ||

@@ -141,9 +141,13 @@ export default function InmoClientPortalModal(props: InmoClientPortalModalProps)
   }, [props.loggedClient, props.defaultProvincia, props.defaultLocalidad, props.defaultCp]);
 
   const resolvedGoogleClientId =
-    props.googleClientId ||
+    (props.googleClientId &&
+    props.googleClientId !==
+      "384115038053-ktejh22ce4f9hkun4nba8qajnf3g0euh.apps.googleusercontent.com"
+      ? props.googleClientId
+      : "") ||
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-    "384115038053-ktejh22ce4f9hkun4nba8qajnf3g0euh.apps.googleusercontent.com";
+    "384115038053-qp6duf5o60oquo6f6jdl332le7tgv8q7.apps.googleusercontent.com";
 
   // Precargar script oficial de Google Identity Services al abrir el modal
   useEffect(() => {
