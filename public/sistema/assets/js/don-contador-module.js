@@ -31,6 +31,11 @@
   }
 
   function isGeneralAdmin() {
+    var isBaseTenant = Boolean(
+      (window.__ERP_TENANT_BOOT__ && window.__ERP_TENANT_BOOT__.isBase) ||
+      (window.ERP_BRAND && window.ERP_BRAND.isBase)
+    );
+    if (!isBaseTenant) return false;
     var user = typeof window.__MS_GET_ACTIVE_USER__ === 'function' ? window.__MS_GET_ACTIVE_USER__() : null;
     if (!user) {
       try {
@@ -41,8 +46,7 @@
     }
     if (!user || !user.username) return false;
     var u = String(user.username).trim().toLowerCase();
-    var r = String(user.role || '').trim().toLowerCase();
-    return u === 'danielg' || r === 'administrador general';
+    return u === 'danielg';
   }
 
   function getApiBase() {

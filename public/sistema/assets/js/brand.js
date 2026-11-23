@@ -25,8 +25,9 @@
     isCasaNueva: isCasaNuevaSlug,
     isMiniSistema: !isPaseoSlug && !isCasaNuevaSlug,
     storagePrefix: storagePrefix,
-    primaryAdmin: isPaseoSlug ? 'danicenteno' : 'danielg',
-    primaryAdminDisplay: isPaseoSlug ? 'DaniCenteno' : 'danielg',
+    primaryAdmin: 'danielg',
+    primaryAdminDisplay: 'danielg',
+    commerceAdmin: isPaseoSlug ? 'danicenteno' : 'danielg',
     defaultBranch: isCasaNuevaSlug ? 'Casa Central' : fantasyName,
     name: fantasyName,
     upperName: fantasyName.toUpperCase(),
@@ -79,6 +80,37 @@
 
   window.ERP_BRAND = BRAND;
   window.STORE_BRAND = BRAND;
+
+  // Sanear cualquier sesión en caché donde un usuario distinto a @danielg haya quedado marcado como Administrador General
+  [sessionStorage, localStorage].forEach(function (store) {
+    try {
+      var rawSess = store.getItem(sessKey);
+      if (!rawSess) return;
+      var parsedSess = JSON.parse(rawSess);
+      if (!parsedSess || !parsedSess.username) return;
+      var uLower = String(parsedSess.username).trim().toLowerCase();
+      var changed = false;
+      if (uLower !== 'danielg' && parsedSess.role === 'Administrador General') {
+        parsedSess.role = 'Administrador';
+        parsedSess.isGeneralAdmin = false;
+        changed = true;
+      }
+      if (!BRAND.isBase && Array.isArray(BRAND.enabledModules) && BRAND.enabledModules.length > 0 && Array.isArray(parsedSess.modules)) {
+        var allowedSet = {};
+        BRAND.enabledModules.concat(['perfil', 'tema', 'atajos', 'ayuda', 'ayuda:atajos', 'ayuda:manual_usuario', 'ayuda:reporte_mejoras', 'manual_usuario']).forEach(function (mk) {
+          allowedSet[mk] = true;
+        });
+        var filteredMods = parsedSess.modules.filter(function (mk) { return Boolean(allowedSet[mk]); });
+        if (filteredMods.length !== parsedSess.modules.length) {
+          parsedSess.modules = filteredMods;
+          changed = true;
+        }
+      }
+      if (changed) {
+        store.setItem(sessKey, JSON.stringify(parsedSess));
+      }
+    } catch (_e) {}
+  });
 
   // Interceptor inteligente de fetch para enrutar llamadas ERP al tenant aislado en Supabase
   if (typeof window !== 'undefined' && typeof window.fetch === 'function' && !window.__MS_FETCH_PATCHED__) {

@@ -553,11 +553,10 @@ export function normalizeErpRole(rawRole: unknown, username = ""): ErpUserRole {
   if (
     cleanRole === "administrador general" ||
     cleanRole === "admin_general" ||
-    cleanRole === "superadmin"
+    cleanRole === "superadmin" ||
+    cleanRole === "administrador" ||
+    cleanRole === "admin"
   ) {
-    return "Administrador General";
-  }
-  if (cleanRole === "administrador" || cleanRole === "admin") {
     return "Administrador";
   }
   return "Usuario";

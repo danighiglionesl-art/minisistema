@@ -27,20 +27,23 @@
   function isPersonalAllowed() {
     var u = getActiveUser();
     if (!u || !u.username) return false;
-    if (String(u.username).toLowerCase() === 'danielg' || u.role === 'Administrador General') {
-      return true;
-    }
+    var isBase = Boolean(window.ERP_BRAND && window.ERP_BRAND.isBase);
     var brandMods = (window.ERP_BRAND && window.ERP_BRAND.enabledModules) || [];
     if (
+      !isBase &&
       Array.isArray(brandMods) &&
       brandMods.length > 0 &&
       brandMods.indexOf('administracion_personal') === -1 &&
+      brandMods.indexOf('personal') === -1 &&
       brandMods.indexOf('cv') === -1 &&
-      brandMods.indexOf('personal:asistencias') === -1
+      brandMods.indexOf('personal:asistencias') === -1 &&
+      brandMods.indexOf('asistencia') === -1
     ) {
       return false;
     }
-    if (u.role === 'Administrador') return true;
+    if (String(u.username).toLowerCase() === 'danielg' || u.role === 'Administrador General' || u.role === 'Administrador') {
+      return true;
+    }
     var uMods = Array.isArray(u.modules) ? u.modules : [];
     return uMods.some(function (k) {
       var s = String(k || '');

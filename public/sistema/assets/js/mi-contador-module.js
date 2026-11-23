@@ -127,20 +127,16 @@
       var u = window.__MS_GET_ACTIVE_USER__();
       if (u && u.username) return u;
     }
-    var prefixes = [];
-    if (window.ERP_BRAND && window.ERP_BRAND.storagePrefix) prefixes.push(window.ERP_BRAND.storagePrefix);
-    prefixes.push('ms_minisistema_', 'pa_', 'cn_', '');
-    for (var i = 0; i < prefixes.length; i++) {
-      try {
-        var raw =
-          sessionStorage.getItem(prefixes[i] + 'erp_active_admin_v1') ||
-          localStorage.getItem(prefixes[i] + 'erp_active_admin_v1');
-        if (raw) {
-          var parsed = JSON.parse(raw);
-          if (parsed && parsed.username) return parsed;
-        }
-      } catch (_e) {}
-    }
+    try {
+      var pfx = (window.ERP_BRAND && window.ERP_BRAND.storagePrefix) || 'ms_minisistema_';
+      var raw =
+        sessionStorage.getItem(pfx + 'erp_active_admin_v1') ||
+        localStorage.getItem(pfx + 'erp_active_admin_v1');
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.username) return parsed;
+      }
+    } catch (_e) {}
     return null;
   }
 

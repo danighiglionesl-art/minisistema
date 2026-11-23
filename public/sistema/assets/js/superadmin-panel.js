@@ -112,7 +112,7 @@
     if (!isBaseTenant) return false;
     var u = getActiveUser();
     if (!u || !u.username) return false;
-    return String(u.username).toLowerCase() === 'danielg' || u.role === 'Administrador General';
+    return String(u.username).trim().toLowerCase() === 'danielg';
   }
 
   async function apiSuperAdmin(method, bodyOrQuery) {

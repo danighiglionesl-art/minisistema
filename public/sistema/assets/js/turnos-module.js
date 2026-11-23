@@ -146,14 +146,14 @@
   function isTurnosModuleAllowed() {
     var u = getActiveUser();
     if (!u || !u.username) return false;
-    if (String(u.username).toLowerCase() === 'danielg' || u.role === 'Administrador General') {
-      return true;
-    }
+    var isBase = Boolean(window.ERP_BRAND && window.ERP_BRAND.isBase);
     var brandMods = (window.ERP_BRAND && window.ERP_BRAND.enabledModules) || [];
-    if (Array.isArray(brandMods) && brandMods.length > 0 && brandMods.indexOf('turnos') === -1) {
+    if (!isBase && Array.isArray(brandMods) && brandMods.length > 0 && brandMods.indexOf('turnos') === -1) {
       return false;
     }
-    if (u.role === 'Administrador') return true;
+    if (String(u.username).toLowerCase() === 'danielg' || u.role === 'Administrador General' || u.role === 'Administrador') {
+      return true;
+    }
     var uMods = Array.isArray(u.modules) ? u.modules : [];
     return uMods.some(function (k) {
       return k === 'turnos' || String(k).indexOf('turnos:') === 0;
