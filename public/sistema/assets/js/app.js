@@ -72859,12 +72859,150 @@ function initApp() {
     }
 
     let activeCrmDialogReportId = null;
+    let activeCrmDialogReport = null;
+    let activeCrmBlobUrl = null;
+    let crmLightboxZoom = 0; // 0 = fit, >0 = factor (1, 1.5, 2, 2.5, 3)
+
+    function crmDataUrlToBlobUrl(dataUrl) {
+      if (!dataUrl || typeof dataUrl !== 'string') return '';
+      if (!dataUrl.startsWith('data:')) return dataUrl;
+      try {
+        const parts = dataUrl.split(',');
+        if (parts.length < 2) return dataUrl;
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+        const binStr = atob(parts[1]);
+        const bytes = new Uint8Array(binStr.length);
+        for (let i = 0; i < binStr.length; i++) {
+          bytes[i] = binStr.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: mime });
+        if (activeCrmBlobUrl) {
+          try { URL.revokeObjectURL(activeCrmBlobUrl); } catch (_e) {}
+        }
+        activeCrmBlobUrl = URL.createObjectURL(blob);
+        return activeCrmBlobUrl;
+      } catch (_e) {
+        return dataUrl;
+      }
+    }
+
+    function openCrmScreenshotInNewTab(src) {
+      if (!src) return;
+      const targetUrl = crmDataUrlToBlobUrl(src);
+      if (!targetUrl) return;
+      const win = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      if (!win && typeof showToast === 'function') {
+        showToast('El navegador bloqueó la pestaña emergente. Usá "Ampliar" o "Descargar".', 'warning');
+      }
+    }
+
+    function downloadCrmScreenshot(src, code) {
+      if (!src) return;
+      let ext = 'png';
+      const mimeMatch = typeof src === 'string' ? src.match(/^data:image\/([a-zA-Z0-9+.-]+);/) : null;
+      if (mimeMatch && mimeMatch[1]) {
+        ext = mimeMatch[1].toLowerCase().replace('jpeg', 'jpg');
+      }
+      const safeCode = String(code || 'captura-crm').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const a = document.createElement('a');
+      a.href = crmDataUrlToBlobUrl(src) || src;
+      a.download = `${safeCode}_captura.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => a.remove(), 120);
+    }
+
+    function applyCrmLightboxZoom() {
+      const lbImg = document.getElementById('crm-lightbox-img');
+      const lbStage = document.getElementById('crm-lightbox-stage');
+      const lbLabel = document.getElementById('crm-lb-zoom-label');
+      if (!lbImg) return;
+      if (!crmLightboxZoom || crmLightboxZoom <= 0) {
+        lbImg.style.maxWidth = '100%';
+        lbImg.style.maxHeight = '100%';
+        lbImg.style.width = 'auto';
+        lbImg.style.height = 'auto';
+        lbImg.style.cursor = 'zoom-in';
+        if (lbStage) {
+          lbStage.style.alignItems = 'center';
+          lbStage.style.justifyContent = 'center';
+        }
+        if (lbLabel) lbLabel.textContent = 'Ajustar';
+      } else {
+        const natW = lbImg.naturalWidth || 1200;
+        lbImg.style.maxWidth = 'none';
+        lbImg.style.maxHeight = 'none';
+        lbImg.style.width = `${Math.round(natW * crmLightboxZoom)}px`;
+        lbImg.style.height = 'auto';
+        lbImg.style.cursor = crmLightboxZoom >= 2.5 ? 'zoom-out' : 'zoom-in';
+        if (lbStage) {
+          lbStage.style.alignItems = 'flex-start';
+          lbStage.style.justifyContent = 'flex-start';
+        }
+        if (lbLabel) lbLabel.textContent = `${Math.round(crmLightboxZoom * 100)}%`;
+      }
+    }
+
+    function openCrmLightbox(src, titleText) {
+      const lbDlg = document.getElementById('crm-lightbox-dialog');
+      const lbImg = document.getElementById('crm-lightbox-img');
+      const lbTitle = document.getElementById('crm-lightbox-title');
+      if (!lbDlg || !lbImg || !src) return;
+      crmLightboxZoom = 0;
+      lbImg.src = src;
+      if (lbTitle) lbTitle.textContent = titleText || 'Captura de Pantalla';
+      applyCrmLightboxZoom();
+      if (typeof lbDlg.showModal === 'function') {
+        if (!lbDlg.open) lbDlg.showModal();
+      } else {
+        lbDlg.setAttribute('open', 'open');
+      }
+    }
+
+    function buildAntigravityPromptForReport(report) {
+      if (!report) return '';
+      return [
+        `Resolver ticket CRM ${report.codigo || report.id}: ${report.titulo || 'Sin título'}`,
+        `Sistema / Comercio: ${report.marca || report.sucursal || (window.ERP_BRAND && window.ERP_BRAND.name) || 'MiniSistema'}`,
+        `Módulo: ${report.moduloLabel || 'General'} (${report.moduloKey || 'general'})`,
+        `Reportado por: ${report.usuario || 'Usuario'} (@${report.username || '—'}) · ${report.fechaHora || '—'}`,
+        `Tipo: ${report.tipo || 'MEJORA'} · Prioridad: ${report.prioridad || 'NORMAL'} · Estado actual: ${report.estado || 'PENDIENTE'}`,
+        `Descripción del problema / mejora:\n${report.descripcion || 'Sin descripción adicional.'}`,
+        report.capturaBase64
+          ? 'Captura adjunta: SÍ (podés leer la imagen desde /sistema/api/manual_ai.php?action=antigravity_queue).'
+          : 'Captura adjunta: NO.'
+      ].join('\n');
+    }
+
+    async function copyTextToClipboardSafe(text) {
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch (_e) {}
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        ta.remove();
+        return ok;
+      } catch (_e) {
+        return false;
+      }
+    }
 
     function openCrmReportModal(report, options = {}) {
       const dlg = document.getElementById('crm-screenshot-dialog');
       if (!dlg || !report) return;
       const isAdminManage = Boolean(options && options.adminManage);
       activeCrmDialogReportId = isAdminManage ? String(report.id || '') : null;
+      activeCrmDialogReport = report;
 
       const badge = document.getElementById('crm-dialog-badge');
       const title = document.getElementById('crm-screenshot-dialog-title');
@@ -72877,8 +73015,10 @@ function initApp() {
       const estadoSel = document.getElementById('crm-dialog-estado-sel');
       const respInp = document.getElementById('crm-dialog-resp-inp');
       const confirmStatus = document.getElementById('crm-dialog-confirm-status');
+      const agStatus = document.getElementById('crm-dialog-ag-status');
       const btnSave = document.getElementById('btn-crm-dialog-save');
       const btnDelete = document.getElementById('btn-crm-dialog-delete');
+      const btnAntigravity = document.getElementById('btn-crm-dialog-antigravity');
 
       const tipoInfo = CRM_TIPO_META[report.tipo] || CRM_TIPO_META.MEJORA;
       const prioInfo = CRM_PRIORIDAD_META[report.prioridad] || CRM_PRIORIDAD_META.NORMAL;
@@ -72933,10 +73073,30 @@ function initApp() {
         btnDelete.hidden = !isAdminManage;
         btnDelete.style.display = isAdminManage ? '' : 'none';
       }
+      if (btnAntigravity) {
+        btnAntigravity.hidden = !isAdminManage;
+        btnAntigravity.style.display = isAdminManage ? 'inline-flex' : 'none';
+      }
 
       if (isAdminManage) {
         if (estadoSel) estadoSel.value = report.estado || 'PENDIENTE';
         if (respInp) respInp.value = report.respuestaAdmin || '';
+        if (agStatus) {
+          const agSt = String(report.antigravityStatus || '').toUpperCase();
+          if (agSt === 'QUEUED') {
+            agStatus.hidden = false;
+            agStatus.style.display = 'block';
+            agStatus.textContent = `⚡ En cola de Antigravity${report.antigravityQueuedAt ? ' · ' + report.antigravityQueuedAt : ''}`;
+          } else if (agSt === 'DONE') {
+            agStatus.hidden = false;
+            agStatus.style.display = 'block';
+            agStatus.textContent = `✅ Procesado por Antigravity${report.antigravityDoneAt ? ' · ' + report.antigravityDoneAt : ''}`;
+          } else {
+            agStatus.hidden = true;
+            agStatus.style.display = 'none';
+            agStatus.textContent = '';
+          }
+        }
         if (confirmStatus) {
           if (report.confirmadoPorUsuario) {
             confirmStatus.hidden = false;
@@ -73265,6 +73425,132 @@ function initApp() {
       const dlg = document.getElementById('crm-screenshot-dialog');
       document.getElementById('btn-close-crm-dialog')?.addEventListener('click', () => dlg?.close?.());
       document.getElementById('btn-close-crm-dialog-footer')?.addEventListener('click', () => dlg?.close?.());
+
+      // Visor Lightbox + Abrir en pestaña + Descargar captura adjunta
+      const getActiveScreenshotSrc = () => {
+        const imgEl = document.getElementById('crm-dialog-img');
+        return (activeCrmDialogReport && activeCrmDialogReport.capturaBase64) || imgEl?.getAttribute('src') || '';
+      };
+      const getActiveScreenshotTitle = () => {
+        if (!activeCrmDialogReport) return 'Captura de Pantalla';
+        return `${activeCrmDialogReport.codigo || 'CRM'} · ${activeCrmDialogReport.titulo || 'Captura de Pantalla'}`;
+      };
+
+      document.getElementById('crm-dialog-img')?.addEventListener('click', () => {
+        const src = getActiveScreenshotSrc();
+        if (src) openCrmLightbox(src, getActiveScreenshotTitle());
+      });
+      document.getElementById('btn-crm-img-zoom')?.addEventListener('click', () => {
+        const src = getActiveScreenshotSrc();
+        if (src) openCrmLightbox(src, getActiveScreenshotTitle());
+      });
+      document.getElementById('btn-crm-img-open-tab')?.addEventListener('click', () => {
+        openCrmScreenshotInNewTab(getActiveScreenshotSrc());
+      });
+      document.getElementById('btn-crm-img-download')?.addEventListener('click', () => {
+        downloadCrmScreenshot(getActiveScreenshotSrc(), activeCrmDialogReport?.codigo || 'captura-crm');
+      });
+
+      const lbDlg = document.getElementById('crm-lightbox-dialog');
+      document.getElementById('btn-crm-lb-close')?.addEventListener('click', () => lbDlg?.close?.());
+      lbDlg?.addEventListener('click', (ev) => {
+        if (ev.target === lbDlg) lbDlg.close?.();
+      });
+      document.getElementById('crm-lightbox-img')?.addEventListener('click', () => {
+        crmLightboxZoom = crmLightboxZoom === 0 ? 1.5 : (crmLightboxZoom < 2.5 ? crmLightboxZoom + 0.5 : 0);
+        applyCrmLightboxZoom();
+      });
+      document.getElementById('btn-crm-lb-zoom-in')?.addEventListener('click', () => {
+        crmLightboxZoom = crmLightboxZoom <= 0 ? 1.25 : Math.min(3.5, +(crmLightboxZoom + 0.35).toFixed(2));
+        applyCrmLightboxZoom();
+      });
+      document.getElementById('btn-crm-lb-zoom-out')?.addEventListener('click', () => {
+        if (crmLightboxZoom <= 0.75) crmLightboxZoom = 0;
+        else crmLightboxZoom = Math.max(0.5, +(crmLightboxZoom - 0.35).toFixed(2));
+        applyCrmLightboxZoom();
+      });
+      document.getElementById('btn-crm-lb-reset')?.addEventListener('click', () => {
+        crmLightboxZoom = 0;
+        applyCrmLightboxZoom();
+      });
+      document.getElementById('btn-crm-lb-open-tab')?.addEventListener('click', () => {
+        openCrmScreenshotInNewTab(getActiveScreenshotSrc());
+      });
+      document.getElementById('btn-crm-lb-download')?.addEventListener('click', () => {
+        downloadCrmScreenshot(getActiveScreenshotSrc(), activeCrmDialogReport?.codigo || 'captura-crm');
+      });
+
+      // Botón "Enviar a Antigravity" (encola ticket en Supabase + copia prompt estructurado)
+      document.getElementById('btn-crm-dialog-antigravity')?.addEventListener('click', async () => {
+        const rep = activeCrmDialogReport;
+        const id = activeCrmDialogReportId || rep?.id;
+        if (!id || !rep) return;
+        const btnAg = document.getElementById('btn-crm-dialog-antigravity');
+        const agStatus = document.getElementById('crm-dialog-ag-status');
+        const estSel = document.getElementById('crm-dialog-estado-sel');
+        const prompt = buildAntigravityPromptForReport(rep);
+
+        if (btnAg) btnAg.disabled = true;
+        const copied = await copyTextToClipboardSafe(prompt);
+        let queuedOk = false;
+        let queuedAt = formatNowDateTimeAr();
+        try {
+          const res = await fetch('api/manual_ai.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'queue_antigravity',
+              id,
+              codigo: rep.codigo || '',
+              prompt,
+              autor: STATE.currentUser?.username || STATE.currentUser?.name || 'danielg'
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.ok) {
+              queuedOk = true;
+              if (data.report?.antigravityQueuedAt) queuedAt = data.report.antigravityQueuedAt;
+              if (Array.isArray(data.reports)) {
+                crmReportsList = data.reports;
+                saveLocalCrmReports(crmReportsList);
+              }
+              if (data.report) {
+                activeCrmDialogReport = data.report;
+              }
+            }
+          }
+        } catch (_e) {
+          // fallback silencioso si falla la red
+        } finally {
+          if (btnAg) btnAg.disabled = false;
+        }
+
+        if (queuedOk) {
+          if (estSel && estSel.value === 'PENDIENTE') {
+            estSel.value = 'EN_PROCESO';
+          }
+          if (agStatus) {
+            agStatus.hidden = false;
+            agStatus.style.display = 'block';
+            agStatus.textContent = `⚡ En cola de Antigravity · ${queuedAt}`;
+          }
+          renderCrmAdminSection();
+          renderMyReportsTable();
+        }
+
+        if (typeof showToast === 'function') {
+          if (queuedOk && copied) {
+            showToast(`⚡ ${rep.codigo || 'Ticket'} enviado a la cola de Antigravity y prompt copiado al portapapeles`);
+          } else if (queuedOk) {
+            showToast(`⚡ ${rep.codigo || 'Ticket'} enviado a la cola de Antigravity`);
+          } else if (copied) {
+            showToast(`📋 Prompt de ${rep.codigo || 'ticket'} copiado al portapapeles para pegar en Antigravity`, 'warning');
+          } else {
+            showToast('No se pudo encolar en Antigravity. Reintentá en unos segundos.', 'error');
+          }
+        }
+      });
 
       document.getElementById('btn-crm-dialog-save')?.addEventListener('click', async () => {
         const id = activeCrmDialogReportId;

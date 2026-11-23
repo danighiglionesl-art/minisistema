@@ -13229,12 +13229,31 @@
           <div id="crm-dialog-desc" style="padding:0.9rem; border-radius:var(--radius-sm); background:var(--surface-elevated); border:1px solid var(--border-subtle); white-space:pre-wrap; font-size:0.92rem; line-height:1.45;"></div>
         </div>
 
-        <div id="crm-dialog-img-wrap" hidden style="display:flex; flex-direction:column; gap:0.4rem;">
-          <div style="font-size:0.76rem; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary);">
-            Captura de Pantalla Adjunta
+        <div id="crm-dialog-img-wrap" hidden style="display:flex; flex-direction:column; gap:0.45rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; flex-wrap:wrap;">
+            <div style="font-size:0.76rem; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary);">
+              Captura de Pantalla Adjunta
+            </div>
+            <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+              <button type="button" id="btn-crm-img-zoom" class="btn-secondary" style="width:auto; padding:0.28rem 0.65rem; font-size:0.76rem; font-weight:700; display:inline-flex; align-items:center; gap:0.35rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                Ampliar
+              </button>
+              <button type="button" id="btn-crm-img-open-tab" class="btn-secondary" style="width:auto; padding:0.28rem 0.65rem; font-size:0.76rem; font-weight:700; display:inline-flex; align-items:center; gap:0.35rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Abrir en pestaña
+              </button>
+              <button type="button" id="btn-crm-img-download" class="btn-secondary" style="width:auto; padding:0.28rem 0.65rem; font-size:0.76rem; font-weight:700; display:inline-flex; align-items:center; gap:0.35rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Descargar
+              </button>
+            </div>
           </div>
-          <div style="text-align:center; background:#0f172a; padding:0.75rem; border-radius:var(--radius-md);">
-            <img id="crm-dialog-img" src="" alt="Captura de pantalla del reporte" style="max-width:100%; max-height:54vh; object-fit:contain; border-radius:6px;">
+          <div style="text-align:center; background:#0f172a; padding:0.75rem; border-radius:var(--radius-md); position:relative;">
+            <img id="crm-dialog-img" src="" alt="Captura de pantalla del reporte" title="Clic para ampliar a pantalla completa" style="max-width:100%; max-height:54vh; object-fit:contain; border-radius:6px; cursor:zoom-in; transition:opacity 0.15s ease;">
+            <div style="margin-top:0.45rem; font-size:0.73rem; color:rgba(226,232,240,0.78);">
+              Hacé clic sobre la captura para verla en pantalla completa con zoom
+            </div>
           </div>
         </div>
         <div id="crm-dialog-no-img" hidden style="font-size:0.82rem; color:var(--text-secondary); font-style:italic;">
@@ -13246,6 +13265,7 @@
           <div style="font-size:0.82rem; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-primary);">
             ⚙️ Estado y Gestión CRM
           </div>
+          <div id="crm-dialog-ag-status" hidden style="font-size:0.78rem; font-weight:700; border-radius:6px; padding:0.45rem 0.7rem; color:#0f766e; background:rgba(20,184,166,0.12); border:1px solid rgba(20,184,166,0.35);"></div>
           <div class="form-group" style="margin:0;">
             <label for="crm-dialog-estado-sel" class="form-label">Estado del Ticket</label>
             <select id="crm-dialog-estado-sel" class="form-select" style="font-weight:700;">
@@ -13269,12 +13289,39 @@
           </button>
         </div>
         <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+          <button type="button" id="btn-crm-dialog-antigravity" class="btn-secondary" hidden style="width:auto; font-weight:800; background:#112D3A; color:#56D7A1; border:1px solid #1e4b5f; display:inline-flex; align-items:center; gap:0.45rem;" title="Encola este ticket con su captura para Antigravity y copia el prompt estructurado">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
+            Enviar a Antigravity
+          </button>
           <button type="button" id="btn-close-crm-dialog-footer" class="btn-secondary" style="width:auto;">Cerrar</button>
           <button type="button" id="btn-crm-dialog-save" class="btn-primary" hidden style="width:auto; font-weight:800;">
             💾 Guardar Gestión
           </button>
         </div>
       </footer>
+    </div>
+  </dialog>
+
+  <!-- VISOR PANTALLA COMPLETA (LIGHTBOX) DE CAPTURA ADJUNTA CRM -->
+  <dialog id="crm-lightbox-dialog" class="erp-dialog" aria-labelledby="crm-lightbox-title" style="max-width:96vw; width:96vw; max-height:94vh; height:92vh; padding:0; background:#0b1220; color:#f8fafc; border:1px solid rgba(148,163,184,0.28); border-radius:14px; overflow:hidden;">
+    <div style="display:flex; flex-direction:column; width:100%; height:100%;">
+      <header style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem; padding:0.7rem 1rem; background:#0f172a; border-bottom:1px solid rgba(148,163,184,0.2); flex-wrap:wrap;">
+        <div id="crm-lightbox-title" style="font-size:0.9rem; font-weight:800; color:#f8fafc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:45vw;">
+          Captura de Pantalla
+        </div>
+        <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+          <button type="button" id="btn-crm-lb-zoom-out" class="btn-secondary" style="width:auto; padding:0.28rem 0.6rem; font-size:0.78rem; background:#1e293b; color:#f8fafc; border-color:#334155;" title="Alejar">−</button>
+          <span id="crm-lb-zoom-label" style="font-size:0.76rem; font-weight:700; min-width:52px; text-align:center; color:#cbd5e1;">Ajustar</span>
+          <button type="button" id="btn-crm-lb-zoom-in" class="btn-secondary" style="width:auto; padding:0.28rem 0.6rem; font-size:0.78rem; background:#1e293b; color:#f8fafc; border-color:#334155;" title="Acercar">+</button>
+          <button type="button" id="btn-crm-lb-reset" class="btn-secondary" style="width:auto; padding:0.28rem 0.6rem; font-size:0.76rem; background:#1e293b; color:#f8fafc; border-color:#334155;">Ajustar</button>
+          <button type="button" id="btn-crm-lb-open-tab" class="btn-secondary" style="width:auto; padding:0.28rem 0.65rem; font-size:0.76rem; background:#1e293b; color:#f8fafc; border-color:#334155;">Abrir en pestaña</button>
+          <button type="button" id="btn-crm-lb-download" class="btn-secondary" style="width:auto; padding:0.28rem 0.65rem; font-size:0.76rem; background:#1e293b; color:#f8fafc; border-color:#334155;">Descargar</button>
+          <button type="button" id="btn-crm-lb-close" class="btn-icon-close" aria-label="Cerrar visor" style="background:#1e293b; color:#f8fafc; border:1px solid #334155;">✕</button>
+        </div>
+      </header>
+      <div id="crm-lightbox-stage" style="flex:1; overflow:auto; display:flex; align-items:center; justify-content:center; padding:1rem; background:#020617;">
+        <img id="crm-lightbox-img" src="" alt="Captura ampliada del ticket CRM" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:8px; box-shadow:0 16px 40px rgba(0,0,0,0.55); cursor:zoom-in; transition:width 0.15s ease;">
+      </div>
     </div>
   </dialog>
 

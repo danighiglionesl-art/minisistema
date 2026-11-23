@@ -1727,6 +1727,24 @@ export async function handleErpManualAi(
       );
     }
 
+    if (getAction === "antigravity_queue") {
+      const includeAll =
+        req.nextUrl.searchParams.get("include_all") === "1" ||
+        req.nextUrl.searchParams.get("all") === "1";
+      const queued = mergedReports.filter((rep) => {
+        const st = String(rep?.antigravityStatus || "").trim().toUpperCase();
+        return includeAll ? Boolean(st) : st === "QUEUED";
+      });
+      return NextResponse.json(
+        {
+          ok: true,
+          count: queued.length,
+          queue: queued,
+        },
+        { headers: corsHeaders }
+      );
+    }
+
     return NextResponse.json(
       {
         ok: true,
@@ -1989,11 +2007,24 @@ export async function handleErpManualAi(
           if (payload.resueltoPor !== undefined) {
             rep.resueltoPor = String(payload.resueltoPor).trim();
           }
+          if (payload.antigravityStatus !== undefined) {
+            rep.antigravityStatus = String(payload.antigravityStatus)
+              .trim()
+              .toUpperCase();
+          }
           const newEstado = String(rep.estado || "PENDIENTE").trim().toUpperCase();
           const newResp = String(rep.respuestaAdmin || "").trim();
           rep.updatedAt = formatNowDateTimeArServer();
           if (newEstado === "RESUELTO" && !rep.resueltoFecha) {
             rep.resueltoFecha = formatNowDateTimeArServer();
+          }
+          if (
+            (newEstado === "RESUELTO" || newEstado === "DESCARTADO") &&
+            String(rep.antigravityStatus || "").toUpperCase() === "QUEUED" &&
+            payload.antigravityStatus === undefined
+          ) {
+            rep.antigravityStatus = "DONE";
+            rep.antigravityDoneAt = formatNowDateTimeArServer();
           }
 
           const notifyStates = ["EN_PROCESO", "RESUELTO", "DESCARTADO"];
@@ -2062,6 +2093,75 @@ export async function handleErpManualAi(
         {
           ok: true,
           report: updatedItem,
+          reports,
+        },
+        { headers: corsHeaders }
+      );
+    }
+
+    if (action === "queue_antigravity") {
+      const id = String(payload.id || "").trim();
+      const codigo = String(payload.codigo || "").trim();
+      if (!id && !codigo) {
+        return NextResponse.json(
+          { ok: false, message: "ID o código de ticket inválido." },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+      const { baseTenant, reports } = await getCentralCrmReports();
+      let queuedItem: AnyObj | null = null;
+      const nowAr = formatNowDateTimeArServer();
+      for (const rep of reports) {
+        if (!rep || typeof rep !== "object") continue;
+        const isMatch =
+          (id &&
+            (String(rep.id || "") === id || String(rep.codigo || "") === id)) ||
+          (codigo && String(rep.codigo || "") === codigo);
+        if (isMatch) {
+          const fallbackPrompt = [
+            `Resolver ticket CRM ${rep.codigo || rep.id}: ${rep.titulo || "Sin título"}`,
+            `Sistema / Comercio: ${rep.marca || rep.sucursal || "MiniSistema"}`,
+            `Módulo: ${rep.moduloLabel || "General"} (${rep.moduloKey || "general"})`,
+            `Reportado por: ${rep.usuario || "Usuario"} (@${rep.username || "—"}) el ${rep.fechaHora || "—"}`,
+            `Tipo: ${rep.tipo || "MEJORA"} · Prioridad: ${rep.prioridad || "NORMAL"}`,
+            `Descripción:\n${rep.descripcion || "Sin descripción"}`,
+            rep.capturaBase64
+              ? `Captura adjunta: SÍ (disponible en GET /sistema/api/manual_ai.php?action=antigravity_queue)`
+              : `Captura adjunta: NO`,
+          ].join("\n");
+
+          rep.antigravityStatus = "QUEUED";
+          rep.antigravityQueuedAt = nowAr;
+          rep.antigravityQueuedBy = actor;
+          rep.antigravityPrompt =
+            String(payload.prompt || "").trim() || fallbackPrompt;
+          if (String(rep.estado || "PENDIENTE").trim().toUpperCase() === "PENDIENTE") {
+            rep.estado = "EN_PROCESO";
+          }
+          rep.updatedAt = nowAr;
+          queuedItem = rep;
+          break;
+        }
+      }
+
+      if (!queuedItem) {
+        return NextResponse.json(
+          { ok: false, message: "No se encontró el ticket en el CRM." },
+          { status: 404, headers: corsHeaders }
+        );
+      }
+
+      await saveCentralCrmReports(
+        baseTenant,
+        reports,
+        actor,
+        "queue_antigravity"
+      );
+
+      return NextResponse.json(
+        {
+          ok: true,
+          report: queuedItem,
           reports,
         },
         { headers: corsHeaders }

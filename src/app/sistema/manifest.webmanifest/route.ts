@@ -13,16 +13,19 @@ export async function GET(req: NextRequest) {
     tenant.is_base,
     tenant.branding
   );
-  const startUrl =
-    tenant.option_type === 2 && !tenant.is_base ? `/${tenant.slug}` : "/sistema";
+  const isSubpathTenant = tenant.option_type === 2 && !tenant.is_base;
+  const startUrl = isSubpathTenant ? `/${tenant.slug}` : "/sistema";
+  const scopeUrl = isSubpathTenant ? `/${tenant.slug}` : "/";
 
   const manifest = {
+    id: startUrl,
     name: `${tenant.fantasy_name} · Sistema ERP`,
     short_name: tenant.fantasy_name,
     description: `Sistema ERP en Línea — ${tenant.business_name}`,
     start_url: startUrl,
-    scope: startUrl,
+    scope: scopeUrl,
     display: "standalone",
+    display_override: ["standalone", "minimal-ui"],
     background_color: brand.primaryHex,
     theme_color: brand.primaryHex,
     lang: "es-AR",
