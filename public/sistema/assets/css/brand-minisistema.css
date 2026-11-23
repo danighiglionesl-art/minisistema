@@ -25,7 +25,7 @@ html[data-brand="minisistema"] {
   --theme-secondary: var(--ms-primary);
 }
 
-html[data-brand="minisistema"] img[src*="cn.com.ar/backend/public/storage/images/productos"] {
+html[data-brand="minisistema"][data-tenant="minisistema"] img[src*="cn.com.ar/backend/public/storage/images/productos"] {
   visibility: hidden !important;
 }
 
@@ -212,6 +212,29 @@ html[data-brand="minisistema"] .topbar-icon {
 
 html[data-brand="minisistema"] .topbar-titles {
   display: none !important;
+}
+
+html[data-brand="minisistema"][data-tenant="casanueva"] .topbar-titles {
+  display: flex !important;
+  align-items: center;
+}
+
+html[data-brand="minisistema"][data-tenant="casanueva"] .topbar-titles h1 {
+  color: #FFFFFF !important;
+  font-size: 0.96rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 0;
+  white-space: nowrap;
+}
+
+html[data-brand="minisistema"][data-tenant="casanueva"] .brand-emblem-wrap {
+  width: 172px;
+  height: 172px;
+}
+
+html[data-brand="minisistema"][data-tenant="casanueva"] .store-brand-text {
+  display: flex !important;
 }
 
 html[data-brand="minisistema"] .omnibox-icon {

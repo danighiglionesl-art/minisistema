@@ -350,7 +350,7 @@ const PRESET_USER_AVATARS = [
       ]
     : [
         { id: 'cachita', label: 'Cachita (Mascota Oficial)', url: 'assets/img/cachita.jpg' },
-        { id: 'logo-cn', label: 'Logo Casa Nueva', url: 'assets/img/logo-full.png?v=75' }
+        { id: 'logo-cn', label: 'Logo Casa Nueva', url: ACTIVE_BRAND?.assets?.logo1x1 || '/sistema/assets/img/casanueva/logo-full.png' }
       ]),
   {
     id: 'avatar-admin',
@@ -624,10 +624,10 @@ function showBrandConfirmDialog(rawMessage, opts = {}) {
       ? ACTIVE_BRAND.assets?.logo1x1 || '/sistema/assets/img/minisistema/logo-1x1.png'
       : ACTIVE_BRAND?.isPaseoAlberdi
       ? ACTIVE_BRAND.assets?.logo1x1 || 'assets/img/paseo-alberdi/logo-1x1-original.jpg'
-      : 'assets/img/brand-mark.jpg';
+      : ACTIVE_BRAND?.assets?.logo1x1 || '/sistema/assets/img/casanueva/logo-full.png';
     const fallbackLogoSrc = ACTIVE_BRAND?.isMiniSistema
       ? '/sistema/assets/img/minisistema/icon-192.png'
-      : 'assets/img/icon-192.png';
+      : ACTIVE_BRAND?.assets?.logoSymbol || '/sistema/assets/img/casanueva/icon-192.png';
     const brandEyebrow = `${ACTIVE_BRAND?.upperFullName || 'CASA NUEVA SUPERMERCADO'} · SISTEMA ERP`;
     const titleText = opts.title || 'Confirmación del Sistema';
     const acceptLabel = opts.acceptLabel || '✅ Aceptar';
@@ -34089,8 +34089,14 @@ function initApp() {
   }
 
   loadAtajosStore();
-  syncGlobalAtajosFromServer();
-  setInterval(syncGlobalAtajosFromServer, 20000);
+  if (STATE.currentUser) {
+    syncGlobalAtajosFromServer();
+  }
+  setInterval(() => {
+    if (STATE.currentUser && !document.hidden) {
+      syncGlobalAtajosFromServer();
+    }
+  }, 60000);
   STATE.editingAtajoId = null;
 
   function executeAtajoAction(accionCode, shortcutObj = null) {
@@ -53129,7 +53135,7 @@ function initApp() {
   let dbStatusPollInFlight = false;
 
   async function checkAndSyncDatabaseRevisions(forceEvenIfHidden = false) {
-    if (dbStatusPollInFlight || (document.hidden && !forceEvenIfHidden)) return;
+    if (dbStatusPollInFlight || !STATE.currentUser || (document.hidden && !forceEvenIfHidden)) return;
     dbStatusPollInFlight = true;
     try {
       const res = await origFetch(`api/db_status.php?_t=${Date.now()}`, { cache: 'no-store' });
@@ -53224,8 +53230,10 @@ function initApp() {
     }
   }
 
-  checkAndSyncDatabaseRevisions();
-  setInterval(() => checkAndSyncDatabaseRevisions(false), 4000);
+  if (STATE.currentUser) {
+    checkAndSyncDatabaseRevisions();
+  }
+  setInterval(() => checkAndSyncDatabaseRevisions(false), 10000);
   window.addEventListener('focus', () => checkAndSyncDatabaseRevisions(true));
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) checkAndSyncDatabaseRevisions(true);

@@ -167,9 +167,22 @@ export async function handleErpAuth(
       );
       const rawAtajos =
         (customDb._global_atajos as Record<string, unknown>) || null;
+      const list =
+        rawAtajos && typeof rawAtajos === "object"
+          ? Array.isArray(rawAtajos.list)
+            ? rawAtajos.list
+            : Array.isArray(rawAtajos.atajos)
+              ? rawAtajos.atajos
+              : []
+          : [];
       return NextResponse.json({
         ok: true,
-        atajos: rawAtajos && typeof rawAtajos === "object" ? rawAtajos.map || {} : {},
+        atajos: list,
+        seededFromFedericod: Boolean(
+          rawAtajos &&
+            typeof rawAtajos === "object" &&
+            (rawAtajos.seededFromFedericod || list.length > 0)
+        ),
         updatedBy:
           rawAtajos && typeof rawAtajos === "object"
             ? String(rawAtajos.updatedBy || "")
@@ -268,16 +281,15 @@ export async function handleErpAuth(
       const incoming = payload.atajos;
       if (!incoming || typeof incoming !== "object") {
         return NextResponse.json(
-          { ok: false, message: "Mapa de atajos inválido." },
+          { ok: false, message: "Lista de atajos inválida." },
           { status: 400 }
         );
       }
-      const cleanMap: Record<string, string> = {};
-      for (const [k, v] of Object.entries(incoming as Record<string, unknown>)) {
-        const cleanK = String(k).trim().toLowerCase();
-        const cleanV = String(v ?? "").trim();
-        if (cleanK && cleanV) cleanMap[cleanK] = cleanV;
-      }
+      const cleanList = Array.isArray(incoming)
+        ? incoming
+            .filter((item) => item && typeof item === "object")
+            .slice(0, 80)
+        : [];
       const { payload: customDb } = await getTenantDoc<Record<string, unknown>>(
         tenant,
         "users_custom",
@@ -288,8 +300,33 @@ export async function handleErpAuth(
       )
         .trim()
         .toLowerCase();
+      const prevMeta = (customDb._global_atajos as Record<string, unknown>) || null;
+      const prevList =
+        prevMeta && Array.isArray(prevMeta.list) ? prevMeta.list : [];
+      const seededFromFedericod = Boolean(
+        (prevMeta && prevMeta.seededFromFedericod) ||
+          updatedBy === "federicod" ||
+          payload.hasCustom ||
+          !payload.isAutoSync
+      );
+
+      // Evitar escrituras redundantes en Supabase si los atajos no cambiaron
+      if (
+        prevList.length > 0 &&
+        JSON.stringify(prevList) === JSON.stringify(cleanList) &&
+        Boolean(prevMeta?.seededFromFedericod) === seededFromFedericod
+      ) {
+        return NextResponse.json({
+          ok: true,
+          atajos: prevList,
+          seededFromFedericod,
+          updatedBy: String(prevMeta?.updatedBy || updatedBy),
+        });
+      }
+
       customDb._global_atajos = {
-        map: cleanMap,
+        list: cleanList,
+        seededFromFedericod,
         updatedBy,
         updatedAt: new Date().toISOString(),
       };
@@ -300,7 +337,12 @@ export async function handleErpAuth(
         updatedBy,
         "save_global_atajos"
       );
-      return NextResponse.json({ ok: true, atajos: cleanMap, updatedBy });
+      return NextResponse.json({
+        ok: true,
+        atajos: cleanList,
+        seededFromFedericod,
+        updatedBy,
+      });
     }
 
     if (action === "update_profile") {

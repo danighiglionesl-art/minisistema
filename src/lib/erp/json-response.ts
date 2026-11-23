@@ -21,12 +21,13 @@ export function jsonResponseMaybeGzip(
   const acceptEnc = (req.headers.get("accept-encoding") || "").toLowerCase();
 
   if (rawBuf.byteLength >= GZIP_THRESHOLD_BYTES && acceptEnc.includes("gzip")) {
-    const gz = zlib.gzipSync(rawBuf, { level: 6 });
+    const gz = zlib.gzipSync(rawBuf, { level: 4 });
     return new NextResponse(gz, {
       status,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         "Content-Encoding": "gzip",
+        "Content-Length": String(gz.byteLength),
         Vary: "Accept-Encoding",
         "Cache-Control": "no-store, no-cache, must-revalidate",
         ...extraHeaders,
@@ -38,6 +39,7 @@ export function jsonResponseMaybeGzip(
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
+      "Content-Length": String(rawBuf.byteLength),
       "Cache-Control": "no-store, no-cache, must-revalidate",
       ...extraHeaders,
     },

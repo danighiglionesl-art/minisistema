@@ -7,6 +7,7 @@ interface CachedAuthClient {
 }
 
 let cachedPrimaryClient: CachedAuthClient | null = null;
+let pendingPrimaryAuth: Promise<SupabaseClient> | null = null;
 const externalClientsCache = new Map<string, SupabaseClient>();
 
 function getSupabaseEnv() {
@@ -27,55 +28,67 @@ export async function getPlatformSupabase(): Promise<SupabaseClient> {
     return cachedPrimaryClient.client;
   }
 
-  const { url, key, email, password } = getSupabaseEnv();
-  const client = createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-
-  if (!password) {
-    throw new Error(
-      "Falta configurar ERP_SUPABASE_SERVICE_PASSWORD en las variables de entorno del servidor."
-    );
+  if (pendingPrimaryAuth) {
+    return pendingPrimaryAuth;
   }
 
-  const { data, error } = await client.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (error || !data.session) {
-    throw new Error(
-      `No se pudo autenticar el servicio backend en Supabase: ${error?.message || "sin sesión"}`
-    );
-  }
-
-  const authedClient = createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-    global: {
-      headers: {
-        Authorization: `Bearer ${data.session.access_token}`,
+  pendingPrimaryAuth = (async () => {
+    const { url, key, email, password } = getSupabaseEnv();
+    const client = createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
       },
-    },
-  });
+    });
 
-  const expiresAtMs = data.session.expires_at
-    ? data.session.expires_at * 1000
-    : now + 50 * 60 * 1000;
+    if (!password) {
+      throw new Error(
+        "Falta configurar ERP_SUPABASE_SERVICE_PASSWORD en las variables de entorno del servidor."
+      );
+    }
 
-  cachedPrimaryClient = {
-    client: authedClient,
-    expiresAtMs,
-  };
+    const { data, error } = await client.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  return authedClient;
+    if (error || !data.session) {
+      throw new Error(
+        `No se pudo autenticar el servicio backend en Supabase: ${error?.message || "sin sesión"}`
+      );
+    }
+
+    const authedClient = createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+      },
+    });
+
+    const expiresAtMs = data.session.expires_at
+      ? data.session.expires_at * 1000
+      : Date.now() + 50 * 60 * 1000;
+
+    cachedPrimaryClient = {
+      client: authedClient,
+      expiresAtMs,
+    };
+
+    return authedClient;
+  })();
+
+  try {
+    return await pendingPrimaryAuth;
+  } finally {
+    pendingPrimaryAuth = null;
+  }
 }
 
 export async function getTenantDataSupabase(

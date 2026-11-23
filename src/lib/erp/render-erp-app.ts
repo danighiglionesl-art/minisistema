@@ -28,11 +28,30 @@ function readTemplate(kind: "sistema" | "carrito" | "verificador"): string {
 
 function replaceVisibleCopy(str: string, tenant: ErpTenantRecord): string {
   if (!str) return str;
-  const brand = enforceOptionBranding(
+  const rawBrand = enforceOptionBranding(
     tenant.option_type,
     tenant.is_base,
     tenant.branding
   );
+  // Resguardo: si el tenant casanueva aún apunta a las rutas viejas pisadas por MiniSistema, mapear a /assets/img/casanueva/
+  const brand =
+    tenant.slug === "casanueva"
+      ? {
+          ...rawBrand,
+          logo1x1Url:
+            rawBrand.logo1x1Url === "/sistema/assets/img/logo-full.png"
+              ? "/sistema/assets/img/casanueva/logo-full.png"
+              : rawBrand.logo1x1Url,
+          logoHorizontalUrl:
+            rawBrand.logoHorizontalUrl === "/sistema/assets/img/logo-full.png"
+              ? "/sistema/assets/img/casanueva/logo-full.png"
+              : rawBrand.logoHorizontalUrl,
+          logoSymbolUrl:
+            rawBrand.logoSymbolUrl === "/sistema/assets/img/icon-192.png"
+              ? "/sistema/assets/img/casanueva/icon-192.png"
+              : rawBrand.logoSymbolUrl,
+        }
+      : rawBrand;
   const fantasy = tenant.fantasy_name || tenant.business_name || "MiniSistema";
   const upperFantasy = fantasy.toUpperCase();
   const erpTitle = tenant.is_base ? "MiniSistema ERP" : `${fantasy} · ERP`;
@@ -127,11 +146,30 @@ export function renderErpHtmlResponse(params: {
   }
 
   let html = readTemplate(kind);
-  const brand = enforceOptionBranding(
+  const rawBrand = enforceOptionBranding(
     tenant.option_type,
     tenant.is_base,
     tenant.branding
   );
+  // Resguardo: si el tenant casanueva aún apunta a las rutas viejas pisadas por MiniSistema, mapear a /assets/img/casanueva/
+  const brand =
+    tenant.slug === "casanueva"
+      ? {
+          ...rawBrand,
+          logo1x1Url:
+            rawBrand.logo1x1Url === "/sistema/assets/img/logo-full.png"
+              ? "/sistema/assets/img/casanueva/logo-full.png"
+              : rawBrand.logo1x1Url,
+          logoHorizontalUrl:
+            rawBrand.logoHorizontalUrl === "/sistema/assets/img/logo-full.png"
+              ? "/sistema/assets/img/casanueva/logo-full.png"
+              : rawBrand.logoHorizontalUrl,
+          logoSymbolUrl:
+            rawBrand.logoSymbolUrl === "/sistema/assets/img/icon-192.png"
+              ? "/sistema/assets/img/casanueva/icon-192.png"
+              : rawBrand.logoSymbolUrl,
+        }
+      : rawBrand;
 
   const primaryHex = brand.primaryHex || MS_COLORS.primaryHex;
   const accentHex = brand.accentHex || MS_COLORS.accentHex;
@@ -195,20 +233,20 @@ export function renderErpHtmlResponse(params: {
   <script>window.__ERP_TENANT_BOOT__ = ${JSON.stringify(bootPayload)};</script>`;
 
   const headStyleInjection = `
+  <link rel="stylesheet" id="ms-brand-stylesheet" href="/sistema/assets/css/brand-minisistema.css?v=${assetVer}">
   <style id="ms-tenant-tokens">
-    :root, html[data-brand="minisistema"] {
+    :root, html[data-brand="minisistema"], html[data-tenant="${tenant.slug}"] {
       --ms-primary: ${primaryHex};
       --ms-accent: ${accentHex};
       --ms-surface: #FFFFFF;
     }
-  </style>
-  <link rel="stylesheet" id="ms-brand-stylesheet" href="/sistema/assets/css/brand-minisistema.css?v=${assetVer}">`;
+  </style>`;
 
-  // 1. Marcar data-brand="minisistema" desde el byte 0 en <html>
+  // 1. Marcar data-brand="minisistema" y data-tenant="<slug>" desde el byte 0 en <html>
   if (kind === "carrito") {
     html = html.replace(
       /<html\b[^>]*>/i,
-      '<html lang="es-AR" data-brand="minisistema" data-theme="light">'
+      `<html lang="es-AR" data-brand="minisistema" data-tenant="${tenant.slug}" data-theme="light">`
     );
     // Ocultar banner estático residual de Casa Nueva hasta cargar banners propios del tenant
     html = html.replace(
@@ -222,7 +260,7 @@ export function renderErpHtmlResponse(params: {
   } else {
     html = html.replace(
       /<html\b[^>]*>/i,
-      `<html lang="es-AR" data-brand="minisistema" data-actividad="${actividadNegocio}">`
+      `<html lang="es-AR" data-brand="minisistema" data-tenant="${tenant.slug}" data-actividad="${actividadNegocio}">`
     );
   }
 
@@ -249,8 +287,17 @@ export function renderErpHtmlResponse(params: {
   );
 
   // 4. Reemplazar logos estáticos iniciales por la identidad oficial activa (MiniSistema u Opción 1)
+  const topbarLogoUrl =
+    tenant.slug === "casanueva" ? brand.logoSymbolUrl : brand.logoHorizontalUrl;
   html = html.replace(
-    /<img([^>]*class="[^"]*(?:store-brand-logo|topbar-icon)[^"]*"[^>]*)>/gi,
+    /<img([^>]*class="[^"]*topbar-icon[^"]*"[^>]*)>/gi,
+    (tag) =>
+      tag
+        .replace(/src="[^"]*"/i, `src="${topbarLogoUrl}"`)
+        .replace(/alt="[^"]*"/i, `alt="${tenant.fantasy_name}"`)
+  );
+  html = html.replace(
+    /<img([^>]*class="[^"]*store-brand-logo[^"]*"[^>]*)>/gi,
     (tag) =>
       tag
         .replace(/src="[^"]*"/i, `src="${brand.logoHorizontalUrl}"`)

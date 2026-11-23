@@ -17,6 +17,7 @@ import {
   getPlatformSecretsMap,
   getPricingConfig,
   getTenantBySlug,
+  invalidateTenantCache,
   provisionNewCommerceTenant,
   provisionOption1Deployment,
   savePlatformSecretsMap,
@@ -525,6 +526,7 @@ export async function handleErpSuperAdmin(
             updated_at: new Date().toISOString(),
           })
           .eq("slug", targetTenant.slug);
+        invalidateTenantCache(targetTenant.slug);
       }
 
       // Si es el sistema base MiniSistema, sincronizar también en secretos globales
@@ -745,6 +747,8 @@ export async function handleErpSuperAdmin(
           { status: 400 }
         );
       }
+
+      invalidateTenantCache(slug);
 
       if (requestedActividad && updated) {
         try {

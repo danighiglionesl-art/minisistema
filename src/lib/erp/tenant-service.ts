@@ -40,7 +40,44 @@ const RESERVED_SLUGS = new Set([
   "sitemap.xml",
 ]);
 
-let baseBootstrapped = false;
+const TENANT_CACHE_TTL_MS = 60_000;
+const tenantBySlugCache = new Map<
+  string,
+  { value: ErpTenantRecord | null; expiresAt: number }
+>();
+const tenantByHostCache = new Map<
+  string,
+  { value: ErpTenantRecord | null; expiresAt: number }
+>();
+let baseTenantPromise: Promise<ErpTenantRecord> | null = null;
+let pricingChecked = false;
+
+export function invalidateTenantCache(slug?: string): void {
+  if (slug) {
+    const clean = slug.trim().toLowerCase();
+    tenantBySlugCache.delete(clean);
+  } else {
+    tenantBySlugCache.clear();
+  }
+  tenantByHostCache.clear();
+}
+
+function cacheTenantRecord(tenant: ErpTenantRecord | null, slugKey?: string, hostKey?: string): void {
+  const expiresAt = Date.now() + TENANT_CACHE_TTL_MS;
+  if (tenant) {
+    tenantBySlugCache.set(tenant.slug.toLowerCase(), { value: tenant, expiresAt });
+    if (tenant.custom_domain) {
+      const dom = tenant.custom_domain.trim().toLowerCase();
+      const bare = dom.replace(/^www\./, "");
+      tenantByHostCache.set(dom, { value: tenant, expiresAt });
+      tenantByHostCache.set(bare, { value: tenant, expiresAt });
+      tenantByHostCache.set(`www.${bare}`, { value: tenant, expiresAt });
+    }
+  } else {
+    if (slugKey) tenantBySlugCache.set(slugKey, { value: null, expiresAt: Date.now() + 15_000 });
+    if (hostKey) tenantByHostCache.set(hostKey, { value: null, expiresAt: Date.now() + 15_000 });
+  }
+}
 
 export function isReservedAppSlug(slug: string): boolean {
   return RESERVED_SLUGS.has(slug.trim().toLowerCase());
@@ -284,162 +321,177 @@ export function calculateSubscriptionQuote(params: {
 }
 
 export async function ensureBaseMiniSistemaTenant(): Promise<ErpTenantRecord> {
-  const sb = await getPlatformSupabase();
+  const cached = tenantBySlugCache.get("minisistema");
+  if (cached && cached.value && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
 
-  if (!baseBootstrapped) {
-    // Ensure default pricing config exists
-    const { data: existingPricing } = await sb
-      .from("erp_pricing_config")
+  if (baseTenantPromise) {
+    return baseTenantPromise;
+  }
+
+  baseTenantPromise = (async () => {
+    const sb = await getPlatformSupabase();
+
+    const { data: existing } = await sb
+      .from("erp_tenants")
       .select("*")
-      .eq("id", "default")
+      .eq("slug", "minisistema")
       .maybeSingle();
 
-    if (!existingPricing) {
-      await sb.from("erp_pricing_config").insert(buildDefaultPricingConfig());
-    }
-  }
-
-  const { data: existing } = await sb
-    .from("erp_tenants")
-    .select("*")
-    .eq("slug", "minisistema")
-    .maybeSingle();
-
-  if (existing) {
-    const existingMods = Array.isArray(existing.enabled_modules)
-      ? existing.enabled_modules
-      : [];
-    const missingAnyKey = ALL_ERP_MODULE_KEYS.some(
-      (k) => !existingMods.includes(k)
-    );
-    if (missingAnyKey) {
-      existing.enabled_modules = ALL_ERP_MODULE_KEYS;
-      await sb
-        .from("erp_tenants")
-        .update({
-          enabled_modules: ALL_ERP_MODULE_KEYS,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("slug", "minisistema");
-    }
-    if (!baseBootstrapped) {
-      const cleanSeed = buildCleanTenantSeed({
-        businessName: "MiniSistema",
-        localidad: "RÍO CUARTO",
-        provincia: "CÓRDOBA",
-        cp: "5800",
-        whatsappComercio: "+5493585095475",
-        emailInfo: "contacto@minisistema.com.ar",
-        enabledModules: ALL_ERP_MODULE_KEYS,
-      });
-      await provisionTenantSchemaInDb(
-        existing as ErpTenantRecord,
-        cleanSeed.docs,
-        cleanSeed.users
+    if (existing) {
+      const existingMods = Array.isArray(existing.enabled_modules)
+        ? existing.enabled_modules
+        : [];
+      const missingAnyKey = ALL_ERP_MODULE_KEYS.some(
+        (k) => !existingMods.includes(k)
       );
-      baseBootstrapped = true;
+      if (missingAnyKey) {
+        existing.enabled_modules = ALL_ERP_MODULE_KEYS;
+        await sb
+          .from("erp_tenants")
+          .update({
+            enabled_modules: ALL_ERP_MODULE_KEYS,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("slug", "minisistema");
+      }
+      // IMPORTANTE: No ejecutar DDL (erp_provision_tenant_schema) cuando el tenant base ya existe;
+      // ejecutar ALTER TABLE en cold starts bloquea tablas y dispara recargas masivas de PostgREST.
+      const rec = existing as ErpTenantRecord;
+      cacheTenantRecord(rec);
+      return rec;
     }
-    return existing as ErpTenantRecord;
+
+    if (!pricingChecked) {
+      const { data: existingPricing } = await sb
+        .from("erp_pricing_config")
+        .select("id")
+        .eq("id", "default")
+        .maybeSingle();
+      if (!existingPricing) {
+        await sb.from("erp_pricing_config").insert(buildDefaultPricingConfig());
+      }
+      pricingChecked = true;
+    }
+
+    const branding = buildMiniSistemaBranding({
+      clubName: "Club MiniSistema",
+      address: "Río Cuarto, Córdoba, Argentina",
+      localidad: "RÍO CUARTO",
+      provincia: "CÓRDOBA",
+      cp: "5800",
+    });
+
+    const baseRecord: Omit<ErpTenantRecord, "id" | "created_at" | "updated_at"> = {
+      slug: "minisistema",
+      option_type: 1,
+      is_base: true,
+      business_name: "MiniSistema",
+      fantasy_name: "MiniSistema",
+      custom_domain: "www.minisistema.com.ar",
+      db_schema: "erp_minisistema",
+      external_supabase_url: null,
+      external_supabase_key: null,
+      status: "active",
+      branding,
+      enabled_modules: ALL_ERP_MODULE_KEYS,
+      subscription: {
+        optionType: 1,
+        optionBasePrice: 0,
+        selectedModules: [],
+        globalDiscountType: "permanent",
+        globalDiscountPct: 100,
+        globalDiscountFixed: 0,
+        temporaryMonths: 0,
+        promoStartsAt: null,
+        promoEndsAt: null,
+        monthlyPromoAmount: 0,
+        monthlyRegularAmount: 0,
+        activeMonthlyAmount: 0,
+        currency: "ARS",
+        payerEmail: "admin@minisistema.com.ar",
+        mpPreapprovalId: null,
+        mpInitPoint: null,
+        mpStatus: "authorized",
+        lastSyncAt: new Date().toISOString(),
+      },
+      deployment: {
+        mode: "custom_domain_vercel_github",
+        publicErpUrl: "https://www.minisistema.com.ar/sistema",
+        publicCarritoUrl: "https://www.minisistema.com.ar/carrito",
+        publicVerificadorUrl: "https://www.minisistema.com.ar/verificador",
+        publicTurnosUrl: "https://www.minisistema.com.ar/turnos",
+        publicInmobiliariaUrl: "https://www.minisistema.com.ar/inmobiliaria",
+        githubRepoUrl: "https://github.com/danighiglionesl-art/minisistema",
+        vercelProjectId: "prj_DwQTRgpPgTyuhHGbsAlezTNTvcFE",
+        vercelDomainVerified: true,
+        dnsInstructions: [],
+        provisionedAt: new Date().toISOString(),
+        notes: "Sistema ERP Base Oficial de MiniSistema",
+      },
+    };
+
+    const { data: inserted, error } = await sb
+      .from("erp_tenants")
+      .upsert(baseRecord, { onConflict: "slug" })
+      .select("*")
+      .single();
+
+    if (error || !inserted) {
+      throw new Error(`No se pudo inicializar el sistema base: ${error?.message || ""}`);
+    }
+
+    const cleanSeed = buildCleanTenantSeed({
+      businessName: "MiniSistema",
+      localidad: "RÍO CUARTO",
+      provincia: "CÓRDOBA",
+      cp: "5800",
+      whatsappComercio: "+5493585095475",
+      emailInfo: "contacto@minisistema.com.ar",
+      enabledModules: ALL_ERP_MODULE_KEYS,
+    });
+
+    await provisionTenantSchemaInDb(
+      inserted as ErpTenantRecord,
+      cleanSeed.docs,
+      cleanSeed.users
+    );
+
+    const rec = inserted as ErpTenantRecord;
+    cacheTenantRecord(rec);
+    return rec;
+  })();
+
+  try {
+    return await baseTenantPromise;
+  } finally {
+    baseTenantPromise = null;
   }
-
-  const branding = buildMiniSistemaBranding({
-    clubName: "Club MiniSistema",
-    address: "Río Cuarto, Córdoba, Argentina",
-    localidad: "RÍO CUARTO",
-    provincia: "CÓRDOBA",
-    cp: "5800",
-  });
-
-  const baseRecord: Omit<ErpTenantRecord, "id" | "created_at" | "updated_at"> = {
-    slug: "minisistema",
-    option_type: 1,
-    is_base: true,
-    business_name: "MiniSistema",
-    fantasy_name: "MiniSistema",
-    custom_domain: "www.minisistema.com.ar",
-    db_schema: "erp_minisistema",
-    external_supabase_url: null,
-    external_supabase_key: null,
-    status: "active",
-    branding,
-    enabled_modules: ALL_ERP_MODULE_KEYS,
-    subscription: {
-      optionType: 1,
-      optionBasePrice: 0,
-      selectedModules: [],
-      globalDiscountType: "permanent",
-      globalDiscountPct: 100,
-      globalDiscountFixed: 0,
-      temporaryMonths: 0,
-      promoStartsAt: null,
-      promoEndsAt: null,
-      monthlyPromoAmount: 0,
-      monthlyRegularAmount: 0,
-      activeMonthlyAmount: 0,
-      currency: "ARS",
-      payerEmail: "admin@minisistema.com.ar",
-      mpPreapprovalId: null,
-      mpInitPoint: null,
-      mpStatus: "authorized",
-      lastSyncAt: new Date().toISOString(),
-    },
-    deployment: {
-      mode: "custom_domain_vercel_github",
-      publicErpUrl: "https://www.minisistema.com.ar/sistema",
-      publicCarritoUrl: "https://www.minisistema.com.ar/carrito",
-      publicVerificadorUrl: "https://www.minisistema.com.ar/verificador",
-      publicTurnosUrl: "https://www.minisistema.com.ar/turnos",
-      publicInmobiliariaUrl: "https://www.minisistema.com.ar/inmobiliaria",
-      githubRepoUrl: "https://github.com/danighiglionesl-art/minisistema",
-      vercelProjectId: "prj_DwQTRgpPgTyuhHGbsAlezTNTvcFE",
-      vercelDomainVerified: true,
-      dnsInstructions: [],
-      provisionedAt: new Date().toISOString(),
-      notes: "Sistema ERP Base Oficial de MiniSistema",
-    },
-  };
-
-  const { data: inserted, error } = await sb
-    .from("erp_tenants")
-    .upsert(baseRecord, { onConflict: "slug" })
-    .select("*")
-    .single();
-
-  if (error || !inserted) {
-    throw new Error(`No se pudo inicializar el sistema base: ${error?.message || ""}`);
-  }
-
-  const cleanSeed = buildCleanTenantSeed({
-    businessName: "MiniSistema",
-    localidad: "RÍO CUARTO",
-    provincia: "CÓRDOBA",
-    cp: "5800",
-    whatsappComercio: "+5493585095475",
-    emailInfo: "contacto@minisistema.com.ar",
-    enabledModules: ALL_ERP_MODULE_KEYS,
-  });
-
-  await provisionTenantSchemaInDb(
-    inserted as ErpTenantRecord,
-    cleanSeed.docs,
-    cleanSeed.users
-  );
-  baseBootstrapped = true;
-
-  return inserted as ErpTenantRecord;
 }
 
 export async function getTenantBySlug(slug: string): Promise<ErpTenantRecord | null> {
-  await ensureBaseMiniSistemaTenant();
   const clean = slug.trim().toLowerCase();
   if (!clean) return null;
+  if (clean === "minisistema") {
+    return ensureBaseMiniSistemaTenant();
+  }
+
+  const cached = tenantBySlugCache.get(clean);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   const sb = await getPlatformSupabase();
   const { data } = await sb
     .from("erp_tenants")
     .select("*")
     .eq("slug", clean)
     .maybeSingle();
-  return (data as ErpTenantRecord | null) || null;
+
+  const rec = (data as ErpTenantRecord | null) || null;
+  cacheTenantRecord(rec, clean);
+  return rec;
 }
 
 export async function getTenantByHost(rawHost: string): Promise<ErpTenantRecord | null> {
@@ -458,7 +510,11 @@ export async function getTenantByHost(rawHost: string): Promise<ErpTenantRecord 
     return null;
   }
 
-  await ensureBaseMiniSistemaTenant();
+  const cached = tenantByHostCache.get(host);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   const sb = await getPlatformSupabase();
   const bare = host.replace(/^www\./, "");
   const candidates = [host, `www.${bare}`, bare];
@@ -468,31 +524,35 @@ export async function getTenantByHost(rawHost: string): Promise<ErpTenantRecord 
     .in("custom_domain", candidates)
     .limit(1)
     .maybeSingle();
-  return (data as ErpTenantRecord | null) || null;
+
+  const rec = (data as ErpTenantRecord | null) || null;
+  cacheTenantRecord(rec, undefined, host);
+  return rec;
 }
 
 export async function resolveActiveTenantFromRequest(
   req: NextRequest
 ): Promise<ErpTenantRecord> {
-  const baseTenant = await ensureBaseMiniSistemaTenant();
-
-  // 1. Explicit header or query param
-  const explicitSlug =
+  // 1. Explicit header or query param (sin consultar el tenant base innecesariamente)
+  const explicitSlug = (
     req.headers.get("x-erp-tenant") ||
     req.nextUrl.searchParams.get("tenant") ||
-    "";
+    ""
+  )
+    .trim()
+    .toLowerCase();
   if (explicitSlug && explicitSlug !== "minisistema") {
     const found = await getTenantBySlug(explicitSlug);
     if (found) return found;
   }
 
-  // 2. Custom domain (Option 1)
+  // 2. Custom domain (Option 1: ej. www.cn.com.ar, www.paseoalberdi.ar)
   const host =
     req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
   const byHost = await getTenantByHost(host);
   if (byHost) return byHost;
 
-  // 3. Referer subpath (Option 2: www.minisistema.com.ar/<nuevosistema>)
+  // 3. Referer subpath (Option 2 o pruebas paralelas: www.minisistema.com.ar/<slug>)
   const referer = req.headers.get("referer") || "";
   if (referer) {
     try {
@@ -507,7 +567,7 @@ export async function resolveActiveTenantFromRequest(
     }
   }
 
-  return baseTenant;
+  return ensureBaseMiniSistemaTenant();
 }
 
 export async function getPlatformSecretsMap(): Promise<Record<string, string>> {
@@ -986,5 +1046,6 @@ export async function provisionNewCommerceTenant(input: {
     throw new Error(`No se pudo registrar el comercio en Supabase: ${error?.message || ""}`);
   }
 
+  invalidateTenantCache(cleanSlug);
   return created as ErpTenantRecord;
 }
