@@ -5,6 +5,8 @@ import { handleErpCatalog } from "@/lib/erp/handlers/catalog-handler";
 import { handleErpClientes } from "@/lib/erp/handlers/clientes-handler";
 import { handleErpConsultorios } from "@/lib/erp/handlers/consultorios-handler";
 import { handleErpCurriculum } from "@/lib/erp/handlers/cv-handler";
+import { handleErpDonContador } from "@/lib/erp/handlers/don-contador-handler";
+import { handleErpFeriarte } from "@/lib/erp/handlers/feriarte-handler";
 import { handleErpInmobiliaria } from "@/lib/erp/handlers/inmobiliaria-handler";
 import {
   handleErpArcaComprobantes,
@@ -110,6 +112,13 @@ export async function dispatchErpEndpoint(
       case "servicios":
       case "gestion_servicios":
         res = await handleErpServicios(req, tenant);
+        break;
+      case "feriarte":
+        res = await handleErpFeriarte(req, tenant);
+        break;
+      case "don_contador":
+      case "doncontador":
+        res = await handleErpDonContador(req, tenant);
         break;
       default:
         res = NextResponse.json(
