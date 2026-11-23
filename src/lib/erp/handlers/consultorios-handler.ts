@@ -1120,6 +1120,15 @@ export async function handlePublicCemepGet(
     content: webDb.publishedContent,
     publishedAt: webDb.publishedAt,
     googleClientId: webDb.googleClientId || "",
+    obrasSociales: turnosDb.obrasSociales
+      .filter((os) => os.activa !== false)
+      .map((os) => ({
+        id: os.id,
+        nombre: os.nombre,
+        sigla: os.sigla || "",
+        tipo: os.tipo || "",
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
     turnosSummary: {
       totalProfesionales: turnosDb.profesionales.filter((p) => p.activo !== false).length,
       totalEspecialidades: turnosDb.especialidades.filter((e) => e.activa !== false).length,

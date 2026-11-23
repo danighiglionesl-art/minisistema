@@ -55,6 +55,56 @@ interface PatientPortalModalProps {
   onJumpToTurnero: () => void;
 }
 
+export interface ObraSocialOptionItem {
+  id: string;
+  nombre: string;
+  sigla?: string;
+  tipo?: string;
+}
+
+const WHATSAPP_COUNTRIES = [
+  { country: "Argentina", prefix: "+549", label: "🇦🇷 +54 9 (AR)" },
+  { country: "Uruguay", prefix: "+598", label: "🇺🇾 +598 (UY)" },
+  { country: "Paraguay", prefix: "+595", label: "🇵🇾 +595 (PY)" },
+  { country: "Chile", prefix: "+56", label: "🇨🇱 +56 (CL)" },
+  { country: "Brasil", prefix: "+55", label: "🇧🇷 +55 (BR)" },
+  { country: "Bolivia", prefix: "+591", label: "🇧🇴 +591 (BO)" },
+  { country: "Perú", prefix: "+51", label: "🇵🇪 +51 (PE)" },
+  { country: "Colombia", prefix: "+57", label: "🇨🇴 +57 (CO)" },
+  { country: "España", prefix: "+34", label: "🇪🇸 +34 (ES)" },
+  { country: "Estados Unidos / Canadá", prefix: "+1", label: "🇺🇸 +1 (US/CA)" },
+  { country: "Italia", prefix: "+39", label: "🇮🇹 +39 (IT)" },
+];
+
+function splitWhatsAppWithCountry(raw: string): { prefix: string; local: string } {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return { prefix: "+549", local: "" };
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return { prefix: "+549", local: "" };
+
+  // Ordenar por longitud descendente para priorizar +549 sobre +54, +598 sobre +59, etc.
+  const sorted = [...WHATSAPP_COUNTRIES].sort(
+    (a, b) => b.prefix.replace(/\D/g, "").length - a.prefix.replace(/\D/g, "").length
+  );
+  for (const c of sorted) {
+    const pDigits = c.prefix.replace(/\D/g, "");
+    if (digits.startsWith(pDigits) && digits.length > pDigits.length + 4) {
+      return { prefix: c.prefix, local: digits.slice(pDigits.length) };
+    }
+  }
+  if (digits.startsWith("54") && digits.length > 10) {
+    const rest = digits.slice(2).replace(/^9/, "");
+    return { prefix: "+549", local: rest };
+  }
+  return { prefix: "+549", local: digits.replace(/^0+/, "") };
+}
+
+function composeWhatsApp(prefix: string, localRaw: string): string {
+  const localDigits = String(localRaw || "").replace(/\D/g, "").replace(/^0+/, "");
+  if (!localDigits) return "";
+  return `${prefix}${localDigits}`;
+}
+
 function recetaEstadoBadge(estado: RecetaDigitalRecord["estado"]) {
   if (estado === "emitida") {
     return {
@@ -103,6 +153,7 @@ export function PatientPortalModal({
   const [regApellidos, setRegApellidos] = useState("");
   const [regNombres, setRegNombres] = useState("");
   const [regDni, setRegDni] = useState("");
+  const [regWaPrefix, setRegWaPrefix] = useState("+549");
   const [regWhatsapp, setRegWhatsapp] = useState("");
   const [regObraSocial, setRegObraSocial] = useState("");
   const [regNroAfiliado, setRegNroAfiliado] = useState("");
@@ -129,10 +180,14 @@ export function PatientPortalModal({
   const [profApellidos, setProfApellidos] = useState("");
   const [profNombres, setProfNombres] = useState("");
   const [profFechaNac, setProfFechaNac] = useState("");
+  const [profWaPrefix, setProfWaPrefix] = useState("+549");
   const [profWhatsapp, setProfWhatsapp] = useState("");
   const [profObraSocial, setProfObraSocial] = useState("");
   const [profNroAfiliado, setProfNroAfiliado] = useState("");
   const [profPlus, setProfPlus] = useState(false);
+
+  // Catálogo de Obras Sociales desde Gestión Consultorios
+  const [obrasSocialesCatalog, setObrasSocialesCatalog] = useState<ObraSocialOptionItem[]>([]);
 
   const apiUrl = `/api/cemep?tenant=${encodeURIComponent(tenantSlug)}`;
   const resolvedGoogleClientId =
@@ -147,13 +202,76 @@ export function PatientPortalModal({
     setProfApellidos(u.apellidos || "");
     setProfNombres(u.nombres || "");
     setProfFechaNac(u.fechaNacimiento || "");
-    setProfWhatsapp(u.whatsapp || "");
+    const parsedWa = splitWhatsAppWithCountry(u.whatsapp || "");
+    setProfWaPrefix(parsedWa.prefix);
+    setProfWhatsapp(parsedWa.local);
     setProfObraSocial(u.obraSocial || "");
     setProfNroAfiliado(u.nroAfiliado || "");
     setProfPlus(Boolean(u.esAfiliadoCemepPlus));
     setRecOs(u.obraSocial || (u.esAfiliadoCemepPlus ? "CEMEP Plus" : ""));
     setRecAfiliado(u.nroAfiliado || "");
   }, [bundle?.user]);
+
+  // Cargar catálogo actualizado de Obras Sociales desde Gestión Consultorios
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    fetch(`${apiUrl}&action=bootstrap`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!active) return;
+        if (d?.ok && Array.isArray(d.obrasSociales)) {
+          setObrasSocialesCatalog(d.obrasSociales);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [open, apiUrl]);
+
+  function renderObraSocialOptions(currentValue: string) {
+    const seen = new Set<string>();
+    const options: Array<{ value: string; label: string }> = [];
+
+    const hasParticularInCatalog = obrasSocialesCatalog.some(
+      (os) => os.nombre.trim().toLowerCase() === "particular"
+    );
+    if (!hasParticularInCatalog) {
+      seen.add("particular");
+      options.push({ value: "Particular", label: "Particular (sin obra social)" });
+    }
+
+    for (const os of obrasSocialesCatalog) {
+      const name = String(os.nombre || "").trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const sigla = String(os.sigla || "").trim();
+      const label =
+        sigla && sigla.toLowerCase() !== key && !name.toLowerCase().includes(sigla.toLowerCase())
+          ? `${name} (${sigla})`
+          : name;
+      options.push({ value: name, label });
+    }
+
+    const cur = String(currentValue || "").trim();
+    if (cur && !seen.has(cur.toLowerCase())) {
+      options.unshift({ value: cur, label: cur });
+    }
+
+    return (
+      <>
+        <option value="">Seleccionar Obra Social / Prepaga...</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </>
+    );
+  }
 
   // Precargar script oficial de Google Identity Services al abrir el modal
   useEffect(() => {
@@ -650,7 +768,7 @@ export function PatientPortalModal({
                         apellidos: regApellidos,
                         nombres: regNombres,
                         dni: regDni,
-                        whatsapp: regWhatsapp,
+                        whatsapp: composeWhatsApp(regWaPrefix, regWhatsapp),
                         obraSocial: regObraSocial,
                         nroAfiliado: regNroAfiliado,
                         esAfiliadoCemepPlus: regPlus,
@@ -700,23 +818,40 @@ export function PatientPortalModal({
                       <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
                         WhatsApp
                       </label>
-                      <input
-                        value={regWhatsapp}
-                        onChange={(e) => setRegWhatsapp(e.target.value)}
-                        placeholder="358..."
-                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-2.5 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
-                      />
+                      <div className="mt-1.5 flex gap-2">
+                        <select
+                          aria-label="País de WhatsApp"
+                          value={regWaPrefix}
+                          onChange={(e) => setRegWaPrefix(e.target.value)}
+                          className="w-36 shrink-0 rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-2.5 py-2.5 text-xs font-semibold text-[#1B335D] focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                        >
+                          {WHATSAPP_COUNTRIES.map((c) => (
+                            <option key={c.prefix} value={c.prefix}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="tel"
+                          inputMode="numeric"
+                          value={regWhatsapp}
+                          onChange={(e) => setRegWhatsapp(e.target.value)}
+                          placeholder="358..."
+                          className="min-w-0 flex-1 rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-3.5 py-2.5 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
                         Obra Social / Prepaga
                       </label>
-                      <input
+                      <select
                         value={regObraSocial}
                         onChange={(e) => setRegObraSocial(e.target.value)}
-                        placeholder="APROSS, OSDE, PAMI, Particular..."
-                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-4 py-2.5 text-sm text-[#1B335D] placeholder:text-[#1B335D]/40 focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
-                      />
+                        className="mt-1.5 w-full rounded-xl border border-[#0099D8]/30 bg-[#F4F9FC] px-3.5 py-2.5 text-sm text-[#1B335D] focus:border-[#0099D8] focus:bg-[#FFFFFF] focus:outline-none"
+                      >
+                        {renderObraSocialOptions(regObraSocial)}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-[#1B335D] sm:text-sm">
@@ -1091,11 +1226,13 @@ export function PatientPortalModal({
                         <label className="mb-1 block text-xs font-bold text-[#334155]">
                           Obra Social
                         </label>
-                        <input
+                        <select
                           value={recOs}
                           onChange={(e) => setRecOs(e.target.value)}
-                          className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-xs"
-                        />
+                          className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-2 text-xs text-[#1B335D]"
+                        >
+                          {renderObraSocialOptions(recOs)}
+                        </select>
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-bold text-[#334155]">
@@ -1291,7 +1428,7 @@ export function PatientPortalModal({
                         apellidos: profApellidos,
                         nombres: profNombres,
                         fechaNacimiento: profFechaNac,
-                        whatsapp: profWhatsapp,
+                        whatsapp: composeWhatsApp(profWaPrefix, profWhatsapp),
                         obraSocial: profObraSocial,
                         nroAfiliado: profNroAfiliado,
                         esAfiliadoCemepPlus: profPlus,
@@ -1312,12 +1449,28 @@ export function PatientPortalModal({
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-bold text-[#334155]">WhatsApp</label>
-                      <input
-                        value={profWhatsapp}
-                        onChange={(e) => setProfWhatsapp(e.target.value)}
-                        placeholder="Ej. 358..."
-                        className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm text-[#1B335D]"
-                      />
+                      <div className="flex gap-2">
+                        <select
+                          aria-label="País de WhatsApp"
+                          value={profWaPrefix}
+                          onChange={(e) => setProfWaPrefix(e.target.value)}
+                          className="w-36 shrink-0 rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-2.5 py-2 text-xs font-semibold text-[#1B335D]"
+                        >
+                          {WHATSAPP_COUNTRIES.map((c) => (
+                            <option key={c.prefix} value={c.prefix}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="tel"
+                          inputMode="numeric"
+                          value={profWhatsapp}
+                          onChange={(e) => setProfWhatsapp(e.target.value)}
+                          placeholder="Ej. 358..."
+                          className="min-w-0 flex-1 rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm text-[#1B335D]"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-bold text-[#334155]">Apellido/s</label>
@@ -1350,12 +1503,13 @@ export function PatientPortalModal({
                       <label className="mb-1 block text-xs font-bold text-[#334155]">
                         Obra Social / Prepaga
                       </label>
-                      <input
+                      <select
                         value={profObraSocial}
                         onChange={(e) => setProfObraSocial(e.target.value)}
-                        placeholder="APROSS, OSDE, PAMI, Particular..."
                         className="w-full rounded-xl border border-[#CBD5E1] bg-[#FFFFFF] px-3 py-2 text-sm text-[#1B335D]"
-                      />
+                      >
+                        {renderObraSocialOptions(profObraSocial)}
+                      </select>
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-xs font-bold text-[#334155]">
