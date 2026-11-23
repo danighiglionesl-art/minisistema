@@ -1607,31 +1607,12 @@ async function saveCentralCrmReports(
 }
 
 async function mirrorCrmActionToCasaNuevaIfNeeded(
-  reportOrAction: AnyObj,
-  fromHub?: boolean
+  _reportOrAction: AnyObj,
+  _fromHub?: boolean
 ): Promise<void> {
-  if (fromHub) return;
-  const marcaStr = String(reportOrAction.marca || "").toLowerCase();
-  const sucursalStr = String(reportOrAction.sucursal || "").toLowerCase();
-  if (
-    marcaStr &&
-    !marcaStr.includes("casa nueva") &&
-    !sucursalStr.includes("casa central")
-  ) {
-    return;
-  }
-  try {
-    await fetch("https://www.cn.com.ar/sistema/api/manual_ai.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...reportOrAction,
-        _fromMinisistemaHub: true,
-      }),
-    });
-  } catch {
-    // Non-blocking mirror
-  }
+  // Casa Nueva (www.cn.com.ar) ya corre sobre MiniSistema y comparte CENTRAL_CRM_DOC_KEY
+  // directamente en Supabase. No reenviar por HTTP a www.cn.com.ar para evitar recursión.
+  return;
 }
 
 export async function handleErpManualAi(
@@ -1659,63 +1640,7 @@ export async function handleErpManualAi(
 
   if (req.method === "GET") {
     const getAction = (req.nextUrl.searchParams.get("action") || "").trim();
-    const { baseTenant, reports: centralReports } = await getCentralCrmReports();
-
-    // Sincronizar también con Casa Nueva ERP si hubiera tickets recientes allí que aún no están en la central
-    let mergedReports = [...centralReports];
-    try {
-      const cnRes = await fetch(
-        `https://www.cn.com.ar/sistema/api/manual_ai.php?action=crm_reports&t=${Date.now()}`,
-        { cache: "no-store" }
-      );
-      if (cnRes.ok) {
-        const cnData = (await cnRes.json().catch(() => null)) as AnyObj | null;
-        if (cnData && cnData.ok && Array.isArray(cnData.reports)) {
-          let addedFromCn = false;
-          for (const cnRep of cnData.reports) {
-            if (!cnRep || typeof cnRep !== "object") continue;
-            const existingMatch = mergedReports.find(
-              (r) =>
-                String(r.id || "") === String(cnRep.id || "") ||
-                (String(r.username || "").toLowerCase() ===
-                  String(cnRep.username || "").toLowerCase() &&
-                  String(r.titulo || "").trim() ===
-                    String(cnRep.titulo || "").trim() &&
-                  String(r.descripcion || "").trim() ===
-                    String(cnRep.descripcion || "").trim())
-            );
-            if (!existingMatch) {
-              mergedReports.unshift(cnRep);
-              addedFromCn = true;
-            } else if (
-              cnRep.confirmadoPorUsuario &&
-              !existingMatch.confirmadoPorUsuario &&
-              Number(cnRep.notificacionVersion || 0) >=
-                Number(existingMatch.notificacionVersion || 0)
-            ) {
-              existingMatch.notificacionPendiente = false;
-              existingMatch.confirmadoPorUsuario = true;
-              existingMatch.confirmadoFecha =
-                String(cnRep.confirmadoFecha || "") || formatNowDateTimeArServer();
-              existingMatch.confirmadoPor = String(
-                cnRep.confirmadoPor || cnRep.usuario || cnRep.username || ""
-              );
-              addedFromCn = true;
-            }
-          }
-          if (addedFromCn) {
-            await saveCentralCrmReports(
-              baseTenant,
-              mergedReports,
-              "danielg",
-              "sync_crm_from_casanueva"
-            );
-          }
-        }
-      }
-    } catch {
-      // Ignore if Casa Nueva is temporarily unreachable
-    }
+    const { reports: mergedReports } = await getCentralCrmReports();
 
     if (getAction === "crm_reports") {
       return NextResponse.json(
