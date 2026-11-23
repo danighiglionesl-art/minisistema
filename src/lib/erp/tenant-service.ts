@@ -40,7 +40,7 @@ const RESERVED_SLUGS = new Set([
   "sitemap.xml",
 ]);
 
-const TENANT_CACHE_TTL_MS = 60_000;
+const TENANT_CACHE_TTL_MS = 300_000;
 const tenantBySlugCache = new Map<
   string,
   { value: ErpTenantRecord | null; expiresAt: number }
@@ -51,6 +51,13 @@ const tenantByHostCache = new Map<
 >();
 let baseTenantPromise: Promise<ErpTenantRecord> | null = null;
 let pricingChecked = false;
+
+const KNOWN_HOST_SLUGS: Record<string, string> = {
+  "cn.com.ar": "casanueva",
+  "www.cn.com.ar": "casanueva",
+  "paseoalberdi.ar": "paseoalberdi",
+  "www.paseoalberdi.ar": "paseoalberdi",
+};
 
 export function invalidateTenantCache(slug?: string): void {
   if (slug) {
@@ -483,11 +490,16 @@ export async function getTenantBySlug(slug: string): Promise<ErpTenantRecord | n
   }
 
   const sb = await getPlatformSupabase();
-  const { data } = await sb
+  const { data, error } = await sb
     .from("erp_tenants")
     .select("*")
     .eq("slug", clean)
     .maybeSingle();
+
+  if (error) {
+    // Nunca cachear null ni hacer fallback silencioso ante error transitorio de BD
+    throw new Error(`Error consultando comercio "${clean}": ${error.message}`);
+  }
 
   const rec = (data as ErpTenantRecord | null) || null;
   cacheTenantRecord(rec, clean);
@@ -515,15 +527,28 @@ export async function getTenantByHost(rawHost: string): Promise<ErpTenantRecord 
     return cached.value;
   }
 
+  const knownSlug = KNOWN_HOST_SLUGS[host];
+  if (knownSlug) {
+    const byKnown = await getTenantBySlug(knownSlug);
+    if (byKnown) {
+      cacheTenantRecord(byKnown, knownSlug, host);
+      return byKnown;
+    }
+  }
+
   const sb = await getPlatformSupabase();
   const bare = host.replace(/^www\./, "");
   const candidates = [host, `www.${bare}`, bare];
-  const { data } = await sb
+  const { data, error } = await sb
     .from("erp_tenants")
     .select("*")
     .in("custom_domain", candidates)
     .limit(1)
     .maybeSingle();
+
+  if (error) {
+    throw new Error(`Error resolviendo dominio "${host}": ${error.message}`);
+  }
 
   const rec = (data as ErpTenantRecord | null) || null;
   cacheTenantRecord(rec, undefined, host);
