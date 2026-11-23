@@ -1068,18 +1068,36 @@ export async function handlePublicCemepGet(
   tenant: ErpTenantRecord
 ): Promise<NextResponse> {
   const action = String(req.nextUrl.searchParams.get("action") || "bootstrap").trim();
-  const [hc, webDb, turnosDb] = await Promise.all([
-    loadHistoriaClinicaDb(tenant),
-    loadGestionWebDb(tenant),
-    loadTurnosDb(tenant),
-  ]);
 
+  // Fast-path liviano para el desplegable de Obras Sociales (solo lee turnos_db)
+  if (action === "obras_sociales") {
+    const turnosDb = await loadTurnosDb(tenant);
+    return NextResponse.json({
+      ok: true,
+      obrasSociales: turnosDb.obrasSociales
+        .filter((os) => os.activa !== false)
+        .map((os) => ({
+          id: os.id,
+          nombre: os.nombre,
+          sigla: os.sigla || "",
+          tipo: os.tipo || "",
+        }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+    });
+  }
+
+  // Verificar cookie antes de consultar Supabase en patient_me / prof_me
   if (action === "patient_me") {
     const rawCookie = req.cookies.get(PATIENT_SESSION_COOKIE)?.value;
     const sess = verifyToken<{ userId: string; tenantSlug: string; email: string }>(rawCookie);
     if (!sess || (sess.tenantSlug && sess.tenantSlug !== tenant.slug)) {
       return NextResponse.json({ ok: true, authenticated: false });
     }
+    const [hc, webDb, turnosDb] = await Promise.all([
+      loadHistoriaClinicaDb(tenant),
+      loadGestionWebDb(tenant),
+      loadTurnosDb(tenant),
+    ]);
     const user = webDb.webUsers.find(
       (u) => u.activo !== false && (u.id === sess.userId || u.email.toLowerCase() === sess.email.toLowerCase())
     );
@@ -1107,12 +1125,22 @@ export async function handlePublicCemepGet(
     if (!sess || (sess.tenantSlug && sess.tenantSlug !== tenant.slug)) {
       return NextResponse.json({ ok: true, authenticated: false });
     }
+    const [hc, webDb, turnosDb] = await Promise.all([
+      loadHistoriaClinicaDb(tenant),
+      loadGestionWebDb(tenant),
+      loadTurnosDb(tenant),
+    ]);
     return NextResponse.json({
       ok: true,
       authenticated: true,
       ...buildProfessionalPortalBundle(sess, hc, webDb, turnosDb),
     });
   }
+
+  const [webDb, turnosDb] = await Promise.all([
+    loadGestionWebDb(tenant),
+    loadTurnosDb(tenant),
+  ]);
 
   return NextResponse.json({
     ok: true,

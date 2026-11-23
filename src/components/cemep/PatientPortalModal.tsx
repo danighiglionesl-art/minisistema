@@ -216,7 +216,7 @@ export function PatientPortalModal({
   useEffect(() => {
     if (!open) return;
     let active = true;
-    fetch(`${apiUrl}&action=bootstrap`, { cache: "no-store" })
+    fetch(`${apiUrl}&action=obras_sociales`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         if (!active) return;
