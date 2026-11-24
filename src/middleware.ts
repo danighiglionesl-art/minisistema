@@ -32,12 +32,30 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Alias directos a la App de Clientes / Panel del Usuario Registrado en dominios de supermercado
+  if (
+    isStorefrontRootHost &&
+    (req.nextUrl.pathname === "/app" ||
+      req.nextUrl.pathname === "/clientes" ||
+      req.nextUrl.pathname === "/club" ||
+      req.nextUrl.pathname === "/mi-cuenta")
+  ) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/carrito";
+    url.searchParams.set("panel", "1");
+    return NextResponse.redirect(url);
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     "/",
+    "/app",
+    "/clientes",
+    "/club",
+    "/mi-cuenta",
     "/sistema/:path*",
     "/carrito/:path*",
     "/verificador/:path*",

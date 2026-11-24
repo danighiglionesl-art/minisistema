@@ -1,8 +1,8 @@
-const APP_BUILD_VERSION = 'v48-20261122120054';
+const APP_BUILD_VERSION = 'v49-20261124';
 
 const IS_PASEO_SW =
   self.location.hostname.includes('paseoalberdi') ||
-  self.location.hostname.includes('vercel.app') ||
+  self.location.pathname.includes('/paseoalberdi/') ||
   self.location.pathname.includes('/_paseoalberdi/');
 
 const CACHE_NAME = (IS_PASEO_SW ? 'paseoalberdi-carrito-' : 'casanueva-app-') + APP_BUILD_VERSION;

@@ -631,9 +631,6 @@
       `${CATALOG_API_URL}?action=store&t=${ts}`,
       `${CATALOG_API_URL}?action=all&t=${ts + 1}`
     ];
-    if (STORE_BRAND.isPaseoAlberdi) {
-      endpoints.push(`https://www.cn.com.ar/_paseoalberdi/sistema/api/catalog.php?action=store&t=${ts + 2}`);
-    }
     let lastErr = null;
     for (const url of endpoints) {
       try {
@@ -6969,7 +6966,7 @@
 
     // Instalación PWA Oficial y Actualización Automática en Segundo Plano (Android / Chrome / Edge / iOS)
     let deferredInstallPrompt = null;
-    const CURRENT_PWA_VERSION = String(window.CARRITO_APP_VERSION || 'v49-20261113153800').trim();
+    const CURRENT_PWA_VERSION = String(window.CARRITO_APP_VERSION || 'v49-20261124').trim();
     let pwaAutoReloading = false;
     let pendingAutoUpdateVer = '';
     let activeSwRegistration = null;
@@ -7086,9 +7083,15 @@
       });
 
       window.addEventListener('load', () => {
+        const swScope =
+          window.ERP_BRAND && window.ERP_BRAND.optionType === 2 && !window.ERP_BRAND.isBase && window.ERP_BRAND.slug
+            ? '/' + window.ERP_BRAND.slug + '/'
+            : '/';
         navigator.serviceWorker
-          .register('./sw.js', { updateViaCache: 'none' })
+          .register('/carrito/sw.js', { scope: swScope, updateViaCache: 'none' })
+          .catch(() => navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }))
           .then((reg) => {
+            if (!reg) return;
             activeSwRegistration = reg;
             reg.update().catch(() => {});
             if (reg.waiting) {

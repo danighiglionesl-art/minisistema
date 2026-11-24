@@ -239,7 +239,10 @@ export function renderErpHtmlResponse(params: {
   <base href="${baseHref}">
   <script>window.__ERP_TENANT_BOOT__ = ${JSON.stringify(bootPayload)};</script>`;
 
-  const headStyleInjection = `
+  const headStyleInjection =
+    kind === "carrito" && tenant.slug === "casanueva"
+      ? ""
+      : `
   <link rel="stylesheet" id="ms-brand-stylesheet" href="/sistema/assets/css/brand-minisistema.css?v=${assetVer}">
   <style id="ms-tenant-tokens">
     :root, html[data-brand="minisistema"], html[data-tenant="${tenant.slug}"] {
@@ -249,20 +252,35 @@ export function renderErpHtmlResponse(params: {
     }
   </style>`;
 
-  // 1. Marcar data-brand="minisistema" y data-tenant="<slug>" desde el byte 0 en <html>
+  // 1. Marcar data-brand y data-tenant desde el byte 0 en <html>
   if (kind === "carrito") {
+    if (tenant.slug === "casanueva") {
+      html = html.replace(
+        /<html\b[^>]*>/i,
+        `<html lang="es-AR" data-tenant="casanueva" data-theme="black-bg">`
+      );
+    } else {
+      html = html.replace(
+        /<html\b[^>]*>/i,
+        `<html lang="es-AR" data-brand="minisistema" data-tenant="${tenant.slug}" data-theme="light">`
+      );
+      // Ocultar banner estático residual de Casa Nueva hasta cargar banners propios del tenant
+      html = html.replace(
+        /<div class="productos-hero-wrap" id="productos-hero-wrap">/i,
+        '<div class="productos-hero-wrap" id="productos-hero-wrap" hidden>'
+      );
+      html = html.replace(
+        /<div class="hero-carousel-track" id="hero-carousel-track">[\s\S]*?<\/div>\s*(?=<button type="button" class="hero-carousel-nav)/i,
+        '<div class="hero-carousel-track" id="hero-carousel-track"></div>\n          '
+      );
+    }
     html = html.replace(
-      /<html\b[^>]*>/i,
-      `<html lang="es-AR" data-brand="minisistema" data-tenant="${tenant.slug}" data-theme="light">`
+      /href="assets\/css\/carrito\.css(?:\?v=[^"]*)?"/gi,
+      `href="assets/css/carrito.css?v=${assetVer}"`
     );
-    // Ocultar banner estático residual de Casa Nueva hasta cargar banners propios del tenant
     html = html.replace(
-      /<div class="productos-hero-wrap" id="productos-hero-wrap">/i,
-      '<div class="productos-hero-wrap" id="productos-hero-wrap" hidden>'
-    );
-    html = html.replace(
-      /<div class="hero-carousel-track" id="hero-carousel-track">[\s\S]*?<\/div>\s*(?=<button type="button" class="hero-carousel-nav)/i,
-      '<div class="hero-carousel-track" id="hero-carousel-track"></div>\n          '
+      /src="assets\/js\/carrito\.js(?:\?v=[^"]*)?"/gi,
+      `src="assets/js/carrito.js?v=${assetVer}"`
     );
   } else {
     html = html.replace(

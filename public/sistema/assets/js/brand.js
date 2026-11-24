@@ -81,6 +81,23 @@
   window.ERP_BRAND = BRAND;
   window.STORE_BRAND = BRAND;
 
+  // Migrar sesión previa de la App de Clientes de Casa Nueva ('cn_*' -> 'ms_casanueva_*') para no cerrar sesión a socios ya logueados
+  if (isCasaNuevaSlug) {
+    try {
+      [
+        'carrito_client_session_v2',
+        'carrito_items_v2',
+        'carrito_theme_v1'
+      ].forEach(function (suffix) {
+        var newKey = storagePrefix + suffix;
+        var legacyKey = 'cn_' + suffix;
+        if (!localStorage.getItem(newKey) && localStorage.getItem(legacyKey)) {
+          localStorage.setItem(newKey, localStorage.getItem(legacyKey));
+        }
+      });
+    } catch (_e) {}
+  }
+
   // Sanear cualquier sesión en caché donde un usuario distinto a @danielg haya quedado marcado como Administrador General
   [sessionStorage, localStorage].forEach(function (store) {
     try {
