@@ -144,15 +144,44 @@ export async function handleErpVentas(
             : pv;
 
       const assignedNro = Number(src.nro || db.nextCorrelativos[corrKey] || 1);
+      const numeroCompleto = `${pv}-${String(assignedNro).padStart(8, "0")}`;
+      const nowIso = new Date().toISOString();
+      const fechaIso = String(src.fechaIso || nowIso.slice(0, 10));
+      const incomingUid = String(src.uid || "").trim();
+
+      if (!Array.isArray(db.comprobantesPorCaja[cajaId])) {
+        db.comprobantesPorCaja[cajaId] = [];
+      }
+
+      // Idempotencia: evitar duplicar ventas/stock cuando el cliente reintenta desde la cola offline
+      const existingSale = db.comprobantesPorCaja[cajaId].find((r: AnyObj) => {
+        if (!r || typeof r !== "object") return false;
+        if (incomingUid && String(r.uid || "").trim() === incomingUid) return true;
+        return (
+          String(r.numeroCompleto || "") === numeroCompleto &&
+          String(r.tipoBase || "Factura").trim().toLowerCase() === tipoBase.toLowerCase() &&
+          String(r.letra || "B").trim().toUpperCase() === letra &&
+          String(r.fechaIso || "") === fechaIso
+        );
+      });
+      if (existingSale) {
+        return NextResponse.json({
+          ok: true,
+          alreadyExists: true,
+          sale: existingSale,
+          nro: Number(existingSale.nro || assignedNro),
+          numeroCompleto: String(existingSale.numeroCompleto || numeroCompleto),
+          nextCorrelativos: db.nextCorrelativos,
+        });
+      }
+
       db.nextCorrelativos[corrKey] = Math.max(
         Number(db.nextCorrelativos[corrKey] || 1),
         assignedNro + 1
       );
 
-      const numeroCompleto = `${pv}-${String(assignedNro).padStart(8, "0")}`;
-      const nowIso = new Date().toISOString();
-      const fechaIso = String(src.fechaIso || nowIso.slice(0, 10));
       const importe = round2(src.importe ?? src.total ?? 0);
+      const skipStock = Boolean(payload.skipStock || src.skipStock);
 
       const saleRecord: AnyObj = {
         ...src,
@@ -167,14 +196,12 @@ export async function handleErpVentas(
         importe,
         fechaIso,
         fechaHora: src.fechaHora || new Date().toLocaleString("es-AR"),
-        createdAt: nowIso,
+        createdAt: src.createdAt || nowIso,
         usuario: src.usuario || actor,
       };
       delete saleRecord.qrImgSrc;
+      delete saleRecord.skipStock;
 
-      if (!Array.isArray(db.comprobantesPorCaja[cajaId])) {
-        db.comprobantesPorCaja[cajaId] = [];
-      }
       db.comprobantesPorCaja[cajaId].unshift(saleRecord);
 
       if (!db.lastEmitidosDetalle || typeof db.lastEmitidosDetalle !== "object") {
@@ -185,6 +212,7 @@ export async function handleErpVentas(
       // Estadísticas diarias y descuento de stock (excluyendo Artículo Genérico 4407)
       const items = Array.isArray(src.items) ? src.items : [];
       let costoTotal = 0;
+      let touchedArtStats = false;
 
       if (items.length > 0) {
         const catFallback = seedDocs.catalog_db as AnyObj;
@@ -199,9 +227,11 @@ export async function handleErpVentas(
             if (!qty || artId === 4407) continue;
             const art = catDb.articulos.find((a: AnyObj) => Number(a.id) === artId);
             if (art) {
-              const delta = isNC ? qty : -qty;
-              art.sf = round3(Number(art.sf || 0) + delta);
-              stockChanged = true;
+              if (!skipStock) {
+                const delta = isNC ? qty : -qty;
+                art.sf = round3(Number(art.sf || 0) + delta);
+                stockChanged = true;
+              }
               const unitCost = Number(art.cfn || art.cn || 0);
               costoTotal += unitCost * qty;
 
@@ -233,6 +263,7 @@ export async function handleErpVentas(
                 v: subImp,
                 c: subCost,
               });
+              touchedArtStats = true;
             }
           }
           if (stockChanged) {
@@ -255,12 +286,26 @@ export async function handleErpVentas(
         });
       }
 
-      return commitVentas("record_pos_sale", {
-        sale: saleRecord,
-        nro: assignedNro,
-        numeroCompleto,
-        nextCorrelativos: db.nextCorrelativos,
-      });
+      const changedKeys = [
+        "comprobantesPorCaja",
+        "nextCorrelativos",
+        "lastEmitidosDetalle",
+        "dailyRecords",
+      ];
+      if (touchedArtStats) {
+        changedKeys.push("artMonthly", "artRecentDaily");
+      }
+
+      return commitVentas(
+        "record_pos_sale",
+        {
+          sale: saleRecord,
+          nro: assignedNro,
+          numeroCompleto,
+          nextCorrelativos: db.nextCorrelativos,
+        },
+        changedKeys
+      );
     }
 
     if (
@@ -271,20 +316,36 @@ export async function handleErpVentas(
       const cajaId = ["caja1", "caja2", "caja3"].includes(String(payload.cajaId))
         ? String(payload.cajaId)
         : "caja1";
-      const mov = {
-        id: payload.id || `mov_${Date.now()}`,
+      const rawMov = (payload.movement && typeof payload.movement === "object"
+        ? payload.movement
+        : payload) as AnyObj;
+      const mov: AnyObj = {
+        id: rawMov.id || payload.id || `mov_${Date.now()}`,
         entryType:
           action === "record_caja_retiro"
             ? "retiro"
             : action === "record_caja_recibo"
               ? "recibo"
-              : String(payload.entryType || "movimiento"),
-        createdAt: new Date().toISOString(),
-        usuario: actor,
-        ...(payload.movement || payload),
+              : String(rawMov.entryType || payload.entryType || "movimiento"),
+        createdAt: rawMov.createdAt || new Date().toISOString(),
+        usuario: rawMov.usuario || actor,
+        ...rawMov,
       };
       if (!Array.isArray(db.comprobantesPorCaja[cajaId])) {
         db.comprobantesPorCaja[cajaId] = [];
+      }
+      const movUid = String(mov.uid || "").trim();
+      const movNum = String(mov.numeroCompleto || "").trim();
+      const movFechaIso = String(mov.fechaIso || "").trim();
+      const existingMov = db.comprobantesPorCaja[cajaId].find((r: AnyObj) => {
+        if (!r || typeof r !== "object") return false;
+        if (movUid && String(r.uid || "").trim() === movUid) return true;
+        if (rawMov.id && String(r.id || "") === String(rawMov.id)) return true;
+        if (movNum && movFechaIso && String(r.numeroCompleto || "") === movNum && String(r.entryType || "") === String(mov.entryType || "") && String(r.fechaIso || "") === movFechaIso) return true;
+        return false;
+      });
+      if (existingMov) {
+        return NextResponse.json({ ok: true, alreadyExists: true, movement: existingMov });
       }
       db.comprobantesPorCaja[cajaId].unshift(mov);
       return commitVentas(action, { movement: mov }, ["comprobantesPorCaja"]);
@@ -329,25 +390,40 @@ export async function handleErpVentas(
         ? db.cierresCajaCentral.find((c: AnyObj) => c && String(c.uid || "") === incomingUid)
         : null;
 
+      if (existingByUid) {
+        const nextMaxPlanilla = db.cierresCajaCentral.reduce(
+          (mx: number, c: AnyObj) => Math.max(mx, Number(c?.numeroPlanilla || 0)),
+          0
+        );
+        return NextResponse.json({
+          ok: true,
+          alreadyExists: true,
+          cierre: existingByUid,
+          nextNumero: nextMaxPlanilla + 1,
+          cierresCajaCentral: db.cierresCajaCentral,
+          aperturasCajaCentral: db.aperturasCajaCentral,
+          efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+        });
+      }
+
       const maxPlanilla = db.cierresCajaCentral.reduce(
         (mx: number, c: AnyObj) => Math.max(mx, Number(c?.numeroPlanilla || 0)),
         0
       );
       const nowIso = new Date().toISOString();
-      const savedCierre = existingByUid || {
+      const savedCierre: AnyObj = {
         ...cierreIn,
         id: cierreIn.id || `cierre_${Date.now()}`,
         numeroPlanilla: Math.max(
           Number(cierreIn.numeroPlanilla || 0),
           maxPlanilla + 1
         ),
-        createdAt: nowIso,
+        createdAt: cierreIn.createdAt || nowIso,
         closedAtIso: cierreIn.closedAtIso || nowIso,
         estadoCentral: cierreIn.estadoCentral || "PENDIENTE",
       };
-      if (!existingByUid) {
-        db.cierresCajaCentral.unshift(savedCierre);
-      }
+      delete savedCierre.historicalSync;
+      db.cierresCajaCentral.unshift(savedCierre);
 
       const cKey = String(cierreIn.cajaId || payload.cajaId || "").trim();
       const tipoNorm = String(savedCierre.tipoRendicion || "Cierre de caja")
@@ -360,12 +436,32 @@ export async function handleErpVentas(
         db.efectivoInicialPorCaja = { caja1: 0, caja2: 0, caja3: 0 };
       }
 
-      if (isFullClose && cKey) {
-        db.efectivoInicialPorCaja[cKey] = round2(cierreIn.efectivoCambio || 0);
+      const closedMs = Date.parse(String(savedCierre.closedAtIso || "")) || Date.now();
+      const hasNewerOpenApertura =
+        cKey &&
+        db.aperturasCajaCentral.some((ap: AnyObj) => {
+          if (!ap || String(ap.cajaId || "") !== cKey || ap.cerradaEnTurno === true) return false;
+          const apMs = Date.parse(String(ap.createdAt || ap.openedAtIso || "")) || 0;
+          return apMs > closedMs + 60_000;
+        });
+      const isHistoricalSync = Boolean(
+        payload.historicalSync ||
+          cierreIn.historicalSync ||
+          hasNewerOpenApertura
+      );
 
-        // Marcar todas las aperturas de esa caja como cerradas en este turno
+      if (isFullClose && cKey) {
+        if (!isHistoricalSync) {
+          db.efectivoInicialPorCaja[cKey] = round2(cierreIn.efectivoCambio || 0);
+        }
+
+        // Marcar aperturas de esa caja como cerradas (si es sync histórico, solo las anteriores al cierre)
         for (const ap of db.aperturasCajaCentral) {
           if (ap && String(ap.cajaId || "") === cKey && ap.cerradaEnTurno !== true) {
+            if (isHistoricalSync) {
+              const apMs = Date.parse(String(ap.createdAt || ap.openedAtIso || "")) || 0;
+              if (apMs > closedMs + 60_000) continue;
+            }
             ap.cerradaEnTurno = true;
             if (!ap.cerradaPorPlanilla) {
               ap.cerradaPorPlanilla = savedCierre.numeroPlanilla;
@@ -376,10 +472,14 @@ export async function handleErpVentas(
           }
         }
 
-        // Marcar comprobantes del turno de esa caja como cerrados (conservando el historial)
+        // Marcar comprobantes del turno de esa caja como cerrados (si es sync histórico, solo anteriores al cierre)
         if (Array.isArray(db.comprobantesPorCaja?.[cKey])) {
           for (const comp of db.comprobantesPorCaja[cKey]) {
             if (comp && !comp.cerradoEnTurno) {
+              if (isHistoricalSync) {
+                const compMs = Date.parse(String(comp.createdAt || "")) || 0;
+                if (compMs > closedMs + 60_000) continue;
+              }
               comp.cerradoEnTurno = true;
               if (!comp.cerradoPorPlanilla) {
                 comp.cerradoPorPlanilla = savedCierre.numeroPlanilla;
@@ -388,25 +488,27 @@ export async function handleErpVentas(
           }
         }
 
-        // Liberar en la tabla users de forma atómica a cualquier usuario que tuviera abierta esta caja
-        try {
-          const closingUser = String(cierreIn.username || actor || "")
-            .trim()
-            .toLowerCase();
-          const allUsers = await listTenantUsersFromDb(tenant);
-          for (const u of allUsers) {
-            const uKey = String(u.username || "").trim().toLowerCase();
-            if (u.cajaAbierta === cKey || (closingUser && uKey === closingUser && u.cajaAbierta === cKey)) {
-              await upsertTenantUserInDb(tenant, {
-                ...u,
-                cajaAbierta: null,
-                cajaAbiertaAt: null,
-                actor: closingUser || actor || "sistema",
-              });
+        // Liberar en la tabla users solo si no es un rescate histórico de un turno pasado
+        if (!isHistoricalSync) {
+          try {
+            const closingUser = String(cierreIn.username || actor || "")
+              .trim()
+              .toLowerCase();
+            const allUsers = await listTenantUsersFromDb(tenant);
+            for (const u of allUsers) {
+              const uKey = String(u.username || "").trim().toLowerCase();
+              if (u.cajaAbierta === cKey || (closingUser && uKey === closingUser && u.cajaAbierta === cKey)) {
+                await upsertTenantUserInDb(tenant, {
+                  ...u,
+                  cajaAbierta: null,
+                  cajaAbiertaAt: null,
+                  actor: closingUser || actor || "sistema",
+                });
+              }
             }
+          } catch {
+            // Non-blocking fallback
           }
-        } catch {
-          // Non-blocking fallback
         }
       }
 
@@ -418,6 +520,7 @@ export async function handleErpVentas(
         action,
         {
           cierre: savedCierre,
+          historicalSync: isHistoricalSync,
           nextNumero: nextMaxPlanilla + 1,
           cierresCajaCentral: db.cierresCajaCentral,
           aperturasCajaCentral: db.aperturasCajaCentral,

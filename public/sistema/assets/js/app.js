@@ -494,6 +494,8 @@ const ADMIN_DIRECTORY = ACTIVE_BRAND.isPaseoAlberdi ? {
 const SESSION_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_active_admin_v1';
 const NAV_STATE_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_active_nav_state_v1';
 const CAJAS_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_cajas_state_v1';
+const POS_SYNC_OUTBOX_KEY = ACTIVE_BRAND.storagePrefix + 'erp_sync_outbox_v1';
+const POS_RESCUE_BACKUP_KEY = ACTIVE_BRAND.storagePrefix + 'erp_rescue_backup_v1';
 const FIDELIZACION_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_fidelizacion_state_v1';
 const ABM_CATALOG_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_abm_catalog_v2';
 const GONDOLA_QUEUE_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_gondola_queue_v1';
@@ -503,6 +505,234 @@ const THEME_DEFAULT_STORAGE_KEY = ACTIVE_BRAND.storagePrefix + 'erp_theme_defaul
 const SINERGIAL_IMG_BASE = 'https://ghrxmirhilrlveqyyscq.supabase.co/storage/v1/object/public/erp-product-images/';
 const PAGE_SIZE = 50;
 const FID_PAGE_SIZE = 10;
+
+// =========================================================================
+// COLA OFFLINE PERSISTENTE + RESCATE AUTOMÁTICO (BLINDAJE POS / CIERRES / ARCA)
+// Evita pérdida silenciosa de ventas, cierres o comprobantes ante cortes o timeouts.
+// =========================================================================
+let _posOutboxFlushing = false;
+let _posOutboxTimerId = null;
+
+function sanitizePayloadForOutbox(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  try {
+    return JSON.parse(
+      JSON.stringify(obj, (key, val) => (key === 'qrImgSrc' ? undefined : val))
+    );
+  } catch {
+    return obj;
+  }
+}
+
+function loadPosSyncOutbox() {
+  try {
+    const raw = localStorage.getItem(POS_SYNC_OUTBOX_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePosSyncOutbox(list) {
+  const safeList = Array.isArray(list) ? list.slice(0, 250) : [];
+  try {
+    localStorage.setItem(POS_SYNC_OUTBOX_KEY, JSON.stringify(safeList));
+  } catch {
+    try {
+      const compact = safeList.map((j) => ({
+        ...j,
+        payload: sanitizePayloadForOutbox(j.payload)
+      }));
+      localStorage.setItem(POS_SYNC_OUTBOX_KEY, JSON.stringify(compact.slice(-120)));
+    } catch {}
+  }
+  renderPosSyncOutboxPill(safeList.length);
+}
+
+function backupRescueItem(bucket, key, record) {
+  if (!bucket || !key || !record) return;
+  try {
+    const raw = localStorage.getItem(POS_RESCUE_BACKUP_KEY);
+    const store = raw ? JSON.parse(raw) : {};
+    if (!store[bucket] || typeof store[bucket] !== 'object') store[bucket] = {};
+    if (!store[bucket][key]) {
+      store[bucket][key] = {
+        savedAt: new Date().toISOString(),
+        record: sanitizePayloadForOutbox(record)
+      };
+      localStorage.setItem(POS_RESCUE_BACKUP_KEY, JSON.stringify(store));
+    }
+  } catch {}
+}
+
+function renderPosSyncOutboxPill(pendingCountOverride = null) {
+  if (typeof document === 'undefined' || !document.body) return;
+  const count = pendingCountOverride !== null ? pendingCountOverride : loadPosSyncOutbox().length;
+  let pill = document.getElementById('ms-offline-outbox-pill');
+  if (count <= 0) {
+    if (pill) pill.remove();
+    return;
+  }
+  if (!pill) {
+    pill = document.createElement('button');
+    pill.id = 'ms-offline-outbox-pill';
+    pill.type = 'button';
+    pill.style.cssText =
+      'position:fixed;right:16px;bottom:16px;z-index:9999;display:inline-flex;align-items:center;gap:8px;' +
+      'padding:10px 14px;border-radius:999px;border:1px solid rgba(212,160,23,.55);' +
+      'background:#202020;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;' +
+      'box-shadow:0 8px 24px rgba(0,0,0,.32);font-family:inherit;';
+    pill.title = 'Click para reintentar sincronización ahora';
+    pill.addEventListener('click', () => {
+      flushPosSyncOutbox(true);
+    });
+    document.body.appendChild(pill);
+  }
+  pill.textContent = _posOutboxFlushing
+    ? `Sincronizando ${count} operación${count === 1 ? '' : 'es'} pendiente${count === 1 ? '' : 's'}...`
+    : `Pendiente de sincronizar: ${count} operación${count === 1 ? '' : 'es'} (click para reintentar)`;
+}
+
+function enqueuePosSyncJob(endpoint, payload, dedupeKey, label = '') {
+  if (!endpoint || !payload) return;
+  const list = loadPosSyncOutbox();
+  const key = String(dedupeKey || `${endpoint}:${Date.now()}:${Math.random()}`);
+  const cleanPayload = sanitizePayloadForOutbox(payload);
+  const idx = list.findIndex((j) => j && j.dedupeKey === key);
+  const job = {
+    dedupeKey: key,
+    endpoint,
+    payload: cleanPayload,
+    label: label || String(payload.action || endpoint),
+    queuedAt: idx >= 0 ? list[idx].queuedAt : new Date().toISOString(),
+    attempts: idx >= 0 ? Number(list[idx].attempts || 0) : 0
+  };
+  if (idx >= 0) {
+    list[idx] = job;
+  } else {
+    list.push(job);
+  }
+  savePosSyncOutbox(list);
+}
+
+function removePosSyncJob(dedupeKey) {
+  if (!dedupeKey) return;
+  const list = loadPosSyncOutbox();
+  const next = list.filter((j) => j && j.dedupeKey !== dedupeKey);
+  if (next.length !== list.length) {
+    savePosSyncOutbox(next);
+  }
+}
+
+async function postPosWithOutbox(endpoint, payload, dedupeKey, label = '', fetchOpts = {}) {
+  const cleanPayload = sanitizePayloadForOutbox(payload);
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cleanPayload),
+      ...fetchOpts
+    });
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      if (json && (json.ok === true || json.alreadyExists === true || json.alreadyOpened === true)) {
+        removePosSyncJob(dedupeKey);
+        return { ok: true, queued: false, data: json };
+      }
+      // Error lógico no transitorio con status 200 (si ok === false sin alreadyOpened, encolar solo si no es rechazo explícito de validación)
+      if (json && json.ok === false && res.status >= 400 && res.status < 500) {
+        return { ok: false, queued: false, data: json };
+      }
+    }
+    if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+      const jsonErr = await res.json().catch(() => null);
+      return { ok: false, queued: false, data: jsonErr };
+    }
+    enqueuePosSyncJob(endpoint, cleanPayload, dedupeKey, label);
+    return { ok: false, queued: true, data: null };
+  } catch {
+    enqueuePosSyncJob(endpoint, cleanPayload, dedupeKey, label);
+    return { ok: false, queued: true, data: null };
+  }
+}
+
+async function flushPosSyncOutbox(manualTrigger = false) {
+  if (_posOutboxFlushing) return { synced: 0, remaining: loadPosSyncOutbox().length };
+  const queue = loadPosSyncOutbox();
+  if (queue.length === 0) {
+    renderPosSyncOutboxPill(0);
+    return { synced: 0, remaining: 0 };
+  }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false && !manualTrigger) {
+    renderPosSyncOutboxPill(queue.length);
+    return { synced: 0, remaining: queue.length };
+  }
+
+  _posOutboxFlushing = true;
+  renderPosSyncOutboxPill(queue.length);
+  let synced = 0;
+  const remaining = [];
+  let hitTransientFailure = false;
+
+  for (let i = 0; i < queue.length; i++) {
+    const job = queue[i];
+    if (!job || !job.endpoint || !job.payload) continue;
+    if (hitTransientFailure) {
+      remaining.push(job);
+      continue;
+    }
+    try {
+      const res = await fetch(job.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(job.payload)
+      });
+      if (res.ok) {
+        const json = await res.json().catch(() => null);
+        if (json && (json.ok === true || json.alreadyExists === true || json.alreadyOpened === true)) {
+          synced++;
+          continue;
+        }
+      }
+      if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+        // Error permanente de validación: descartar de la cola tras respaldo para no trabar las demás
+        backupRescueItem('rejected_jobs', job.dedupeKey || `rej_${Date.now()}`, job);
+        continue;
+      }
+      job.attempts = Number(job.attempts || 0) + 1;
+      remaining.push(job);
+      hitTransientFailure = true;
+    } catch {
+      job.attempts = Number(job.attempts || 0) + 1;
+      remaining.push(job);
+      hitTransientFailure = true;
+    }
+  }
+
+  _posOutboxFlushing = false;
+  savePosSyncOutbox(remaining);
+  if (synced > 0 && remaining.length === 0 && typeof showToast === 'function') {
+    showToast(`Sincronización completa: ${synced} operación${synced === 1 ? '' : 'es'} guardada${synced === 1 ? '' : 's'} en el servidor.`);
+  }
+  return { synced, remaining: remaining.length };
+}
+
+if (typeof window !== 'undefined') {
+  window.flushPosSyncOutbox = flushPosSyncOutbox;
+  window.getPosSyncOutbox = loadPosSyncOutbox;
+  window.postPosWithOutbox = postPosWithOutbox;
+  window.addEventListener('online', () => {
+    flushPosSyncOutbox(false);
+  });
+  if (!_posOutboxTimerId) {
+    _posOutboxTimerId = setInterval(() => {
+      if (loadPosSyncOutbox().length > 0) {
+        flushPosSyncOutbox(false);
+      }
+    }, 20000);
+  }
+}
 
 function getPersistedAdminSessionRaw() {
   try {
@@ -1443,7 +1673,8 @@ window.getTurnoComprobanteUniqueKey = getTurnoComprobanteUniqueKey;
 function syncTurnosCajasFromServerMap(comprobantesPorCaja) {
   if (!comprobantesPorCaja || typeof comprobantesPorCaja !== 'object') return false;
   let updatedAny = false;
-  const todayIsoStr = getLocalTodayIsoStr();
+  const nowMs = Date.now();
+  const maxUnsyncedAgeMs = 7 * 24 * 60 * 60 * 1000;
   ['caja1', 'caja2', 'caja3'].forEach((cajaKey) => {
     const fromServer = Array.isArray(comprobantesPorCaja[cajaKey]) ? comprobantesPorCaja[cajaKey] : [];
     if (fromServer.length === 0) return;
@@ -1459,7 +1690,32 @@ function syncTurnosCajasFromServerMap(comprobantesPorCaja) {
       const k = getTurnoComprobanteUniqueKey(c);
       if (closedServerKeySet.has(k) || openServerKeySet.has(k)) return false;
       if (c._inServerDailyRecords) return false;
-      return c.fechaIso === todayIsoStr;
+      const ts = Date.parse(c.createdAt || (c.fechaIso ? `${c.fechaIso}T12:00:00` : '')) || nowMs;
+      if (nowMs - ts > maxUnsyncedAgeMs) return false;
+      backupRescueItem('turnos_unsynced', `${cajaKey}:${k}`, c);
+      if (c.entryType === 'retiro') {
+        enqueuePosSyncJob(
+          'api/ventas.php',
+          { action: 'record_caja_retiro', cajaId: cajaKey, movement: c },
+          `retiro:${cajaKey}:${k}`,
+          `Retiro ${c.numeroCompleto || k}`
+        );
+      } else if (c.entryType === 'recibo') {
+        enqueuePosSyncJob(
+          'api/ventas.php',
+          { action: 'record_caja_recibo', cajaId: cajaKey, movement: c },
+          `recibo:${cajaKey}:${k}`,
+          `Recibo ${c.numeroCompleto || k}`
+        );
+      } else {
+        enqueuePosSyncJob(
+          'api/ventas.php',
+          { action: 'record_pos_sale', sale: { ...c, cajaId: c.cajaId || cajaKey } },
+          `sale:${cajaKey}:${k}`,
+          `Venta ${c.numeroCompleto || k}`
+        );
+      }
+      return true;
     });
     STATE.turnosCajas[cajaKey] = [...openSlice, ...unsyncedLocal];
     updatedAny = true;
@@ -5539,6 +5795,12 @@ async function loadVentasDatabase(forceReload = false) {
     }
 
     if (Array.isArray(data.cierresCajaCentral) && data.cierresCajaCentral.length > 0) {
+      const serverCierreKeys = new Set();
+      data.cierresCajaCentral.forEach((sc) => {
+        if (!sc) return;
+        const sk = sc.uid || (sc.numeroPlanilla ? `NP-${Number(sc.numeroPlanilla)}` : `ID-${sc.id}`);
+        if (sk) serverCierreKeys.add(sk);
+      });
       const localById = new Map();
       (STATE.cierresCajaCentral || []).forEach((lc) => {
         if (!lc) return;
@@ -5547,6 +5809,22 @@ async function loadVentasDatabase(forceReload = false) {
         }
         const k = lc.uid || (lc.numeroPlanilla ? `NP-${Number(lc.numeroPlanilla)}` : `ID-${lc.id}`);
         localById.set(k, lc);
+        // Rescate automático: si un cierre quedó solo en localStorage (ej. caída del servidor), subirlo sin pisar turnos nuevos
+        if (k && !serverCierreKeys.has(k) && lc.uid) {
+          backupRescueItem('cierres_unsynced', k, lc);
+          enqueuePosSyncJob(
+            'api/ventas.php',
+            {
+              action: 'save_cierre',
+              historicalSync: true,
+              cajaId: lc.cajaId || 'caja1',
+              usuario: lc.username || lc.usuario || 'rescate',
+              cierre: lc
+            },
+            `cierre:${k}`,
+            `Cierre ${lc.fechaHora || lc.fechaCierre || k}`
+          );
+        }
       });
       const seenIds = new Set();
       const mergedCierres = [];
@@ -5582,11 +5860,66 @@ async function loadVentasDatabase(forceReload = false) {
       STATE.cierresCajaCentral = mergedCierres;
     }
 
+    // Rescate automático de comprobantes fiscales locales (cn_erp_arca_comprobantes_v1) que no estén en ventas_db
+    try {
+      const rawAce = localStorage.getItem('cn_erp_arca_comprobantes_v1');
+      if (rawAce && data.comprobantesPorCaja && typeof data.comprobantesPorCaja === 'object') {
+        const parsedAce = JSON.parse(rawAce);
+        const localAceComps = Array.isArray(parsedAce?.comprobantes) ? parsedAce.comprobantes : [];
+        if (localAceComps.length > 0) {
+          const serverNumSet = new Set();
+          ['caja1', 'caja2', 'caja3'].forEach((cid) => {
+            (data.comprobantesPorCaja[cid] || []).forEach((c) => {
+              if (c && c.numeroCompleto) serverNumSet.add(String(c.numeroCompleto));
+            });
+          });
+          const todayIso = getLocalTodayIsoStr();
+          const cutoffMs = Date.now() - 14 * 24 * 60 * 60 * 1000;
+          for (const ac of localAceComps) {
+            if (!ac || !ac.numeroCompleto) continue;
+            if (serverNumSet.has(String(ac.numeroCompleto))) continue;
+            const acIso = String(ac.fechaIso || '').slice(0, 10);
+            const acMs = acIso ? Date.parse(`${acIso}T12:00:00`) : 0;
+            if (acMs && acMs < cutoffMs) continue;
+            const rescueKey = ac.uid || ac.numeroCompleto;
+            backupRescueItem('arca_unsynced', rescueKey, ac);
+            const targetCaja = ac.cajaId || (ac.pv === '0003' ? 'caja2' : ac.pv === '0004' ? 'caja3' : 'caja1');
+            enqueuePosSyncJob(
+              'api/arca_comprobantes.php',
+              {
+                action: 'register_comprobante',
+                usuario: ac.usuario || 'Rescate',
+                comprobante: ac
+              },
+              `arca:${rescueKey}`,
+              `ARCA ${ac.numeroCompleto}`
+            );
+            enqueuePosSyncJob(
+              'api/ventas.php',
+              {
+                action: 'record_pos_sale',
+                sale: {
+                  ...ac,
+                  cajaId: targetCaja,
+                  cerradoEnTurno: Boolean(acIso && acIso < todayIso)
+                }
+              },
+              `sale:${targetCaja}:${ac.numeroCompleto}`,
+              `Venta rescatada ${ac.numeroCompleto}`
+            );
+          }
+        }
+      }
+    } catch {}
+
     if (typeof window.saveCajasState === 'function') {
       window.saveCajasState();
     }
     if (typeof window.__onVentasDbLoaded === 'function') {
       window.__onVentasDbLoaded();
+    }
+    if (loadPosSyncOutbox().length > 0) {
+      setTimeout(() => flushPosSyncOutbox(false), 1200);
     }
     return data;
   })().finally(() => {
@@ -16689,16 +17022,17 @@ function initApp() {
         }
         applyCajaAperturaTurnoLockState(curCajaId, { preserveAlert: true });
 
-        fetch('api/ventas.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        postPosWithOutbox(
+          'api/ventas.php',
+          {
             action: 'save_apertura_caja',
             cajaId: curCajaId,
             apertura: nuevaApertura
-          })
-        })
-          .then((r) => r.json().catch(() => null))
+          },
+          `apertura:${nuevaApertura.uid || `${curCajaId}:${nuevaApertura.fechaHora || Date.now()}`}`,
+          `Apertura ${curCajaId}`
+        )
+          .then((outboxRes) => outboxRes?.data || null)
           .then((res) => {
             if (res && Array.isArray(res.aperturasCajaCentral)) {
               STATE.aperturasCajaCentral = res.aperturasCajaCentral;
@@ -18273,15 +18607,16 @@ function initApp() {
             }
           }
 
-          fetch('api/ventas.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          postPosWithOutbox(
+            'api/ventas.php',
+            {
               action: 'record_caja_recibo',
               cajaId: activeCaja,
               movement: reciboRecord
-            })
-          }).catch(() => {});
+            },
+            `recibo:${activeCaja}:${reciboRecord.uid || reciboRecord.numeroCompleto || Date.now()}`,
+            `Recibo ${reciboRecord.numeroCompleto || activeCaja}`
+          ).catch(() => {});
 
           const obsInp = document.getElementById('recibo-caja-obs');
           if (obsInp) obsInp.value = '';
@@ -19818,15 +20153,16 @@ function initApp() {
         STATE.turnosCajas[activeCaja].unshift(retiroRecord);
         saveCajasState();
 
-        fetch('api/ventas.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        postPosWithOutbox(
+          'api/ventas.php',
+          {
             action: 'record_caja_retiro',
             cajaId: activeCaja,
             movement: retiroRecord
-          })
-        }).catch(() => {});
+          },
+          `retiro:${activeCaja}:${retiroRecord.uid || retiroRecord.numeroCompleto || Date.now()}`,
+          `Retiro ${retiroRecord.numeroCompleto || activeCaja}`
+        ).catch(() => {});
 
         if (impactarCtaCte && entity.id) {
           const isProv = Boolean(entity.esProveedor);
@@ -23282,10 +23618,9 @@ function initApp() {
           '001'
         );
         const sellerUsername = String(STATE.currentUser?.username || 'sistema');
-        fetch('api/ventas.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        postPosWithOutbox(
+          'api/ventas.php',
+          {
             action: 'record_pos_sale',
             sale: {
               ...saleRecord,
@@ -23295,11 +23630,14 @@ function initApp() {
               usuario: saleRecord.usuario || sellerUsername,
               username: saleRecord.username || sellerUsername
             }
-          })
-        })
-          .then((resVenta) => (resVenta.ok ? resVenta.json() : null))
+          },
+          `sale:${saleRecord.cajaId || 'caja1'}:${saleRecord.uid || saleRecord.numeroCompleto || Date.now()}`,
+          `Venta ${saleRecord.numeroCompleto || ''}`
+        )
+          .then((outboxRes) => (outboxRes?.ok ? outboxRes.data : null))
           .then((ventaData) => {
             if (ventaData && ventaData.ok) {
+              saleRecord._inServerDailyRecords = true;
               if (Number(ventaData.assignedNro) > 0 && Number(ventaData.assignedNro) !== Number(saleRecord.nro)) {
                 saleRecord.nro = Number(ventaData.assignedNro);
                 saleRecord.numeroCompleto = `${saleRecord.pv}-${String(saleRecord.nro).padStart(8, '0')}`;
@@ -23351,10 +23689,9 @@ function initApp() {
           const cleanPvNro = `${pv}-${String(nro).padStart(8, '0')}`;
           const compFormatted = `${tcaPos} ${letra} ${cleanPvNro}`;
           const dh = tipoBase === 'Nota de Crédito' ? -1 : 1;
-          fetch('api/clientes.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          postPosWithOutbox(
+            'api/clientes.php',
+            {
               action: 'add_ctacte_movement',
               idCliente: selectedCliIdSnapshot,
               movement: {
@@ -23375,8 +23712,10 @@ function initApp() {
                 caeVto: saleRecord.caeVto || '',
                 items: itemsSnapshot
               }
-            })
-          }).catch(() => {});
+            },
+            `ctacte:${selectedCliIdSnapshot}:${saleRecord.uid || cleanPvNro}`,
+            `Cta. Cte. ${cleanPvNro}`
+          ).catch(() => {});
         }
 
         if (hasServiceItems && typeof window.__MS_ON_POS_SALE_COMPLETED__ === 'function') {
@@ -25242,20 +25581,21 @@ function initApp() {
 
     document.getElementById('cierre-caja-dialog')?.close();
 
-    // Persistir PRIMERO en el servidor (con keepalive) antes de abrir el diálogo de impresión del navegador,
-    // evitando que window.print() bloquee la petición o se cancele al cerrar pestaña/sesión.
-    const saveCierrePromise = fetch('api/ventas.php', {
-      method: 'POST',
-      keepalive: true,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    // Persistir PRIMERO en el servidor (con keepalive + cola offline blindada) antes de abrir el diálogo de impresión del navegador,
+    // evitando que window.print() bloquee la petición o se pierda ante un timeout o corte.
+    const saveCierrePromise = postPosWithOutbox(
+      'api/ventas.php',
+      {
         action: 'save_cierre',
         cajaId: cfg.id,
         usuario: activeUserInfo.username || empleado,
         cierre: nuevoCierre
-      })
-    })
-      .then((r) => (r.ok ? r.json() : null))
+      },
+      `cierre:${nuevoCierre.uid || `NP-${nuevoCierre.numeroPlanilla}`}`,
+      `Cierre ${cfg.nombre} ${nuevoCierre.fechaHora || ''}`,
+      { keepalive: true }
+    )
+      .then((outboxRes) => (outboxRes?.ok ? outboxRes.data : null))
       .then((res) => {
         if (res && res.ok) {
           if (Number(res.nextNumero) > 0) {
@@ -50582,7 +50922,28 @@ function initApp() {
         if (json && json.ok) {
           if (json.servicioArcaEstado) STATE.arcaServicioEstado = json.servicioArcaEstado;
           if (json.certificado) aceCertificado = json.certificado;
-          if (Array.isArray(json.comprobantes)) aceServerComprobantes = json.comprobantes;
+          if (Array.isArray(json.comprobantes)) {
+            const serverList = json.comprobantes;
+            const serverUids = new Set(serverList.map((c) => c && (c.uid || c.numeroCompleto)).filter(Boolean));
+            const localUnsynced = (aceServerComprobantes || []).filter((lc) => {
+              if (!lc) return false;
+              const lk = lc.uid || lc.numeroCompleto;
+              if (!lk || serverUids.has(lk)) return false;
+              backupRescueItem('arca_local_only', lk, lc);
+              enqueuePosSyncJob(
+                'api/arca_comprobantes.php',
+                {
+                  action: 'register_comprobante',
+                  usuario: lc.usuario || 'Rescate',
+                  comprobante: lc
+                },
+                `arca:${lk}`,
+                `ARCA ${lc.numeroCompleto || lk}`
+              );
+              return true;
+            });
+            aceServerComprobantes = [...localUnsynced, ...serverList];
+          }
           if (Array.isArray(json.auditoria)) aceAuditoriaLog = json.auditoria;
           syncLocalTurnosWithUpdatedArcaComprobantes(aceServerComprobantes);
           saveLocalAceCache();
@@ -50609,22 +50970,21 @@ function initApp() {
     refreshArcaMenuPendingBadge();
 
     try {
-      const res = await fetch('api/arca_comprobantes.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const outboxRes = await postPosWithOutbox(
+        'api/arca_comprobantes.php',
+        {
           action: 'register_comprobante',
           usuario: STATE.currentUser?.name || STATE.currentUser?.username || 'Cajero',
           comprobante: norm
-        })
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.ok && json.comprobante) {
-          const idx2 = aceServerComprobantes.findIndex((c) => c.uid === norm.uid);
-          if (idx2 >= 0) aceServerComprobantes[idx2] = json.comprobante;
-          saveLocalAceCache();
-        }
+        },
+        `arca:${norm.uid || norm.numeroCompleto}`,
+        `ARCA ${norm.numeroCompleto || norm.uid}`
+      );
+      const json = outboxRes?.data;
+      if (json && json.ok && json.comprobante) {
+        const idx2 = aceServerComprobantes.findIndex((c) => c.uid === norm.uid);
+        if (idx2 >= 0) aceServerComprobantes[idx2] = json.comprobante;
+        saveLocalAceCache();
       }
     } catch {}
   }
