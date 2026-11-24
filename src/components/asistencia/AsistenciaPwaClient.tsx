@@ -1273,16 +1273,19 @@ export default function AsistenciaPwaClient({
             <img
               src={logoHorizontalUrl}
               alt={fantasyName}
-              className="h-9 w-auto rounded-md bg-white/95 px-2 py-1 object-contain"
+              className="h-9 w-auto object-contain shrink-0"
             />
             <div className="min-w-0">
               <div
                 className="text-[11px] font-extrabold uppercase tracking-wider truncate"
                 style={{ color: accentHex }}
               >
-                Control de Asistencia · PWA
+                Control de Asistencia
               </div>
-              <div className="text-sm font-bold text-white truncate">
+              <div
+                className="text-sm font-bold text-[#FFFFFF] truncate"
+                style={{ color: "#FFFFFF" }}
+              >
                 {fantasyName}
               </div>
             </div>
@@ -1310,7 +1313,7 @@ export default function AsistenciaPwaClient({
                     ? "Finalizá tu jornada con biometría para salir"
                     : "Cerrar sesión"
                 }
-                className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/20"
+                className="inline-flex items-center gap-1 rounded-full border border-[#FFFFFF]/25 bg-[#FFFFFF]/10 px-3 py-1.5 text-xs font-bold text-[#FFFFFF] transition hover:bg-[#FFFFFF]/20"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Salir</span>
@@ -1323,7 +1326,7 @@ export default function AsistenciaPwaClient({
       <main className="mx-auto max-w-2xl px-4 pt-5">
         {/* iOS Install Tip */}
         {showIosInstallTip && !isStandalone && (
-          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[#112D3A]/15 bg-white px-4 py-3 text-xs text-[#112D3A] shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[#112D3A]/15 bg-[#FFFFFF] px-4 py-3 text-xs text-[#112D3A] shadow-sm">
             <span>
               <strong>Instalá la App en iPhone:</strong> tocá{" "}
               <span className="font-bold">Compartir</span> y luego{" "}
@@ -1332,7 +1335,7 @@ export default function AsistenciaPwaClient({
             <button
               type="button"
               onClick={() => setShowIosInstallTip(false)}
-              className="rounded-lg p-1 hover:bg-slate-100"
+              className="rounded-lg p-1 hover:bg-[#f1f5f9]"
               aria-label="Cerrar aviso"
             >
               <X className="h-4 w-4" />
@@ -1346,15 +1349,15 @@ export default function AsistenciaPwaClient({
             role="status"
             className={`mb-4 flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm ${
               toast.isErr
-                ? "border-rose-300 bg-rose-50 text-rose-900"
-                : "border-emerald-300 bg-emerald-50 text-emerald-950"
+                ? "border-[#fda4af] bg-[#fff1f2] text-[#881337]"
+                : "border-[#6ee7b7] bg-[#ecfdf5] text-[#022c22]"
             }`}
           >
             <div className="flex items-start gap-2.5">
               {toast.isErr ? (
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#e11d48]" />
               ) : (
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#059669]" />
               )}
               <span>{toast.text}</span>
             </div>
@@ -1371,7 +1374,7 @@ export default function AsistenciaPwaClient({
 
         {/* Loading state */}
         {loading && (
-          <div className="rounded-3xl bg-white p-10 text-center shadow-sm border border-[#112D3A]/10">
+          <div className="rounded-3xl bg-[#FFFFFF] p-10 text-center shadow-sm border border-[#112D3A]/10">
             <RefreshCw className="mx-auto h-7 w-7 animate-spin text-[#112D3A]" />
             <p className="mt-3 text-sm font-semibold text-[#112D3A]/75">
               Iniciando App de Control de Asistencia...
@@ -1384,32 +1387,32 @@ export default function AsistenciaPwaClient({
           <div className="space-y-4">
             {/* Completed Shift Receipt Banner (after Biometric Check-Out & Logout) */}
             {lastCompletedShift && (
-              <div className="rounded-3xl border-2 border-emerald-400 bg-emerald-50 p-5 shadow-sm">
-                <div className="flex items-center gap-2 text-emerald-900 font-extrabold text-sm">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              <div className="rounded-3xl border-2 border-[#34d399] bg-[#ecfdf5] p-5 shadow-sm">
+                <div className="flex items-center gap-2 text-[#064e3b] font-extrabold text-sm">
+                  <CheckCircle2 className="h-5 w-5 text-[#059669]" />
                   Jornada finalizada y sesión cerrada con biometría
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2.5 text-xs sm:grid-cols-4">
-                  <div className="rounded-xl bg-white p-2.5 border border-emerald-200">
-                    <div className="text-slate-500">Ingreso</div>
+                  <div className="rounded-xl bg-[#FFFFFF] p-2.5 border border-[#a7f3d0]">
+                    <div className="text-[#64748b]">Ingreso</div>
                     <div className="font-extrabold text-[#112D3A] text-sm">
                       {lastCompletedShift.checkInLocalTime} hs
                     </div>
                   </div>
-                  <div className="rounded-xl bg-white p-2.5 border border-emerald-200">
-                    <div className="text-slate-500">Egreso</div>
+                  <div className="rounded-xl bg-[#FFFFFF] p-2.5 border border-[#a7f3d0]">
+                    <div className="text-[#64748b]">Egreso</div>
                     <div className="font-extrabold text-[#112D3A] text-sm">
                       {lastCompletedShift.checkOutLocalTime} hs
                     </div>
                   </div>
-                  <div className="rounded-xl bg-white p-2.5 border border-emerald-200">
-                    <div className="text-slate-500">Trabajado</div>
+                  <div className="rounded-xl bg-[#FFFFFF] p-2.5 border border-[#a7f3d0]">
+                    <div className="text-[#64748b]">Trabajado</div>
                     <div className="font-extrabold text-[#112D3A] text-sm">
                       {formatMinutesHM(lastCompletedShift.metrics.workedMinutes)}
                     </div>
                   </div>
-                  <div className="rounded-xl bg-white p-2.5 border border-emerald-200">
-                    <div className="text-slate-500">Recorrido GPS</div>
+                  <div className="rounded-xl bg-[#FFFFFF] p-2.5 border border-[#a7f3d0]">
+                    <div className="text-[#64748b]">Recorrido GPS</div>
                     <div className="font-extrabold text-[#112D3A] text-sm">
                       {lastCompletedShift.totalDistanceKm.toFixed(2)} km
                     </div>
@@ -1418,10 +1421,10 @@ export default function AsistenciaPwaClient({
               </div>
             )}
 
-            <div className="overflow-hidden rounded-3xl bg-white shadow-lg border border-[#112D3A]/10">
+            <div className="overflow-hidden rounded-3xl bg-[#FFFFFF] shadow-lg border border-[#112D3A]/10">
               <div
-                className="p-6 text-white"
-                style={{ backgroundColor: primaryHex }}
+                className="p-6 text-[#FFFFFF]"
+                style={{ backgroundColor: primaryHex, color: "#FFFFFF" }}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span
@@ -1431,28 +1434,37 @@ export default function AsistenciaPwaClient({
                     <Fingerprint className="h-3.5 w-3.5" />
                     Biometría + GPS Satelital
                   </span>
-                  <span className="text-xs font-bold text-white/80 tabular-nums">
+                  <span
+                    className="text-xs font-bold tabular-nums"
+                    style={{ color: "rgba(255, 255, 255, 0.85)" }}
+                  >
                     {liveClockStr} hs
                   </span>
                 </div>
-                <h1 className="mt-3 text-2xl font-black tracking-tight">
+                <h1
+                  className="mt-3 text-2xl font-black tracking-tight"
+                  style={{ color: "#FFFFFF" }}
+                >
                   Acceso de Empleados
                 </h1>
-                <p className="mt-1 text-sm text-white/80">
+                <p
+                  className="mt-1 text-sm"
+                  style={{ color: "rgba(255, 255, 255, 0.85)" }}
+                >
                   Ingresá con Google, tu correo electrónico o con el usuario y
                   contraseña gestionados por tu empleador.
                 </p>
               </div>
 
               {/* 3 Auth Mode Tabs */}
-              <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-50 p-1.5 gap-1">
+              <div className="grid grid-cols-3 border-b border-[#e2e8f0] bg-[#f8fafc] p-1.5 gap-1">
                 <button
                   type="button"
                   onClick={() => setLoginMode("google")}
                   className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold transition ${
                     loginMode === "google"
-                      ? "bg-[#112D3A] text-white shadow-sm"
-                      : "text-[#112D3A]/75 hover:bg-white"
+                      ? "bg-[#112D3A] text-[#FFFFFF] shadow-sm"
+                      : "text-[#112D3A]/75 hover:bg-[#FFFFFF]"
                   }`}
                 >
                   <ShieldCheck className="h-4 w-4" />
@@ -1463,8 +1475,8 @@ export default function AsistenciaPwaClient({
                   onClick={() => setLoginMode("email")}
                   className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold transition ${
                     loginMode === "email"
-                      ? "bg-[#112D3A] text-white shadow-sm"
-                      : "text-[#112D3A]/75 hover:bg-white"
+                      ? "bg-[#112D3A] text-[#FFFFFF] shadow-sm"
+                      : "text-[#112D3A]/75 hover:bg-[#FFFFFF]"
                   }`}
                 >
                   <Mail className="h-4 w-4" />
@@ -1475,8 +1487,8 @@ export default function AsistenciaPwaClient({
                   onClick={() => setLoginMode("empresa")}
                   className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold transition ${
                     loginMode === "empresa"
-                      ? "bg-[#112D3A] text-white shadow-sm"
-                      : "text-[#112D3A]/75 hover:bg-white"
+                      ? "bg-[#112D3A] text-[#FFFFFF] shadow-sm"
+                      : "text-[#112D3A]/75 hover:bg-[#FFFFFF]"
                   }`}
                 >
                   <KeyRound className="h-4 w-4" />
@@ -1489,7 +1501,7 @@ export default function AsistenciaPwaClient({
                   <div className="space-y-4">
                     {publicConfig.googleClientId ? (
                       <div className="flex flex-col items-center justify-center gap-3 py-3">
-                        <p className="text-center text-sm text-slate-600">
+                        <p className="text-center text-sm text-[#475569]">
                           Autenticate con tu cuenta de Google en un toque.
                         </p>
                         <div ref={googleBtnRef} className="min-h-[44px]" />
@@ -1499,7 +1511,7 @@ export default function AsistenciaPwaClient({
                         onSubmit={handleGoogleFallbackLogin}
                         className="space-y-3"
                       >
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-600">
+                        <div className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] p-3.5 text-xs text-[#475569]">
                           Ingresá con tu cuenta de Google. Si sos nuevo, luego
                           de ingresar completarás tus datos básicos obligatorios.
                         </div>
@@ -1516,7 +1528,7 @@ export default function AsistenciaPwaClient({
                             onChange={(e) =>
                               setGoogleFallbackEmail(e.target.value)
                             }
-                            className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
+                            className="w-full rounded-xl border border-[#cbd5e1] px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
                           />
                         </div>
                         <div>
@@ -1531,7 +1543,7 @@ export default function AsistenciaPwaClient({
                             onChange={(e) =>
                               setGoogleFallbackName(e.target.value)
                             }
-                            className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
+                            className="w-full rounded-xl border border-[#cbd5e1] px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
                           />
                         </div>
                         <button
@@ -1578,7 +1590,7 @@ export default function AsistenciaPwaClient({
                         placeholder="empleado@correo.com"
                         value={emailInput}
                         onChange={(e) => setEmailInput(e.target.value)}
-                        className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
+                        className="w-full rounded-xl border border-[#cbd5e1] px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
                       />
                     </div>
                     <div>
@@ -1595,13 +1607,13 @@ export default function AsistenciaPwaClient({
                         placeholder="Mínimo 4 caracteres"
                         value={passwordInput}
                         onChange={(e) => setPasswordInput(e.target.value)}
-                        className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
+                        className="w-full rounded-xl border border-[#cbd5e1] px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
                       />
                     </div>
                     <button
                       type="submit"
                       disabled={busy}
-                      className="w-full rounded-xl py-3 text-sm font-extrabold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+                      className="w-full rounded-xl py-3 text-sm font-extrabold text-[#FFFFFF] shadow-sm transition hover:opacity-95 disabled:opacity-60"
                       style={{ backgroundColor: primaryHex }}
                     >
                       {busy
@@ -1631,7 +1643,7 @@ export default function AsistenciaPwaClient({
                         placeholder="Ej: jperez o 35123456"
                         value={usernameInput}
                         onChange={(e) => setUsernameInput(e.target.value)}
-                        className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
+                        className="w-full rounded-xl border border-[#cbd5e1] px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
                       />
                     </div>
                     <div>
@@ -1645,13 +1657,13 @@ export default function AsistenciaPwaClient({
                         placeholder="Contraseña gestionada por el empleador"
                         value={empresaPassInput}
                         onChange={(e) => setEmpresaPassInput(e.target.value)}
-                        className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
+                        className="w-full rounded-xl border border-[#cbd5e1] px-3.5 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
                       />
                     </div>
                     <button
                       type="submit"
                       disabled={busy}
-                      className="w-full rounded-xl py-3 text-sm font-extrabold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+                      className="w-full rounded-xl py-3 text-sm font-extrabold text-[#FFFFFF] shadow-sm transition hover:opacity-95 disabled:opacity-60"
                       style={{ backgroundColor: primaryHex }}
                     >
                       {busy ? "Ingresando..." : "Ingresar con Usuario Empresa"}
@@ -1667,11 +1679,11 @@ export default function AsistenciaPwaClient({
         {!loading && employee && (mustFillProfile || activeTab === "datos") && (
           <div className="space-y-4">
             {!mustFillProfile && (
-              <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-white p-1.5 shadow-sm border border-[#112D3A]/10">
+              <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-[#FFFFFF] p-1.5 shadow-sm border border-[#112D3A]/10">
                 <button
                   type="button"
                   onClick={() => setActiveTab("fichar")}
-                  className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold text-[#112D3A]/75 hover:bg-slate-50"
+                  className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold text-[#112D3A]/75 hover:bg-[#f8fafc]"
                 >
                   <Fingerprint className="h-4 w-4" />
                   Asistencia
@@ -1679,7 +1691,7 @@ export default function AsistenciaPwaClient({
                 <button
                   type="button"
                   onClick={() => setActiveTab("historial")}
-                  className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold text-[#112D3A]/75 hover:bg-slate-50"
+                  className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold text-[#112D3A]/75 hover:bg-[#f8fafc]"
                 >
                   <History className="h-4 w-4" />
                   Historial
@@ -1687,7 +1699,7 @@ export default function AsistenciaPwaClient({
                 <button
                   type="button"
                   onClick={() => setActiveTab("datos")}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-[#112D3A] py-2.5 text-xs font-extrabold text-white shadow-sm"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-[#112D3A] py-2.5 text-xs font-extrabold text-[#FFFFFF] shadow-sm"
                 >
                   <UserRound className="h-4 w-4" />
                   Mis Datos
@@ -1697,7 +1709,7 @@ export default function AsistenciaPwaClient({
 
             <form
               onSubmit={handleSaveProfile}
-              className="rounded-3xl bg-white p-6 shadow-md border border-[#112D3A]/10 space-y-5"
+              className="rounded-3xl bg-[#FFFFFF] p-6 shadow-md border border-[#112D3A]/10 space-y-5"
             >
               <div>
                 <div className="flex items-center gap-2">
@@ -1709,7 +1721,7 @@ export default function AsistenciaPwaClient({
                   </h2>
                 </div>
                 {mustFillProfile ? (
-                  <p className="mt-1 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                  <p className="mt-1 text-xs font-medium text-[#92400e] bg-[#fffbeb] border border-[#fde68a] rounded-xl px-3 py-2">
                     Completá <strong>todos los campos obligatorios</strong> para
                     habilitar el registro de asistencia biométrica y satelital.
                     {missingFields.length > 0 && (
@@ -1719,7 +1731,7 @@ export default function AsistenciaPwaClient({
                     )}
                   </p>
                 ) : (
-                  <p className="mt-1 text-xs text-slate-600">
+                  <p className="mt-1 text-xs text-[#475569]">
                     Todos los campos son obligatorios para tu legajo de
                     asistencia. Si un dato de domicilio (Piso, Dpto. o Torre) no
                     aplica, indicá <strong>-</strong> o <strong>PB</strong>.
@@ -1742,7 +1754,7 @@ export default function AsistenciaPwaClient({
                       setProf((p) => ({ ...p, apellidos: e.target.value }))
                     }
                     placeholder="Ej: González"
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
+                    className="w-full rounded-xl border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
                   />
                 </div>
                 <div>
@@ -1758,7 +1770,7 @@ export default function AsistenciaPwaClient({
                       setProf((p) => ({ ...p, nombres: e.target.value }))
                     }
                     placeholder="Ej: María Laura"
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
+                    className="w-full rounded-xl border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
                   />
                 </div>
                 <div>
@@ -1778,7 +1790,7 @@ export default function AsistenciaPwaClient({
                       }))
                     }
                     placeholder="Sin puntos (ej: 35123456)"
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
+                    className="w-full rounded-xl border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
                   />
                 </div>
                 <div>
@@ -1796,20 +1808,20 @@ export default function AsistenciaPwaClient({
                         fechaNacimiento: e.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
+                    className="w-full rounded-xl border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A] focus:ring-2 focus:ring-[#56D7A1]/40"
                   />
                 </div>
               </div>
 
               {/* WhatsApp personal con desplegable de país */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-3">
+              <div className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] p-3.5 space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-[#112D3A]">
                   <Phone className="h-3.5 w-3.5" />
                   WhatsApp Personal *
                 </div>
                 <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-5">
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    <label className="block text-[11px] font-bold text-[#475569] mb-1">
                       Código de País *
                     </label>
                     <select
@@ -1825,7 +1837,7 @@ export default function AsistenciaPwaClient({
                           whatsappPais: chosen?.country || p.whatsappPais,
                         }));
                       }}
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] bg-[#FFFFFF] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     >
                       {ASISTENCIA_WHATSAPP_COUNTRIES.map((c) => (
                         <option key={c.prefix} value={c.prefix}>
@@ -1835,7 +1847,7 @@ export default function AsistenciaPwaClient({
                     </select>
                   </div>
                   <div className="sm:col-span-3">
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    <label className="block text-[11px] font-bold text-[#475569] mb-1">
                       Número (sin 0 ni 15) *
                     </label>
                     <input
@@ -1851,7 +1863,7 @@ export default function AsistenciaPwaClient({
                         }))
                       }
                       placeholder="Ej: 3585095475"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] bg-[#FFFFFF] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     />
                   </div>
                 </div>
@@ -1877,7 +1889,7 @@ export default function AsistenciaPwaClient({
                         setProf((p) => ({ ...p, calle: e.target.value }))
                       }
                       placeholder="Nombre de la calle"
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -1892,7 +1904,7 @@ export default function AsistenciaPwaClient({
                         setProf((p) => ({ ...p, numero: e.target.value }))
                       }
                       placeholder="Ej: 450 o S/N"
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -1907,7 +1919,7 @@ export default function AsistenciaPwaClient({
                         setProf((p) => ({ ...p, piso: e.target.value }))
                       }
                       placeholder="Ej: PB, 2 o -"
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -1922,7 +1934,7 @@ export default function AsistenciaPwaClient({
                         setProf((p) => ({ ...p, dpto: e.target.value }))
                       }
                       placeholder="Ej: B o -"
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -1937,7 +1949,7 @@ export default function AsistenciaPwaClient({
                         setProf((p) => ({ ...p, torre: e.target.value }))
                       }
                       placeholder="Ej: 1, Norte o -"
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     />
                   </div>
                   <div className="sm:col-span-6">
@@ -1952,7 +1964,7 @@ export default function AsistenciaPwaClient({
                         setProf((p) => ({ ...p, barrio: e.target.value }))
                       }
                       placeholder="Ej: Centro, Alberdi, Banda Norte"
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     />
                   </div>
 
@@ -1976,7 +1988,7 @@ export default function AsistenciaPwaClient({
                           localidad: locs[0]?.nombre || "",
                         }));
                       }}
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] bg-[#FFFFFF] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     >
                       <option value="">Seleccioná una provincia...</option>
                       {provincias.map((pr) => (
@@ -1998,7 +2010,7 @@ export default function AsistenciaPwaClient({
                       onChange={(e) =>
                         setProf((p) => ({ ...p, localidad: e.target.value }))
                       }
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] bg-[#FFFFFF] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     >
                       <option value="">Seleccioná una localidad...</option>
                       {localidadesForProvincia.map((loc) => (
@@ -2020,14 +2032,14 @@ export default function AsistenciaPwaClient({
               </div>
 
               {/* WhatsApp para Urgencias */}
-              <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-3.5 space-y-3">
-                <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-rose-900">
-                  <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+              <div className="rounded-2xl border border-[#fecdd3] bg-[#fff1f2] p-3.5 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-[#881337]">
+                  <AlertTriangle className="h-3.5 w-3.5 text-[#e11d48]" />
                   WhatsApp para Urgencias *
                 </div>
                 <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-5">
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-[#334155] mb-1">
                       Código de País *
                     </label>
                     <select
@@ -2044,7 +2056,7 @@ export default function AsistenciaPwaClient({
                             chosen?.country || p.whatsappUrgenciasPais,
                         }));
                       }}
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] bg-[#FFFFFF] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     >
                       {ASISTENCIA_WHATSAPP_COUNTRIES.map((c) => (
                         <option key={c.prefix} value={c.prefix}>
@@ -2054,7 +2066,7 @@ export default function AsistenciaPwaClient({
                     </select>
                   </div>
                   <div className="sm:col-span-3">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-[#334155] mb-1">
                       Número de WhatsApp de Urgencias *
                     </label>
                     <input
@@ -2073,11 +2085,11 @@ export default function AsistenciaPwaClient({
                         }))
                       }
                       placeholder="Ej: 3584112233"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] bg-[#FFFFFF] px-3 py-2.5 text-sm outline-none focus:border-[#112D3A]"
                     />
                   </div>
                   <div className="sm:col-span-5">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-[#334155] mb-1">
                       Nombre / Parentesco del contacto de urgencia (opcional)
                     </label>
                     <input
@@ -2090,7 +2102,7 @@ export default function AsistenciaPwaClient({
                         }))
                       }
                       placeholder="Ej: Carlos González (Padre / Pareja)"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#112D3A]"
+                      className="w-full rounded-xl border border-[#cbd5e1] bg-[#FFFFFF] px-3 py-2 text-sm outline-none focus:border-[#112D3A]"
                     />
                   </div>
                 </div>
@@ -2116,14 +2128,14 @@ export default function AsistenciaPwaClient({
         {!loading && employee && !mustFillProfile && activeTab !== "datos" && (
           <div className="space-y-4">
             {/* Employee Navigation Tabs */}
-            <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-white p-1.5 shadow-sm border border-[#112D3A]/10">
+            <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-[#FFFFFF] p-1.5 shadow-sm border border-[#112D3A]/10">
               <button
                 type="button"
                 onClick={() => setActiveTab("fichar")}
                 className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold transition ${
                   activeTab === "fichar"
-                    ? "bg-[#112D3A] text-white shadow-sm"
-                    : "text-[#112D3A]/75 hover:bg-slate-50"
+                    ? "bg-[#112D3A] text-[#FFFFFF] shadow-sm"
+                    : "text-[#112D3A]/75 hover:bg-[#f8fafc]"
                 }`}
               >
                 <Fingerprint className="h-4 w-4" />
@@ -2134,8 +2146,8 @@ export default function AsistenciaPwaClient({
                 onClick={() => setActiveTab("historial")}
                 className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold transition ${
                   activeTab === "historial"
-                    ? "bg-[#112D3A] text-white shadow-sm"
-                    : "text-[#112D3A]/75 hover:bg-slate-50"
+                    ? "bg-[#112D3A] text-[#FFFFFF] shadow-sm"
+                    : "text-[#112D3A]/75 hover:bg-[#f8fafc]"
                 }`}
               >
                 <History className="h-4 w-4" />
@@ -2144,7 +2156,7 @@ export default function AsistenciaPwaClient({
               <button
                 type="button"
                 onClick={() => setActiveTab("datos")}
-                className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold text-[#112D3A]/75 hover:bg-slate-50"
+                className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold text-[#112D3A]/75 hover:bg-[#f8fafc]"
               >
                 <UserRound className="h-4 w-4" />
                 Mis Datos
@@ -2155,12 +2167,12 @@ export default function AsistenciaPwaClient({
               <div className="space-y-4">
                 {/* Clock & Employee Schedule Hero */}
                 <div
-                  className="rounded-3xl p-6 text-white shadow-lg"
+                  className="rounded-3xl p-6 text-[#FFFFFF] shadow-lg"
                   style={{ backgroundColor: primaryHex }}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <div className="text-xs font-bold uppercase tracking-wider text-white/70">
+                      <div className="text-xs font-bold uppercase tracking-wider text-[#FFFFFF]/70">
                         {liveDateStr}
                       </div>
                       <div className="mt-1 text-4xl font-black tracking-tight tabular-nums">
@@ -2168,17 +2180,17 @@ export default function AsistenciaPwaClient({
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs font-extrabold text-white">
+                      <div className="text-xs font-extrabold text-[#FFFFFF]">
                         {employee.profile.nombreCompleto}
                       </div>
-                      <div className="text-[11px] text-white/75">
+                      <div className="text-[11px] text-[#FFFFFF]/75">
                         DNI {employee.profile.dni}
                       </div>
                     </div>
                   </div>
 
                   {effectiveSchedule && (
-                    <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl bg-white/10 px-3.5 py-2.5 text-xs">
+                    <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl bg-[#FFFFFF]/10 px-3.5 py-2.5 text-xs">
                       <Clock
                         className="h-4 w-4 shrink-0"
                         style={{ color: accentHex }}
@@ -2190,7 +2202,7 @@ export default function AsistenciaPwaClient({
                           {effectiveSchedule.horaEgreso} hs
                         </strong>
                       </span>
-                      <span className="ml-auto text-[11px] text-white/75">
+                      <span className="ml-auto text-[11px] text-[#FFFFFF]/75">
                         Tolerancia: {effectiveSchedule.toleranciaIngresoMin} min
                       </span>
                     </div>
@@ -2199,26 +2211,26 @@ export default function AsistenciaPwaClient({
 
                 {/* ACTIVE SHIFT LIVE TRACKING CARD */}
                 {activeShift ? (
-                  <div className="rounded-3xl border-2 border-emerald-400 bg-white p-6 shadow-md space-y-5">
+                  <div className="rounded-3xl border-2 border-[#34d399] bg-[#FFFFFF] p-6 shadow-md space-y-5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3.5 py-1.5 text-xs font-black text-emerald-900">
-                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="inline-flex items-center gap-2 rounded-full bg-[#d1fae5] px-3.5 py-1.5 text-xs font-black text-[#064e3b]">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#10b981] animate-pulse" />
                         JORNADA LABORAL ACTIVA
                       </span>
-                      <span className="text-xs font-bold text-slate-600">
+                      <span className="text-xs font-bold text-[#475569]">
                         Ingreso: <strong>{activeShift.checkInLocalTime} hs</strong>
                       </span>
                     </div>
 
                     <div className="text-center py-2">
-                      <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <div className="text-xs font-bold uppercase tracking-wider text-[#64748b]">
                         Tiempo transcurrido en jornada
                       </div>
                       <div className="mt-1 text-4xl font-black text-[#112D3A] tabular-nums">
                         {formatDurationSeconds(activeElapsedSec)}
                       </div>
                       {activeShift.metrics.lateArrivalMinutes > 0 && (
-                        <span className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-0.5 text-xs font-bold text-amber-900">
+                        <span className="mt-2 inline-block rounded-full bg-[#fef3c7] px-3 py-0.5 text-xs font-bold text-[#78350f]">
                           Llegada tarde: +{activeShift.metrics.lateArrivalMinutes} min
                         </span>
                       )}
@@ -2228,7 +2240,7 @@ export default function AsistenciaPwaClient({
                     <div className="rounded-2xl border border-[#112D3A]/15 bg-[#f2f7f9] p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs font-extrabold text-[#112D3A]">
-                          <Navigation className="h-4 w-4 text-emerald-600" />
+                          <Navigation className="h-4 w-4 text-[#059669]" />
                           Seguimiento Satelital GPS Activo
                         </div>
                         <button
@@ -2247,7 +2259,7 @@ export default function AsistenciaPwaClient({
                               )
                               .catch(() => {})
                           }
-                          className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[11px] font-bold text-[#112D3A] border border-slate-200 hover:bg-slate-50"
+                          className="inline-flex items-center gap-1 rounded-lg bg-[#FFFFFF] px-2.5 py-1 text-[11px] font-bold text-[#112D3A] border border-[#e2e8f0] hover:bg-[#f8fafc]"
                         >
                           <RefreshCw className="h-3 w-3" />
                           Registrar punto
@@ -2255,20 +2267,20 @@ export default function AsistenciaPwaClient({
                       </div>
 
                       <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-xl bg-white p-2.5 border border-slate-200/80">
-                          <div className="text-[11px] text-slate-500">Puntos Track</div>
+                        <div className="rounded-xl bg-[#FFFFFF] p-2.5 border border-[#e2e8f0]">
+                          <div className="text-[11px] text-[#64748b]">Puntos Track</div>
                           <div className="text-base font-black text-[#112D3A]">
                             {trackingStats.points}
                           </div>
                         </div>
-                        <div className="rounded-xl bg-white p-2.5 border border-slate-200/80">
-                          <div className="text-[11px] text-slate-500">Recorrido</div>
+                        <div className="rounded-xl bg-[#FFFFFF] p-2.5 border border-[#e2e8f0]">
+                          <div className="text-[11px] text-[#64748b]">Recorrido</div>
                           <div className="text-base font-black text-[#112D3A]">
                             {trackingStats.distanceKm.toFixed(2)} km
                           </div>
                         </div>
-                        <div className="rounded-xl bg-white p-2.5 border border-slate-200/80">
-                          <div className="text-[11px] text-slate-500">Precisión GPS</div>
+                        <div className="rounded-xl bg-[#FFFFFF] p-2.5 border border-[#e2e8f0]">
+                          <div className="text-[11px] text-[#64748b]">Precisión GPS</div>
                           <div className="text-base font-black text-[#112D3A]">
                             {geoFix ? `±${geoFix.accuracy}m` : "Buscando..."}
                           </div>
@@ -2276,12 +2288,12 @@ export default function AsistenciaPwaClient({
                       </div>
 
                       {geoFix && (
-                        <div className="text-[11px] text-slate-600 flex items-center justify-between">
+                        <div className="text-[11px] text-[#475569] flex items-center justify-between">
                           <span>
                             Lat {geoFix.lat.toFixed(5)} · Lng {geoFix.lng.toFixed(5)}
                           </span>
                           {trackingStats.queuedCount > 0 && (
-                            <span className="font-bold text-amber-700">
+                            <span className="font-bold text-[#b45309]">
                               {trackingStats.queuedCount} en cola offline
                             </span>
                           )}
@@ -2289,7 +2301,7 @@ export default function AsistenciaPwaClient({
                       )}
                     </div>
 
-                    <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-950">
+                    <div className="rounded-2xl bg-[#fffbeb] border border-[#fde68a] p-3 text-xs text-[#451a03]">
                       Mantené la App abierta durante tu jornada para registrar el
                       track de recorrido. Al finalizar, presioná el botón de
                       egreso y validá nuevamente tus <strong>datos biométricos</strong>{" "}
@@ -2300,7 +2312,7 @@ export default function AsistenciaPwaClient({
                       type="button"
                       disabled={busy}
                       onClick={handleCheckOutAndLogout}
-                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-rose-600 py-4 text-sm font-black text-white shadow-lg transition hover:bg-rose-700 disabled:opacity-60"
+                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#e11d48] py-4 text-sm font-black text-[#FFFFFF] shadow-lg transition hover:bg-[#be123c] disabled:opacity-60"
                     >
                       <Fingerprint className="h-5 w-5" />
                       {busy
@@ -2310,12 +2322,12 @@ export default function AsistenciaPwaClient({
                   </div>
                 ) : (
                   /* CHECK-IN PANEL (DUAL VARIABLES: BIOMETRICS + SATELLITE GPS) */
-                  <div className="rounded-3xl bg-white p-6 shadow-md border border-[#112D3A]/10 space-y-5">
+                  <div className="rounded-3xl bg-[#FFFFFF] p-6 shadow-md border border-[#112D3A]/10 space-y-5">
                     <div>
                       <h2 className="text-lg font-black text-[#112D3A]">
                         Registrar Presencia (Ingreso)
                       </h2>
-                      <p className="mt-1 text-xs text-slate-600">
+                      <p className="mt-1 text-xs text-[#475569]">
                         El registro exige las <strong>dos variables juntas</strong>:
                         verificación biométrica y geoposición satelital activa.
                       </p>
@@ -2323,7 +2335,7 @@ export default function AsistenciaPwaClient({
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {/* Variable 1: Biometría */}
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col justify-between gap-3">
+                      <div className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] p-4 flex flex-col justify-between gap-3">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#112D3A] text-[#56D7A1]">
@@ -2333,7 +2345,7 @@ export default function AsistenciaPwaClient({
                               <div className="text-xs font-extrabold text-[#112D3A]">
                                 1. Datos Biométricos
                               </div>
-                              <div className="text-[11px] text-slate-500">
+                              <div className="text-[11px] text-[#64748b]">
                                 {platformBioAvailable
                                   ? "Huella / Face ID del dispositivo"
                                   : "Verificación facial en vivo"}
@@ -2341,11 +2353,11 @@ export default function AsistenciaPwaClient({
                             </div>
                           </div>
                           {employee.biometrics?.enrolled ? (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-800">
+                            <span className="rounded-full bg-[#d1fae5] px-2 py-0.5 text-[10px] font-extrabold text-[#065f46]">
                               Vinculado
                             </span>
                           ) : (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">
+                            <span className="rounded-full bg-[#fef3c7] px-2 py-0.5 text-[10px] font-extrabold text-[#78350f]">
                               Sin vincular
                             </span>
                           )}
@@ -2356,19 +2368,19 @@ export default function AsistenciaPwaClient({
                             type="button"
                             disabled={busy}
                             onClick={handleEnrollBiometrics}
-                            className="w-full rounded-xl border border-[#112D3A] bg-white py-2 text-xs font-extrabold text-[#112D3A] hover:bg-slate-100"
+                            className="w-full rounded-xl border border-[#112D3A] bg-[#FFFFFF] py-2 text-xs font-extrabold text-[#112D3A] hover:bg-[#f1f5f9]"
                           >
                             Vincular Biometría Ahora
                           </button>
                         ) : (
-                          <div className="text-[11px] font-semibold text-emerald-700">
+                          <div className="text-[11px] font-semibold text-[#047857]">
                             ✓ Listo para validar identidad al ingresar y salir.
                           </div>
                         )}
                       </div>
 
                       {/* Variable 2: Geoposición Satelital */}
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col justify-between gap-3">
+                      <div className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] p-4 flex flex-col justify-between gap-3">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#112D3A] text-[#56D7A1]">
@@ -2378,7 +2390,7 @@ export default function AsistenciaPwaClient({
                               <div className="text-xs font-extrabold text-[#112D3A]">
                                 2. Geoposición Satelital
                               </div>
-                              <div className="text-[11px] text-slate-500">
+                              <div className="text-[11px] text-[#64748b]">
                                 {geoStatus === "locked" && geoFix
                                   ? `Señal GPS ±${geoFix.accuracy} m`
                                   : geoStatus === "locating"
@@ -2390,7 +2402,7 @@ export default function AsistenciaPwaClient({
                           <button
                             type="button"
                             onClick={() => acquireFreshGeo().catch(() => {})}
-                            className="rounded-lg p-1.5 text-[#112D3A] hover:bg-slate-200/70"
+                            className="rounded-lg p-1.5 text-[#112D3A] hover:bg-[#e2e8f0]"
                             title="Actualizar señal GPS"
                           >
                             <Compass className="h-4 w-4" />
@@ -2398,11 +2410,11 @@ export default function AsistenciaPwaClient({
                         </div>
 
                         {geoFix ? (
-                          <div className="text-[11px] font-semibold text-emerald-700">
+                          <div className="text-[11px] font-semibold text-[#047857]">
                             ✓ {geoFix.lat.toFixed(5)}, {geoFix.lng.toFixed(5)}
                           </div>
                         ) : (
-                          <div className="text-[11px] font-semibold text-rose-700">
+                          <div className="text-[11px] font-semibold text-[#be123c]">
                             {geoError || "Tocá para activar ubicación GPS."}
                           </div>
                         )}
@@ -2428,7 +2440,7 @@ export default function AsistenciaPwaClient({
 
             {/* ==================== HISTORY TAB ==================== */}
             {activeTab === "historial" && (
-              <div className="rounded-3xl bg-white p-5 shadow-md border border-[#112D3A]/10 space-y-3">
+              <div className="rounded-3xl bg-[#FFFFFF] p-5 shadow-md border border-[#112D3A]/10 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-black text-[#112D3A]">
                     Mis Últimas Jornadas
@@ -2436,7 +2448,7 @@ export default function AsistenciaPwaClient({
                   <button
                     type="button"
                     onClick={loadSession}
-                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-[#112D3A] hover:bg-slate-50"
+                    className="inline-flex items-center gap-1 rounded-xl border border-[#e2e8f0] px-3 py-1.5 text-xs font-bold text-[#112D3A] hover:bg-[#f8fafc]"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     Actualizar
@@ -2444,7 +2456,7 @@ export default function AsistenciaPwaClient({
                 </div>
 
                 {recentShifts.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-slate-500">
+                  <p className="py-8 text-center text-sm text-[#64748b]">
                     Todavía no tenés jornadas registradas.
                   </p>
                 ) : (
@@ -2452,7 +2464,7 @@ export default function AsistenciaPwaClient({
                     {recentShifts.map((s) => (
                       <div
                         key={s.id}
-                        className="rounded-2xl border border-slate-200 p-3.5 text-xs space-y-2"
+                        className="rounded-2xl border border-[#e2e8f0] p-3.5 text-xs space-y-2"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-extrabold text-[#112D3A] text-sm">
@@ -2461,11 +2473,11 @@ export default function AsistenciaPwaClient({
                           <span
                             className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                               s.status === "active"
-                                ? "bg-emerald-100 text-emerald-800"
+                                ? "bg-[#d1fae5] text-[#065f46]"
                                 : s.metrics.lateArrivalMinutes > 0 ||
                                     s.metrics.earlyDepartureMinutes > 0
-                                  ? "bg-amber-100 text-amber-900"
-                                  : "bg-slate-100 text-slate-700"
+                                  ? "bg-[#fef3c7] text-[#78350f]"
+                                  : "bg-[#f1f5f9] text-[#334155]"
                             }`}
                           >
                             {s.status === "active"
@@ -2477,7 +2489,7 @@ export default function AsistenciaPwaClient({
                                   : "Completada"}
                           </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-slate-600">
+                        <div className="grid grid-cols-3 gap-2 text-[#475569]">
                           <div>
                             Ingreso:{" "}
                             <strong className="text-[#112D3A]">
@@ -2510,26 +2522,26 @@ export default function AsistenciaPwaClient({
       {/* ==================== LIVE FACIAL BIOMETRIC FALLBACK MODAL ==================== */}
       {faceModal.open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#000000]/70 p-4 backdrop-blur-xs"
           role="dialog"
           aria-modal="true"
           aria-label="Verificación Biométrica Facial"
         >
-          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl space-y-4">
+          <div className="w-full max-w-sm rounded-3xl bg-[#FFFFFF] p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-black text-[#112D3A]">
-                <Fingerprint className="h-5 w-5 text-emerald-600" />
+                <Fingerprint className="h-5 w-5 text-[#059669]" />
                 Verificación Biométrica Facial
               </div>
               <button
                 type="button"
                 onClick={handleCancelFaceModal}
-                className="rounded-lg p-1 hover:bg-slate-100"
+                className="rounded-lg p-1 hover:bg-[#f1f5f9]"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-[#475569]">
               Este equipo no cuenta con lector nativo de huella/Face ID. Ubicá tu
               rostro centrado en la cámara frontal para validar tu presencia.
             </p>
@@ -2543,7 +2555,7 @@ export default function AsistenciaPwaClient({
               <div className="pointer-events-none absolute inset-6 rounded-full border-2 border-dashed border-[#56D7A1]/80" />
             </div>
             {faceError && (
-              <p className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+              <p className="rounded-xl bg-[#fff1f2] px-3 py-2 text-xs font-semibold text-[#be123c]">
                 {faceError}
               </p>
             )}
@@ -2551,7 +2563,7 @@ export default function AsistenciaPwaClient({
               <button
                 type="button"
                 onClick={handleCancelFaceModal}
-                className="flex-1 rounded-xl border border-slate-300 py-2.5 text-xs font-bold text-slate-700"
+                className="flex-1 rounded-xl border border-[#cbd5e1] py-2.5 text-xs font-bold text-[#334155]"
               >
                 Cancelar
               </button>
