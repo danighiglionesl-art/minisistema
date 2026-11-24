@@ -9,6 +9,16 @@ import {
 
 type AnyObj = Record<string, unknown>;
 
+function slugifyCategory(input: string): string {
+  return String(input || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
 function isGeneralAdmin(session: { username: string; role: string } | null): boolean {
   if (!session) return false;
   const user = String(session.username || "").trim().toLowerCase();
@@ -78,12 +88,12 @@ export async function handleErpFeriarte(
         .limit(200),
       sb
         .from("fa_products")
-        .select("id, store_id, category_id, slug, title, price_cents, stock_qty, craft_type, status, moderation_status, created_at")
+        .select("id, store_id, category_id, slug, title, description, materials, suggested_category_note, price_cents, stock_qty, craft_type, status, moderation_status, created_at")
         .order("created_at", { ascending: false })
         .limit(200),
       sb
         .from("fa_categories")
-        .select("id, slug, name, description, sort_order, is_active")
+        .select("id, slug, name, description, icon, sort_order, is_active")
         .order("sort_order", { ascending: true }),
       sb
         .from("fa_orders")
@@ -135,10 +145,46 @@ export async function handleErpFeriarte(
     const fairs = fairsRes.data || [];
     const stores = storesRes.data || [];
     const products = productsRes.data || [];
+    const rawCategories = categoriesRes.data || [];
     const orders = ordersRes.data || [];
     const ledger = ledgerRes.data || [];
     const settlements = settlementsRes.data || [];
     const claims = claimsRes.data || [];
+
+    const storeById = new Map<string, (typeof stores)[number]>();
+    for (const s of stores) storeById.set(s.id, s);
+
+    const productCountByCategory = new Map<string, number>();
+    for (const p of products) {
+      if (p.category_id && p.status !== "archived") {
+        productCountByCategory.set(
+          p.category_id,
+          (productCountByCategory.get(p.category_id) || 0) + 1
+        );
+      }
+    }
+
+    const categories = rawCategories.map((c) => ({
+      ...c,
+      products_count: productCountByCategory.get(c.id) || 0,
+    }));
+
+    const otrosCategory = rawCategories.find((c) => c.slug === "otros") || null;
+    const productsInOtros = otrosCategory
+      ? products
+          .filter((p) => p.category_id === otrosCategory.id && p.status !== "archived")
+          .map((p) => {
+            const st = storeById.get(p.store_id);
+            return {
+              ...p,
+              store_name: st?.name || "Tienda",
+              artisan_name: st?.artisan_name || "",
+              store_slug: st?.slug || "",
+              province: st?.province || "",
+              locality: st?.locality || "",
+            };
+          })
+      : [];
 
     const rolesByUser = new Map<string, Array<{ role: string; status: string }>>();
     for (const r of roles) {
@@ -178,6 +224,7 @@ export async function handleErpFeriarte(
       fairsPublished: fairs.filter((f) => f.status !== "draft" && f.status !== "suspended").length,
       storesEnabled: stores.filter((s) => s.status === "active").length,
       productsAvailable: products.filter((p) => p.status === "published" && p.moderation_status === "approved").length,
+      productsInOtrosCount: productsInOtros.length,
       grossSalesCents,
       netSalesCents: Math.max(0, grossSalesCents - platformCommCents - organizerCommCents),
       platformCommissionCents: platformCommCents,
@@ -202,7 +249,9 @@ export async function handleErpFeriarte(
       fairs,
       stores,
       products,
-      categories: categoriesRes.data || [],
+      productsInOtros,
+      otrosCategoryId: otrosCategory?.id || null,
+      categories,
       orders,
       payments: paymentsRes.data || [],
       commissionRules: rulesRes.data || [],
@@ -648,6 +697,191 @@ export async function handleErpFeriarte(
       return NextResponse.json({ ok: true, message: `Reclamo actualizado a ${status}.` });
     }
 
+    if (action === "create_category") {
+      const name = String(body.name || "").trim();
+      const description = String(body.description || "").trim();
+      const icon = String(body.icon || "tag").trim() || "tag";
+      const assignProductIds = Array.isArray(body.assignProductIds)
+        ? body.assignProductIds.map((id) => String(id || "").trim()).filter(Boolean)
+        : body.assignProductId
+          ? [String(body.assignProductId).trim()]
+          : [];
+
+      if (name.length < 2 || name.length > 80) {
+        return NextResponse.json(
+          { ok: false, message: "El nombre de la categoría debe tener entre 2 y 80 caracteres." },
+          { status: 400 }
+        );
+      }
+
+      const baseSlug = slugifyCategory(name);
+      if (!baseSlug) {
+        return NextResponse.json(
+          { ok: false, message: "No se pudo generar un identificador válido para esa categoría." },
+          { status: 400 }
+        );
+      }
+
+      const { data: existingCats } = await sb
+        .from("fa_categories")
+        .select("id, slug, name, sort_order");
+
+      const duplicate = (existingCats || []).find(
+        (c) =>
+          c.slug === baseSlug ||
+          String(c.name || "").trim().toLowerCase() === name.toLowerCase()
+      );
+      if (duplicate) {
+        return NextResponse.json(
+          { ok: false, message: `Ya existe una categoría llamada «${duplicate.name}».` },
+          { status: 409 }
+        );
+      }
+
+      // Colocar antes de «Otros» (sort_order 999) automáticamente
+      const maxNormalOrder = (existingCats || [])
+        .filter((c) => c.slug !== "otros" && Number(c.sort_order) < 900)
+        .reduce((max, c) => Math.max(max, Number(c.sort_order || 0)), 0);
+
+      const requestedSort = Number(body.sortOrder);
+      const sortOrder =
+        Number.isFinite(requestedSort) && requestedSort > 0
+          ? Math.round(requestedSort)
+          : maxNormalOrder + 1;
+
+      const { data: createdCat, error: catErr } = await sb
+        .from("fa_categories")
+        .insert({
+          slug: baseSlug,
+          name,
+          description: description || null,
+          icon,
+          sort_order: sortOrder,
+          is_active: true,
+        })
+        .select("*")
+        .single();
+
+      if (catErr || !createdCat) {
+        return NextResponse.json(
+          { ok: false, message: catErr?.message || "No se pudo crear la categoría." },
+          { status: 500 }
+        );
+      }
+
+      await logAction("category.create", "category", createdCat.id, null, createdCat);
+
+      let movedCount = 0;
+      if (assignProductIds.length > 0) {
+        const { data: movedRows } = await sb
+          .from("fa_products")
+          .update({
+            category_id: createdCat.id,
+            suggested_category_note: null,
+            updated_at: nowIso,
+          })
+          .in("id", assignProductIds)
+          .select("id");
+        movedCount = movedRows?.length || 0;
+        for (const row of movedRows || []) {
+          await logAction("product.recategorize", "product", row.id, null, {
+            category_id: createdCat.id,
+            category_name: createdCat.name,
+            via: "new_category_from_otros",
+          });
+        }
+      }
+
+      return NextResponse.json({
+        ok: true,
+        category: createdCat,
+        movedCount,
+        message:
+          movedCount > 0
+            ? `Categoría «${createdCat.name}» creada y asignada a ${movedCount} producto(s).`
+            : `Categoría «${createdCat.name}» creada correctamente y ya disponible en FeriARTE.`,
+      });
+    }
+
+    if (action === "recategorize_product") {
+      const productId = String(body.productId || "").trim();
+      const categoryId = String(body.categoryId || "").trim();
+      if (!productId || !categoryId) {
+        return NextResponse.json(
+          { ok: false, message: "Seleccioná un producto y una categoría destino." },
+          { status: 400 }
+        );
+      }
+
+      const [{ data: prod }, { data: targetCat }] = await Promise.all([
+        sb
+          .from("fa_products")
+          .select("id, title, category_id, suggested_category_note")
+          .eq("id", productId)
+          .maybeSingle(),
+        sb
+          .from("fa_categories")
+          .select("id, slug, name, is_active")
+          .eq("id", categoryId)
+          .maybeSingle(),
+      ]);
+
+      if (!prod) {
+        return NextResponse.json({ ok: false, message: "Producto no encontrado." }, { status: 404 });
+      }
+      if (!targetCat) {
+        return NextResponse.json({ ok: false, message: "Categoría destino no encontrada." }, { status: 404 });
+      }
+
+      const { error: updErr } = await sb
+        .from("fa_products")
+        .update({
+          category_id: targetCat.id,
+          suggested_category_note: targetCat.slug === "otros" ? prod.suggested_category_note : null,
+          updated_at: nowIso,
+        })
+        .eq("id", prod.id);
+
+      if (updErr) {
+        return NextResponse.json({ ok: false, message: updErr.message }, { status: 500 });
+      }
+
+      await logAction(
+        "product.recategorize",
+        "product",
+        prod.id,
+        { category_id: prod.category_id, suggested_category_note: prod.suggested_category_note },
+        { category_id: targetCat.id, category_name: targetCat.name }
+      );
+
+      return NextResponse.json({
+        ok: true,
+        message: `«${prod.title}» reasignado a «${targetCat.name}».`,
+      });
+    }
+
+    if (action === "toggle_category_active") {
+      const categoryId = String(body.categoryId || "").trim();
+      const isActive = Boolean(body.isActive);
+      if (!categoryId) {
+        return NextResponse.json({ ok: false, message: "Categoría inválida." }, { status: 400 });
+      }
+      const { data: cat } = await sb
+        .from("fa_categories")
+        .select("id, slug, name, is_active")
+        .eq("id", categoryId)
+        .maybeSingle();
+      if (!cat) {
+        return NextResponse.json({ ok: false, message: "Categoría no encontrada." }, { status: 404 });
+      }
+      await sb.from("fa_categories").update({ is_active: isActive }).eq("id", cat.id);
+      await logAction("category.toggle_active", "category", cat.id, { is_active: cat.is_active }, { is_active: isActive });
+      return NextResponse.json({
+        ok: true,
+        message: `Categoría «${cat.name}» ${isActive ? "activada" : "desactivada"}.`,
+      });
+    }
+
     if (action === "review_report") {
       const reportId = String(body.reportId || "");
       const status = String(body.status || "");
@@ -660,6 +894,102 @@ export async function handleErpFeriarte(
         .eq("id", reportId);
       await logAction("moderation.review_report", "content_report", reportId, null, { status });
       return NextResponse.json({ ok: true, message: `Denuncia actualizada a ${status}.` });
+    }
+
+    if (action === "save_shipping_tariffs") {
+      const localArs = Number(body.localArs);
+      const provincialArs = Number(body.provincialArs);
+      const nationalArs = Number(body.nationalArs);
+      const multChico = Number(body.multChico ?? 1);
+      const multMediano = Number(body.multMediano ?? 1.35);
+      const multGrande = Number(body.multGrande ?? 1.8);
+      const fragileArs = Number(body.fragileArs ?? 0);
+      const referenceProvider =
+        String(body.referenceProvider || "Correo Argentino / Paq.ar (Referencial)")
+          .trim()
+          .slice(0, 120) || "Correo Argentino / Paq.ar (Referencial)";
+
+      if (
+        !Number.isFinite(localArs) ||
+        localArs < 0 ||
+        !Number.isFinite(provincialArs) ||
+        provincialArs < 0 ||
+        !Number.isFinite(nationalArs) ||
+        nationalArs < 0 ||
+        !Number.isFinite(fragileArs) ||
+        fragileArs < 0
+      ) {
+        return NextResponse.json(
+          { ok: false, message: "Ingresá importes válidos en ARS (mayores o iguales a 0)." },
+          { status: 400 }
+        );
+      }
+
+      if (
+        !Number.isFinite(multChico) ||
+        multChico < 0.5 ||
+        multChico > 5 ||
+        !Number.isFinite(multMediano) ||
+        multMediano < 0.5 ||
+        multMediano > 5 ||
+        !Number.isFinite(multGrande) ||
+        multGrande < 0.5 ||
+        multGrande > 5
+      ) {
+        return NextResponse.json(
+          { ok: false, message: "Los multiplicadores de paquete deben estar entre 0.5 y 5.0." },
+          { status: 400 }
+        );
+      }
+
+      const nextValue = {
+        referenceProvider,
+        zones: {
+          localCents: Math.round(localArs * 100),
+          provincialCents: Math.round(provincialArs * 100),
+          nationalCents: Math.round(nationalArs * 100),
+        },
+        packageMultipliers: {
+          chico: Number(multChico.toFixed(2)),
+          mediano: Number(multMediano.toFixed(2)),
+          grande: Number(multGrande.toFixed(2)),
+        },
+        fragileSurchargeCents: Math.round(fragileArs * 100),
+        commissionOnShipping: false,
+      };
+
+      const { data: prevSetting } = await sb
+        .from("fa_platform_settings")
+        .select("value")
+        .eq("key", "shipping_tariffs")
+        .maybeSingle();
+
+      const { error: upsertErr } = await sb.from("fa_platform_settings").upsert(
+        {
+          key: "shipping_tariffs",
+          value: nextValue,
+          updated_by: actor,
+          updated_at: nowIso,
+        },
+        { onConflict: "key" }
+      );
+
+      if (upsertErr) {
+        return NextResponse.json({ ok: false, message: upsertErr.message }, { status: 500 });
+      }
+
+      await logAction(
+        "settings.save_shipping_tariffs",
+        "platform_setting",
+        "shipping_tariffs",
+        (prevSetting?.value as AnyObj) || null,
+        nextValue
+      );
+
+      return NextResponse.json({
+        ok: true,
+        message: "Tarifario Nacional de Envíos FeriARTE actualizado en tiempo real.",
+      });
     }
 
     return NextResponse.json({ ok: false, message: `Acción no soportada: ${action}` }, { status: 400 });
