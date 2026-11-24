@@ -1069,9 +1069,14 @@ export async function handlePublicCemepGet(
 ): Promise<NextResponse> {
   const action = String(req.nextUrl.searchParams.get("action") || "bootstrap").trim();
 
-  // Fast-path liviano para el desplegable de Obras Sociales (solo lee turnos_db)
+  // Fast-path liviano para el desplegable de Obras Sociales (solo lee turnos_db con timeout suave)
   if (action === "obras_sociales") {
-    const turnosDb = await loadTurnosDb(tenant);
+    const turnosDb = await Promise.race([
+      loadTurnosDb(tenant),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout_obras_sociales")), 4_500)
+      ),
+    ]);
     return NextResponse.json({
       ok: true,
       obrasSociales: turnosDb.obrasSociales
