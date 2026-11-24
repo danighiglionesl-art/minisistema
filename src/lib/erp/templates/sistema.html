@@ -13006,30 +13006,30 @@
               </div>
             </div>
 
-            <!-- Incorporación de Captura de Pantalla (Archivo, Pegar con CTRL+V o Arrastrar) -->
+            <!-- Incorporación de Múltiples Capturas / Imágenes (JPG, PNG) o PDF (Archivo, Arrastrar o CTRL+V) -->
             <div class="form-group" style="margin-block-end:1rem;">
-              <label class="form-label">📷 Incorporar Captura de Pantalla (Opcional · Seleccionar archivo, Arrastrar o Pegar con CTRL + V)</label>
+              <label class="form-label">📎 Adjuntar Capturas de Pantalla, Imágenes (JPG / PNG) o PDF (Opcional · Múltiples archivos, Arrastrar o Pegar con CTRL + V)</label>
               <div
                 id="crm-rep-dropzone"
                 style="border:2px dashed var(--brand-gold); border-radius:var(--radius-md); padding:1rem; background:var(--surface-elevated); display:flex; flex-direction:column; gap:0.75rem; align-items:center; justify-content:center; text-align:center; transition:border-color 0.2s, background 0.2s;"
               >
-                <input type="file" id="crm-rep-file-input" accept="image/*" hidden>
+                <input type="file" id="crm-rep-file-input" accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.pdf" multiple hidden>
                 <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:0.65rem;">
                   <button type="button" id="btn-crm-rep-select-img" class="btn-secondary btn-sm" style="width:auto; font-weight:700;">
-                    🖼️ Seleccionar Captura de Pantalla (Imagen)
+                    📎 Seleccionar Imágenes (JPG / PNG) o PDF
                   </button>
                   <span style="font-size:0.82rem; color:var(--text-secondary);">
-                    o presioná <strong>CTRL + V</strong> en esta pantalla para pegar una captura del portapapeles
+                    Podés adjuntar <strong>varios archivos</strong> (hasta 8) o presionar <strong>CTRL + V</strong> para ir sumando capturas
                   </span>
                 </div>
-                <div id="crm-rep-preview-wrap" hidden style="width:100%; max-width:560px; background:var(--surface-card); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.65rem; display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
-                  <img id="crm-rep-preview-img" src="" alt="Vista previa de captura de pantalla" style="max-width:100%; max-height:240px; object-fit:contain; border-radius:6px; cursor:pointer;">
-                  <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:0.5rem;">
-                    <span id="crm-rep-preview-info" style="font-size:0.76rem; color:var(--text-secondary); font-weight:600;">Captura adjunta lista para enviar</span>
+                <div id="crm-rep-preview-wrap" hidden style="width:100%; background:var(--surface-card); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.75rem; display:flex; flex-direction:column; gap:0.65rem;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:0.5rem; flex-wrap:wrap;">
+                    <span id="crm-rep-preview-info" style="font-size:0.78rem; color:var(--text-secondary); font-weight:700;">0 archivos adjuntos listos para enviar</span>
                     <button type="button" id="btn-crm-rep-clear-img" class="btn-danger btn-sm" style="width:auto;">
-                      ✕ Quitar Captura
+                      ✕ Quitar Todos
                     </button>
                   </div>
+                  <div id="crm-rep-attachments-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:0.65rem; width:100%;"></div>
                 </div>
               </div>
             </div>
@@ -13045,37 +13045,38 @@
           </form>
         </fieldset>
 
-        <!-- Historial de Reportes Enviados por el Usuario y Estado de Seguimiento CRM -->
-        <div class="table-card">
+        <!-- Historial de Reportes Enviados por el Equipo y Estado de Seguimiento CRM -->
+        <div class="table-card" style="width:100%;">
           <div style="padding:0.9rem 1.1rem; border-block-end:1px solid var(--border-subtle); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.6rem;">
             <div>
-              <h3 style="margin:0; font-size:1rem;">📋 Seguimiento de Mis Reportes Enviados (Estado en CRM)</h3>
+              <h3 style="margin:0; font-size:1rem;">📋 Seguimiento de Reportes del Equipo (Estado en CRM)</h3>
               <p style="margin:0.15rem 0 0; font-size:0.8rem; color:var(--text-secondary);">
-                Consultá el estado de resolución y las respuestas del Administrador General sobre tus reportes.
+                Visualizá los reportes generados por tu equipo en los módulos habilitados para tu usuario y el estado de resolución en tiempo real.
               </p>
             </div>
             <span id="crm-my-reports-count-badge" class="badge badge--gold">0 reportes</span>
           </div>
-          <div class="table-scroll">
-            <table class="erp-table" aria-label="Mis reportes de mejoras enviados">
+          <div class="table-scroll" style="width:100%; overflow-x:auto;">
+            <table class="erp-table" aria-label="Reportes de mejoras del equipo" style="width:100%; border-collapse:collapse;">
               <thead>
                 <tr>
-                  <th>Ticket / Fecha y Hora</th>
-                  <th>Tipo / Prioridad</th>
-                  <th>Módulo</th>
-                  <th>Asunto y Descripción</th>
-                  <th class="text-center">Captura</th>
-                  <th class="text-center">Estado CRM</th>
-                  <th>Respuesta Administrador General</th>
+                  <th style="width:14%;">Ticket / Fecha</th>
+                  <th style="width:14%;">Tipo / Prioridad</th>
+                  <th style="width:12%;">Módulo</th>
+                  <th style="width:24%;">Asunto y Descripción</th>
+                  <th class="text-center" style="width:9%;">Adjuntos</th>
+                  <th class="text-center" style="width:12%;">Estado del Ticket</th>
+                  <th style="width:15%;">Respuesta / Seguimiento</th>
                 </tr>
               </thead>
               <tbody id="crm-my-reports-tbody">
                 <tr>
-                  <td colspan="7" class="empty-state">Todavía no enviaste reportes desde este usuario.</td>
+                  <td colspan="7" class="empty-state">Todavía no hay reportes registrados en tu equipo.</td>
                 </tr>
               </tbody>
             </table>
           </div>
+          <div id="crm-my-reports-pagination" style="display:none; align-items:center; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; padding:0.75rem 1.1rem; border-top:1px solid var(--border-subtle); font-size:0.82rem;"></div>
         </div>
       </section>
 
@@ -13182,27 +13183,29 @@
         </div>
 
         <!-- Tabla Principal del CRM -->
-        <div class="table-card">
-          <div class="table-scroll">
-            <table class="erp-table" aria-label="Listado general de reportes CRM">
+        <div class="table-card" style="width:100%;">
+          <div class="table-scroll" style="width:100%; overflow-x:auto;">
+            <table class="erp-table" aria-label="Listado general de reportes CRM" style="width:100%; border-collapse:collapse;">
               <thead>
                 <tr>
-                  <th>Ticket</th>
-                  <th>Fecha y Hora</th>
-                  <th>Usuario / Sucursal</th>
-                  <th>Tipo</th>
-                  <th>Prioridad</th>
-                  <th>Módulo</th>
-                  <th class="text-center">Ver</th>
+                  <th style="width:9%;">Ticket</th>
+                  <th style="width:13%;">Fecha y Hora</th>
+                  <th style="width:19%;">Usuario / Sucursal</th>
+                  <th style="width:15%;">Tipo</th>
+                  <th style="width:9%;">Prioridad</th>
+                  <th style="width:14%;">Módulo</th>
+                  <th style="width:14%;">Estado</th>
+                  <th class="text-center" style="width:7%;">Ver</th>
                 </tr>
               </thead>
               <tbody id="crm-admin-tbody">
                 <tr>
-                  <td colspan="7" class="empty-state">No hay reportes registrados en el CRM.</td>
+                  <td colspan="8" class="empty-state">No hay reportes registrados en el CRM.</td>
                 </tr>
               </tbody>
             </table>
           </div>
+          <div id="crm-admin-pagination" style="display:none; align-items:center; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; padding:0.75rem 1.1rem; border-top:1px solid var(--border-subtle); font-size:0.82rem;"></div>
         </div>
       </section>
 
@@ -13229,12 +13232,12 @@
           <div id="crm-dialog-desc" style="padding:0.9rem; border-radius:var(--radius-sm); background:var(--surface-elevated); border:1px solid var(--border-subtle); white-space:pre-wrap; font-size:0.92rem; line-height:1.45;"></div>
         </div>
 
-        <div id="crm-dialog-img-wrap" hidden style="display:flex; flex-direction:column; gap:0.45rem;">
+        <div id="crm-dialog-img-wrap" hidden style="display:flex; flex-direction:column; gap:0.55rem;">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; flex-wrap:wrap;">
-            <div style="font-size:0.76rem; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary);">
-              Captura de Pantalla Adjunta
+            <div id="crm-dialog-attachments-label" style="font-size:0.76rem; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary);">
+              Capturas y Archivos Adjuntos
             </div>
-            <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+            <div id="crm-dialog-img-toolbar" style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
               <button type="button" id="btn-crm-img-zoom" class="btn-secondary" style="width:auto; padding:0.28rem 0.65rem; font-size:0.76rem; font-weight:700; display:inline-flex; align-items:center; gap:0.35rem;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
                 Ampliar
@@ -13249,15 +13252,17 @@
               </button>
             </div>
           </div>
-          <div style="text-align:center; background:#0f172a; padding:0.75rem; border-radius:var(--radius-md); position:relative;">
-            <img id="crm-dialog-img" src="" alt="Captura de pantalla del reporte" title="Clic para ampliar a pantalla completa" style="max-width:100%; max-height:54vh; object-fit:contain; border-radius:6px; cursor:zoom-in; transition:opacity 0.15s ease;">
-            <div style="margin-top:0.45rem; font-size:0.73rem; color:rgba(226,232,240,0.78);">
+          <div id="crm-dialog-img-stage" style="text-align:center; background:#0f172a; padding:0.75rem; border-radius:var(--radius-md); position:relative;">
+            <img id="crm-dialog-img" src="" alt="Captura de pantalla del reporte" title="Clic para ampliar a pantalla completa" style="max-width:100%; max-height:52vh; object-fit:contain; border-radius:6px; cursor:zoom-in; transition:opacity 0.15s ease;">
+            <div id="crm-dialog-img-caption" style="margin-top:0.45rem; font-size:0.73rem; color:rgba(226,232,240,0.78);">
               Hacé clic sobre la captura para verla en pantalla completa con zoom
             </div>
           </div>
+          <div id="crm-dialog-thumbs" hidden style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;"></div>
+          <div id="crm-dialog-pdf-list" hidden style="display:flex; flex-direction:column; gap:0.45rem;"></div>
         </div>
         <div id="crm-dialog-no-img" hidden style="font-size:0.82rem; color:var(--text-secondary); font-style:italic;">
-          📷 Este reporte no incluye captura de pantalla adjunta.
+          📷 Este reporte no incluye capturas ni archivos adjuntos.
         </div>
 
         <!-- Panel de Edición, Estado y Respuesta (solo modo Administración CRM) -->
@@ -13310,6 +13315,9 @@
           Captura de Pantalla
         </div>
         <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+          <button type="button" id="btn-crm-lb-prev" class="btn-secondary" hidden style="width:auto; padding:0.28rem 0.6rem; font-size:0.78rem; background:#1e293b; color:#f8fafc; border-color:#334155;" title="Imagen anterior">‹ Anterior</button>
+          <span id="crm-lb-counter" hidden style="font-size:0.76rem; font-weight:700; color:#cbd5e1; padding:0 0.25rem;">1 / 1</span>
+          <button type="button" id="btn-crm-lb-next" class="btn-secondary" hidden style="width:auto; padding:0.28rem 0.6rem; font-size:0.78rem; background:#1e293b; color:#f8fafc; border-color:#334155;" title="Imagen siguiente">Siguiente ›</button>
           <button type="button" id="btn-crm-lb-zoom-out" class="btn-secondary" style="width:auto; padding:0.28rem 0.6rem; font-size:0.78rem; background:#1e293b; color:#f8fafc; border-color:#334155;" title="Alejar">−</button>
           <span id="crm-lb-zoom-label" style="font-size:0.76rem; font-weight:700; min-width:52px; text-align:center; color:#cbd5e1;">Ajustar</span>
           <button type="button" id="btn-crm-lb-zoom-in" class="btn-secondary" style="width:auto; padding:0.28rem 0.6rem; font-size:0.78rem; background:#1e293b; color:#f8fafc; border-color:#334155;" title="Acercar">+</button>

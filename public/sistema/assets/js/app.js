@@ -1486,7 +1486,7 @@ function applyUserAllowedModules(user) {
   });
   const btnGoCrm = document.getElementById('btn-reporte-go-crm');
   if (btnGoCrm) {
-    btnGoCrm.hidden = !isGenAdmin;
+    btnGoCrm.hidden = !(isGenAdmin && isBaseTenant);
   }
   if (typeof window.refreshCrmPendingBadge === 'function') {
     window.refreshCrmPendingBadge();
@@ -1509,7 +1509,8 @@ function isSectionAllowedForCurrentUser(sectionId) {
   }
   const uKey = String(STATE.currentUser?.username || '').toLowerCase();
   if (sectionId === 'sec-crm') {
-    return uKey === PRIMARY_ADMIN_USER || isErpGeneralAdminUser(STATE.currentUser || uKey);
+    const isBaseTenant = Boolean(ACTIVE_BRAND?.isBase) || String(ACTIVE_BRAND?.slug || '').toLowerCase() === 'minisistema';
+    return isBaseTenant && (uKey === PRIMARY_ADMIN_USER || isErpGeneralAdminUser(STATE.currentUser || uKey));
   }
   if (!uKey || uKey === PRIMARY_ADMIN_USER) return true;
   const allowed = new Set(getUserAllowedModules(uKey));
@@ -72806,10 +72807,174 @@ function initApp() {
   // =========================================================================
   (function initReporteMejorasAndCrmModule() {
     const CRM_LOCAL_STORAGE_KEY = 'cn_erp_crm_reports_v1';
+    const CRM_PAGE_SIZE = 10;
+    const CRM_MAX_ATTACHMENTS = 8;
+    const CRM_MAX_PDF_BYTES = 3.5 * 1024 * 1024;
     let crmReportsList = [];
-    let currentDraftScreenshotBase64 = '';
+    let currentDraftAttachments = [];
+    let crmAdminPage = 1;
+    let crmMyReportsPage = 1;
     let crmEventsBound = false;
     let crmClockTimer = null;
+
+    function isMiniSistemaBaseInstance() {
+      return Boolean(ACTIVE_BRAND?.isBase) || String(ACTIVE_BRAND?.slug || '').toLowerCase() === 'minisistema';
+    }
+
+    function isCrmMasterAdminUser() {
+      if (!isMiniSistemaBaseInstance()) return false;
+      const uKey = String(STATE.currentUser?.username || '').toLowerCase();
+      return uKey === PRIMARY_ADMIN_USER || isErpGeneralAdminUser(STATE.currentUser || uKey);
+    }
+
+    function getReportAttachments(report) {
+      if (!report || typeof report !== 'object') return [];
+      const list = [];
+      if (Array.isArray(report.adjuntos)) {
+        report.adjuntos.forEach((att, idx) => {
+          if (!att || typeof att !== 'object') return;
+          const dataUrl = String(att.dataUrl || att.src || '').trim();
+          if (!dataUrl) return;
+          const mimeFromData = dataUrl.match(/^data:([^;]+);/i)?.[1] || '';
+          const mimeType = String(att.mimeType || mimeFromData || 'image/jpeg').toLowerCase();
+          const isPdf = mimeType === 'application/pdf';
+          list.push({
+            id: String(att.id || `att_${idx + 1}`),
+            name: String(att.name || (isPdf ? `documento_${idx + 1}.pdf` : `captura_${idx + 1}.jpg`)),
+            mimeType,
+            size: Number(att.size || Math.round(dataUrl.length * 0.75)),
+            dataUrl
+          });
+        });
+      }
+      if (list.length === 0 && report.capturaBase64) {
+        const src = String(report.capturaBase64).trim();
+        const mimeFromData = src.match(/^data:([^;]+);/i)?.[1] || 'image/jpeg';
+        const isPdf = mimeFromData.toLowerCase() === 'application/pdf';
+        list.push({
+          id: 'att_legacy_1',
+          name: isPdf ? 'documento_1.pdf' : 'captura_1.jpg',
+          mimeType: mimeFromData.toLowerCase(),
+          size: Math.round(src.length * 0.75),
+          dataUrl: src
+        });
+      }
+      return list;
+    }
+
+    function doesReportBelongToCurrentTeam(report) {
+      if (!report || typeof report !== 'object') return false;
+      const currentSlug = String(ACTIVE_BRAND?.slug || 'minisistema').trim().toLowerCase();
+      const repSlug = String(report.tenantSlug || '').trim().toLowerCase();
+      if (repSlug) {
+        return repSlug === currentSlug;
+      }
+      // Retrocompatibilidad para tickets cargados antes de guardar tenantSlug
+      const repMarca = normalizeSearchText(report.marca || '');
+      const repSuc = normalizeSearchText(report.sucursal || '');
+      const brandName = normalizeSearchText(ACTIVE_BRAND?.name || '');
+      if (currentSlug === 'casanueva') {
+        if (repMarca.includes('casa nueva') || repMarca === 'cn' || repSuc.includes('casa central') || repSuc.includes('casa nueva')) {
+          return true;
+        }
+        return !repMarca && !repSuc;
+      }
+      if (currentSlug === 'paseoalberdi') {
+        return repMarca.includes('paseo') || repSuc.includes('paseo');
+      }
+      if (currentSlug === 'minisistema') {
+        return repMarca.includes('minisistema') || repSuc.includes('minisistema');
+      }
+      return Boolean(brandName && (repMarca.includes(brandName) || repSuc.includes(brandName)));
+    }
+
+    function canCurrentUserViewReportModule(report) {
+      if (!report || typeof report !== 'object') return false;
+      const uKey = String(STATE.currentUser?.username || '').trim().toLowerCase();
+      if (!uKey) return false;
+      // El autor del reporte siempre puede ver su propio ticket
+      if (String(report.username || '').trim().toLowerCase() === uKey) return true;
+      // Administradores del comercio ven todos los módulos de su equipo
+      const roleNorm = normalizeErpUserRole(STATE.currentUser?.role, uKey);
+      if (uKey === PRIMARY_ADMIN_USER || roleNorm === 'Administrador' || roleNorm === 'Administrador General') {
+        return true;
+      }
+      const modKey = String(report.moduloKey || 'general').trim().toLowerCase();
+      if (!modKey || modKey === 'general' || modKey === 'ayuda' || modKey === 'perfil') {
+        return true;
+      }
+      const allowedList = typeof getUserAllowedModules === 'function' ? getUserAllowedModules(uKey) : [];
+      const allowedSet = new Set((Array.isArray(allowedList) ? allowedList : []).map((k) => String(k || '').toLowerCase()));
+      if (allowedSet.has(modKey)) return true;
+      for (const k of allowedSet) {
+        if (k.startsWith(`${modKey}:`)) return true;
+      }
+      return false;
+    }
+
+    function parseReportSortTimestamp(r) {
+      if (!r || typeof r !== 'object') return 0;
+      const iso = Date.parse(r.fechaIso || '');
+      if (!Number.isNaN(iso) && iso > 0) return iso;
+      const m = String(r.fechaHora || '').match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+      if (m) {
+        return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5])).getTime() || 0;
+      }
+      return Number(r.numero || 0);
+    }
+
+    // Orden CRM: activos (Pendiente / En Proceso) arriba del más nuevo al más viejo;
+    // Resueltos y Descartados abajo de abajo hacia arriba (Descartados al fondo, Resueltos arriba de ellos).
+    function sortCrmReportsForDisplay(list) {
+      const rankOf = (r) => {
+        const st = String(r?.estado || 'PENDIENTE').trim().toUpperCase();
+        if (st === 'PENDIENTE') return 0;
+        if (st === 'EN_PROCESO') return 1;
+        if (st === 'RESUELTO') return 2;
+        if (st === 'DESCARTADO') return 3;
+        return 0;
+      };
+      return [...(Array.isArray(list) ? list : [])].sort((a, b) => {
+        const ra = rankOf(a);
+        const rb = rankOf(b);
+        if (ra !== rb) return ra - rb;
+        const ta = parseReportSortTimestamp(a);
+        const tb = parseReportSortTimestamp(b);
+        if (tb !== ta) return tb - ta;
+        return Number(b?.numero || 0) - Number(a?.numero || 0);
+      });
+    }
+
+    function renderCrmPaginationBar(containerId, totalItems, currentPage, onPageChange) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      const totalPages = Math.max(1, Math.ceil(totalItems / CRM_PAGE_SIZE));
+      if (totalItems <= CRM_PAGE_SIZE) {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+      }
+      const safePage = Math.min(Math.max(1, currentPage), totalPages);
+      const startIdx = (safePage - 1) * CRM_PAGE_SIZE + 1;
+      const endIdx = Math.min(totalItems, safePage * CRM_PAGE_SIZE);
+      el.style.display = 'flex';
+      el.innerHTML = `
+        <span style="color:var(--text-secondary); font-weight:600;">
+          Mostrando <strong>${startIdx}–${endIdx}</strong> de <strong>${totalItems}</strong> reportes
+        </span>
+        <div style="display:flex; align-items:center; gap:0.45rem;">
+          <button type="button" class="btn-secondary btn-sm crm-pg-prev" ${safePage <= 1 ? 'disabled' : ''} style="width:auto;">← Anterior</button>
+          <span style="font-weight:700; padding:0 0.35rem;">Página ${safePage} de ${totalPages}</span>
+          <button type="button" class="btn-secondary btn-sm crm-pg-next" ${safePage >= totalPages ? 'disabled' : ''} style="width:auto;">Siguiente →</button>
+        </div>
+      `;
+      el.querySelector('.crm-pg-prev')?.addEventListener('click', () => {
+        if (safePage > 1) onPageChange(safePage - 1);
+      });
+      el.querySelector('.crm-pg-next')?.addEventListener('click', () => {
+        if (safePage < totalPages) onPageChange(safePage + 1);
+      });
+    }
 
     const CRM_TIPO_META = {
       PROBLEMA: { label: '🛠️ Problema / Error', bg: 'rgba(239,68,68,0.14)', color: '#dc2626', border: 'rgba(239,68,68,0.35)' },
@@ -72878,7 +73043,17 @@ function initApp() {
       } catch {
         // Si supera la cuota de localStorage por las capturas en base64, guardar los metadatos livianos
         try {
-          const lite = arr.map((it) => (it && typeof it === 'object' ? { ...it, capturaBase64: '' } : it));
+          const lite = arr.map((it) =>
+            it && typeof it === 'object'
+              ? {
+                  ...it,
+                  capturaBase64: '',
+                  adjuntos: Array.isArray(it.adjuntos)
+                    ? it.adjuntos.map((a) => ({ id: a.id, name: a.name, mimeType: a.mimeType, size: a.size }))
+                    : []
+                }
+              : it
+          );
           localStorage.setItem(CRM_LOCAL_STORAGE_KEY, JSON.stringify(lite));
         } catch {}
       }
@@ -72985,8 +73160,6 @@ function initApp() {
       const localCached = loadLocalCrmReports();
       let serverList = null;
 
-      mountCasaNuevaCrmLocalBridgeIframes();
-
       try {
         const res = await fetch(`api/manual_ai.php?action=crm_reports&t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
@@ -72996,18 +73169,6 @@ function initApp() {
           }
         }
       } catch {}
-
-      if (window.location.hostname.includes('minisistema')) {
-        try {
-          const cnRes = await fetch(`https://www.cn.com.ar/sistema/api/manual_ai.php?action=crm_reports&_direct_cn=1&t=${Date.now()}`, { cache: 'no-store' });
-          if (cnRes.ok) {
-            const cnData = await cnRes.json().catch(() => null);
-            if (cnData && cnData.ok && Array.isArray(cnData.reports) && cnData.reports.length > 0) {
-              serverList = mergeCrmReportsLists(serverList || [], cnData.reports);
-            }
-          }
-        } catch {}
-      }
 
       // Si el servidor aún no tenía algún reporte que había quedado guardado en localStorage (ej: reporte previo de antoniog), subirlo y sincronizarlo con el servidor y con MiniSistema
       if (Array.isArray(localCached) && localCached.length > 0) {
@@ -73321,9 +73482,25 @@ function initApp() {
       }
       const btnGoCrm = document.getElementById('btn-reporte-go-crm');
       if (btnGoCrm) {
-        const uKey = String(STATE.currentUser?.username || '').toLowerCase();
-        btnGoCrm.hidden = !(uKey === PRIMARY_ADMIN_USER || isErpGeneralAdminUser(STATE.currentUser || uKey));
+        btnGoCrm.hidden = !isCrmMasterAdminUser();
       }
+    }
+
+    function readPdfFileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) {
+          reject(new Error('Archivo PDF inválido.'));
+          return;
+        }
+        if (file.size > CRM_MAX_PDF_BYTES) {
+          reject(new Error(`El PDF "${file.name}" supera el máximo permitido de 3.5 MB.`));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error(`No se pudo leer el PDF "${file.name}".`));
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.readAsDataURL(file);
+      });
     }
 
     function compressImageFileToDataUrl(file) {
@@ -73358,10 +73535,21 @@ function initApp() {
               resolve(String(reader.result || ''));
               return;
             }
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, w, h);
+            const isPng = String(file.type || '').toLowerCase() === 'image/png';
+            if (!isPng) {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, w, h);
+            }
             ctx.drawImage(img, 0, 0, w, h);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            const dataUrl = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.82);
+            // Si el PNG comprimido quedó muy pesado (>900KB), pasar a JPEG de alta calidad
+            if (isPng && dataUrl.length > 1_200_000) {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, w, h);
+              ctx.drawImage(img, 0, 0, w, h);
+              resolve(canvas.toDataURL('image/jpeg', 0.84));
+              return;
+            }
             resolve(dataUrl);
           };
           img.src = String(reader.result || '');
@@ -73370,42 +73558,142 @@ function initApp() {
       });
     }
 
-    async function handleAttachScreenshotFile(file) {
-      if (!file) return;
-      try {
-        const dataUrl = await compressImageFileToDataUrl(file);
-        currentDraftScreenshotBase64 = dataUrl;
-        const wrap = document.getElementById('crm-rep-preview-wrap');
-        const img = document.getElementById('crm-rep-preview-img');
-        const info = document.getElementById('crm-rep-preview-info');
-        if (img) img.src = dataUrl;
-        if (wrap) wrap.hidden = false;
-        if (info) {
-          const kb = Math.max(1, Math.round((dataUrl.length * 0.75) / 1024));
-          info.textContent = `✅ Captura de pantalla incorporada (${kb} KB) · Clic en la imagen para ampliar`;
+    function renderDraftAttachmentsGrid() {
+      const wrap = document.getElementById('crm-rep-preview-wrap');
+      const grid = document.getElementById('crm-rep-attachments-grid');
+      const info = document.getElementById('crm-rep-preview-info');
+      if (!wrap || !grid) return;
+
+      if (currentDraftAttachments.length === 0) {
+        wrap.hidden = true;
+        grid.innerHTML = '';
+        if (info) info.textContent = '0 archivos adjuntos listos para enviar';
+        return;
+      }
+
+      wrap.hidden = false;
+      const totalKb = currentDraftAttachments.reduce((acc, a) => acc + Math.max(1, Math.round((a.size || 0) / 1024)), 0);
+      if (info) {
+        info.textContent = `✅ ${currentDraftAttachments.length} ${currentDraftAttachments.length === 1 ? 'archivo adjunto listo' : 'archivos adjuntos listos'} (${totalKb} KB · máx. ${CRM_MAX_ATTACHMENTS})`;
+      }
+
+      grid.innerHTML = currentDraftAttachments
+        .map((att, idx) => {
+          const isPdf = att.mimeType === 'application/pdf';
+          const kb = Math.max(1, Math.round((att.size || 0) / 1024));
+          return `
+            <div style="position:relative; border:1px solid var(--border-subtle); border-radius:8px; padding:0.45rem; background:var(--surface-elevated); display:flex; flex-direction:column; gap:0.35rem; align-items:center;">
+              <button type="button" class="btn-crm-draft-remove" data-att-idx="${idx}" title="Quitar archivo" style="position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:999px; border:0; background:rgba(220,38,38,0.92); color:#fff; font-size:0.72rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">✕</button>
+              ${
+                isPdf
+                  ? `<div class="btn-crm-draft-open" data-att-idx="${idx}" style="width:100%; height:96px; border-radius:6px; background:#1e293b; color:#f8fafc; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.25rem; cursor:pointer;">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                      <span style="font-size:0.7rem; font-weight:800; letter-spacing:0.04em; color:#fca5a5;">PDF</span>
+                    </div>`
+                  : `<img class="btn-crm-draft-open" data-att-idx="${idx}" src="${att.dataUrl}" alt="${escapeHtml(att.name)}" style="width:100%; height:96px; object-fit:cover; border-radius:6px; cursor:zoom-in; background:#0f172a;">`
+              }
+              <div style="width:100%; font-size:0.72rem; font-weight:700; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left;" title="${escapeHtml(att.name)}">
+                ${escapeHtml(att.name)}
+              </div>
+              <div style="width:100%; font-size:0.68rem; color:var(--text-secondary); text-align:left;">
+                ${isPdf ? 'Documento PDF' : 'Imagen'} · ${kb} KB
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      grid.querySelectorAll('.btn-crm-draft-remove').forEach((btn) => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const idx = Number(btn.getAttribute('data-att-idx'));
+          if (!Number.isNaN(idx) && idx >= 0) {
+            currentDraftAttachments.splice(idx, 1);
+            renderDraftAttachmentsGrid();
+          }
+        });
+      });
+
+      grid.querySelectorAll('.btn-crm-draft-open').forEach((el) => {
+        el.addEventListener('click', () => {
+          const idx = Number(el.getAttribute('data-att-idx'));
+          const att = currentDraftAttachments[idx];
+          if (!att) return;
+          if (att.mimeType === 'application/pdf') {
+            openCrmScreenshotInNewTab(att.dataUrl);
+          } else {
+            const imgs = currentDraftAttachments.filter((a) => String(a.mimeType || '').startsWith('image/'));
+            const imgPos = imgs.findIndex((a) => a.id === att.id);
+            openCrmLightboxGallery(imgs, Math.max(0, imgPos), 'Vista previa');
+          }
+        });
+      });
+    }
+
+    async function handleAttachScreenshotFiles(fileList) {
+      const files = Array.from(fileList || []).filter(Boolean);
+      if (files.length === 0) return;
+      let addedCount = 0;
+      for (const file of files) {
+        if (currentDraftAttachments.length >= CRM_MAX_ATTACHMENTS) {
+          if (typeof showToast === 'function') {
+            showToast(`Máximo ${CRM_MAX_ATTACHMENTS} archivos adjuntos por ticket.`, 'warning');
+          }
+          break;
         }
-        if (typeof showToast === 'function') {
-          showToast('📷 Captura de pantalla adjuntada al reporte');
+        const mime = String(file.type || '').toLowerCase();
+        const lowerName = String(file.name || '').toLowerCase();
+        const isPdf = mime === 'application/pdf' || lowerName.endsWith('.pdf');
+        const isImg = mime.startsWith('image/') || /\.(jpe?g|png|webp|gif)$/i.test(lowerName);
+        if (!isPdf && !isImg) {
+          if (typeof showToast === 'function') {
+            showToast(`Formato no permitido (${file.name || 'archivo'}). Usá JPG, PNG o PDF.`, 'warning');
+          }
+          continue;
         }
-      } catch (err) {
-        if (typeof showToast === 'function') {
-          showToast(err?.message || 'No se pudo adjuntar la captura de pantalla', 'error');
+        try {
+          const dataUrl = isPdf ? await readPdfFileToDataUrl(file) : await compressImageFileToDataUrl(file);
+          const resolvedMime = isPdf ? 'application/pdf' : (dataUrl.match(/^data:([^;]+);/i)?.[1] || 'image/jpeg').toLowerCase();
+          const defaultExt = isPdf ? 'pdf' : resolvedMime.includes('png') ? 'png' : 'jpg';
+          const cleanName = file.name && file.name !== 'image.png'
+            ? file.name
+            : `${isPdf ? 'documento' : 'captura'}_${currentDraftAttachments.length + 1}.${defaultExt}`;
+          currentDraftAttachments.push({
+            id: `att_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            name: cleanName,
+            mimeType: resolvedMime,
+            size: Math.round(dataUrl.length * 0.75),
+            dataUrl
+          });
+          addedCount++;
+        } catch (err) {
+          if (typeof showToast === 'function') {
+            showToast(err?.message || 'No se pudo adjuntar uno de los archivos', 'error');
+          }
         }
+      }
+      renderDraftAttachmentsGrid();
+      const fileInp = document.getElementById('crm-rep-file-input');
+      if (fileInp) fileInp.value = '';
+      if (addedCount > 0 && typeof showToast === 'function') {
+        showToast(`📎 ${addedCount === 1 ? 'Archivo adjuntado' : addedCount + ' archivos adjuntados'} al reporte (${currentDraftAttachments.length} en total)`);
       }
     }
 
     function clearDraftScreenshot() {
-      currentDraftScreenshotBase64 = '';
-      const wrap = document.getElementById('crm-rep-preview-wrap');
-      const img = document.getElementById('crm-rep-preview-img');
+      currentDraftAttachments = [];
       const fileInp = document.getElementById('crm-rep-file-input');
-      if (img) img.src = '';
-      if (wrap) wrap.hidden = true;
       if (fileInp) fileInp.value = '';
+      renderDraftAttachmentsGrid();
     }
 
     let activeCrmDialogReportId = null;
     let activeCrmDialogReport = null;
+    let activeCrmDialogImages = [];
+    let activeCrmDialogImageIndex = 0;
+    let activeCrmLightboxImages = [];
+    let activeCrmLightboxIndex = 0;
+    let activeCrmLightboxTitlePrefix = 'Captura de Pantalla';
     let activeCrmBlobUrl = null;
     let crmLightboxZoom = 0; // 0 = fit, >0 = factor (1, 1.5, 2, 2.5, 3)
 
@@ -73443,17 +73731,19 @@ function initApp() {
       }
     }
 
-    function downloadCrmScreenshot(src, code) {
+    function downloadCrmScreenshot(src, code, customFileName = '') {
       if (!src) return;
       let ext = 'png';
-      const mimeMatch = typeof src === 'string' ? src.match(/^data:image\/([a-zA-Z0-9+.-]+);/) : null;
+      const mimeMatch = typeof src === 'string' ? src.match(/^data:([^;]+);/i) : null;
       if (mimeMatch && mimeMatch[1]) {
-        ext = mimeMatch[1].toLowerCase().replace('jpeg', 'jpg');
+        const m = mimeMatch[1].toLowerCase();
+        if (m === 'application/pdf') ext = 'pdf';
+        else if (m.includes('/')) ext = m.split('/')[1].replace('jpeg', 'jpg');
       }
-      const safeCode = String(code || 'captura-crm').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeCode = String(code || 'adjunto-crm').replace(/[^a-zA-Z0-9_-]/g, '_');
       const a = document.createElement('a');
       a.href = crmDataUrlToBlobUrl(src) || src;
-      a.download = `${safeCode}_captura.${ext}`;
+      a.download = customFileName || `${safeCode}_adjunto.${ext}`;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => a.remove(), 120);
@@ -73490,15 +73780,36 @@ function initApp() {
       }
     }
 
-    function openCrmLightbox(src, titleText) {
-      const lbDlg = document.getElementById('crm-lightbox-dialog');
+    function renderActiveLightboxSlide() {
       const lbImg = document.getElementById('crm-lightbox-img');
       const lbTitle = document.getElementById('crm-lightbox-title');
-      if (!lbDlg || !lbImg || !src) return;
+      const btnPrev = document.getElementById('btn-crm-lb-prev');
+      const btnNext = document.getElementById('btn-crm-lb-next');
+      const counter = document.getElementById('crm-lb-counter');
+      const item = activeCrmLightboxImages[activeCrmLightboxIndex];
+      if (!lbImg || !item) return;
       crmLightboxZoom = 0;
-      lbImg.src = src;
-      if (lbTitle) lbTitle.textContent = titleText || 'Captura de Pantalla';
+      lbImg.src = item.dataUrl;
+      if (lbTitle) {
+        lbTitle.textContent = item.name ? `${activeCrmLightboxTitlePrefix} · ${item.name}` : activeCrmLightboxTitlePrefix;
+      }
+      const multi = activeCrmLightboxImages.length > 1;
+      if (btnPrev) btnPrev.hidden = !multi;
+      if (btnNext) btnNext.hidden = !multi;
+      if (counter) {
+        counter.hidden = !multi;
+        counter.textContent = `${activeCrmLightboxIndex + 1} / ${activeCrmLightboxImages.length}`;
+      }
       applyCrmLightboxZoom();
+    }
+
+    function openCrmLightboxGallery(images, startIndex = 0, titlePrefix = 'Captura de Pantalla') {
+      const lbDlg = document.getElementById('crm-lightbox-dialog');
+      if (!lbDlg || !Array.isArray(images) || images.length === 0) return;
+      activeCrmLightboxImages = images;
+      activeCrmLightboxIndex = Math.min(Math.max(0, startIndex), images.length - 1);
+      activeCrmLightboxTitlePrefix = titlePrefix || 'Captura de Pantalla';
+      renderActiveLightboxSlide();
       if (typeof lbDlg.showModal === 'function') {
         if (!lbDlg.open) lbDlg.showModal();
       } else {
@@ -73506,8 +73817,36 @@ function initApp() {
       }
     }
 
+    function openCrmLightbox(src, titleText) {
+      if (!src) return;
+      openCrmLightboxGallery([{ dataUrl: src, name: '' }], 0, titleText || 'Captura de Pantalla');
+    }
+
+    function selectCrmDialogImageIndex(idx) {
+      const img = document.getElementById('crm-dialog-img');
+      const caption = document.getElementById('crm-dialog-img-caption');
+      const thumbs = document.getElementById('crm-dialog-thumbs');
+      if (!activeCrmDialogImages.length || !img) return;
+      activeCrmDialogImageIndex = Math.min(Math.max(0, idx), activeCrmDialogImages.length - 1);
+      const cur = activeCrmDialogImages[activeCrmDialogImageIndex];
+      img.src = cur.dataUrl;
+      if (caption) {
+        caption.textContent =
+          activeCrmDialogImages.length > 1
+            ? `Imagen ${activeCrmDialogImageIndex + 1} de ${activeCrmDialogImages.length} (${cur.name}) · Clic sobre la imagen para ampliar`
+            : `${cur.name || 'Captura adjunta'} · Hacé clic sobre la captura para verla en pantalla completa con zoom`;
+      }
+      if (thumbs) {
+        thumbs.querySelectorAll('.crm-dlg-thumb').forEach((el, i) => {
+          el.style.borderColor = i === activeCrmDialogImageIndex ? 'var(--brand-gold, #56D7A1)' : 'rgba(148,163,184,0.35)';
+          el.style.opacity = i === activeCrmDialogImageIndex ? '1' : '0.72';
+        });
+      }
+    }
+
     function buildAntigravityPromptForReport(report) {
       if (!report) return '';
+      const atts = getReportAttachments(report);
       return [
         `Resolver ticket CRM ${report.codigo || report.id}: ${report.titulo || 'Sin título'}`,
         `Sistema / Comercio: ${report.marca || report.sucursal || (window.ERP_BRAND && window.ERP_BRAND.name) || 'MiniSistema'}`,
@@ -73515,9 +73854,9 @@ function initApp() {
         `Reportado por: ${report.usuario || 'Usuario'} (@${report.username || '—'}) · ${report.fechaHora || '—'}`,
         `Tipo: ${report.tipo || 'MEJORA'} · Prioridad: ${report.prioridad || 'NORMAL'} · Estado actual: ${report.estado || 'PENDIENTE'}`,
         `Descripción del problema / mejora:\n${report.descripcion || 'Sin descripción adicional.'}`,
-        report.capturaBase64
-          ? 'Captura adjunta: SÍ (podés leer la imagen desde /sistema/api/manual_ai.php?action=antigravity_queue).'
-          : 'Captura adjunta: NO.'
+        atts.length > 0
+          ? `Archivos adjuntos: ${atts.length} (${atts.map((a) => a.name).join(', ')}) — disponibles en /sistema/api/manual_ai.php?action=antigravity_queue.`
+          : 'Archivos adjuntos: NO.'
       ].join('\n');
     }
 
@@ -73587,17 +73926,111 @@ function initApp() {
         }
         desc.textContent = fullText;
       }
-      if (imgWrap && img) {
-        if (report.capturaBase64) {
-          img.src = report.capturaBase64;
+      const allAttachments = getReportAttachments(report);
+      const imgAttachments = allAttachments.filter((a) => String(a.mimeType || '').startsWith('image/'));
+      const pdfAttachments = allAttachments.filter((a) => String(a.mimeType || '').toLowerCase() === 'application/pdf');
+      activeCrmDialogImages = imgAttachments;
+      activeCrmDialogImageIndex = 0;
+
+      const attLabel = document.getElementById('crm-dialog-attachments-label');
+      const imgToolbar = document.getElementById('crm-dialog-img-toolbar');
+      const imgStage = document.getElementById('crm-dialog-img-stage');
+      const thumbsEl = document.getElementById('crm-dialog-thumbs');
+      const pdfListEl = document.getElementById('crm-dialog-pdf-list');
+
+      if (imgWrap) {
+        if (allAttachments.length > 0) {
           imgWrap.hidden = false;
           imgWrap.style.display = 'flex';
+          if (attLabel) {
+            attLabel.textContent = `Capturas y Archivos Adjuntos (${allAttachments.length})`;
+          }
           if (noImg) {
             noImg.hidden = true;
             noImg.style.display = 'none';
           }
+          if (imgAttachments.length > 0) {
+            if (imgToolbar) imgToolbar.style.display = 'flex';
+            if (imgStage) imgStage.style.display = 'block';
+            if (thumbsEl) {
+              if (imgAttachments.length > 1) {
+                thumbsEl.hidden = false;
+                thumbsEl.style.display = 'flex';
+                thumbsEl.innerHTML = imgAttachments
+                  .map(
+                    (a, idx) =>
+                      `<button type="button" class="crm-dlg-thumb" data-img-idx="${idx}" title="${escapeHtml(a.name)}" style="padding:2px; border-radius:6px; border:2px solid rgba(148,163,184,0.35); background:#0f172a; cursor:pointer; width:64px; height:48px; overflow:hidden; flex-shrink:0;">
+                        <img src="${a.dataUrl}" alt="${escapeHtml(a.name)}" style="width:100%; height:100%; object-fit:cover; border-radius:3px;">
+                      </button>`
+                  )
+                  .join('');
+                thumbsEl.querySelectorAll('.crm-dlg-thumb').forEach((btn) => {
+                  btn.addEventListener('click', () => {
+                    selectCrmDialogImageIndex(Number(btn.getAttribute('data-img-idx')) || 0);
+                  });
+                });
+              } else {
+                thumbsEl.hidden = true;
+                thumbsEl.style.display = 'none';
+                thumbsEl.innerHTML = '';
+              }
+            }
+            selectCrmDialogImageIndex(0);
+          } else {
+            if (img) img.src = '';
+            if (imgToolbar) imgToolbar.style.display = 'none';
+            if (imgStage) imgStage.style.display = 'none';
+            if (thumbsEl) {
+              thumbsEl.hidden = true;
+              thumbsEl.style.display = 'none';
+              thumbsEl.innerHTML = '';
+            }
+          }
+
+          if (pdfListEl) {
+            if (pdfAttachments.length > 0) {
+              pdfListEl.hidden = false;
+              pdfListEl.style.display = 'flex';
+              pdfListEl.innerHTML = pdfAttachments
+                .map((p, idx) => {
+                  const kb = Math.max(1, Math.round((p.size || 0) / 1024));
+                  return `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.6rem; flex-wrap:wrap; padding:0.55rem 0.8rem; border-radius:8px; background:var(--surface-elevated); border:1px solid var(--border-subtle);">
+                      <div style="display:flex; align-items:center; gap:0.55rem; min-width:0;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:6px; background:rgba(220,38,38,0.12); color:#dc2626; font-weight:800; font-size:0.72rem; flex-shrink:0;">PDF</span>
+                        <div style="min-width:0;">
+                          <div style="font-size:0.82rem; font-weight:700; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.name)}</div>
+                          <div style="font-size:0.72rem; color:var(--text-secondary);">Documento PDF · ${kb} KB</div>
+                        </div>
+                      </div>
+                      <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                        <button type="button" class="btn-secondary btn-sm btn-crm-pdf-open" data-pdf-idx="${idx}" style="width:auto; font-weight:700;">Abrir PDF</button>
+                        <button type="button" class="btn-secondary btn-sm btn-crm-pdf-dl" data-pdf-idx="${idx}" style="width:auto; font-weight:700;">Descargar</button>
+                      </div>
+                    </div>
+                  `;
+                })
+                .join('');
+              pdfListEl.querySelectorAll('.btn-crm-pdf-open').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                  const p = pdfAttachments[Number(btn.getAttribute('data-pdf-idx')) || 0];
+                  if (p) openCrmScreenshotInNewTab(p.dataUrl);
+                });
+              });
+              pdfListEl.querySelectorAll('.btn-crm-pdf-dl').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                  const p = pdfAttachments[Number(btn.getAttribute('data-pdf-idx')) || 0];
+                  if (p) downloadCrmScreenshot(p.dataUrl, report.codigo || 'crm', p.name);
+                });
+              });
+            } else {
+              pdfListEl.hidden = true;
+              pdfListEl.style.display = 'none';
+              pdfListEl.innerHTML = '';
+            }
+          }
         } else {
-          img.src = '';
+          if (img) img.src = '';
           imgWrap.hidden = true;
           imgWrap.style.display = 'none';
           if (noImg) {
@@ -73678,28 +74111,34 @@ function initApp() {
       const countBadge = document.getElementById('crm-my-reports-count-badge');
       if (!tbody) return;
 
-      const uKey = String(STATE.currentUser?.username || '').toLowerCase();
-      const isGenAdmin = uKey === PRIMARY_ADMIN_USER || isErpGeneralAdminUser(STATE.currentUser || uKey);
-      const myReports = crmReportsList.filter((r) => {
-        if (isGenAdmin) return true;
-        return String(r.username || '').toLowerCase() === uKey;
-      });
+      // En el cliente (y en la vista de equipo): mostrar SOLO los reportes generados por su equipo,
+      // visibles para todos los usuarios del equipo respetando los módulos que cada usuario puede visualizar.
+      const teamReports = sortCrmReportsForDisplay(
+        crmReportsList.filter((r) => doesReportBelongToCurrentTeam(r) && canCurrentUserViewReportModule(r))
+      );
 
       if (countBadge) {
-        countBadge.textContent = `${myReports.length} ${myReports.length === 1 ? 'reporte' : 'reportes'}`;
+        countBadge.textContent = `${teamReports.length} ${teamReports.length === 1 ? 'reporte' : 'reportes'}`;
       }
 
-      if (myReports.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Todavía no hay reportes registrados para mostrar.</td></tr>`;
+      if (teamReports.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Todavía no hay reportes registrados por tu equipo para tus módulos habilitados.</td></tr>`;
+        renderCrmPaginationBar('crm-my-reports-pagination', 0, 1, () => {});
         return;
       }
 
-      tbody.innerHTML = myReports
+      const totalPages = Math.max(1, Math.ceil(teamReports.length / CRM_PAGE_SIZE));
+      if (crmMyReportsPage > totalPages) crmMyReportsPage = totalPages;
+      if (crmMyReportsPage < 1) crmMyReportsPage = 1;
+      const start = (crmMyReportsPage - 1) * CRM_PAGE_SIZE;
+      const pageItems = teamReports.slice(start, start + CRM_PAGE_SIZE);
+
+      tbody.innerHTML = pageItems
         .map((r) => {
           const tipoInfo = CRM_TIPO_META[r.tipo] || CRM_TIPO_META.MEJORA;
           const prioInfo = CRM_PRIORIDAD_META[r.prioridad] || CRM_PRIORIDAD_META.NORMAL;
           const estInfo = CRM_ESTADO_META[r.estado] || CRM_ESTADO_META.PENDIENTE;
-          const hasImg = Boolean(r.capturaBase64);
+          const atts = getReportAttachments(r);
           return `
             <tr>
               <td style="white-space:nowrap;">
@@ -73718,20 +74157,22 @@ function initApp() {
                 </div>
               </td>
               <td style="font-weight:700; font-size:0.83rem;">${escapeHtml(r.moduloLabel || 'General')}</td>
-              <td style="max-width:360px;">
+              <td>
                 <div style="font-weight:800; color:var(--text-primary); margin-bottom:0.2rem;">${escapeHtml(r.titulo || '—')}</div>
                 <div style="font-size:0.82rem; color:var(--text-secondary); white-space:pre-wrap; line-height:1.38;">${escapeHtml(r.descripcion || '')}</div>
               </td>
-              <td class="text-center">
+              <td class="text-center" style="white-space:nowrap;">
                 ${
-                  hasImg
-                    ? `<button type="button" class="btn-secondary btn-sm btn-crm-view-ticket" data-crm-id="${escapeHtml(r.id)}" style="width:auto; padding:0.25rem 0.5rem;">
-                        📷 Ver Captura
+                  atts.length > 0
+                    ? `<button type="button" class="btn-secondary btn-sm btn-crm-view-ticket" data-crm-id="${escapeHtml(r.id)}" style="width:auto; padding:0.25rem 0.55rem; font-weight:700;">
+                        📎 Ver (${atts.length})
                       </button>`
-                    : `<span style="font-size:0.76rem; color:var(--text-secondary);">Sin captura</span>`
+                    : `<button type="button" class="btn-secondary btn-sm btn-crm-view-ticket" data-crm-id="${escapeHtml(r.id)}" style="width:auto; padding:0.22rem 0.5rem; font-size:0.75rem;">
+                        Ver detalle
+                      </button>`
                 }
               </td>
-              <td class="text-center">
+              <td class="text-center" style="white-space:nowrap;">
                 <span class="badge" style="background:${estInfo.bg}; color:${estInfo.color}; border:1px solid ${estInfo.border}; font-weight:800; font-size:0.76rem;">
                   ${escapeHtml(estInfo.label)}
                 </span>
@@ -73741,7 +74182,7 @@ function initApp() {
                     : ''
                 }
               </td>
-              <td style="max-width:270px;">
+              <td>
                 ${
                   r.respuestaAdmin
                     ? `<div style="padding:0.45rem 0.6rem; border-radius:6px; background:rgba(212,160,23,0.1); border:1px solid rgba(212,160,23,0.35); font-size:0.81rem; white-space:pre-wrap;">${escapeHtml(r.respuestaAdmin)}</div>`
@@ -73764,8 +74205,13 @@ function initApp() {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-crm-id');
           const found = crmReportsList.find((item) => String(item.id) === String(id));
-          if (found) openCrmReportModal(found);
+          if (found) openCrmReportModal(found, { adminManage: false });
         });
+      });
+
+      renderCrmPaginationBar('crm-my-reports-pagination', teamReports.length, crmMyReportsPage, (nextPage) => {
+        crmMyReportsPage = nextPage;
+        renderMyReportsTable();
       });
     }
 
@@ -73794,42 +74240,55 @@ function initApp() {
       const fTipo = document.getElementById('crm-filter-tipo')?.value || 'TODOS';
       const fPrio = document.getElementById('crm-filter-prioridad')?.value || 'TODOS';
 
-      const filtered = crmReportsList.filter((r) => {
-        if (fEstado !== 'TODOS' && (r.estado || 'PENDIENTE') !== fEstado) return false;
-        if (fTipo !== 'TODOS' && (r.tipo || 'MEJORA') !== fTipo) return false;
-        if (fPrio !== 'TODOS' && (r.prioridad || 'NORMAL') !== fPrio) return false;
-        if (q) {
-          const hay = [
-            r.codigo,
-            r.id,
-            r.usuario,
-            r.username,
-            r.sucursal,
-            r.moduloLabel,
-            r.titulo,
-            r.descripcion,
-            r.respuestaAdmin
-          ]
-            .join(' ')
-            .toLowerCase();
-          if (!hay.includes(q)) return false;
-        }
-        return true;
-      });
+      const filtered = sortCrmReportsForDisplay(
+        crmReportsList.filter((r) => {
+          if (fEstado !== 'TODOS' && (r.estado || 'PENDIENTE') !== fEstado) return false;
+          if (fTipo !== 'TODOS' && (r.tipo || 'MEJORA') !== fTipo) return false;
+          if (fPrio !== 'TODOS' && (r.prioridad || 'NORMAL') !== fPrio) return false;
+          if (q) {
+            const hay = [
+              r.codigo,
+              r.id,
+              r.usuario,
+              r.username,
+              r.sucursal,
+              r.marca,
+              r.moduloLabel,
+              r.titulo,
+              r.descripcion,
+              r.respuestaAdmin
+            ]
+              .join(' ')
+              .toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return true;
+        })
+      );
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No se encontraron reportes en el CRM con los filtros seleccionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">No se encontraron reportes en el CRM con los filtros seleccionados.</td></tr>`;
+        renderCrmPaginationBar('crm-admin-pagination', 0, 1, () => {});
         return;
       }
 
-      tbody.innerHTML = filtered
+      const totalPages = Math.max(1, Math.ceil(filtered.length / CRM_PAGE_SIZE));
+      if (crmAdminPage > totalPages) crmAdminPage = totalPages;
+      if (crmAdminPage < 1) crmAdminPage = 1;
+      const start = (crmAdminPage - 1) * CRM_PAGE_SIZE;
+      const pageItems = filtered.slice(start, start + CRM_PAGE_SIZE);
+
+      tbody.innerHTML = pageItems
         .map((r) => {
           const tipoInfo = CRM_TIPO_META[r.tipo] || CRM_TIPO_META.MEJORA;
           const prioInfo = CRM_PRIORIDAD_META[r.prioridad] || CRM_PRIORIDAD_META.NORMAL;
+          const estInfo = CRM_ESTADO_META[r.estado] || CRM_ESTADO_META.PENDIENTE;
+          const atts = getReportAttachments(r);
           return `
             <tr data-crm-row-id="${escapeHtml(r.id)}">
               <td style="white-space:nowrap;">
                 <strong style="color:var(--brand-gold); font-size:0.92rem;">${escapeHtml(r.codigo || r.id)}</strong>
+                ${atts.length > 0 ? `<div style="font-size:0.72rem; color:var(--text-secondary); margin-top:0.15rem;">📎 ${atts.length} ${atts.length === 1 ? 'adjunto' : 'adjuntos'}</div>` : ''}
               </td>
               <td style="white-space:nowrap;">
                 <div style="font-size:0.82rem; color:var(--text-secondary);">🕒 ${escapeHtml(r.fechaHora || '—')}</div>
@@ -73837,7 +74296,7 @@ function initApp() {
               <td>
                 <div style="font-weight:800; font-size:0.85rem;">${escapeHtml(r.usuario || 'Usuario')}</div>
                 <div style="font-size:0.76rem; color:var(--text-secondary);">@${escapeHtml(r.username || 'admin')} · ${escapeHtml(r.rol || 'Operador')}</div>
-                <div style="font-size:0.74rem; color:var(--text-secondary);">🏢 ${escapeHtml(r.sucursal || 'Casa Central')}</div>
+                <div style="font-size:0.74rem; color:var(--text-secondary);">🏢 ${escapeHtml(r.marca || r.sucursal || 'Casa Central')}</div>
               </td>
               <td>
                 <span class="badge" style="background:${tipoInfo.bg}; color:${tipoInfo.color}; border:1px solid ${tipoInfo.border}; font-size:0.74rem; display:inline-block;">
@@ -73850,6 +74309,11 @@ function initApp() {
                 </span>
               </td>
               <td style="font-weight:700; font-size:0.83rem;">${escapeHtml(r.moduloLabel || 'General')}</td>
+              <td style="white-space:nowrap;">
+                <span class="badge" style="background:${estInfo.bg}; color:${estInfo.color}; border:1px solid ${estInfo.border}; font-weight:800; font-size:0.74rem; display:inline-block;">
+                  ${escapeHtml(estInfo.label)}
+                </span>
+              </td>
               <td class="text-center" style="white-space:nowrap;">
                 <button type="button" class="btn-primary btn-sm btn-crm-admin-open-modal" data-crm-id="${escapeHtml(r.id)}" style="width:auto; min-width:74px; font-weight:800; font-size:0.78rem; padding:0.35rem 0.85rem;">
                   VER
@@ -73864,8 +74328,13 @@ function initApp() {
         el.addEventListener('click', () => {
           const id = el.getAttribute('data-crm-id');
           const found = crmReportsList.find((item) => String(item.id) === String(id));
-          if (found) openCrmReportModal(found, { adminManage: true });
+          if (found) openCrmReportModal(found, { adminManage: isCrmMasterAdminUser() });
         });
+      });
+
+      renderCrmPaginationBar('crm-admin-pagination', filtered.length, crmAdminPage, (nextPage) => {
+        crmAdminPage = nextPage;
+        renderCrmAdminSection();
       });
     }
 
@@ -73885,26 +74354,11 @@ function initApp() {
 
       btnSelectImg?.addEventListener('click', () => fileInp?.click());
       fileInp?.addEventListener('change', () => {
-        const f = fileInp.files?.[0];
-        if (f) handleAttachScreenshotFile(f);
+        if (fileInp.files && fileInp.files.length > 0) {
+          handleAttachScreenshotFiles(fileInp.files);
+        }
       });
       btnClearImg?.addEventListener('click', clearDraftScreenshot);
-
-      previewImg?.addEventListener('click', () => {
-        if (!currentDraftScreenshotBase64) return;
-        openCrmReportModal({
-          codigo: 'VISTA PREVIA',
-          titulo: document.getElementById('crm-rep-titulo')?.value || 'Captura de Pantalla Adjunta',
-          fechaHora: formatNowDateTimeAr(),
-          usuario: STATE.currentUser?.name || 'Usuario',
-          username: STATE.currentUser?.username || 'admin',
-          moduloLabel: document.getElementById('crm-rep-modulo')?.selectedOptions?.[0]?.textContent || 'General',
-          tipo: document.getElementById('crm-rep-tipo')?.value || 'MEJORA',
-          estado: 'PENDIENTE',
-          descripcion: document.getElementById('crm-rep-descripcion')?.value || 'Vista previa de la captura de pantalla adjunta.',
-          capturaBase64: currentDraftScreenshotBase64
-        });
-      });
 
       if (dropzone) {
         dropzone.addEventListener('dragover', (e) => {
@@ -73917,8 +74371,9 @@ function initApp() {
         dropzone.addEventListener('drop', (e) => {
           e.preventDefault();
           dropzone.style.borderColor = 'var(--brand-gold)';
-          const f = e.dataTransfer?.files?.[0];
-          if (f) handleAttachScreenshotFile(f);
+          if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+            handleAttachScreenshotFiles(e.dataTransfer.files);
+          }
         });
       }
 
@@ -73927,15 +74382,16 @@ function initApp() {
         if (!secRep || secRep.hidden) return;
         const items = e.clipboardData?.items;
         if (!items) return;
+        const pastedFiles = [];
         for (const item of items) {
-          if (item.type && item.type.startsWith('image/')) {
+          if (item.type && (item.type.startsWith('image/') || item.type === 'application/pdf')) {
             const blob = item.getAsFile();
-            if (blob) {
-              e.preventDefault();
-              handleAttachScreenshotFile(blob);
-              break;
-            }
+            if (blob) pastedFiles.push(blob);
           }
+        }
+        if (pastedFiles.length > 0) {
+          e.preventDefault();
+          handleAttachScreenshotFiles(pastedFiles);
         }
       });
 
@@ -73950,32 +74406,40 @@ function initApp() {
 
       btnRefreshRep?.addEventListener('click', async () => {
         try { sessionStorage.removeItem(CN_CRM_TOP_BRIDGE_SESSION_KEY); } catch {}
-        await fetchCrmReportsFromServer(true);
+        await fetchCrmReportsFromServer(true, true);
         renderMyReportsTable();
         if (typeof showToast === 'function') showToast('🔄 Estado de reportes actualizado');
       });
 
       btnRefreshAdmin?.addEventListener('click', async () => {
         try { sessionStorage.removeItem(CN_CRM_TOP_BRIDGE_SESSION_KEY); } catch {}
-        await fetchCrmReportsFromServer(true);
+        await fetchCrmReportsFromServer(true, true);
         renderCrmAdminSection();
         if (typeof showToast === 'function') showToast('🔄 Bandeja CRM sincronizada');
       });
 
       ['crm-filter-q', 'crm-filter-estado', 'crm-filter-tipo', 'crm-filter-prioridad'].forEach((id) => {
         const el = document.getElementById(id);
-        el?.addEventListener('input', renderCrmAdminSection);
-        el?.addEventListener('change', renderCrmAdminSection);
+        const onFilterChange = () => {
+          crmAdminPage = 1;
+          renderCrmAdminSection();
+        };
+        el?.addEventListener('input', onFilterChange);
+        el?.addEventListener('change', onFilterChange);
       });
 
       const dlg = document.getElementById('crm-screenshot-dialog');
       document.getElementById('btn-close-crm-dialog')?.addEventListener('click', () => dlg?.close?.());
       document.getElementById('btn-close-crm-dialog-footer')?.addEventListener('click', () => dlg?.close?.());
 
-      // Visor Lightbox + Abrir en pestaña + Descargar captura adjunta
-      const getActiveScreenshotSrc = () => {
+      // Visor Lightbox + Abrir en pestaña + Descargar captura adjunta (con soporte multi-imagen)
+      const getActiveDialogImage = () => {
+        if (activeCrmDialogImages.length > 0 && activeCrmDialogImages[activeCrmDialogImageIndex]) {
+          return activeCrmDialogImages[activeCrmDialogImageIndex];
+        }
         const imgEl = document.getElementById('crm-dialog-img');
-        return (activeCrmDialogReport && activeCrmDialogReport.capturaBase64) || imgEl?.getAttribute('src') || '';
+        const src = (activeCrmDialogReport && activeCrmDialogReport.capturaBase64) || imgEl?.getAttribute('src') || '';
+        return src ? { dataUrl: src, name: '' } : null;
       };
       const getActiveScreenshotTitle = () => {
         if (!activeCrmDialogReport) return 'Captura de Pantalla';
@@ -73983,24 +74447,44 @@ function initApp() {
       };
 
       document.getElementById('crm-dialog-img')?.addEventListener('click', () => {
-        const src = getActiveScreenshotSrc();
-        if (src) openCrmLightbox(src, getActiveScreenshotTitle());
+        if (activeCrmDialogImages.length > 0) {
+          openCrmLightboxGallery(activeCrmDialogImages, activeCrmDialogImageIndex, getActiveScreenshotTitle());
+        } else {
+          const cur = getActiveDialogImage();
+          if (cur) openCrmLightbox(cur.dataUrl, getActiveScreenshotTitle());
+        }
       });
       document.getElementById('btn-crm-img-zoom')?.addEventListener('click', () => {
-        const src = getActiveScreenshotSrc();
-        if (src) openCrmLightbox(src, getActiveScreenshotTitle());
+        if (activeCrmDialogImages.length > 0) {
+          openCrmLightboxGallery(activeCrmDialogImages, activeCrmDialogImageIndex, getActiveScreenshotTitle());
+        } else {
+          const cur = getActiveDialogImage();
+          if (cur) openCrmLightbox(cur.dataUrl, getActiveScreenshotTitle());
+        }
       });
       document.getElementById('btn-crm-img-open-tab')?.addEventListener('click', () => {
-        openCrmScreenshotInNewTab(getActiveScreenshotSrc());
+        const cur = getActiveDialogImage();
+        if (cur) openCrmScreenshotInNewTab(cur.dataUrl);
       });
       document.getElementById('btn-crm-img-download')?.addEventListener('click', () => {
-        downloadCrmScreenshot(getActiveScreenshotSrc(), activeCrmDialogReport?.codigo || 'captura-crm');
+        const cur = getActiveDialogImage();
+        if (cur) downloadCrmScreenshot(cur.dataUrl, activeCrmDialogReport?.codigo || 'captura-crm', cur.name);
       });
 
       const lbDlg = document.getElementById('crm-lightbox-dialog');
       document.getElementById('btn-crm-lb-close')?.addEventListener('click', () => lbDlg?.close?.());
       lbDlg?.addEventListener('click', (ev) => {
         if (ev.target === lbDlg) lbDlg.close?.();
+      });
+      document.getElementById('btn-crm-lb-prev')?.addEventListener('click', () => {
+        if (activeCrmLightboxImages.length <= 1) return;
+        activeCrmLightboxIndex = (activeCrmLightboxIndex - 1 + activeCrmLightboxImages.length) % activeCrmLightboxImages.length;
+        renderActiveLightboxSlide();
+      });
+      document.getElementById('btn-crm-lb-next')?.addEventListener('click', () => {
+        if (activeCrmLightboxImages.length <= 1) return;
+        activeCrmLightboxIndex = (activeCrmLightboxIndex + 1) % activeCrmLightboxImages.length;
+        renderActiveLightboxSlide();
       });
       document.getElementById('crm-lightbox-img')?.addEventListener('click', () => {
         crmLightboxZoom = crmLightboxZoom === 0 ? 1.5 : (crmLightboxZoom < 2.5 ? crmLightboxZoom + 0.5 : 0);
@@ -74020,10 +74504,12 @@ function initApp() {
         applyCrmLightboxZoom();
       });
       document.getElementById('btn-crm-lb-open-tab')?.addEventListener('click', () => {
-        openCrmScreenshotInNewTab(getActiveScreenshotSrc());
+        const cur = activeCrmLightboxImages[activeCrmLightboxIndex] || getActiveDialogImage();
+        if (cur) openCrmScreenshotInNewTab(cur.dataUrl);
       });
       document.getElementById('btn-crm-lb-download')?.addEventListener('click', () => {
-        downloadCrmScreenshot(getActiveScreenshotSrc(), activeCrmDialogReport?.codigo || 'captura-crm');
+        const cur = activeCrmLightboxImages[activeCrmLightboxIndex] || getActiveDialogImage();
+        if (cur) downloadCrmScreenshot(cur.dataUrl, activeCrmDialogReport?.codigo || 'captura-crm', cur.name);
       });
 
       // Botón "Enviar a Antigravity" (encola ticket en Supabase + copia prompt estructurado)
@@ -74230,6 +74716,7 @@ function initApp() {
         const submitBtn = document.getElementById('btn-crm-rep-submit');
         if (submitBtn) submitBtn.disabled = true;
 
+        const firstDraftImg = currentDraftAttachments.find((a) => String(a.mimeType || '').startsWith('image/'));
         const payload = {
           action: 'save_crm_report',
           fechaHora: formatNowDateTimeAr(),
@@ -74238,27 +74725,24 @@ function initApp() {
           rol: STATE.currentUser?.role || 'Usuario',
           sucursal: STATE.currentUser?.branch || ACTIVE_BRAND?.defaultBranch || 'Casa Central',
           marca: ACTIVE_BRAND?.name || 'Casa Nueva',
+          tenantSlug: String(ACTIVE_BRAND?.slug || '').toLowerCase(),
           tipo,
           prioridad,
           moduloKey,
           moduloLabel,
           titulo,
           descripcion,
-          capturaBase64: currentDraftScreenshotBase64 || ''
+          capturaBase64: firstDraftImg?.dataUrl || '',
+          adjuntos: currentDraftAttachments.map((a) => ({
+            id: a.id,
+            name: a.name,
+            mimeType: a.mimeType,
+            size: a.size,
+            dataUrl: a.dataUrl
+          }))
         };
 
         try {
-          // Enviar también en simultáneo a la bandeja central CRM del Administrador General (@danielg) en MiniSistema
-          try {
-            if (!window.location.hostname.includes('minisistema')) {
-              fetch(MINISISTEMA_CRM_HUB_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-              }).catch(() => {});
-            }
-          } catch {}
-
           const res = await fetch('api/manual_ai.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -74346,6 +74830,14 @@ function initApp() {
 
     window.initOrRefreshCrmSection = async function () {
       bindReporteMejorasAndCrmEvents();
+      // La gestión/solución CRM solo está habilitada en MiniSistema Base (www.minisistema.com.ar/sistema).
+      // En instancias clientes (ej. Casa Nueva ERP, Paseo Alberdi), incluso @danielg opera la vista de Reportes del Equipo.
+      if (!isCrmMasterAdminUser()) {
+        if (typeof openSection === 'function') {
+          openSection('sec-reporte-mejoras');
+        }
+        return;
+      }
       if (crmReportsList.length === 0) {
         const cached = loadLocalCrmReports();
         if (cached.length > 0) {

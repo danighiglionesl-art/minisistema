@@ -1705,6 +1705,48 @@ export async function handleErpManualAi(
         "Administrador"
     );
 
+const ALLOWED_CRM_MIME_RE = /^(image\/(jpeg|jpg|png|webp|gif)|application\/pdf)$/i;
+
+function normalizeCrmAttachments(rawList: unknown, legacyCaptura?: string): AnyObj[] {
+  const out: AnyObj[] = [];
+  if (Array.isArray(rawList)) {
+    for (let i = 0; i < rawList.length && out.length < 8; i++) {
+      const it = rawList[i] as AnyObj | null;
+      if (!it || typeof it !== "object") continue;
+      const dataUrl = String(it.dataUrl || it.src || "").trim();
+      if (!dataUrl || !dataUrl.startsWith("data:")) continue;
+      // Limite por archivo (~5 MB en base64)
+      if (dataUrl.length > 6_800_000) continue;
+      const mimeFromData = dataUrl.match(/^data:([^;]+);/i)?.[1] || "";
+      const mimeType = String(it.mimeType || mimeFromData || "image/jpeg").trim().toLowerCase();
+      if (!ALLOWED_CRM_MIME_RE.test(mimeType)) continue;
+      const isPdf = mimeType === "application/pdf";
+      const defaultExt = isPdf ? "pdf" : mimeType.includes("png") ? "png" : "jpg";
+      const name = String(it.name || `adjunto_${out.length + 1}.${defaultExt}`).trim().slice(0, 120);
+      const size = Math.max(0, Number(it.size || Math.round(dataUrl.length * 0.75)));
+      out.push({
+        id: String(it.id || `att_${Date.now()}_${out.length + 1}`),
+        name,
+        mimeType,
+        size,
+        dataUrl,
+      });
+    }
+  }
+  const cleanLegacy = String(legacyCaptura || "").trim();
+  if (out.length === 0 && cleanLegacy && cleanLegacy.startsWith("data:")) {
+    const mimeFromData = cleanLegacy.match(/^data:([^;]+);/i)?.[1] || "image/jpeg";
+    out.push({
+      id: `att_legacy_1`,
+      name: mimeFromData === "application/pdf" ? "adjunto_1.pdf" : "captura_1.jpg",
+      mimeType: mimeFromData.toLowerCase(),
+      size: Math.round(cleanLegacy.length * 0.75),
+      dataUrl: cleanLegacy,
+    });
+  }
+  return out;
+}
+
     if (action === "save_crm_report") {
       let titulo = String(payload.titulo || "").trim();
       const descripcion = String(payload.descripcion || "").trim();
@@ -1723,7 +1765,14 @@ export async function handleErpManualAi(
       const marca = String(
         payload.marca || tenant.fantasy_name || "Casa Nueva"
       ).trim();
-      const capturaBase64 = String(payload.capturaBase64 || "").trim();
+      const tenantSlug = String(
+        payload.tenantSlug || tenant.slug || ""
+      ).trim().toLowerCase();
+      const adjuntos = normalizeCrmAttachments(payload.adjuntos, String(payload.capturaBase64 || ""));
+      const firstImageAtt = adjuntos.find((a) => String(a.mimeType || "").startsWith("image/"));
+      const capturaBase64 = String(
+        firstImageAtt?.dataUrl || payload.capturaBase64 || ""
+      ).trim();
       const fechaCliente = String(payload.fechaHora || "").trim();
 
       if (!titulo && !descripcion) {
@@ -1761,6 +1810,7 @@ export async function handleErpManualAi(
         rol,
         sucursal,
         marca,
+        tenantSlug,
         tipo,
         prioridad,
         moduloKey,
@@ -1768,6 +1818,7 @@ export async function handleErpManualAi(
         titulo,
         descripcion,
         capturaBase64,
+        adjuntos,
         estado: payload.estado
           ? String(payload.estado).trim().toUpperCase()
           : "PENDIENTE",
@@ -1867,6 +1918,7 @@ export async function handleErpManualAi(
               item.sucursal || tenant.fantasy_name || "Casa Central"
             ),
             marca: String(item.marca || tenant.fantasy_name || "Casa Nueva"),
+            tenantSlug: String(item.tenantSlug || tenant.slug || "").trim().toLowerCase(),
             tipo: String(item.tipo || "MEJORA").toUpperCase(),
             prioridad: String(item.prioridad || "NORMAL").toUpperCase(),
             moduloKey: String(item.moduloKey || "general"),
@@ -1874,6 +1926,7 @@ export async function handleErpManualAi(
             titulo: tTit || tDesc.slice(0, 80),
             descripcion: tDesc,
             capturaBase64: String(item.capturaBase64 || ""),
+            adjuntos: normalizeCrmAttachments(item.adjuntos, String(item.capturaBase64 || "")),
             estado: String(item.estado || "PENDIENTE").toUpperCase(),
             respuestaAdmin: String(item.respuestaAdmin || ""),
             resueltoPor: String(item.resueltoPor || ""),
