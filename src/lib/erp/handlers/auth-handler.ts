@@ -627,17 +627,42 @@ export async function handleErpAuth(
       )
         .trim()
         .toLowerCase();
-      const rec = byKey.get(username);
+      const cajaId =
+        payload.cajaId && String(payload.cajaId).trim() !== ""
+          ? String(payload.cajaId).trim()
+          : null;
+      const closedCajaId =
+        payload.closedCajaId && String(payload.closedCajaId).trim() !== ""
+          ? String(payload.closedCajaId).trim()
+          : null;
+
+      // Si se cierra una caja o un nuevo usuario toma una caja, liberar a cualquier otro usuario que la tuviera asignada
+      for (const [otherKey, otherRec] of byKey.entries()) {
+        if (otherKey === username) continue;
+        if (
+          (closedCajaId && otherRec.cajaAbierta === closedCajaId) ||
+          (cajaId && otherRec.cajaAbierta === cajaId)
+        ) {
+          await upsertTenantUserInDb(tenant, {
+            ...otherRec,
+            cajaAbierta: null,
+            cajaAbiertaAt: null,
+            actor: username || "sistema",
+          });
+        }
+      }
+
+      const rec = username ? byKey.get(username) : null;
       if (!rec) {
+        if (closedCajaId) {
+          return NextResponse.json({ ok: true, closedCajaId, cajaAbierta: null });
+        }
         return NextResponse.json(
           { ok: false, message: "Usuario inválido." },
           { status: 400 }
         );
       }
-      const cajaId =
-        payload.cajaId && String(payload.cajaId).trim() !== ""
-          ? String(payload.cajaId).trim()
-          : null;
+
       await upsertTenantUserInDb(tenant, {
         ...rec,
         whatsapp: payload.whatsapp

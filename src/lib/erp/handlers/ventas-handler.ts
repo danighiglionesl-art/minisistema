@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonResponseMaybeGzip } from "../json-response";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
-import { getTenantDoc, putTenantDoc } from "../supabase-server";
+import {
+  getTenantDoc,
+  listTenantUsersFromDb,
+  putTenantDoc,
+  upsertTenantUserInDb,
+} from "../supabase-server";
 import type { ErpTenantRecord } from "../types";
 
 type AnyObj = Record<string, any>;
@@ -40,6 +45,7 @@ export async function handleErpVentas(
       return jsonResponseMaybeGzip(req, {
         ok: true,
         nextNumero: maxPlanilla > 0 ? maxPlanilla + 1 : 1,
+        nextCorrelativos: db.nextCorrelativos || {},
         cierres: cierresList,
         cierresCajaCentral: cierresList,
         aperturasCajaCentral: Array.isArray(db.aperturasCajaCentral)
@@ -289,35 +295,209 @@ export async function handleErpVentas(
 
     if (action === "close_caja_turno" || action === "save_cierre") {
       const cierreIn = (payload.cierre || payload) as AnyObj;
+      const incomingUid = String(cierreIn.uid || "").trim();
+      const existingByUid = incomingUid
+        ? db.cierresCajaCentral.find((c: AnyObj) => c && String(c.uid || "") === incomingUid)
+        : null;
+
       const maxPlanilla = db.cierresCajaCentral.reduce(
         (mx: number, c: AnyObj) => Math.max(mx, Number(c?.numeroPlanilla || 0)),
         0
       );
-      const savedCierre = {
+      const nowIso = new Date().toISOString();
+      const savedCierre = existingByUid || {
         ...cierreIn,
         id: cierreIn.id || `cierre_${Date.now()}`,
-        numeroPlanilla: Number(cierreIn.numeroPlanilla || maxPlanilla + 1),
-        createdAt: new Date().toISOString(),
+        numeroPlanilla: Math.max(
+          Number(cierreIn.numeroPlanilla || 0),
+          maxPlanilla + 1
+        ),
+        createdAt: nowIso,
+        closedAtIso: cierreIn.closedAtIso || nowIso,
         estadoCentral: cierreIn.estadoCentral || "PENDIENTE",
       };
-      db.cierresCajaCentral.unshift(savedCierre);
-      const cKey = String(cierreIn.cajaId || "");
-      if (cKey && cKey in (db.efectivoInicialPorCaja || {})) {
-        db.efectivoInicialPorCaja[cKey] = round2(cierreIn.efectivoCambio || 0);
+      if (!existingByUid) {
+        db.cierresCajaCentral.unshift(savedCierre);
       }
+
+      const cKey = String(cierreIn.cajaId || payload.cajaId || "").trim();
+      const tipoNorm = String(savedCierre.tipoRendicion || "Cierre de caja")
+        .trim()
+        .toLowerCase();
+      const isFullClose =
+        tipoNorm !== "rendición parcial" && tipoNorm !== "rendicion parcial";
+
+      if (!db.efectivoInicialPorCaja || typeof db.efectivoInicialPorCaja !== "object") {
+        db.efectivoInicialPorCaja = { caja1: 0, caja2: 0, caja3: 0 };
+      }
+
+      if (isFullClose && cKey) {
+        db.efectivoInicialPorCaja[cKey] = round2(cierreIn.efectivoCambio || 0);
+
+        // Marcar todas las aperturas de esa caja como cerradas en este turno
+        for (const ap of db.aperturasCajaCentral) {
+          if (ap && String(ap.cajaId || "") === cKey && ap.cerradaEnTurno !== true) {
+            ap.cerradaEnTurno = true;
+            if (!ap.cerradaPorPlanilla) {
+              ap.cerradaPorPlanilla = savedCierre.numeroPlanilla;
+            }
+            if (!ap.closedAtIso) {
+              ap.closedAtIso = savedCierre.closedAtIso || nowIso;
+            }
+          }
+        }
+
+        // Marcar comprobantes del turno de esa caja como cerrados (conservando el historial)
+        if (Array.isArray(db.comprobantesPorCaja?.[cKey])) {
+          for (const comp of db.comprobantesPorCaja[cKey]) {
+            if (comp && !comp.cerradoEnTurno) {
+              comp.cerradoEnTurno = true;
+              if (!comp.cerradoPorPlanilla) {
+                comp.cerradoPorPlanilla = savedCierre.numeroPlanilla;
+              }
+            }
+          }
+        }
+
+        // Liberar en la tabla users de forma atómica a cualquier usuario que tuviera abierta esta caja
+        try {
+          const closingUser = String(cierreIn.username || actor || "")
+            .trim()
+            .toLowerCase();
+          const allUsers = await listTenantUsersFromDb(tenant);
+          for (const u of allUsers) {
+            const uKey = String(u.username || "").trim().toLowerCase();
+            if (u.cajaAbierta === cKey || (closingUser && uKey === closingUser && u.cajaAbierta === cKey)) {
+              await upsertTenantUserInDb(tenant, {
+                ...u,
+                cajaAbierta: null,
+                cajaAbiertaAt: null,
+                actor: closingUser || actor || "sistema",
+              });
+            }
+          }
+        } catch {
+          // Non-blocking fallback
+        }
+      }
+
+      const nextMaxPlanilla = db.cierresCajaCentral.reduce(
+        (mx: number, c: AnyObj) => Math.max(mx, Number(c?.numeroPlanilla || 0)),
+        0
+      );
       return commitVentas(action, {
         cierre: savedCierre,
+        nextNumero: nextMaxPlanilla + 1,
         cierresCajaCentral: db.cierresCajaCentral,
+        aperturasCajaCentral: db.aperturasCajaCentral,
+        efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+      });
+    }
+
+    if (action === "force_close_apertura_caja") {
+      const cKey = String(payload.cajaId || "").trim();
+      if (!cKey) {
+        return NextResponse.json(
+          { ok: false, message: "Falta indicar la caja a liberar." },
+          { status: 400 }
+        );
+      }
+      const nowIso = new Date().toISOString();
+      let closedCount = 0;
+      for (const ap of db.aperturasCajaCentral) {
+        if (ap && String(ap.cajaId || "") === cKey && ap.cerradaEnTurno !== true) {
+          ap.cerradaEnTurno = true;
+          ap.closedAtIso = nowIso;
+          ap.closedByAdmin = actor;
+          closedCount++;
+        }
+      }
+      try {
+        const allUsers = await listTenantUsersFromDb(tenant);
+        for (const u of allUsers) {
+          if (u.cajaAbierta === cKey) {
+            await upsertTenantUserInDb(tenant, {
+              ...u,
+              cajaAbierta: null,
+              cajaAbiertaAt: null,
+              actor: actor || "sistema",
+            });
+          }
+        }
+      } catch {}
+      return commitVentas("force_close_apertura_caja", {
+        cajaId: cKey,
+        closedCount,
+        aperturasCajaCentral: db.aperturasCajaCentral,
+        efectivoInicialPorCaja: db.efectivoInicialPorCaja,
       });
     }
 
     if (action === "save_apertura_caja" || action === "open_caja_turno") {
       const apIn = (payload.apertura || payload) as AnyObj;
-      const cKey = String(apIn.cajaId || "caja1");
-      const savedAp = {
+      const cKey = String(apIn.cajaId || payload.cajaId || "caja1").trim();
+      const apUser = String(apIn.username || actor || "").trim().toLowerCase();
+
+      // Auto-sanear aperturas viejas anteriores al último Cierre de Caja de esa terminal
+      const lastFullCierre = db.cierresCajaCentral.find(
+        (c: AnyObj) =>
+          c &&
+          String(c.cajaId || "") === cKey &&
+          String(c.tipoRendicion || "Cierre de caja").toLowerCase() !== "rendición parcial" &&
+          String(c.tipoRendicion || "Cierre de caja").toLowerCase() !== "rendicion parcial"
+      );
+      const lastCloseMs = lastFullCierre
+        ? Date.parse(String(lastFullCierre.closedAtIso || lastFullCierre.createdAt || "")) || 0
+        : 0;
+      for (const ap of db.aperturasCajaCentral) {
+        if (ap && String(ap.cajaId || "") === cKey && ap.cerradaEnTurno !== true && lastCloseMs > 0) {
+          const apMs = Date.parse(String(ap.openedAtIso || ap.createdAt || "")) || 0;
+          if (apMs > 0 && apMs <= lastCloseMs) {
+            ap.cerradaEnTurno = true;
+          }
+        }
+      }
+
+      const activeExisting = db.aperturasCajaCentral.find(
+        (a: AnyObj) => a && String(a.cajaId || "") === cKey && a.cerradaEnTurno !== true
+      );
+      if (activeExisting) {
+        const existingOwner = String(activeExisting.username || "").trim().toLowerCase();
+        if (existingOwner && apUser && existingOwner !== apUser) {
+          return NextResponse.json({
+            ok: false,
+            alreadyOpened: true,
+            apertura: activeExisting,
+            aperturasCajaCentral: db.aperturasCajaCentral,
+            efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+          });
+        }
+        // Si es doble click del mismo usuario en el mismo turno, actualizar sin duplicar fila
+        Object.assign(activeExisting, {
+          ...apIn,
+          id: activeExisting.id,
+          uid: activeExisting.uid || apIn.uid,
+          cajaId: cKey,
+          cerradaEnTurno: false,
+        });
+        if (!db.efectivoInicialPorCaja) {
+          db.efectivoInicialPorCaja = { caja1: 0, caja2: 0, caja3: 0 };
+        }
+        db.efectivoInicialPorCaja[cKey] = round2(
+          apIn.efectivoConfirmado ?? apIn.efectivoInicial ?? apIn.importe ?? 0
+        );
+        return commitVentas(action, {
+          apertura: activeExisting,
+          aperturasCajaCentral: db.aperturasCajaCentral,
+          efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+        });
+      }
+
+      const savedAp: AnyObj = {
         ...apIn,
         id: apIn.id || `ap_${Date.now()}`,
         cajaId: cKey,
+        cerradaEnTurno: false,
         createdAt: new Date().toISOString(),
       };
       db.aperturasCajaCentral.unshift(savedAp);
@@ -325,10 +505,37 @@ export async function handleErpVentas(
         db.efectivoInicialPorCaja = { caja1: 0, caja2: 0, caja3: 0 };
       }
       db.efectivoInicialPorCaja[cKey] = round2(
-        apIn.efectivoInicial ?? apIn.importe ?? 0
+        apIn.efectivoConfirmado ?? apIn.efectivoInicial ?? apIn.importe ?? 0
       );
+
+      // Sincronizar también en la tabla users qué usuario abrió esta caja
+      if (apUser) {
+        try {
+          const allUsers = await listTenantUsersFromDb(tenant);
+          for (const u of allUsers) {
+            const uKey = String(u.username || "").trim().toLowerCase();
+            if (uKey === apUser) {
+              await upsertTenantUserInDb(tenant, {
+                ...u,
+                cajaAbierta: cKey,
+                cajaAbiertaAt: savedAp.openedAtIso || savedAp.createdAt,
+                actor: apUser,
+              });
+            } else if (u.cajaAbierta === cKey) {
+              await upsertTenantUserInDb(tenant, {
+                ...u,
+                cajaAbierta: null,
+                cajaAbiertaAt: null,
+                actor: apUser,
+              });
+            }
+          }
+        } catch {}
+      }
+
       return commitVentas(action, {
         apertura: savedAp,
+        aperturasCajaCentral: db.aperturasCajaCentral,
         efectivoInicialPorCaja: db.efectivoInicialPorCaja,
       });
     }
