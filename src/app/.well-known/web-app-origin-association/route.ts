@@ -32,17 +32,23 @@ function resolveDomainOrigins(req: NextRequest, customDomain: string | null): st
 export async function GET(req: NextRequest) {
   const tenant = await resolveActiveTenantFromRequest(req);
   const origins = resolveDomainOrigins(req, tenant.custom_domain);
-  const paths = ["/sistema", "/sistema/", "/carrito?panel=1", "/carrito"];
+  const paths = ["/sistema", "/sistema/", "/carrito?panel=1", "/carrito", "/carrito/"];
 
   const webApps: Array<{ web_app_identity: string }> = [];
+  const associationBody: Record<string, unknown> = {};
   for (const origin of origins) {
     for (const p of paths) {
-      webApps.push({ web_app_identity: `${origin}${p}` });
+      const identity = `${origin}${p}`;
+      webApps.push({ web_app_identity: identity });
+      // Formato estándar W3C / Chromium 127+ (clave = manifest id / start_url)
+      associationBody[identity] = { scope: "/" };
     }
   }
+  // Compatibilidad adicional con formato web_apps (origin trials anteriores)
+  associationBody.web_apps = webApps;
 
   return NextResponse.json(
-    { web_apps: webApps },
+    associationBody,
     {
       headers: {
         "Content-Type": "application/json; charset=utf-8",

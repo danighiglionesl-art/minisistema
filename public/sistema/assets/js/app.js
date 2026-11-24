@@ -73259,6 +73259,8 @@ function initApp() {
 
       const estKey = String(report.estado || 'EN_PROCESO').toUpperCase();
       const estInfo = CRM_ESTADO_META[estKey] || CRM_ESTADO_META.EN_PROCESO;
+      const isProblema = String(report.tipo || '').trim().toUpperCase() === 'PROBLEMA';
+      const resolvedLabel = isProblema ? 'Reporte resuelto' : 'Reporte implementado';
 
       const queueBadge = document.getElementById('crm-res-queue-badge');
       if (queueBadge) {
@@ -73274,10 +73276,10 @@ function initApp() {
       if (titleEl) {
         titleEl.textContent =
           estKey === 'RESUELTO'
-            ? 'Tu reporte fue Resuelto / Implementado'
+            ? resolvedLabel
             : estKey === 'EN_PROCESO'
             ? 'Tu reporte está En Análisis / Desarrollo'
-            : 'Actualización sobre tu Reporte de Mejora';
+            : 'Actualización sobre tu Reporte';
       }
 
       const codeEl = document.getElementById('crm-res-ticket-code');
@@ -73293,7 +73295,7 @@ function initApp() {
       if (dateEl) dateEl.textContent = report.fechaHora || '—';
       if (modEl) modEl.textContent = report.moduloLabel || 'General';
       if (estBadge) {
-        estBadge.textContent = estInfo.label;
+        estBadge.textContent = estKey === 'RESUELTO' ? `🟢 ${resolvedLabel}` : estInfo.label;
         estBadge.style.background = estInfo.bg;
         estBadge.style.color = estInfo.color;
         estBadge.style.border = `1px solid ${estInfo.border}`;
@@ -74075,6 +74077,13 @@ function initApp() {
       }
     }
 
+    function openCrmReopenDialog(report) {
+      bindReporteMejorasAndCrmEvents();
+      if (typeof window.__openCrmReopenDialog === 'function') {
+        window.__openCrmReopenDialog(report);
+      }
+    }
+
     function renderMyReportsTable() {
       const tbody = document.getElementById('crm-my-reports-tbody');
       const countBadge = document.getElementById('crm-my-reports-count-badge');
@@ -74143,8 +74152,17 @@ function initApp() {
               </td>
               <td class="text-center" style="white-space:nowrap;">
                 <span class="badge" style="background:${estInfo.bg}; color:${estInfo.color}; border:1px solid ${estInfo.border}; font-weight:800; font-size:0.76rem;">
-                  ${escapeHtml(estInfo.label)}
+                  ${escapeHtml(
+                    String(r.estado || '').toUpperCase() === 'RESUELTO'
+                      ? (String(r.tipo || '').toUpperCase() === 'PROBLEMA' ? '🟢 Reporte resuelto' : '🟢 Reporte implementado')
+                      : estInfo.label
+                  )}
                 </span>
+                ${
+                  r.reabierto
+                    ? `<div style="margin-top:0.25rem;"><span class="badge" style="background:rgba(217,119,6,0.14); color:#b45309; border:1px solid rgba(217,119,6,0.35); font-size:0.7rem; font-weight:800;">🔄 Reabierto${Number(r.reabiertoCount) > 1 ? ` ×${Number(r.reabiertoCount)}` : ''}</span></div>`
+                    : ''
+                }
                 ${
                   r.updatedAt
                     ? `<div style="font-size:0.71rem; color:var(--text-secondary); margin-top:0.2rem;">Act: ${escapeHtml(r.updatedAt)}</div>`
@@ -74164,6 +74182,15 @@ function initApp() {
                     ? `<div style="margin-top:0.35rem; font-size:0.72rem; font-weight:700; color:#b45309;">📩 Informe pendiente de confirmación</div>`
                     : ''
                 }
+                ${
+                  ['RESUELTO', 'DESCARTADO'].includes(String(r.estado || '').toUpperCase())
+                    ? `<div style="margin-top:0.45rem;">
+                        <button type="button" class="btn-secondary btn-sm btn-crm-reopen-ticket" data-crm-id="${escapeHtml(r.id)}" style="width:auto; padding:0.24rem 0.6rem; font-size:0.75rem; font-weight:700; border-color:rgba(217,119,6,0.45); color:#b45309;">
+                          🔄 Reabrir Ticket
+                        </button>
+                      </div>`
+                    : ''
+                }
               </td>
             </tr>
           `;
@@ -74175,6 +74202,14 @@ function initApp() {
           const id = btn.getAttribute('data-crm-id');
           const found = crmReportsList.find((item) => String(item.id) === String(id));
           if (found) openCrmReportModal(found, { adminManage: false });
+        });
+      });
+
+      tbody.querySelectorAll('.btn-crm-reopen-ticket').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-crm-id');
+          const found = crmReportsList.find((item) => String(item.id) === String(id));
+          if (found) openCrmReopenDialog(found);
         });
       });
 
@@ -74299,13 +74334,31 @@ function initApp() {
               <td style="font-weight:700; font-size:0.83rem;">${escapeHtml(r.moduloLabel || 'General')}</td>
               <td style="white-space:nowrap;">
                 <span class="badge" style="background:${estInfo.bg}; color:${estInfo.color}; border:1px solid ${estInfo.border}; font-weight:800; font-size:0.74rem; display:inline-block;">
-                  ${escapeHtml(estInfo.label)}
+                  ${escapeHtml(
+                    String(r.estado || '').toUpperCase() === 'RESUELTO'
+                      ? (String(r.tipo || '').toUpperCase() === 'PROBLEMA' ? '🟢 Reporte resuelto' : '🟢 Reporte implementado')
+                      : estInfo.label
+                  )}
                 </span>
+                ${
+                  r.reabierto
+                    ? `<div style="margin-top:0.2rem;"><span class="badge" style="background:rgba(217,119,6,0.14); color:#b45309; border:1px solid rgba(217,119,6,0.35); font-size:0.68rem; font-weight:800;">🔄 Reabierto${Number(r.reabiertoCount) > 1 ? ` ×${Number(r.reabiertoCount)}` : ''}</span></div>`
+                    : ''
+                }
               </td>
               <td class="text-center" style="white-space:nowrap;">
-                <button type="button" class="btn-primary btn-sm btn-crm-admin-open-modal" data-crm-id="${escapeHtml(r.id)}" style="width:auto; min-width:74px; font-weight:800; font-size:0.78rem; padding:0.35rem 0.85rem;">
-                  VER
-                </button>
+                <div style="display:inline-flex; align-items:center; gap:0.35rem; flex-wrap:wrap; justify-content:center;">
+                  <button type="button" class="btn-primary btn-sm btn-crm-admin-open-modal" data-crm-id="${escapeHtml(r.id)}" style="width:auto; min-width:74px; font-weight:800; font-size:0.78rem; padding:0.35rem 0.85rem;">
+                    VER
+                  </button>
+                  ${
+                    ['RESUELTO', 'DESCARTADO'].includes(String(r.estado || '').toUpperCase())
+                      ? `<button type="button" class="btn-secondary btn-sm btn-crm-reopen-ticket" data-crm-id="${escapeHtml(r.id)}" style="width:auto; font-weight:700; font-size:0.74rem; padding:0.32rem 0.6rem; border-color:rgba(217,119,6,0.45); color:#b45309;">
+                          🔄 Reabrir
+                        </button>`
+                      : ''
+                  }
+                </div>
               </td>
             </tr>
           `;
@@ -74317,6 +74370,14 @@ function initApp() {
           const id = el.getAttribute('data-crm-id');
           const found = crmReportsList.find((item) => String(item.id) === String(id));
           if (found) openCrmReportModal(found, { adminManage: isCrmMasterAdminUser() });
+        });
+      });
+
+      tbody.querySelectorAll('.btn-crm-reopen-ticket').forEach((el) => {
+        el.addEventListener('click', () => {
+          const id = el.getAttribute('data-crm-id');
+          const found = crmReportsList.find((item) => String(item.id) === String(id));
+          if (found) openCrmReopenDialog(found);
         });
       });
 
@@ -74678,6 +74739,92 @@ function initApp() {
       }
       document.getElementById('btn-crm-confirm-user-notif')?.addEventListener('click', () => {
         confirmActiveCrmUserNotification();
+      });
+
+      // Modal para Reabrir Ticket desde el CRM del Cliente
+      let activeReopenReport = null;
+      const reopenDlg = document.getElementById('crm-reopen-dialog');
+      const reopenForm = document.getElementById('crm-reopen-form');
+      const reopenMotivoInp = document.getElementById('crm-reopen-motivo');
+
+      window.__openCrmReopenDialog = function (report) {
+        if (!report || !reopenDlg) return;
+        activeReopenReport = report;
+        const codeEl = document.getElementById('crm-reopen-ticket-code');
+        const titleEl = document.getElementById('crm-reopen-ticket-title');
+        if (codeEl) codeEl.textContent = report.codigo || report.id || 'CRM';
+        if (titleEl) titleEl.textContent = report.titulo || '—';
+        if (reopenMotivoInp) reopenMotivoInp.value = '';
+        if (typeof reopenDlg.showModal === 'function') {
+          if (!reopenDlg.open) reopenDlg.showModal();
+        } else {
+          reopenDlg.setAttribute('open', 'open');
+        }
+        setTimeout(() => reopenMotivoInp?.focus?.(), 60);
+      };
+
+      const closeReopenDlg = () => {
+        activeReopenReport = null;
+        if (reopenDlg) {
+          if (typeof reopenDlg.close === 'function') reopenDlg.close();
+          else reopenDlg.removeAttribute('open');
+        }
+      };
+      document.getElementById('btn-close-crm-reopen')?.addEventListener('click', closeReopenDlg);
+      document.getElementById('btn-cancel-crm-reopen')?.addEventListener('click', closeReopenDlg);
+
+      reopenForm?.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (!activeReopenReport) return;
+        const motivo = String(reopenMotivoInp?.value || '').trim();
+        if (!motivo) {
+          if (typeof showToast === 'function') {
+            showToast('Indicá el motivo por el cual solicitás reabrir el ticket.', 'warning');
+          }
+          reopenMotivoInp?.focus?.();
+          return;
+        }
+        const submitBtn = document.getElementById('btn-submit-crm-reopen');
+        if (submitBtn) submitBtn.disabled = true;
+        try {
+          const res = await fetch('api/manual_ai.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'reopen_crm_report',
+              id: activeReopenReport.id,
+              codigo: activeReopenReport.codigo || '',
+              motivo,
+              reabiertoPor: STATE.currentUser?.name || STATE.currentUser?.username || 'Usuario',
+              username: STATE.currentUser?.username || ''
+            })
+          });
+          if (res.ok) {
+            const data = await res.json().catch(() => null);
+            if (data && data.ok && Array.isArray(data.reports)) {
+              crmReportsList = data.reports;
+              saveLocalCrmReports(crmReportsList);
+            }
+            closeReopenDlg();
+            renderMyReportsTable();
+            renderCrmAdminSection();
+            updateCrmPendingBadgeUI();
+            if (typeof showToast === 'function') {
+              showToast('🔄 Ticket reabierto y enviado nuevamente a revisión');
+            }
+          } else {
+            const errData = await res.json().catch(() => null);
+            if (typeof showToast === 'function') {
+              showToast(errData?.message || 'No se pudo reabrir el ticket. Reintentá.', 'error');
+            }
+          }
+        } catch {
+          if (typeof showToast === 'function') {
+            showToast('Error de conexión al reabrir el ticket.', 'error');
+          }
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+        }
       });
 
       form?.addEventListener('submit', async (e) => {

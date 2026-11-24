@@ -2233,6 +2233,91 @@ function normalizeCrmAttachments(rawList: unknown, legacyCaptura?: string): AnyO
       );
     }
 
+    if (action === "reopen_crm_report") {
+      const id = String(payload.id || "").trim();
+      const codigo = String(payload.codigo || "").trim();
+      const motivo = String(payload.motivo || payload.descripcion || "").trim();
+      const reabiertoPor = String(
+        payload.reabiertoPor || payload.usuario || payload.username || actor
+      ).trim();
+      const nowAr = formatNowDateTimeArServer();
+
+      if (!id && !codigo) {
+        return NextResponse.json(
+          { ok: false, message: "ID o código de ticket inválido." },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+      if (!motivo) {
+        return NextResponse.json(
+          { ok: false, message: "Indicá el motivo por el cual reabrís el ticket." },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      const { baseTenant, reports } = await getCentralCrmReports();
+      let reopenedItem: AnyObj | null = null;
+      for (const rep of reports) {
+        if (!rep || typeof rep !== "object") continue;
+        const isMatch =
+          (id &&
+            (String(rep.id || "") === id || String(rep.codigo || "") === id)) ||
+          (codigo && String(rep.codigo || "") === codigo);
+        if (isMatch) {
+          const prevCount = Number(rep.reabiertoCount || 0);
+          const nextCount = prevCount + 1;
+          const prevHistorial = Array.isArray(rep.historialReaperturas)
+            ? rep.historialReaperturas
+            : [];
+          prevHistorial.push({
+            numero: nextCount,
+            fecha: nowAr,
+            usuario: reabiertoPor,
+            motivo,
+          });
+          rep.estado = "PENDIENTE";
+          rep.reabierto = true;
+          rep.reabiertoCount = nextCount;
+          rep.reabiertoFecha = nowAr;
+          rep.reabiertoPor = reabiertoPor;
+          rep.reabiertoMotivo = motivo;
+          rep.historialReaperturas = prevHistorial;
+          rep.notificacionPendiente = false;
+          rep.confirmadoPorUsuario = false;
+          rep.antigravityStatus = "";
+          rep.updatedAt = nowAr;
+          const prevDesc = String(rep.descripcion || "").trim();
+          const reopenLine = `[REABIERTO #${nextCount} · ${nowAr} · ${reabiertoPor}]: ${motivo}`;
+          rep.descripcion = prevDesc ? `${prevDesc}\n\n${reopenLine}` : reopenLine;
+          reopenedItem = rep;
+          break;
+        }
+      }
+
+      if (!reopenedItem) {
+        return NextResponse.json(
+          { ok: false, message: "No se encontró el ticket en el CRM." },
+          { status: 404, headers: corsHeaders }
+        );
+      }
+
+      await saveCentralCrmReports(
+        baseTenant,
+        reports,
+        reabiertoPor || actor,
+        "reopen_crm_report"
+      );
+
+      return NextResponse.json(
+        {
+          ok: true,
+          report: reopenedItem,
+          reports,
+        },
+        { headers: corsHeaders }
+      );
+    }
+
     if (action === "delete_crm_report") {
       const id = String(payload.id || "").trim();
       const { baseTenant, reports } = await getCentralCrmReports();

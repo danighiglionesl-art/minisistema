@@ -99,7 +99,10 @@ export async function GET(req: NextRequest) {
     !(tenant.option_type === 2 && !tenant.is_base);
   const apexHost = rawHost.replace(/^www\./, "");
   const scopeExtensions = hasOriginPair
-    ? [{ origin: `https://${apexHost}` }, { origin: `https://www.${apexHost}` }]
+    ? [
+        { type: "origin", origin: `https://${apexHost}` },
+        { type: "origin", origin: `https://www.${apexHost}` },
+      ]
     : undefined;
 
   const manifest = {

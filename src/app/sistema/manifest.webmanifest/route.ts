@@ -29,7 +29,10 @@ function getScopeExtensions(req: NextRequest, customDomain: string | null) {
   }
 
   const apex = rawHost.replace(/^www\./, "");
-  return [{ origin: `https://${apex}` }, { origin: `https://www.${apex}` }];
+  return [
+    { type: "origin", origin: `https://${apex}` },
+    { type: "origin", origin: `https://www.${apex}` },
+  ];
 }
 
 export async function GET(req: NextRequest) {

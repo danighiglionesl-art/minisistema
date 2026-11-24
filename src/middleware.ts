@@ -25,6 +25,18 @@ export function middleware(req: NextRequest) {
     rawHost === "paseoalberdi.ar" ||
     rawHost === "www.paseoalberdi.ar";
 
+  // Reescribir rutas PWA con barra final (/sistema/, /carrito/, /verificador/) sin 308 redirect
+  // para mantener apps de escritorio ya instaladas con scope "/sistema/" dentro de su alcance sin barra URL superior.
+  if (
+    req.nextUrl.pathname === "/sistema/" ||
+    req.nextUrl.pathname === "/carrito/" ||
+    req.nextUrl.pathname === "/verificador/"
+  ) {
+    const url = req.nextUrl.clone();
+    url.pathname = req.nextUrl.pathname.slice(0, -1);
+    return NextResponse.rewrite(url);
+  }
+
   // En dominios propios de Opción 1, la raíz "/" redirige al Carrito (si es tienda) o a /sistema
   if (!isMiniSistemaHost && req.nextUrl.pathname === "/") {
     const url = req.nextUrl.clone();
@@ -56,8 +68,14 @@ export const config = {
     "/clientes",
     "/club",
     "/mi-cuenta",
+    "/sistema",
+    "/sistema/",
     "/sistema/:path*",
+    "/carrito",
+    "/carrito/",
     "/carrito/:path*",
+    "/verificador",
+    "/verificador/",
     "/verificador/:path*",
     "/cv/:path*",
     "/asistencia/:path*",
