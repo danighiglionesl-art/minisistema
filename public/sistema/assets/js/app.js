@@ -15180,8 +15180,18 @@ function initApp() {
     });
   }
 
-  function renderCajaCentralView() {
+  function renderCajaCentralView(pageParam = null) {
     const cierres = Array.isArray(STATE.cierresCajaCentral) ? STATE.cierresCajaCentral : [];
+    const CIERRES_PAGE_SIZE = 10;
+    const totalCierres = cierres.length;
+    const totalCierrePages = Math.max(1, Math.ceil(totalCierres / CIERRES_PAGE_SIZE));
+    STATE.centralCierresPage = Math.min(
+      Math.max(1, Number(pageParam ?? STATE.centralCierresPage) || 1),
+      totalCierrePages
+    );
+    const cierresStartIdx = (STATE.centralCierresPage - 1) * CIERRES_PAGE_SIZE;
+    const pageCierres = cierres.slice(cierresStartIdx, cierresStartIdx + CIERRES_PAGE_SIZE);
+
     let totalGeneral = 0;
     let totalCaja1 = 0;
     let totalCaja2 = 0;
@@ -15226,7 +15236,7 @@ function initApp() {
     if (!tbody) return;
     tbody.textContent = '';
 
-    if (cierres.length === 0) {
+    if (pageCierres.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
       td.colSpan = 8;
@@ -15235,7 +15245,7 @@ function initApp() {
       tr.appendChild(td);
       tbody.appendChild(tr);
     } else {
-      cierres.forEach((c) => {
+      pageCierres.forEach((c) => {
       const tr = document.createElement('tr');
 
       const planillaNum = c.numeroPlanilla
@@ -15390,6 +15400,16 @@ function initApp() {
       tbody.appendChild(tr);
       });
     }
+
+    const cierresPagOpts = {
+      totalItems: totalCierres,
+      pageSize: CIERRES_PAGE_SIZE,
+      currentPage: STATE.centralCierresPage,
+      itemLabel: 'cierres',
+      onPageChange: (nextPage) => renderCajaCentralView(nextPage)
+    };
+    renderTenByTenPaginationBar({ ...cierresPagOpts, containerId: 'central-cierres-pagination-top' });
+    renderTenByTenPaginationBar({ ...cierresPagOpts, containerId: 'central-cierres-pagination-bottom' });
 
     // Renderizar Control de Aperturas de Caja e Informe de Diferencias en Caja Central (10 en 10)
     renderCentralAperturasTable();
