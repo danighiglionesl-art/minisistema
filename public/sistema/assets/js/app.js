@@ -40306,27 +40306,48 @@ function initApp() {
     row.bonifPct = bonifPct;
 
     // 1) Chequeo P×Q directo contra Columna 2 (Subtotal de factura):
-    // Si cant > 1 y el precio unitario capturado es igual al Subtotal de la Columna 2, dividir por cantidad automáticamente.
+    // a) Si cant > 1 y el precio unitario capturado es igual al Subtotal de la Columna 2, dividir por cantidad automáticamente.
+    // b) Si Q × P ≠ Subtotal y Subtotal ÷ P da un entero exacto (1..500) sin edición manual de cantidad, recuperar Q exacto.
     if (
-      !row.manualPriceEdited &&
       !row.pxqDismissed &&
-      cant > 1 &&
       row.hasExplicitSubtotalCol &&
       Number(row.subtotalFactura) > 0 &&
       precioUnit > 0
     ) {
       const subCol = Number(row.subtotalFactura);
       const pxqPre = evaluateInvoicePxQConsistency(cant, precioUnit, subCol, bonifPct);
-      if (!pxqPre.ok && Math.abs(precioUnit - subCol) <= Math.max(0.5, subCol * 0.005)) {
-        const unitFromSub = round2(subCol / cant);
-        if (unitFromSub > 0) {
-          if (!(Number(row.pxqOriginalReadPrice) > 0)) {
-            row.pxqOriginalReadPrice = precioUnit;
+      if (!pxqPre.ok) {
+        if (
+          !row.manualPriceEdited &&
+          cant > 1 &&
+          Math.abs(precioUnit - subCol) <= Math.max(0.5, subCol * 0.005)
+        ) {
+          const unitFromSub = round2(subCol / cant);
+          if (unitFromSub > 0) {
+            if (!(Number(row.pxqOriginalReadPrice) > 0)) {
+              row.pxqOriginalReadPrice = precioUnit;
+            }
+            precioUnit = unitFromSub;
+            row.pxqAutoFixed = true;
+            row.pxqVerified = true;
+            row.pxqAutoFixReason = `Col. 2 ($ ${formatArs(subCol)}) dividida por ${cant} u.`;
           }
-          precioUnit = unitFromSub;
-          row.pxqAutoFixed = true;
-          row.pxqVerified = true;
-          row.pxqAutoFixReason = `Col. 2 ($ ${formatArs(subCol)}) dividida por ${cant} u.`;
+        } else if (!row.manualQtyEdited && subCol >= precioUnit * 0.98) {
+          const ratioQ = subCol / precioUnit;
+          const roundedQ = Math.round(ratioQ);
+          if (
+            roundedQ >= 1 &&
+            roundedQ <= 500 &&
+            Math.abs(ratioQ - roundedQ) <= 0.025 &&
+            Math.abs(cant - roundedQ) > 0.05
+          ) {
+            cant = roundedQ;
+            row.cantidad = roundedQ;
+            row.rawParsedQty = roundedQ;
+            row.pxqAutoFixed = true;
+            row.pxqVerified = true;
+            row.pxqAutoFixReason = `Cantidad recuperada por P×Q ($ ${formatArs(subCol)} ÷ $ ${formatArs(precioUnit)} = ${roundedQ} u.)`;
+          }
         }
       }
     }
@@ -42095,20 +42116,25 @@ function initApp() {
               // Ante igualdad exacta (ej. Cant = 1 con precios decimales), preferir el par de importes más a la derecha cuyo neto coincide
               score -= pIdx * 0.5;
 
-              // Si el precio unitario venía con 1 solo decimal o punto truncado (ej. "2,504.4" / "16,409.") y el subtotal trae los 2 decimales exactos, recuperar el unitario exacto
+              // Si el precio unitario venía con bonificación aplicada sobre lista (net_bonif), usar el unitario neto real (SUBTOTAL / Q)
+              // para que P × Q = PrecioTotal se cumpla exactamente. También recuperar decimales exactos si P vino truncado.
               const pDecimalsMatch = pTok.numStr.match(/[.,](\d+)$/);
               const subDecimalsMatch = subTok.numStr.match(/[.,](\d+)$/);
               const shouldRecoverExactUnit =
                 ev.exactUnit !== null ||
+                (ev.mode === 'net_bonif' && candidateQty > 0) ||
                 (ev.mode === 'net_direct' &&
                   candidateQty > 1 &&
                   subDecimalsMatch &&
                   subDecimalsMatch[1].length >= 2 &&
                   (!pDecimalsMatch || pDecimalsMatch[1].length < 2 || /\.0$/.test(pTok.numStr)) &&
                   Math.abs(round2(subTok.val / candidateQty) - pTok.val) <= 1.02);
-              const finalUnitPrice = shouldRecoverExactUnit
-                ? round2(subTok.val / candidateQty)
-                : round2(pTok.val);
+              const finalUnitPrice =
+                ev.mode === 'net_bonif'
+                  ? round2(subTok.val / candidateQty)
+                  : shouldRecoverExactUnit
+                    ? round2(subTok.val / candidateQty)
+                    : round2(pTok.val);
 
               const orderedPairA = resolveQtyAndPriceOrder(
                 { val: candidateQty, hasDecimals: hasNonZeroFraction(candidateQty) },
@@ -42152,15 +42178,38 @@ function initApp() {
         const subTok = workingTrailing[workingTrailing.length - 1];
         const descStr = cleanDescText(restAfterQty.slice(0, pTok.index));
         if (/[A-ZÁÉÍÓÚÑ]/i.test(descStr) && pTok.val > 0 && subTok.val >= pTok.val * 0.85) {
+          let resolvedQty = round2(candidateQty);
+          let resolvedUnit = round2(pTok.val);
+          let resolvedVerified = false;
+          // Motor P × Q = PrecioTotal: si OCR distorsionó la cantidad (ej. tilde manuscrito junto a UNID),
+          // pero SUBTOTAL ÷ P_UNIT da un entero exacto (1..500), recuperar la cantidad exacta matemáticamente.
+          const ratioQtyFromSub = subTok.val / pTok.val;
+          const roundedRatioQty = Math.round(ratioQtyFromSub);
+          if (
+            roundedRatioQty >= 1 &&
+            roundedRatioQty <= 500 &&
+            Math.abs(ratioQtyFromSub - roundedRatioQty) <= 0.025 &&
+            Math.abs(resolvedQty - roundedRatioQty) > 0.05
+          ) {
+            resolvedQty = roundedRatioQty;
+            resolvedVerified = true;
+          } else if (
+            resolvedQty > 1 &&
+            Math.abs(resolvedUnit - subTok.val) <= Math.max(0.5, subTok.val * 0.005)
+          ) {
+            // Si el valor tomado como P_UNIT en realidad era igual al SUBTOTAL con Q > 1, dividir por Q
+            resolvedUnit = round2(subTok.val / resolvedQty);
+            resolvedVerified = true;
+          }
           return {
             codProveedor: candidateCode,
             descripcionFactura: descStr,
-            cantidad: round2(candidateQty),
-            precioUnitario: round2(pTok.val),
+            cantidad: resolvedQty,
+            precioUnitario: resolvedUnit,
             bonifPct: 0,
             subtotalFactura: round2(subTok.val),
             hasExplicitSubtotalCol: true,
-            pxqVerified: false
+            pxqVerified: resolvedVerified
           };
         }
       }
@@ -42307,8 +42356,9 @@ function initApp() {
     // Ej: "003353 6.00 SNACKS GALLO CRACKEADAS 48X100GR 1374.06 8244.34"
     // =========================================================================
     let fallbackResA = null;
+    // Tolerar tildes/marcas manuscritas en lápiz/lapicera antes o después de UNID (ej. "009995 — 1.00 BELDENT...")
     const layoutAMatch = cleaned.match(
-      /^([A-Z0-9-]{1,18})\s+(\d{1,5}(?:[.,]\d{1,3})?)\s*[✓✔/~\\|_—-]*\s*([A-ZÁÉÍÓÚÑ].+)$/i
+      /^([A-Z0-9-]{1,18})\s+(?:[✓✔~—–\-_>/\\.,:;*•·'"|+<>]{1,4}\s*)?(\d{1,5}(?:[.,]\d{1,3})?)\s*[✓✔~—–\-_>/\\|]*\s*([A-ZÁÉÍÓÚÑ].+)$/i
     );
     if (layoutAMatch && /\d/.test(layoutAMatch[1])) {
       const candidateCode = forceNoCode ? '' : layoutAMatch[1].toUpperCase();
@@ -42564,121 +42614,8 @@ function initApp() {
     }
 
     const joined = mergedLines.join('\n');
-
-    // Reconocimiento asistido para comprobantes fotografiados conocidos (A&V López 0008-00107282 y DYM Presupuesto 00004406)
-    const upper = joined.toUpperCase();
-    const fNameUpper = String(fileMeta?.fileName || '').toUpperCase();
-    const isAyvLopezInvoice =
-      /LOPEZ|LÓPEZ|107282|30-?71183478|003353|004700|009305|004722|005641|004731|002914|CRACKEADAS|POCHOCLOS|ALMOHADITA|FLYNN\s*PAFF|PALITO\s*DE\s*LA\s*SELVA/i.test(
-        upper
-      ) || /LOPEZ|107282/i.test(fNameUpper);
-
-    if (isAyvLopezInvoice && !/\b003353\b[\s\S]*\b002914\b/.test(joined)) {
-      return [
-        'A&V LOPEZ DISTRIBUCIONES S.R.L. CUIT: 30711834784 FACTURA A 0008-00107282 FECHA: 06/11/2026',
-        '003353   6.00   SNACKS GALLO CRACKEADAS 48X100GR   1374.06   8244.34',
-        '003401   6.00   POCHOCLOS SAL MARINA GALLO 35X60GR   1380.67   8284.01',
-        '004700   6.00   ALMOHADITA FRUTILLA 32X180GR   1866.55   11199.29',
-        '009305   20.00   BARRA FLOW AVELLANA ARANDANOS 6X20X   15.00   602.64   12052.80',
-        '004722   1.00   CAR. FLYNN PAFF FRUTILLA 12X70X8GR   5950.68   5950.68',
-        '005641   1.00   CH.BAZOOKA TUTTI CHICO 18X80UN   5863.45   5863.45',
-        '004731   1.00   CHUPETIN FLYNN PAFF TUTTI 18X24UX18   5364.56   5364.56',
-        '002914   1.00   CAR.PALITO DE LA SELVA 12X660GR   8457.70   8457.70',
-        'GRAVADO 65416.83   RG 5329 0.00   IVA 13737.53   IIBB 0.00   TOTAL 79154.36'
-      ].join('\n');
-    }
-
-    const isDymPresupuesto4406 =
-      /00004406|493\.?884[.,]62|\b00475\b[\s\S]*\b00476\b|MAIXANAS\s*DUBAI|\b03568\b/i.test(upper) ||
-      (/\bD\s*(?:&|Y)?\s*M\b|4406/i.test(fNameUpper) && !/\bPEDIDO\b/i.test(fNameUpper));
-
-    if (isDymPresupuesto4406 && !/\b00475\b[\s\S]*\b04013\b/.test(joined)) {
-      return [
-        'DYM DISTRIBUIDORA S.A.S. CUIT: 33-71671633-9 PRESUPUESTO N°: 00004406 FECHA: 10/11/2026',
-        '00475   5.00   ALCOHOL PORTA X 250 CC.   1830.20   9151.02',
-        '00476   5.00   ALCOHOL PORTA X 500 CC.   2991.14   14955.69',
-        '03568   10.00   ALFAJOR MAIXANAS DUBAI NEGRO X 70 GR.   1709.66   17096.56',
-        '01647   10.00   ARROZ DON MARCOS 5/0 X 500 GR.   656.52   6565.16',
-        '04157   10.00   AZUCAR BELLA VISTA X 1 KG.   1372.13   13721.27',
-        '04934   10.00   AZUCAR DELICADA X 900 KG.   1120.50   11205.00',
-        '00250   6.00   BIZCOCHO GRIMALDI X 500 GR.   2137.47   12824.80',
-        '02913   12.00   BOLSAS MAKE PARA CONSORCIOS 60 X 90 CM. X 10 U.   1376.50   16518.02',
-        '03554   9.00   BOLSAS MAKE PARA CONSORCIOS 80 X 110 CM. X 10 U.   2485.00   22364.97',
-        '02912   10.00   BOLSAS MAKE PARA RESIDUOS 45 X 60 CM. X 10 U.   771.56   7715.58',
-        '03428   5.00   CACAO CHOCOLINO X 180 GR.   2019.41   10097.07',
-        '00926   5.00   CEREAL GRANIX ANILLOS FRUTADOS X 130 GR.   1633.74   8168.69',
-        '03306   5.00   CEREAL GRANIX BALONCITOS CHOCOLATADOS X 150 GR.   1773.53   8867.65',
-        '03040   5.00   CEREAL GRANIX BOCADITOS DE FRUTILLA X 180 GR.   2707.37   13536.84',
-        '02361   2.00   CHIMICHURRI VANOLI PET X 190 CC.   1184.81   2369.62',
-        '00680   5.00   GAS BUTANO PROPANO FDM AEROSOL X 405 ML.   2924.74   14623.68',
-        '01739   5.00   GIN LLAVE BLACK X 700 ML.   11273.53   56367.64',
-        '00499   10.00   HARINA FLORENCIA LEUDANTE X 1 KG.   1267.99   12679.88',
-        '03592   8.00   JABON LIQUIDO P/ROPA SIGNO PLUS AZUL X 800 ML.   1958.27   15666.16',
-        '01692   6.00   MAYONESA LIVIAN AHUMADO X 235 GR.   1988.62   11931.74',
-        '01643   6.00   MAYONESA LIVIAN C/ACEITE DE OLIVA X 235 GR.   1992.06   11952.36',
-        '01691   6.00   MAYONESA LIVIAN EQUILIBRIO X 235 GR.   1262.75   7576.49',
-        '04925   6.00   MAYONESA LIVIAN MOSTAZA X 250 GR.   1848.28   11089.68',
-        '01644   6.00   MAYONESA LIVIAN ORIGINAL X 235 GR.   1106.45   6638.72',
-        '01146   12.00   PAPEL HIGIENICO CAMPANITA SOFT X 4 U.   1279.04   15348.53',
-        '00374   6.00   PEGAMENTO UNIPOX   2337.73   14026.41',
-        '02029   24.00   PICADILLO CHANGUITO X 90 GR.   776.27   18630.43',
-        '02284   2.00   REPELENTE DE INSECTOS 911 AEROSOL X 150 ML.   2959.53   5919.05',
-        '01681   5.00   SAL DOS ANCLAS PARRILLERA ESTUCHE X 500 GR.   1265.04   6325.18',
-        '02439   4.00   SNACKS DE ARROZ DH X 80 GR. ARITOS DE CREMA Y CEBOLLA   1435.84   5743.37',
-        '02438   4.00   SNACKS DE ARROZ DH X 80 GR. DISC. DE JAM. SERR.   1435.84   5743.37',
-        '02440   4.00   SNACKS DE ARROZ DH X 80 GR. DISCOS DE ASADO   1435.84   5743.37',
-        '02437   4.00   SNACKS DE ARROZ DH X 80 GR. PALITOS DE QUESO   1435.84   5743.37',
-        '03293   4.00   SNACKS DE ARROZ DH X 80 GR. PIZZA   1435.84   5743.37',
-        '79069   4.00   SNACKS DE ARROZ DH X 80 GR. PROVOLETA   1435.84   5743.36',
-        '04269   12.00   VINO TORO BOTELLA TINTO X 1 L.   2656.80   31881.61',
-        '04231   12.00   VINO TORO TETRA TINTO X 1 L.   1800.00   21600.00',
-        '04234   12.00   VINO NATIVO TETRA BLANCO X 1 L.   1506.98   18083.76',
-        '04013   5.00   CINTA AISLADORA MAKAO NEGRA X 8 MTS.   785.04   3925.18',
-        'SUBTOTAL 493884.62   DESCUENTO 0.00   TOTAL 493884.62'
-      ].join('\n');
-    }
-
-    const isDonMartin343762 =
-      /00343762|\b343762\b|86452095551394|658[.,]022[.,]88/i.test(upper) ||
-      /343762/i.test(fNameUpper);
-
-    if (isDonMartin343762 && !/\b5008\.94\b[\s\S]*\b90497\.74\b/.test(joined)) {
-      return [
-        'DON MARTIN S.R.L. CUIT: 30-70870368-7 FACTURA A Punto de Venta: 0030 Comp. Nro.: 00343762 FECHA: 10/11/2026',
-        '2   0   MED. MZA. BOLSA 430G (20) - GRANGYS   170823   UNIDAD   % -5.0   2,504.47   % 21.   5,008.94',
-        '4   0   CITRIC - JUGO DE NARANJA 1000CC (12)   170822   UNIDAD   % -5.0   3,841.14   % 21.   15,364.56',
-        '2   0   CITRIC - JUGO DE NARANJA BIDON X5LTS   170828   UNIDAD   % -5.0   16,409.56   % 21.   32,819.12',
-        '2   0   CITRIC - JUGO DE NARANJA Y FRUTILLA 1000CC (12)   170822   UNIDAD   % -5.0   4,266.49   % 21.   8,532.98',
-        '2   0   CITRIC - JUGO DE NARANJA Y DURAZNO 1000CC (12)   170822   UNIDAD   % -5.0   4,266.49   % 21.   8,532.98',
-        '1   0   FILET MZA PIMIENTA LIMON X5KG - GRANGYS   170828   UNIDAD   % -5.0   49,643.92   % 21.   49,643.92',
-        '2   0   GOOD MARK - MILANESA DE SOJA 85GX4X12   170821   UNIDAD   % 0.00   2,303.48   % 21.   4,606.96',
-        '2   0   GRANGYS - MIX PRIMAVERA 1KG (10)   170826   UNIDAD   % -5.0   4,935.75   % 10.   9,871.50',
-        '6   0   HAMB BOV CONG PATY CLASICO 83.5G (24X4)   550   % -5.0   5,973.67   % 21.   35,842.02',
-        '1   0   MEDIA CAJA (X18 UNI) PATY FINITA   170823   UNIDAD   % -10.   30,883.47   % 21.   30,883.47',
-        '2   0   LA ITA - ÑOQUIS DE PAPA 12X1KG   415   % -10.   3,204.45   % 21.   6,408.90',
-        '4   0   LA ITA - ÑOQUIS DE PAPA BAND 24X500G   438   % -10.   1,821.23   % 21.   7,284.92',
-        '4   0   LA ITA - ÑOQUIS DE PAPA BAND 24X500G   438   % -10.   1,821.23   % 21.   7,284.92',
-        '1   0   LA ITA - RAVIOLES POLLO BAND 21X500G   419   % -10.   2,256.18   % 21.   2,256.18',
-        '1   0   LA ITA - RAVIOLES POLLO Y VERDURA 12X1KG   418   % -10.   3,916.04   % 21.   3,916.04',
-        '32   0   LA PIAMONTESA - SALCHICHAS COC. PANCHIN 6X32   170820   UNIDAD   % -10.   1,057.22   % 21.   33,831.04',
-        '4   0   MC - PURE DE PAPA COMPLETA 12X125GR   170827   UNIDAD   % 0.00   1,856.52   % 21.   7,426.08',
-        '12   0   MAYONESA DANICA - 500CC   542   % -10.   1,621.30   % 21.   19,455.60',
-        '4   0   MED C/SO EXPRESS BY PATY (4X24)   701233   UNIDAD   % 0.00   3,686.57   % 21.   14,746.28',
-        '4   0   MED BOV C/CEBOLLA SC 100G FLOW 24X2 PATY   170821   UNIDAD   % 0.00   3,816.43   % 21.   15,265.72',
-        '2   0   NUGGETS DE POLLO CROCANTE 1KG (6) - GRANGYS   170828   UNIDAD   % -5.0   7,777.74   % 21.   15,555.48',
-        '2   0   NUGGETS GIGANTE X1KG (6) - GRANGYS   170826   UNIDAD   % -5.0   9,629.64   % 21.   19,259.28',
-        '2   0   NUGGETS CROCANTES (16X300) SADIA   524   % 0.00   3,523.97   % 21.   7,047.94',
-        '2   0   TIRITAS DE POLLO CROCANTE 1KG (6) - GRANGYS   170828   UNIDAD   % -5.0   7,703.99   % 21.   15,407.98',
-        '1   0   OP - CUARTO TRASERO IQF X 15KG   20037   % 0.00   38,914.03   % 10.   38,914.03',
-        '1   0   OP - SUPREMA X 15KG IQF   20038   % 0.00   90,497.74   % 10.   90,497.74',
-        '4   0   SADIA - ALITAS DE POLLO GOLDEN 400GR (14U)   170821   UNIDAD   % 0.00   5,698.51   % 21.   22,794.04',
-        '24   0   SALCH REF ICB 190G(24X6)   379   % -15.   838.39   % 21.   20,121.36',
-        '2   0   TONADITA - PATAGONIA CLASICO 180GR 12U   170826   UNIDAD   % -10.   1,831.78   % 21.   3,663.56',
-        '2   0   TONADITA - PATAGONIA LIGHT 180GR 12U   170826   UNIDAD   % -10.   1,831.78   % 21.   3,663.56',
-        'Importe Neto Gravado: $ 555,907.10   IVA 21.0%: $ 87,491.04   IVA 10.5%: $ 14,624.74   Importe Total: $ 658,022.88'
-      ].join('\n');
-    }
-
+    // JAMÁS sustituir el texto extraído por comprobantes anteriores hardcodeados:
+    // devolver siempre exactamente el contenido leído del archivo actual.
     return joined;
   }
 
@@ -43029,16 +42966,6 @@ function initApp() {
       }
     } catch {}
 
-    // Respuesta instantánea si el archivo corresponde a los comprobantes escaneados/fotografiados verificados
-    const fNameProbe = String(fileMeta?.fileName || '');
-    if (
-      /lopez|107282|343762/i.test(fNameProbe) ||
-      (/\bdym\b|4406/i.test(fNameProbe) && !/pedido/i.test(fNameProbe))
-    ) {
-      if (onProgress) onProgress(100);
-      return normalizeAndEnhanceExtractedInvoiceText('', fileMeta);
-    }
-
     if (!window.Tesseract) {
       try {
         await Promise.race([
@@ -43060,6 +42987,7 @@ function initApp() {
       const runOcrPass = async (srcTarget) => {
         const res = await Promise.race([
           window.Tesseract.recognize(srcTarget, 'spa', {
+            preserve_interword_spaces: '1',
             logger: (m) => {
               if (!ocrFinished && onProgress && m && m.status === 'recognizing text' && typeof m.progress === 'number') {
                 onProgress(Math.round(m.progress * 100));
@@ -43088,15 +43016,6 @@ function initApp() {
    * (usando PDF.js con agrupamiento dinámico de coordenadas Y, más fallback OCR si el PDF es escaneado)
    */
   async function extractTextAndPreviewFromPdfFile(file, previewContainer, onProgress, fileMeta = {}) {
-    const fNameQuick = String(fileMeta?.fileName || file?.name || '');
-    if (
-      /lopez|107282|343762/i.test(fNameQuick) ||
-      (/\bdym\b|4406/i.test(fNameQuick) && !/pedido/i.test(fNameQuick))
-    ) {
-      if (onProgress) onProgress(100);
-      return normalizeAndEnhanceExtractedInvoiceText('', { ...fileMeta, fileName: fNameQuick });
-    }
-
     const arrayBuffer = await file.arrayBuffer();
 
     // Intentar cargar PDF.js dinámicamente si hay conexión
@@ -43127,8 +43046,8 @@ function initApp() {
 
         for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 8); pageNum++) {
           const page = await pdf.getPage(pageNum);
-          if (pageNum <= 4) {
-            const viewport = page.getViewport({ scale: 2.2 });
+          if (pageNum <= 6) {
+            const viewport = page.getViewport({ scale: 2.6 });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -43366,23 +43285,6 @@ function initApp() {
 
     let parsedItems = extractedText ? parseInvoiceTextLinesWithAI(extractedText, fileMeta) : [];
     FP_STATE.extractedTotalFromText = extractedText ? extractTotalAmountFromInvoiceText(extractedText) : 0;
-
-    // Si el archivo seleccionado es una foto/PDF escaneado conocido, reconstruir renglones asistidos sin insertar ítems de demostración
-    if (parsedItems.length === 0) {
-      if (
-        /lopez|107282|343762/i.test(file.name) ||
-        (/\bdym\b|4406/i.test(file.name) && !/pedido/i.test(file.name))
-      ) {
-        const fallbackText = normalizeAndEnhanceExtractedInvoiceText(extractedText || '', {
-          ...fileMeta,
-          fileName: file.name
-        });
-        const headerFallback = extractInvoiceHeaderMetadataFromText(fallbackText, fileMeta);
-        autoApplyInvoiceHeaderMetaToForm(headerFallback, 'fp');
-        parsedItems = parseInvoiceTextLinesWithAI(fallbackText, fileMeta);
-        FP_STATE.extractedTotalFromText = extractTotalAmountFromInvoiceText(fallbackText);
-      }
-    }
 
     if (rawTextInp) {
       if (parsedItems.length > 0) {
@@ -45998,22 +45900,6 @@ function initApp() {
 
     let parsedItems = extractedText ? parseInvoiceTextLinesForStockOnly(extractedText, fileMeta) : [];
     FPS_STATE.extractedTotalFromText = extractedText ? extractTotalAmountFromInvoiceText(extractedText) : 0;
-
-    if (parsedItems.length === 0) {
-      if (
-        /lopez|107282|343762/i.test(file.name) ||
-        (/\bdym\b|4406/i.test(file.name) && !/pedido/i.test(file.name))
-      ) {
-        const fallbackText = normalizeAndEnhanceExtractedInvoiceText(extractedText || '', {
-          ...fileMeta,
-          fileName: file.name
-        });
-        const headerFallback = extractInvoiceHeaderMetadataFromText(fallbackText, fileMeta);
-        autoApplyInvoiceHeaderMetaToForm(headerFallback, 'fps');
-        parsedItems = parseInvoiceTextLinesForStockOnly(fallbackText, fileMeta);
-        FPS_STATE.extractedTotalFromText = extractTotalAmountFromInvoiceText(fallbackText);
-      }
-    }
 
     if (rawTextInp) {
       if (parsedItems.length > 0) {
