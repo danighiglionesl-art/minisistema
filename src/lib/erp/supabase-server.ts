@@ -958,3 +958,79 @@ export async function getTenantMediaFromDb(
     height: number;
   };
 }
+
+export interface ErpPosEventRecord {
+  id: number;
+  event_type: string;
+  dedupe_key: string;
+  payload?: Record<string, any>;
+  stock_deltas?: Array<{ artId: number; delta: number }>;
+  actor?: string;
+  created_at?: string;
+}
+
+export async function appendPosEvent(
+  tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">,
+  eventType: string,
+  dedupeKey: string,
+  payload: Record<string, unknown>,
+  actor: string,
+  needsCatalog = false
+): Promise<{ inserted: boolean; id: number; payload?: Record<string, any> }> {
+  const sb = await getTenantDataSupabase(tenant);
+  const { data, error } = await sb.rpc("erp_append_pos_event", {
+    p_schema: tenant.db_schema,
+    p_event_type: eventType,
+    p_dedupe_key: dedupeKey,
+    p_payload: payload,
+    p_actor: actor,
+    p_needs_catalog: needsCatalog,
+  });
+  if (error) {
+    throw new Error(
+      `Error registrando evento POS (${tenant.db_schema}/${eventType}): ${error.message}`
+    );
+  }
+  const row = (data || {}) as {
+    inserted?: boolean;
+    id?: number;
+    payload?: Record<string, any>;
+  };
+  return {
+    inserted: Boolean(row.inserted),
+    id: Number(row.id || 0),
+    payload: row.payload,
+  };
+}
+
+export async function listPendingPosEvents(
+  tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">,
+  scope: "ventas" | "catalog" = "ventas"
+): Promise<ErpPosEventRecord[]> {
+  const sb = await getTenantDataSupabase(tenant);
+  const { data, error } = await sb.rpc("erp_list_pos_events", {
+    p_schema: tenant.db_schema,
+    p_scope: scope,
+  });
+  if (error) {
+    // Degradación controlada: si falla el RPC, no romper lectura base del ERP
+    return [];
+  }
+  return Array.isArray(data) ? (data as ErpPosEventRecord[]) : [];
+}
+
+export async function markPosEventsCompacted(
+  tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">,
+  maxId: number,
+  scope: "ventas" | "catalog" = "ventas"
+): Promise<number> {
+  if (!maxId || maxId <= 0) return 0;
+  const sb = await getTenantDataSupabase(tenant);
+  const { data, error } = await sb.rpc("erp_mark_pos_events_compacted", {
+    p_schema: tenant.db_schema,
+    p_max_id: maxId,
+    p_scope: scope,
+  });
+  if (error) return 0;
+  return Number(data || 0);
+}

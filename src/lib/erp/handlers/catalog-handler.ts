@@ -5,14 +5,56 @@ import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
   getTenantDoc,
   getTenantDocGzippedSnapshot,
+  listPendingPosEvents,
+  markPosEventsCompacted,
   putTenantDoc,
   putTenantMediaInDb,
+  type ErpPosEventRecord,
 } from "../supabase-server";
 import type { ErpTenantRecord } from "../types";
 
-const storeGzipCache = new Map<string, { rev: number; gzBuf: Buffer }>();
+const storeGzipCache = new Map<string, { rev: number; maxEvId: number; gzBuf: Buffer }>();
 
 type AnyObj = Record<string, any>;
+
+function applyPendingStockDeltas(
+  db: AnyObj,
+  stockEvents: ErpPosEventRecord[],
+  mutateInPlace = false
+): AnyObj {
+  if (!stockEvents.length || !Array.isArray(db.articulos)) return db;
+  const deltaMap = new Map<number, number>();
+  for (const ev of stockEvents) {
+    const deltas = Array.isArray(ev.stock_deltas) ? ev.stock_deltas : [];
+    for (const d of deltas) {
+      const aid = Number(d?.artId || 0);
+      const delta = Number(d?.delta || 0);
+      if (aid > 0 && delta) {
+        deltaMap.set(aid, (deltaMap.get(aid) || 0) + delta);
+      }
+    }
+  }
+  if (deltaMap.size === 0) return db;
+  if (mutateInPlace) {
+    for (const a of db.articulos) {
+      const aid = Number(a?.id || 0);
+      const delta = deltaMap.get(aid);
+      if (delta) {
+        a.sf = round3(Number(a.sf || 0) + delta);
+      }
+    }
+    return db;
+  }
+  return {
+    ...db,
+    articulos: db.articulos.map((a: AnyObj) => {
+      const aid = Number(a?.id || 0);
+      const delta = deltaMap.get(aid);
+      if (!delta) return a;
+      return { ...a, sf: round3(Number(a.sf || 0) + delta) };
+    }),
+  };
+}
 
 function round2(n: unknown): number {
   const num = Number(n);
@@ -50,9 +92,14 @@ export async function handleErpCatalog(
     }
 
     const acceptEnc = (req.headers.get("accept-encoding") || "").toLowerCase();
+    const pendingStockEvents = await listPendingPosEvents(tenant, "catalog");
+    const maxStockEvId = pendingStockEvents.reduce(
+      (mx, ev) => Math.max(mx, Number(ev.id || 0)),
+      0
+    );
 
     if (action !== "store") {
-      if (acceptEnc.includes("gzip")) {
+      if (acceptEnc.includes("gzip") && pendingStockEvents.length === 0) {
         const snap = await getTenantDocGzippedSnapshot(tenant, "catalog_db", fallback);
         return new NextResponse(new Uint8Array(snap.gzBuf), {
           status: 200,
@@ -65,15 +112,16 @@ export async function handleErpCatalog(
           },
         });
       }
-      const { payload: db } = await getTenantDoc<AnyObj>(
+      const { payload: rawDb } = await getTenantDoc<AnyObj>(
         tenant,
         "catalog_db",
         fallback
       );
+      const db = applyPendingStockDeltas(rawDb, pendingStockEvents, false);
       return jsonResponseMaybeGzip(req, db);
     }
 
-    const { payload: db, rev } = await getTenantDoc<AnyObj>(
+    const { payload: rawDb, rev } = await getTenantDoc<AnyObj>(
       tenant,
       "catalog_db",
       fallback
@@ -81,7 +129,12 @@ export async function handleErpCatalog(
 
     const storeCacheKey = tenant.db_schema;
     const cachedStore = storeGzipCache.get(storeCacheKey);
-    if (acceptEnc.includes("gzip") && cachedStore && cachedStore.rev === rev) {
+    if (
+      acceptEnc.includes("gzip") &&
+      cachedStore &&
+      cachedStore.rev === rev &&
+      cachedStore.maxEvId === maxStockEvId
+    ) {
       return new NextResponse(new Uint8Array(cachedStore.gzBuf), {
         status: 200,
         headers: {
@@ -93,6 +146,8 @@ export async function handleErpCatalog(
         },
       });
     }
+
+    const db = applyPendingStockDeltas(rawDb, pendingStockEvents, false);
 
     const arts = Array.isArray(db.articulos) ? db.articulos : [];
     const storeArts = arts
@@ -134,7 +189,7 @@ export async function handleErpCatalog(
       const gzBuf = zlib.gzipSync(Buffer.from(JSON.stringify(storePayload), "utf8"), {
         level: 4,
       });
-      storeGzipCache.set(storeCacheKey, { rev, gzBuf });
+      storeGzipCache.set(storeCacheKey, { rev, maxEvId: maxStockEvId, gzBuf });
       return new NextResponse(new Uint8Array(gzBuf), {
         status: 200,
         headers: {
@@ -202,10 +257,14 @@ export async function handleErpCatalog(
       });
     }
 
-    const { payload: db } = await getTenantDoc<AnyObj>(
-      tenant,
-      "catalog_db",
-      fallback
+    const [docRes, pendingStockEvents] = await Promise.all([
+      getTenantDoc<AnyObj>(tenant, "catalog_db", fallback),
+      listPendingPosEvents(tenant, "catalog"),
+    ]);
+    const db = applyPendingStockDeltas(docRes.payload, pendingStockEvents, false);
+    const maxStockEvId = pendingStockEvents.reduce(
+      (mx, ev) => Math.max(mx, Number(ev.id || 0)),
+      0
     );
     if (!Array.isArray(db.articulos)) db.articulos = [];
     if (!Array.isArray(db.rubros)) db.rubros = [];
@@ -222,6 +281,9 @@ export async function handleErpCatalog(
       db.lastModifiedBy = actor;
       db.lastAction = actionTag;
       const saved = await putTenantDoc(tenant, "catalog_db", db, actor, actionTag);
+      if (maxStockEvId > 0) {
+        await markPosEventsCompacted(tenant, maxStockEvId, "catalog");
+      }
       return NextResponse.json({ ok: true, rev: saved.rev, ...responseObj });
     };
 

@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsonResponseMaybeGzip } from "../json-response";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
+  appendPosEvent,
   getTenantDoc,
+  listPendingPosEvents,
   listTenantUsersFromDb,
   patchTenantDocKeys,
   putTenantDoc,
   upsertTenantUserInDb,
+  type ErpPosEventRecord,
 } from "../supabase-server";
 import type { ErpTenantRecord } from "../types";
 
@@ -22,6 +25,193 @@ function round3(v: unknown): number {
   return Number.isFinite(n) ? Math.round(n * 1000) / 1000 : 0;
 }
 
+function applyPendingVentasEvents(
+  rawDb: AnyObj,
+  events: ErpPosEventRecord[]
+): AnyObj {
+  if (!events.length) return rawDb;
+
+  const baseComp =
+    rawDb.comprobantesPorCaja && typeof rawDb.comprobantesPorCaja === "object"
+      ? rawDb.comprobantesPorCaja
+      : {};
+  const db: AnyObj = {
+    ...rawDb,
+    comprobantesPorCaja: {
+      caja1: Array.isArray(baseComp.caja1) ? [...baseComp.caja1] : [],
+      caja2: Array.isArray(baseComp.caja2) ? [...baseComp.caja2] : [],
+      caja3: Array.isArray(baseComp.caja3) ? [...baseComp.caja3] : [],
+    },
+    nextCorrelativos: {
+      ...(rawDb.nextCorrelativos && typeof rawDb.nextCorrelativos === "object"
+        ? rawDb.nextCorrelativos
+        : {}),
+    },
+    lastEmitidosDetalle: {
+      ...(rawDb.lastEmitidosDetalle &&
+      typeof rawDb.lastEmitidosDetalle === "object"
+        ? rawDb.lastEmitidosDetalle
+        : {}),
+    },
+    dailyRecords: Array.isArray(rawDb.dailyRecords)
+      ? [...rawDb.dailyRecords]
+      : [],
+    artRecentDaily: Array.isArray(rawDb.artRecentDaily)
+      ? [...rawDb.artRecentDaily]
+      : [],
+    artMonthly: Array.isArray(rawDb.artMonthly)
+      ? rawDb.artMonthly.map((m: AnyObj) => (m && typeof m === "object" ? { ...m } : m))
+      : [],
+  };
+
+  for (const ev of events) {
+    const p = ev.payload && typeof ev.payload === "object" ? ev.payload : {};
+    if (ev.event_type === "record_pos_sale") {
+      const cajaId = ["caja1", "caja2", "caja3"].includes(String(p.cajaId))
+        ? String(p.cajaId)
+        : "caja1";
+      const saleRecord = p.saleRecord as AnyObj | undefined;
+      if (!saleRecord || typeof saleRecord !== "object") continue;
+
+      const corrKey = String(p.corrKey || "");
+      const assignedNro = Number(p.assignedNro || saleRecord.nro || 0);
+      if (corrKey && assignedNro > 0) {
+        db.nextCorrelativos[corrKey] = Math.max(
+          Number(db.nextCorrelativos[corrKey] || 1),
+          assignedNro + 1
+        );
+      }
+
+      const incomingUid = String(saleRecord.uid || "").trim();
+      const numeroCompleto = String(saleRecord.numeroCompleto || "");
+      const tipoBase = String(saleRecord.tipoBase || "Factura").trim().toLowerCase();
+      const letra = String(saleRecord.letra || "B").trim().toUpperCase();
+      const fechaIso = String(saleRecord.fechaIso || "");
+
+      const alreadyInComps = db.comprobantesPorCaja[cajaId].some((r: AnyObj) => {
+        if (!r || typeof r !== "object") return false;
+        if (incomingUid && String(r.uid || "").trim() === incomingUid) return true;
+        return (
+          String(r.numeroCompleto || "") === numeroCompleto &&
+          String(r.tipoBase || "Factura").trim().toLowerCase() === tipoBase &&
+          String(r.letra || "B").trim().toUpperCase() === letra &&
+          String(r.fechaIso || "") === fechaIso
+        );
+      });
+
+      if (!alreadyInComps) {
+        db.comprobantesPorCaja[cajaId].unshift(saleRecord);
+        if (corrKey) {
+          db.lastEmitidosDetalle[corrKey] = saleRecord;
+        }
+        if (p.dailyRecord && typeof p.dailyRecord === "object") {
+          db.dailyRecords.push(p.dailyRecord);
+        }
+      }
+
+      // Estadísticas por artículo: aplicar solo si no fue compactado aún en artMonthly/artRecentDaily
+      if (Array.isArray(p.artDeltas)) {
+        for (const ad of p.artDeltas) {
+          if (!ad || !ad.a) continue;
+          const artId = Number(ad.a);
+          const ym = String(ad.ym || "");
+          const mRow = db.artMonthly.find(
+            (m: AnyObj) => m && m.ym === ym && Number(m.a) === artId
+          );
+          if (mRow) {
+            mRow.q = round3(Number(mRow.q || 0) + Number(ad.q || 0));
+            mRow.v = round2(Number(mRow.v || 0) + Number(ad.v || 0));
+            mRow.c = round2(Number(mRow.c || 0) + Number(ad.c || 0));
+          } else if (ym) {
+            db.artMonthly.push({
+              ym,
+              a: artId,
+              q: round3(Number(ad.q || 0)),
+              v: round2(Number(ad.v || 0)),
+              c: round2(Number(ad.c || 0)),
+            });
+          }
+          if (ad.d) {
+            db.artRecentDaily.push({
+              d: ad.d,
+              a: artId,
+              q: round3(Number(ad.q || 0)),
+              v: round2(Number(ad.v || 0)),
+              c: round2(Number(ad.c || 0)),
+            });
+          }
+        }
+      }
+    } else if (
+      ev.event_type === "record_caja_movement" ||
+      ev.event_type === "record_caja_retiro" ||
+      ev.event_type === "record_caja_recibo"
+    ) {
+      const cajaId = ["caja1", "caja2", "caja3"].includes(String(p.cajaId))
+        ? String(p.cajaId)
+        : "caja1";
+      const mov = p.movement as AnyObj | undefined;
+      if (!mov || typeof mov !== "object") continue;
+      const movUid = String(mov.uid || "").trim();
+      const movNum = String(mov.numeroCompleto || "").trim();
+      const movFechaIso = String(mov.fechaIso || "").trim();
+      const already = db.comprobantesPorCaja[cajaId].some((r: AnyObj) => {
+        if (!r || typeof r !== "object") return false;
+        if (movUid && String(r.uid || "").trim() === movUid) return true;
+        if (mov.id && String(r.id || "") === String(mov.id)) return true;
+        if (
+          movNum &&
+          movFechaIso &&
+          String(r.numeroCompleto || "") === movNum &&
+          String(r.entryType || "") === String(mov.entryType || "") &&
+          String(r.fechaIso || "") === movFechaIso
+        ) {
+          return true;
+        }
+        return false;
+      });
+      if (!already) {
+        db.comprobantesPorCaja[cajaId].unshift(mov);
+      }
+    } else if (ev.event_type === "annul_caja_movement") {
+      const id = String(p.id || "");
+      if (!id) continue;
+      for (const cKey of ["caja1", "caja2", "caja3"]) {
+        const idx = db.comprobantesPorCaja[cKey].findIndex(
+          (x: AnyObj) => x && String(x.id) === id
+        );
+        if (idx >= 0) {
+          db.comprobantesPorCaja[cKey][idx] = {
+            ...db.comprobantesPorCaja[cKey][idx],
+            anulado: true,
+          };
+        }
+      }
+    } else if (ev.event_type === "update_comprobante_medio_pago") {
+      const id = String(p.id || "");
+      const num = String(p.numeroCompleto || "");
+      for (const cKey of ["caja1", "caja2", "caja3"]) {
+        db.comprobantesPorCaja[cKey] = db.comprobantesPorCaja[cKey].map((row: AnyObj) => {
+          if (
+            row &&
+            ((id && String(row.id) === id) ||
+              (num && String(row.numeroCompleto) === num))
+          ) {
+            return {
+              ...row,
+              medioPago: p.medioPago ?? row.medioPago,
+              ...(p.pagos ? { pagos: p.pagos } : {}),
+            };
+          }
+          return row;
+        });
+      }
+    }
+  }
+
+  return db;
+}
+
 export async function handleErpVentas(
   req: NextRequest,
   tenant: ErpTenantRecord
@@ -31,7 +221,11 @@ export async function handleErpVentas(
 
   if (req.method === "GET") {
     const getAction = (req.nextUrl.searchParams.get("action") || "").trim();
-    const { payload: db } = await getTenantDoc<AnyObj>(tenant, "ventas_db", fallback);
+    const [docRes, pendingEvents] = await Promise.all([
+      getTenantDoc<AnyObj>(tenant, "ventas_db", fallback),
+      listPendingPosEvents(tenant, "ventas"),
+    ]);
+    const db = applyPendingVentasEvents(docRes.payload, pendingEvents);
 
     if (getAction === "cierres" || getAction === "fondos") {
       const cierresList = Array.isArray(db.cierresCajaCentral)
@@ -78,7 +272,11 @@ export async function handleErpVentas(
       payload.usuario || payload.actor || req.headers.get("x-erp-user") || "sistema"
     );
 
-    const { payload: db } = await getTenantDoc<AnyObj>(tenant, "ventas_db", fallback);
+    const [docRes, pendingEvents] = await Promise.all([
+      getTenantDoc<AnyObj>(tenant, "ventas_db", fallback),
+      listPendingPosEvents(tenant, "ventas"),
+    ]);
+    const db = applyPendingVentasEvents(docRes.payload, pendingEvents);
     if (!db.comprobantesPorCaja || typeof db.comprobantesPorCaja !== "object") {
       db.comprobantesPorCaja = { caja1: [], caja2: [], caja3: [] };
     }
@@ -175,10 +373,13 @@ export async function handleErpVentas(
         });
       }
 
-      db.nextCorrelativos[corrKey] = Math.max(
-        Number(db.nextCorrelativos[corrKey] || 1),
-        assignedNro + 1
-      );
+      const nextCorrelativosOut = {
+        ...(db.nextCorrelativos || {}),
+        [corrKey]: Math.max(
+          Number(db.nextCorrelativos[corrKey] || 1),
+          assignedNro + 1
+        ),
+      };
 
       const importe = round2(src.importe ?? src.total ?? 0);
       const skipStock = Boolean(payload.skipStock || src.skipStock);
@@ -202,23 +403,37 @@ export async function handleErpVentas(
       delete saleRecord.qrImgSrc;
       delete saleRecord.skipStock;
 
-      db.comprobantesPorCaja[cajaId].unshift(saleRecord);
-
-      if (!db.lastEmitidosDetalle || typeof db.lastEmitidosDetalle !== "object") {
-        db.lastEmitidosDetalle = {};
-      }
-      db.lastEmitidosDetalle[corrKey] = saleRecord;
-
-      // Estadísticas diarias y descuento de stock (excluyendo Artículo Genérico 4407)
       const items = Array.isArray(src.items) ? src.items : [];
       let costoTotal = 0;
-      let touchedArtStats = false;
+      const artDeltas: Array<{
+        ym: string;
+        d: string;
+        a: number;
+        q: number;
+        v: number;
+        c: number;
+      }> = [];
+      const stockDeltas: Array<{ artId: number; delta: number }> = [];
+      const updatedStocks: Record<string, number> = {};
 
       if (items.length > 0) {
         const catFallback = seedDocs.catalog_db as AnyObj;
-        const { payload: catDb } = await getTenantDoc<AnyObj>(tenant, "catalog_db", catFallback);
+        const [catRes, pendingStockEvents] = await Promise.all([
+          getTenantDoc<AnyObj>(tenant, "catalog_db", catFallback),
+          listPendingPosEvents(tenant, "catalog"),
+        ]);
+        const catDb = catRes.payload;
+        const pendingDeltaByArt = new Map<number, number>();
+        for (const ev of pendingStockEvents) {
+          for (const sd of Array.isArray(ev.stock_deltas) ? ev.stock_deltas : []) {
+            const aid = Number(sd?.artId || 0);
+            const delta = Number(sd?.delta || 0);
+            if (aid > 0 && delta) {
+              pendingDeltaByArt.set(aid, (pendingDeltaByArt.get(aid) || 0) + delta);
+            }
+          }
+        }
         if (Array.isArray(catDb.articulos)) {
-          let stockChanged = false;
           const ym = fechaIso.slice(0, 7);
           for (const it of items) {
             if (it.isService || it.itemType === "service") continue;
@@ -229,83 +444,87 @@ export async function handleErpVentas(
             if (art) {
               if (!skipStock) {
                 const delta = isNC ? qty : -qty;
-                art.sf = round3(Number(art.sf || 0) + delta);
-                stockChanged = true;
+                stockDeltas.push({ artId, delta });
+                const prevSf =
+                  Number(art.sf || 0) + (pendingDeltaByArt.get(artId) || 0);
+                const newSf = round3(prevSf + delta);
+                pendingDeltaByArt.set(
+                  artId,
+                  (pendingDeltaByArt.get(artId) || 0) + delta
+                );
+                updatedStocks[String(artId)] = newSf;
               }
               const unitCost = Number(art.cfn || art.cn || 0);
               costoTotal += unitCost * qty;
 
               const sign = isNC ? -1 : 1;
-              const subImp = round2(Number(it.subtotal ?? Number(it.precio || 0) * qty) * sign);
+              const subImp = round2(
+                Number(it.subtotal ?? Number(it.precio || 0) * qty) * sign
+              );
               const subCost = round2(unitCost * qty * sign);
 
-              const mRow = db.artMonthly.find(
-                (m: AnyObj) => m.ym === ym && Number(m.a) === artId
-              );
-              if (mRow) {
-                mRow.q = round3(Number(mRow.q || 0) + qty * sign);
-                mRow.v = round2(Number(mRow.v || 0) + subImp);
-                mRow.c = round2(Number(mRow.c || 0) + subCost);
-              } else {
-                db.artMonthly.push({
-                  ym,
-                  a: artId,
-                  q: round3(qty * sign),
-                  v: subImp,
-                  c: subCost,
-                });
-              }
-
-              db.artRecentDaily.push({
+              artDeltas.push({
+                ym,
                 d: fechaIso,
                 a: artId,
                 q: round3(qty * sign),
                 v: subImp,
                 c: subCost,
               });
-              touchedArtStats = true;
             }
-          }
-          if (stockChanged) {
-            catDb.updatedAt = nowIso;
-            await putTenantDoc(tenant, "catalog_db", catDb, actor, "pos_sale_stock");
           }
         }
       }
 
-      if (letra !== "X") {
-        db.dailyRecords.push({
-          d: fechaIso,
-          pv: Number(pv),
-          tc: isNC ? 6 : 1,
-          l: letra,
-          m: String(src.medioPago || "EFECTIVO").toUpperCase(),
-          v: isNC ? -Math.abs(importe) : importe,
-          c: isNC ? -Math.abs(round2(costoTotal)) : round2(costoTotal),
-          n: 1,
-        });
-      }
+      const dailyRecord =
+        letra !== "X"
+          ? {
+              d: fechaIso,
+              pv: Number(pv),
+              tc: isNC ? 6 : 1,
+              l: letra,
+              m: String(src.medioPago || "EFECTIVO").toUpperCase(),
+              v: isNC ? -Math.abs(importe) : importe,
+              c: isNC ? -Math.abs(round2(costoTotal)) : round2(costoTotal),
+              n: 1,
+            }
+          : null;
 
-      const changedKeys = [
-        "comprobantesPorCaja",
-        "nextCorrelativos",
-        "lastEmitidosDetalle",
-        "dailyRecords",
-      ];
-      if (touchedArtStats) {
-        changedKeys.push("artMonthly", "artRecentDaily");
-      }
+      const dedupeKey = `sale:${cajaId}:${
+        incomingUid || `${numeroCompleto}:${tipoBase.toLowerCase()}:${letra}:${fechaIso}`
+      }`;
 
-      return commitVentas(
+      // Escritura atómica ultrarrápida (~2 KB / ~20 ms) en tabla append-only erp_pos_events:
+      // elimina la reescritura de 22.4 MB (ventas_db + catalog_db) por cada ticket en el POS.
+      const evRes = await appendPosEvent(
+        tenant,
         "record_pos_sale",
+        dedupeKey,
         {
-          sale: saleRecord,
-          nro: assignedNro,
-          numeroCompleto,
-          nextCorrelativos: db.nextCorrelativos,
+          cajaId,
+          corrKey,
+          assignedNro,
+          saleRecord,
+          dailyRecord,
+          artDeltas,
+          stockDeltas,
         },
-        changedKeys
+        actor,
+        stockDeltas.length > 0
       );
+
+      return NextResponse.json({
+        ok: true,
+        eventId: evRes.id,
+        alreadyExists: !evRes.inserted,
+        sale: evRes.inserted
+          ? saleRecord
+          : evRes.payload?.saleRecord || saleRecord,
+        nro: assignedNro,
+        numeroCompleto,
+        nextCorrelativos: nextCorrelativosOut,
+        updatedStocks,
+      });
     }
 
     if (
@@ -347,40 +566,65 @@ export async function handleErpVentas(
       if (existingMov) {
         return NextResponse.json({ ok: true, alreadyExists: true, movement: existingMov });
       }
-      db.comprobantesPorCaja[cajaId].unshift(mov);
-      return commitVentas(action, { movement: mov }, ["comprobantesPorCaja"]);
+      const movDedupe = `mov:${cajaId}:${movUid || mov.id || `${mov.entryType}:${movNum}:${movFechaIso}`}`;
+      const evRes = await appendPosEvent(
+        tenant,
+        action,
+        movDedupe,
+        { cajaId, movement: mov },
+        actor,
+        false
+      );
+      return NextResponse.json({
+        ok: true,
+        eventId: evRes.id,
+        alreadyExists: !evRes.inserted,
+        movement: evRes.inserted ? mov : evRes.payload?.movement || mov,
+      });
     }
 
     if (action === "annul_caja_movement") {
       const id = String(payload.id || payload.movId || "");
-      for (const cKey of ["caja1", "caja2", "caja3"]) {
-        if (Array.isArray(db.comprobantesPorCaja[cKey])) {
-          const item = db.comprobantesPorCaja[cKey].find(
-            (x: AnyObj) => String(x.id) === id
-          );
-          if (item) item.anulado = true;
-        }
-      }
-      return commitVentas("annul_caja_movement", { id }, ["comprobantesPorCaja"]);
+      await appendPosEvent(
+        tenant,
+        "annul_caja_movement",
+        `annul:${id}`,
+        { id },
+        actor,
+        false
+      );
+      return NextResponse.json({ ok: true, id });
     }
 
     if (action === "update_comprobante_medio_pago") {
       const id = String(payload.id || "");
+      const numeroCompleto = String(payload.numeroCompleto || "");
       let updated: AnyObj | null = null;
       for (const cKey of ["caja1", "caja2", "caja3"]) {
         for (const row of db.comprobantesPorCaja[cKey] || []) {
-          if (String(row.id) === id || String(row.numeroCompleto) === String(payload.numeroCompleto || "")) {
-            row.medioPago = payload.medioPago ?? row.medioPago;
-            if (payload.pagos) row.pagos = payload.pagos;
-            updated = row;
+          if (String(row.id) === id || (numeroCompleto && String(row.numeroCompleto) === numeroCompleto)) {
+            updated = {
+              ...row,
+              medioPago: payload.medioPago ?? row.medioPago,
+              ...(payload.pagos ? { pagos: payload.pagos } : {}),
+            };
           }
         }
       }
-      return commitVentas(
+      await appendPosEvent(
+        tenant,
         "update_comprobante_medio_pago",
-        { comprobante: updated },
-        ["comprobantesPorCaja"]
+        `mp:${id || numeroCompleto}:${Date.now()}`,
+        {
+          id,
+          numeroCompleto,
+          medioPago: payload.medioPago,
+          pagos: payload.pagos,
+        },
+        actor,
+        false
       );
+      return NextResponse.json({ ok: true, comprobante: updated });
     }
 
     if (action === "close_caja_turno" || action === "save_cierre") {
@@ -530,6 +774,9 @@ export async function handleErpVentas(
           "cierresCajaCentral",
           "aperturasCajaCentral",
           "comprobantesPorCaja",
+          "nextCorrelativos",
+          "lastEmitidosDetalle",
+          "dailyRecords",
           "efectivoInicialPorCaja",
         ]
       );
