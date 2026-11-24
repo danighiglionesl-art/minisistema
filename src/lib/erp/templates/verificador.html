@@ -347,10 +347,11 @@
           if (
             art.im.startsWith('http://') ||
             art.im.startsWith('https://') ||
+            art.im.startsWith('/') ||
             art.im.startsWith('../sistema/') ||
             art.im.startsWith('data:image/')
           ) {
-            return { url: art.im, isSystem: art.ims !== 'web' };
+            return { url: art.im, isSystem: art.im.startsWith('/') || art.ims !== 'web' };
           }
           return { url: SINERGIAL_IMG_BASE + encodeURIComponent(art.im), isSystem: true };
         }

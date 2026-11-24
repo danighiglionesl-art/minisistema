@@ -1825,21 +1825,32 @@ function findNextUnusedCodes(count = 5, excludeArticleId = null) {
  * - Si tiene URL propia subida o seleccionada, la usa directamente.
  * - Si aún no tiene fotografía en el sistema, genera la búsqueda inteligente web con fondo blanco.
  */
+function getBrandFallbackProductImg() {
+  return (
+    (ACTIVE_BRAND && ACTIVE_BRAND.assets && (ACTIVE_BRAND.assets.logo1x1 || ACTIVE_BRAND.assets.logoSymbol)) ||
+    'assets/img/icon-192.png'
+  );
+}
+
 function resolveArticleImageUrl(art) {
-  if (art.im) {
+  if (art && art.im) {
+    const rawIm = String(art.im).trim();
     if (
-      art.im.startsWith('http://') ||
-      art.im.startsWith('https://') ||
-      art.im.startsWith('assets/') ||
-      art.im.startsWith('data:image/')
+      rawIm.startsWith('http://') ||
+      rawIm.startsWith('https://') ||
+      rawIm.startsWith('/') ||
+      rawIm.startsWith('assets/') ||
+      rawIm.startsWith('data:image/')
     ) {
-      return { url: art.im, isSystem: art.ims !== 'web' };
+      const isUploadedLocal =
+        rawIm.startsWith('/') || rawIm.startsWith('assets/') || rawIm.startsWith('data:image/');
+      return { url: rawIm, isSystem: isUploadedLocal || art.ims !== 'web' };
     }
-    return { url: SINERGIAL_IMG_BASE + encodeURIComponent(art.im), isSystem: true };
+    return { url: SINERGIAL_IMG_BASE + encodeURIComponent(rawIm), isSystem: true };
   }
-  const mainBc = art.bc && art.bc.length > 0 ? art.bc[0].c : '';
-  const query = `${mainBc ? mainBc + ' ' : ''}${art.n || ''} supermercado producto fondo blanco`.trim();
-  const hostIdx = (art.id || 1) % 4 + 1;
+  const mainBc = art && art.bc && art.bc.length > 0 ? art.bc[0].c : '';
+  const query = `${mainBc ? mainBc + ' ' : ''}${(art && art.n) || ''} supermercado producto fondo blanco`.trim();
+  const hostIdx = ((art && art.id) || 1) % 4 + 1;
   return {
     url: `https://tse${hostIdx}.mm.bing.net/th?q=${encodeURIComponent(query)}&w=400&h=400&c=7&rs=1&p=0`,
     isSystem: false
@@ -3386,7 +3397,7 @@ function renderCatalogTable() {
     img.loading = 'lazy';
     img.onerror = () => {
       img.onerror = null;
-      img.src = 'assets/img/icon-192.png';
+      img.src = getBrandFallbackProductImg();
     };
     thumbBox.appendChild(img);
 
@@ -4132,7 +4143,7 @@ function updateModalImagePreview(artLike) {
   const previewImg = document.getElementById('art-preview-img');
   const badge = document.getElementById('art-img-source-badge');
   if (!artLike && !STATE.currentEditImage) {
-    previewImg.src = 'assets/img/icon-192.png';
+    previewImg.src = getBrandFallbackProductImg();
     badge.textContent = 'Sin fotografía asignada (Usá Búsqueda Inteligente o Subir Foto)';
     return;
   }
@@ -4143,7 +4154,7 @@ function updateModalImagePreview(artLike) {
   previewImg.src = resolved.url;
   previewImg.onerror = () => {
     previewImg.onerror = null;
-    previewImg.src = 'assets/img/icon-192.png';
+    previewImg.src = getBrandFallbackProductImg();
   };
   badge.textContent = resolved.isSystem
     ? '✓ Fotografía Oficial en Sistema'
@@ -8435,7 +8446,7 @@ function renderCarritoArticulosTable(totalPages) {
     imgEl.alt = art.n;
     imgEl.onerror = () => {
       imgEl.onerror = null;
-      imgEl.src = 'assets/img/icon-192.png';
+      imgEl.src = getBrandFallbackProductImg();
     };
     thumbBox.appendChild(imgEl);
     const meta = document.createElement('div');
@@ -10901,7 +10912,7 @@ function renderFidCatalogoTable() {
     imgEl.loading = 'lazy';
     imgEl.onerror = () => {
       imgEl.onerror = null;
-      imgEl.src = 'assets/img/icon-192.png';
+      imgEl.src = getBrandFallbackProductImg();
     };
     thumbBox.appendChild(imgEl);
     const meta = document.createElement('div');
@@ -11916,7 +11927,7 @@ function renderFidCanjesSection(page = null) {
       imgEl.loading = 'lazy';
       imgEl.onerror = () => {
         imgEl.onerror = null;
-        imgEl.src = 'assets/img/icon-192.png';
+        imgEl.src = getBrandFallbackProductImg();
       };
       thumbBox.appendChild(imgEl);
       headWrap.appendChild(thumbBox);
@@ -28329,9 +28340,12 @@ function initApp() {
         const json = await res.json();
         if (json.ok && json.imageUrl) {
           STATE.currentEditImage = json.imageUrl;
+          updateModalImagePreview({ id: STATE.editingArticleId || 1, n: '', bc: [] });
         }
       }
-    } catch {}
+    } catch {} finally {
+      e.target.value = '';
+    }
   });
 
   // =========================================================================

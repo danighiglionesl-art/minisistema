@@ -1126,7 +1126,12 @@
     if (!rawIm) {
       return { primary: webFallback, fallback: webFallback };
     }
-    if (rawIm.startsWith('http://') || rawIm.startsWith('https://') || rawIm.startsWith('data:')) {
+    if (
+      rawIm.startsWith('http://') ||
+      rawIm.startsWith('https://') ||
+      rawIm.startsWith('/') ||
+      rawIm.startsWith('data:')
+    ) {
       return { primary: rawIm, fallback: webFallback };
     }
     if (rawIm.startsWith('assets/')) {
