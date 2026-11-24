@@ -1164,11 +1164,6 @@
       var perfilCard = inicioGrid.querySelector('[data-module-key="perfil"]');
       if (perfilCard) inicioGrid.insertBefore(card, perfilCard);
       else inicioGrid.appendChild(card);
-
-      if (!initialLoaded) {
-        initialLoaded = true;
-        reloadData(false);
-      }
     } else if (existingCard) {
       existingCard.hidden = !allowed;
       existingCard.style.display = allowed ? '' : 'none';

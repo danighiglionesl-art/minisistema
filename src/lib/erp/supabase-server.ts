@@ -7,10 +7,12 @@ const HEAVY_DOC_KEYS = new Set([
   "clientes_db",
   "ventas_db",
   "arca_comprobantes_db",
+  "crm_reportes_db",
 ]);
 const DOC_CACHE_BUCKET = "erp-doc-cache";
 const META_TRUST_MS = 15_000;
 const STATUS_CACHE_MS = 8_000;
+const USERS_CACHE_TTL_MS = 60_000;
 
 interface DocCacheEntry {
   payload?: unknown;
@@ -30,6 +32,11 @@ const statusMemoryCache = new Map<
   { value: Record<string, any>; expiresAt: number }
 >();
 const inFlightStatusReads = new Map<string, Promise<Record<string, any>>>();
+const usersMemoryCache = new Map<
+  string,
+  { value: ErpUserRecord[]; expiresAt: number }
+>();
+const inFlightUsersReads = new Map<string, Promise<ErpUserRecord[]>>();
 
 interface CachedAuthClient {
   client: SupabaseClient;
@@ -725,19 +732,91 @@ export async function getTenantDbStatusMap(
   }
 }
 
+function storageUsersBackupPath(schema: string): string {
+  return `${schema}/users_cache_latest.json.gz`;
+}
+
 export async function listTenantUsersFromDb(
   tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">
 ): Promise<ErpUserRecord[]> {
-  const sb = await getTenantDataSupabase(tenant);
-  const { data, error } = await sb.rpc("erp_users_op", {
-    p_schema: tenant.db_schema,
-    p_op: "list",
-    p_payload: {},
-  });
-  if (error) {
-    throw new Error(`Error listando usuarios (${tenant.db_schema}): ${error.message}`);
+  const schema = tenant.db_schema;
+  const cached = usersMemoryCache.get(schema);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
   }
-  return Array.isArray(data) ? (data as ErpUserRecord[]) : [];
+
+  const pending = inFlightUsersReads.get(schema);
+  if (pending) {
+    return pending;
+  }
+
+  const work = (async () => {
+    const sb = await getTenantDataSupabase(tenant);
+    const useL2 = isUsingPlatformStorage(tenant);
+    try {
+      const { data, error } = await sb.rpc("erp_users_op", {
+        p_schema: schema,
+        p_op: "list",
+        p_payload: {},
+      });
+      if (error) {
+        throw new Error(error.message);
+      }
+      const list = Array.isArray(data) ? (data as ErpUserRecord[]) : [];
+      usersMemoryCache.set(schema, {
+        value: list,
+        expiresAt: Date.now() + USERS_CACHE_TTL_MS,
+      });
+      if (useL2 && list.length > 0) {
+        try {
+          const gz = zlib.gzipSync(Buffer.from(JSON.stringify(list), "utf8"), { level: 4 });
+          sb.storage
+            .from(DOC_CACHE_BUCKET)
+            .upload(storageUsersBackupPath(schema), gz, {
+              contentType: "application/gzip",
+              upsert: true,
+            })
+            .catch(() => {});
+        } catch {
+          // Best-effort backup
+        }
+      }
+      return list;
+    } catch (dbErr) {
+      // Blindaje anti-caída de login: si Postgres da timeout, servir desde caché RAM o respaldo privado en Storage
+      if (cached && cached.value.length > 0) {
+        return cached.value;
+      }
+      if (useL2) {
+        const l2Buf = await downloadStoragePathBuffer(sb, storageUsersBackupPath(schema));
+        if (l2Buf) {
+          try {
+            const parsed = JSON.parse(zlib.gunzipSync(l2Buf).toString("utf8"));
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const list = parsed as ErpUserRecord[];
+              usersMemoryCache.set(schema, {
+                value: list,
+                expiresAt: Date.now() + 15_000,
+              });
+              return list;
+            }
+          } catch {
+            // ignore corrupt snapshot
+          }
+        }
+      }
+      throw new Error(
+        `Error listando usuarios (${schema}): ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`
+      );
+    }
+  })();
+
+  inFlightUsersReads.set(schema, work);
+  try {
+    return await work;
+  } finally {
+    inFlightUsersReads.delete(schema);
+  }
 }
 
 export async function upsertTenantUserInDb(
@@ -753,6 +832,7 @@ export async function upsertTenantUserInDb(
   if (error) {
     throw new Error(`Error guardando usuario (${tenant.db_schema}): ${error.message}`);
   }
+  usersMemoryCache.delete(tenant.db_schema);
   return data as ErpUserRecord;
 }
 
@@ -769,6 +849,7 @@ export async function softDeleteTenantUserInDb(
   if (error) {
     throw new Error(`Error dando de baja usuario (${tenant.db_schema}): ${error.message}`);
   }
+  usersMemoryCache.delete(tenant.db_schema);
 }
 
 export async function putTenantMediaInDb(

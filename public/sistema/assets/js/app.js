@@ -1301,41 +1301,59 @@ async function authenticateCredentials(rawUsername, rawPassword) {
   const username = rawUsername.trim().toLowerCase();
   const password = rawPassword;
 
-  try {
-    const response = await fetch('api/auth.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      const result = await response.json();
-      if (response.ok && result.ok && result.user) {
-        saveCustomUserOverride(username, {
-          name: result.user.name,
-          vendedor: result.user.vendedor,
-          role: username === PRIMARY_ADMIN_USER ? 'Administrador' : result.user.role,
-          branch: result.user.branch,
-          whatsapp: result.user.whatsapp || '',
-          avatar: result.user.avatar || '',
-          modules: Array.isArray(result.user.modules) ? result.user.modules : [...DEFAULT_MODULE_KEYS],
-          pass: password
-        });
-        return { ok: true, user: result.user };
-      }
-      return { ok: false, message: result.message || 'Usuario o contraseña incorrectos.' };
+  let lastServerErr = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 900));
     }
-  } catch {
-    // Fallback to Web Crypto verification
+    try {
+      const response = await fetch('api/auth.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const result = await response.json();
+        if (response.ok && result.ok && result.user) {
+          saveCustomUserOverride(username, {
+            name: result.user.name,
+            vendedor: result.user.vendedor,
+            role: username === PRIMARY_ADMIN_USER ? 'Administrador' : result.user.role,
+            branch: result.user.branch,
+            whatsapp: result.user.whatsapp || '',
+            avatar: result.user.avatar || '',
+            modules: Array.isArray(result.user.modules) ? result.user.modules : [...DEFAULT_MODULE_KEYS],
+            pass: password
+          });
+          return { ok: true, user: result.user };
+        }
+        // Solo reintentar en errores 5xx transitorios del servidor; en 400/401/403 devolver inmediato
+        if (response.status >= 500) {
+          lastServerErr = result.message || 'El servidor demoró en responder. Intentá nuevamente.';
+          continue;
+        }
+        return { ok: false, message: result.message || 'Usuario o contraseña incorrectos.' };
+      }
+      if (response.status >= 500) {
+        lastServerErr = 'El servidor demoró en responder. Intentá nuevamente.';
+        continue;
+      }
+    } catch {
+      lastServerErr = 'Error de conexión con el servidor.';
+    }
   }
 
   const record = ADMIN_DIRECTORY[username];
   if (!record) {
-    return { ok: false, message: 'Usuario o contraseña incorrectos.' };
+    return { ok: false, message: lastServerErr || 'Usuario o contraseña incorrectos.' };
   }
   const computed = await sha256Hex(`cn-erp-2026:${username}:${password}`);
   if (computed !== record.hash && password !== record.pass) {
-    return { ok: false, message: 'Usuario o contraseña incorrectos. Verificá mayúsculas y números.' };
+    return {
+      ok: false,
+      message: lastServerErr || 'Usuario o contraseña incorrectos. Verificá mayúsculas y números.'
+    };
   }
   return {
     ok: true,
@@ -27324,8 +27342,18 @@ function initApp() {
     loadClientesDatabase();
     loadVentasDatabase();
     loadFondosLocalState();
-    syncFondosFromServer();
-    syncUsersFromServer();
+    // Escalonar sincronizaciones secundarias para evitar tormenta de requests simultáneos al iniciar sesión
+    setTimeout(() => {
+      if (!STATE.currentUser) return;
+      syncFondosFromServer();
+      syncUsersFromServer();
+    }, 900);
+    setTimeout(() => {
+      if (!STATE.currentUser) return;
+      if (typeof window.initOrRefreshOfertasModule === 'function') {
+        window.initOrRefreshOfertasModule();
+      }
+    }, 1800);
     startOpenCajaWebOrderWatcher();
 
     const savedNav = !options.isFreshLogin ? getPersistedNavState() : null;
@@ -52664,8 +52692,10 @@ function initApp() {
     }
   };
 
-  // Inicializar carga de ofertas en segundo plano al iniciar sesión para que las Cajas POS ya las tengan activas
-  loadOfertasFromServer().then(() => updateOfertasMenuKpis());
+  // Inicializar carga de ofertas solo cuando ya existe sesión activa (evitar pegarle a Postgres desde la pantalla de login)
+  if (STATE.currentUser) {
+    loadOfertasFromServer().then(() => updateOfertasMenuKpis());
+  }
 
   // Eventos de las 7 tarjetas de Submódulos de Ofertas
   document.querySelectorAll('[data-open-oferta-tipo]').forEach((card) => {
@@ -72559,7 +72589,21 @@ function initApp() {
       return merged;
     }
 
-    async function fetchCrmReportsFromServer(allowTopBridgeRedirect = true) {
+    let crmFetchInFlight = null;
+    let crmLastFetchTs = 0;
+
+    async function fetchCrmReportsFromServer(allowTopBridgeRedirect = true, forceRefresh = false) {
+      if (!STATE.currentUser) {
+        return crmReportsList;
+      }
+      if (crmFetchInFlight) {
+        return crmFetchInFlight;
+      }
+      if (!forceRefresh && crmLastFetchTs > 0 && Date.now() - crmLastFetchTs < 20000) {
+        return crmReportsList;
+      }
+
+      crmFetchInFlight = (async () => {
       const localCached = loadLocalCrmReports();
       let serverList = null;
 
@@ -72667,7 +72711,15 @@ function initApp() {
         window.__SUPERADMIN_REFRESH_CRM_BADGE__(crmReportsList);
       }
       checkAndShowPendingCrmUserNotification();
+      crmLastFetchTs = Date.now();
       return crmReportsList;
+      })();
+
+      try {
+        return await crmFetchInFlight;
+      } finally {
+        crmFetchInFlight = null;
+      }
     }
 
     const sessionConfirmedNotifKeys = new Set();
@@ -73910,7 +73962,7 @@ function initApp() {
       } else {
         renderMyReportsTable();
       }
-      await fetchCrmReportsFromServer();
+      await fetchCrmReportsFromServer(true, true);
       renderMyReportsTable();
     };
 
@@ -73930,12 +73982,13 @@ function initApp() {
       } else {
         renderCrmAdminSection();
       }
-      await fetchCrmReportsFromServer();
+      await fetchCrmReportsFromServer(true, true);
       renderCrmAdminSection();
     };
 
     window.refreshCrmPendingBadge = function () {
-      fetchCrmReportsFromServer();
+      if (!STATE.currentUser || !ACTIVE_BRAND?.isBase) return;
+      fetchCrmReportsFromServer(false, false);
     };
 
     // Enlazar eventos y verificar de inmediato si showDashboard() ya había restaurado #sec-reporte-mejoras o #sec-crm (ej: tras F5 o actualización)
@@ -73944,10 +73997,10 @@ function initApp() {
       window.initOrRefreshReporteMejorasSection();
     } else if (!document.getElementById('sec-crm')?.hidden) {
       window.initOrRefreshCrmSection();
-    } else {
+    } else if (STATE.currentUser && ACTIVE_BRAND?.isBase) {
       setTimeout(() => {
-        fetchCrmReportsFromServer();
-      }, 600);
+        fetchCrmReportsFromServer(false, false);
+      }, 2200);
     }
   })();
 

@@ -120,6 +120,42 @@ export async function handleErpAuth(
     }
   }
 
+  // Atajo rápido: get_global_atajos no necesita cargar toda la tabla de usuarios
+  if (req.method === "GET" && req.nextUrl.searchParams.get("action") === "get_global_atajos") {
+    const { payload: customDb } = await getTenantDoc<Record<string, unknown>>(
+      tenant,
+      "users_custom",
+      {}
+    );
+    const rawAtajos =
+      (customDb._global_atajos as Record<string, unknown>) || null;
+    const list =
+      rawAtajos && typeof rawAtajos === "object"
+        ? Array.isArray(rawAtajos.list)
+          ? rawAtajos.list
+          : Array.isArray(rawAtajos.atajos)
+            ? rawAtajos.atajos
+            : []
+        : [];
+    return NextResponse.json({
+      ok: true,
+      atajos: list,
+      seededFromFedericod: Boolean(
+        rawAtajos &&
+          typeof rawAtajos === "object" &&
+          (rawAtajos.seededFromFedericod || list.length > 0)
+      ),
+      updatedBy:
+        rawAtajos && typeof rawAtajos === "object"
+          ? String(rawAtajos.updatedBy || "")
+          : "",
+      updatedAt:
+        rawAtajos && typeof rawAtajos === "object"
+          ? String(rawAtajos.updatedAt || "")
+          : "",
+    });
+  }
+
   let users = await listTenantUsersFromDb(tenant);
   users = await ensureGeneralAdminPresent(tenant, users);
   const byKey = new Map<string, ErpUserRecord>();
