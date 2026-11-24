@@ -1466,7 +1466,10 @@ function applyUserAllowedModules(user) {
     const modKey = card.getAttribute('data-module-key');
     if (!modKey) return;
     if (modKey === 'crm') {
-      card.hidden = !(isGenAdmin && isBaseTenant);
+      // Todos los usuarios (en MiniSistema y en cada cliente, incluido @danielg en CasaNuevaERP)
+      // pueden ingresar al CRM: en clientes se muestra en modo solo consulta filtrado por equipo y módulos;
+      // la gestión/solución completa queda exclusiva de MiniSistema Base (@danielg).
+      card.hidden = false;
       return;
     }
     if (hasTenantRestriction && !tenantModSet.has(modKey)) {
@@ -1486,7 +1489,11 @@ function applyUserAllowedModules(user) {
   });
   const btnGoCrm = document.getElementById('btn-reporte-go-crm');
   if (btnGoCrm) {
-    btnGoCrm.hidden = !(isGenAdmin && isBaseTenant);
+    btnGoCrm.hidden = false;
+    btnGoCrm.textContent =
+      isGenAdmin && isBaseTenant
+        ? '📋 Ir al Módulo CRM (Administrador General)'
+        : '📋 Ver Bandeja CRM del Equipo';
   }
   if (typeof window.refreshCrmPendingBadge === 'function') {
     window.refreshCrmPendingBadge();
@@ -1509,8 +1516,7 @@ function isSectionAllowedForCurrentUser(sectionId) {
   }
   const uKey = String(STATE.currentUser?.username || '').toLowerCase();
   if (sectionId === 'sec-crm') {
-    const isBaseTenant = Boolean(ACTIVE_BRAND?.isBase) || String(ACTIVE_BRAND?.slug || '').toLowerCase() === 'minisistema';
-    return isBaseTenant && (uKey === PRIMARY_ADMIN_USER || isErpGeneralAdminUser(STATE.currentUser || uKey));
+    return Boolean(uKey);
   }
   if (!uKey || uKey === PRIMARY_ADMIN_USER) return true;
   const allowed = new Set(getUserAllowedModules(uKey));
@@ -12296,7 +12302,7 @@ const SECTION_TOPBAR_META = {
   'sec-atajos': { title: 'Atajos', back: 'sec-menu-ayuda' },
   'sec-manual-usuario': { title: '📘 Manual del Usuario (Procesos, IA y PDF)', back: 'sec-menu-ayuda' },
   'sec-reporte-mejoras': { title: '📝 Reporte de Mejoras', back: 'sec-menu-ayuda' },
-  'sec-crm': { title: '🗂️ CRM · Reportes de Mejoras (Administrador General)', back: 'sec-inicio' },
+  'sec-crm': { title: (ACTIVE_BRAND?.isBase ? 'CRM · Reportes de Mejoras (Gestión General)' : 'CRM · Reportes del Equipo'), back: 'sec-inicio' },
   'sec-menu-estadisticas': { title: 'Estadísticas', back: 'sec-inicio' },
   'sec-est-dashboard': { title: 'Estadísticas · Dashboard Automático', back: 'sec-menu-estadisticas' },
   'sec-est-facturacion': { title: 'Estadísticas · Facturación', back: 'sec-menu-estadisticas' },
@@ -73451,8 +73457,14 @@ function initApp() {
       }, 220);
     }
 
+    function getScopedCrmReportsForCurrentUser() {
+      if (isCrmMasterAdminUser()) return crmReportsList;
+      return crmReportsList.filter((r) => doesReportBelongToCurrentTeam(r) && canCurrentUserViewReportModule(r));
+    }
+
     function updateCrmPendingBadgeUI() {
-      const pendingCount = crmReportsList.filter((r) => (r.estado || 'PENDIENTE') === 'PENDIENTE').length;
+      const scoped = getScopedCrmReportsForCurrentUser();
+      const pendingCount = scoped.filter((r) => (r.estado || 'PENDIENTE') === 'PENDIENTE').length;
       const badgeText = pendingCount > 0 ? `${pendingCount} ${pendingCount === 1 ? 'pendiente' : 'pendientes'}` : '';
       ['badge-inicio-crm-pendientes', 'badge-sa-crm-pendientes'].forEach((badgeId) => {
         const badge = document.getElementById(badgeId);
@@ -73482,7 +73494,10 @@ function initApp() {
       }
       const btnGoCrm = document.getElementById('btn-reporte-go-crm');
       if (btnGoCrm) {
-        btnGoCrm.hidden = !isCrmMasterAdminUser();
+        btnGoCrm.hidden = false;
+        btnGoCrm.textContent = isCrmMasterAdminUser()
+          ? '📋 Ir al Módulo CRM (Administrador General)'
+          : '📋 Ver Bandeja CRM del Equipo';
       }
     }
 
@@ -74222,10 +74237,29 @@ function initApp() {
       const kpiRes = document.getElementById('crm-kpi-resueltos');
       const tbody = document.getElementById('crm-admin-tbody');
 
-      const total = crmReportsList.length;
-      const pendientes = crmReportsList.filter((r) => (r.estado || 'PENDIENTE') === 'PENDIENTE').length;
-      const enProceso = crmReportsList.filter((r) => r.estado === 'EN_PROCESO').length;
-      const resueltos = crmReportsList.filter((r) => r.estado === 'RESUELTO').length;
+      const canManageCrm = isCrmMasterAdminUser();
+      const scopedList = getScopedCrmReportsForCurrentUser();
+
+      const secCrmEl = document.getElementById('sec-crm');
+      if (secCrmEl) {
+        const h2 = secCrmEl.querySelector('.section-header-card h2');
+        if (h2) {
+          h2.textContent = canManageCrm
+            ? 'Módulo CRM · Administración General de Reportes, Problemas y Mejoras'
+            : `Módulo CRM · Seguimiento de Reportes de ${ACTIVE_BRAND?.name || 'tu Equipo'} (Solo Consulta)`;
+        }
+        const bc = secCrmEl.querySelector('.module-breadcrumb strong');
+        if (bc) {
+          bc.textContent = canManageCrm
+            ? 'CRM · Bandeja de Reportes de Mejoras y Problemas (Administrador General)'
+            : 'CRM · Seguimiento de Reportes del Equipo (Solo Consulta)';
+        }
+      }
+
+      const total = scopedList.length;
+      const pendientes = scopedList.filter((r) => (r.estado || 'PENDIENTE') === 'PENDIENTE').length;
+      const enProceso = scopedList.filter((r) => r.estado === 'EN_PROCESO').length;
+      const resueltos = scopedList.filter((r) => r.estado === 'RESUELTO').length;
 
       if (kpiTotal) kpiTotal.textContent = String(total);
       if (kpiPend) kpiPend.textContent = String(pendientes);
@@ -74241,7 +74275,7 @@ function initApp() {
       const fPrio = document.getElementById('crm-filter-prioridad')?.value || 'TODOS';
 
       const filtered = sortCrmReportsForDisplay(
-        crmReportsList.filter((r) => {
+        scopedList.filter((r) => {
           if (fEstado !== 'TODOS' && (r.estado || 'PENDIENTE') !== fEstado) return false;
           if (fTipo !== 'TODOS' && (r.tipo || 'MEJORA') !== fTipo) return false;
           if (fPrio !== 'TODOS' && (r.prioridad || 'NORMAL') !== fPrio) return false;
@@ -74830,14 +74864,6 @@ function initApp() {
 
     window.initOrRefreshCrmSection = async function () {
       bindReporteMejorasAndCrmEvents();
-      // La gestión/solución CRM solo está habilitada en MiniSistema Base (www.minisistema.com.ar/sistema).
-      // En instancias clientes (ej. Casa Nueva ERP, Paseo Alberdi), incluso @danielg opera la vista de Reportes del Equipo.
-      if (!isCrmMasterAdminUser()) {
-        if (typeof openSection === 'function') {
-          openSection('sec-reporte-mejoras');
-        }
-        return;
-      }
       if (crmReportsList.length === 0) {
         const cached = loadLocalCrmReports();
         if (cached.length > 0) {
