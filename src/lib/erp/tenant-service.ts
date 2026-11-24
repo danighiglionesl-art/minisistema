@@ -14,6 +14,7 @@ import {
   type ErpTenantDeployment,
   type ErpTenantRecord,
   type ErpTenantSubscription,
+  type ErpTenantTrialInfo,
   expandCommercialToErpModules,
   MINISISTEMA_OFFICIAL_COLORS,
   MINISISTEMA_OFFICIAL_LOGOS,
@@ -424,9 +425,16 @@ export function enforceOptionBranding(
 export function buildDefaultPricingConfig(): ErpPricingConfigRecord {
   const modulePrices: ErpPricingConfigRecord["module_prices"] = {};
   for (const m of ERP_COMMERCIAL_MODULES) {
+    const subMap: Record<string, number> = {};
+    let sum = 0;
+    for (const s of m.submodules) {
+      subMap[s.key] = s.defaultMonthlyArs;
+      sum += s.defaultMonthlyArs;
+    }
     modulePrices[m.key] = {
-      price: m.defaultMonthlyArs,
+      price: sum,
       defaultDiscountPct: 0,
+      submodulePrices: subMap,
     };
   }
   return {
@@ -465,8 +473,10 @@ export function calculateSubscriptionQuote(params: {
   optionType: 1 | 2;
   pricingConfig: ErpPricingConfigRecord;
   customOptionBasePrice?: number | null;
+  optionDiscountPct?: number;
   moduleOverrides: Array<{
     moduleKey: string;
+    selectedSubmodules?: string[];
     customPrice?: number | null;
     discountPct?: number;
     discountFixed?: number;
@@ -478,7 +488,7 @@ export function calculateSubscriptionQuote(params: {
   payerEmail?: string;
   promoStartsAt?: string | null;
 }): ErpTenantSubscription {
-  const optionBasePrice = Math.max(
+  const rawOptBase = Math.max(
     0,
     Math.round(
       params.customOptionBasePrice !== undefined && params.customOptionBasePrice !== null
@@ -488,6 +498,8 @@ export function calculateSubscriptionQuote(params: {
           : Number(params.pricingConfig.option_2_base || 0)
     )
   );
+  const optDiscPct = Math.min(100, Math.max(0, Number(params.optionDiscountPct || 0)));
+  const optionBasePrice = Math.max(0, Math.round(rawOptBase * (1 - optDiscPct / 100)));
 
   const selectedModules: ErpModuleSelection[] = [];
   let modulesNetSum = 0;
@@ -496,12 +508,28 @@ export function calculateSubscriptionQuote(params: {
     const def = ERP_COMMERCIAL_MODULES.find((m) => m.key === item.moduleKey);
     if (!def) continue;
     const cfgEntry = params.pricingConfig.module_prices?.[def.key];
+    const subPricesCfg = cfgEntry?.submodulePrices || {};
+
+    const activeSubs =
+      Array.isArray(item.selectedSubmodules) && item.selectedSubmodules.length > 0
+        ? def.submodules.filter((s) => item.selectedSubmodules!.includes(s.key))
+        : def.submodules;
+    if (activeSubs.length === 0) continue;
+
+    const sumFromSubmodules = activeSubs.reduce((acc, s) => {
+      const sp =
+        subPricesCfg[s.key] !== undefined
+          ? Number(subPricesCfg[s.key])
+          : s.defaultMonthlyArs;
+      return acc + Math.max(0, Math.round(sp));
+    }, 0);
+
     const basePrice = Math.max(
       0,
       Math.round(
         item.customPrice !== undefined && item.customPrice !== null
           ? Number(item.customPrice)
-          : Number(cfgEntry?.price ?? def.defaultMonthlyArs)
+          : sumFromSubmodules
       )
     );
     const discountPct = Math.min(
@@ -520,6 +548,7 @@ export function calculateSubscriptionQuote(params: {
     const finalPrice = Math.max(0, Math.round(afterPct - discountFixed));
     selectedModules.push({
       moduleKey: def.key,
+      selectedSubmodules: activeSubs.map((s) => s.key),
       basePrice,
       discountPct,
       discountFixed,
@@ -567,6 +596,7 @@ export function calculateSubscriptionQuote(params: {
   return {
     optionType: params.optionType,
     optionBasePrice,
+    optionDiscountPct: optDiscPct,
     selectedModules,
     globalDiscountType: durationType,
     globalDiscountPct: globalPct,
@@ -959,6 +989,72 @@ export async function savePlatformSecretsMap(
   }
 }
 
+function normalizePricingConfigWithSubmodules(
+  raw: ErpPricingConfigRecord
+): ErpPricingConfigRecord {
+  const nextModPrices: ErpPricingConfigRecord["module_prices"] = {
+    ...(raw.module_prices || {}),
+  };
+  for (const m of ERP_COMMERCIAL_MODULES) {
+    const existing = nextModPrices[m.key];
+    const existingSubs = existing?.submodulePrices || {};
+    const subMap: Record<string, number> = {};
+    let hasAllSubs = m.submodules.every(
+      (s) => existingSubs[s.key] !== undefined && Number.isFinite(Number(existingSubs[s.key]))
+    );
+
+    if (hasAllSubs) {
+      let sum = 0;
+      for (const s of m.submodules) {
+        const val = Math.max(0, Math.round(Number(existingSubs[s.key] || 0)));
+        subMap[s.key] = val;
+        sum += val;
+      }
+      nextModPrices[m.key] = {
+        price: sum,
+        defaultDiscountPct: Number(existing?.defaultDiscountPct || 0),
+        submodulePrices: subMap,
+      };
+    } else {
+      const targetModPrice =
+        existing?.price !== undefined
+          ? Math.max(0, Math.round(Number(existing.price)))
+          : m.defaultMonthlyArs;
+      const defaultSum = m.submodules.reduce((a, s) => a + s.defaultMonthlyArs, 0);
+      let running = 0;
+      m.submodules.forEach((s, idx) => {
+        if (existingSubs[s.key] !== undefined) {
+          const v = Math.max(0, Math.round(Number(existingSubs[s.key])));
+          subMap[s.key] = v;
+          running += v;
+        } else if (targetModPrice === defaultSum) {
+          subMap[s.key] = s.defaultMonthlyArs;
+          running += s.defaultMonthlyArs;
+        } else if (idx === m.submodules.length - 1) {
+          subMap[s.key] = Math.max(0, targetModPrice - running);
+        } else {
+          const share =
+            defaultSum > 0
+              ? Math.round((targetModPrice * s.defaultMonthlyArs) / defaultSum)
+              : Math.round(targetModPrice / Math.max(1, m.submodules.length));
+          subMap[s.key] = share;
+          running += share;
+        }
+      });
+      const finalSum = Object.values(subMap).reduce((a, b) => a + b, 0);
+      nextModPrices[m.key] = {
+        price: finalSum,
+        defaultDiscountPct: Number(existing?.defaultDiscountPct || 0),
+        submodulePrices: subMap,
+      };
+    }
+  }
+  return {
+    ...raw,
+    module_prices: nextModPrices,
+  };
+}
+
 export async function getPricingConfig(): Promise<ErpPricingConfigRecord> {
   await ensureBaseMiniSistemaTenant();
   const sb = await getPlatformSupabase();
@@ -967,14 +1063,16 @@ export async function getPricingConfig(): Promise<ErpPricingConfigRecord> {
     .select("*")
     .eq("id", "default")
     .maybeSingle();
-  return (data as ErpPricingConfigRecord | null) || buildDefaultPricingConfig();
+  return normalizePricingConfigWithSubmodules(
+    (data as ErpPricingConfigRecord | null) || buildDefaultPricingConfig()
+  );
 }
 
 export async function savePricingConfig(
   nextCfg: Partial<ErpPricingConfigRecord>
 ): Promise<ErpPricingConfigRecord> {
   const current = await getPricingConfig();
-  const merged: ErpPricingConfigRecord = {
+  const rawMerged: ErpPricingConfigRecord = {
     ...current,
     option_1_base:
       nextCfg.option_1_base !== undefined
@@ -989,6 +1087,7 @@ export async function savePricingConfig(
     currency: "ARS",
     updated_at: new Date().toISOString(),
   };
+  const merged = normalizePricingConfigWithSubmodules(rawMerged);
   const sb = await getPlatformSupabase();
   const { data, error } = await sb
     .from("erp_pricing_config")
@@ -998,7 +1097,7 @@ export async function savePricingConfig(
   if (error) {
     throw new Error(`Error guardando lista de precios: ${error.message}`);
   }
-  return data as ErpPricingConfigRecord;
+  return normalizePricingConfigWithSubmodules(data as ErpPricingConfigRecord);
 }
 
 export async function createOrUpdateMpPreapproval(
@@ -1190,13 +1289,16 @@ export async function provisionNewCommerceTenant(input: {
   customDomain?: string;
   branding?: Partial<ErpTenantBranding>;
   commercialModuleKeys: string[];
+  selectedSubmoduleKeys?: string[];
   moduleOverrides?: Array<{
     moduleKey: string;
+    selectedSubmodules?: string[];
     customPrice?: number | null;
     discountPct?: number;
     discountFixed?: number;
   }>;
   customOptionBasePrice?: number | null;
+  optionDiscountPct?: number;
   globalDiscountType?: DiscountDurationType;
   globalDiscountPct?: number;
   globalDiscountFixed?: number;
@@ -1211,6 +1313,14 @@ export async function provisionNewCommerceTenant(input: {
     name: string;
     whatsapp?: string;
     branch?: string;
+  } | null;
+  trialConfig?: {
+    enabled: boolean;
+    trialHours: number;
+    demoUsername: string;
+    demoPassword: string;
+    quoteId?: string | null;
+    quoteNumber?: string | null;
   } | null;
   siteOrigin?: string;
 }): Promise<ErpTenantRecord> {
@@ -1255,22 +1365,47 @@ export async function provisionNewCommerceTenant(input: {
   const fantasyName = (input.fantasyName || businessName).trim();
   const branding = enforceOptionBranding(optionType, false, input.branding);
 
+  const explicitSubs = Array.isArray(input.selectedSubmoduleKeys)
+    ? input.selectedSubmoduleKeys.filter(Boolean)
+    : [];
   const selectedCommKeys =
     input.commercialModuleKeys.length > 0
       ? input.commercialModuleKeys
-      : ["facturacion", "articulos", "clientes"];
-  const enabledErpModules = expandCommercialToErpModules(selectedCommKeys);
+      : explicitSubs.length > 0
+        ? Array.from(
+            new Set(
+              ERP_COMMERCIAL_MODULES.filter((m) =>
+                m.submodules.some((s) => explicitSubs.includes(s.key))
+              ).map((m) => m.key)
+            )
+          )
+        : ["facturacion", "articulos", "clientes"];
+
+  const enabledErpModules = expandCommercialToErpModules(
+    selectedCommKeys,
+    explicitSubs.length > 0 ? explicitSubs : undefined
+  );
 
   const pricingConfig = await getPricingConfig();
   const moduleOverrides =
     input.moduleOverrides && input.moduleOverrides.length > 0
       ? input.moduleOverrides
-      : selectedCommKeys.map((k) => ({ moduleKey: k }));
+      : selectedCommKeys.map((k) => {
+          const def = ERP_COMMERCIAL_MODULES.find((m) => m.key === k);
+          const selSubs =
+            explicitSubs.length > 0 && def
+              ? def.submodules
+                  .filter((s) => explicitSubs.includes(s.key))
+                  .map((s) => s.key)
+              : undefined;
+          return { moduleKey: k, selectedSubmodules: selSubs };
+        });
 
   const subscription = calculateSubscriptionQuote({
     optionType,
     pricingConfig,
     customOptionBasePrice: input.customOptionBasePrice,
+    optionDiscountPct: input.optionDiscountPct,
     moduleOverrides,
     globalDiscountType: input.globalDiscountType || "none",
     globalDiscountPct: input.globalDiscountPct,
@@ -1284,6 +1419,52 @@ export async function provisionNewCommerceTenant(input: {
       ? input.actividadNegocio
       : "comercial";
 
+  const isTrialMode = Boolean(input.trialConfig?.enabled);
+  const trialHours = Math.max(
+    1,
+    Math.min(24 * 90, Math.round(Number(input.trialConfig?.trialHours || 72)))
+  );
+  const nowMs = Date.now();
+  const startedAtIso = new Date(nowMs).toISOString();
+  const endsAtIso = new Date(nowMs + trialHours * 3600_000).toISOString();
+  const autoCancelAtIso = new Date(
+    nowMs + trialHours * 3600_000 + 10 * 24 * 3600_000
+  ).toISOString();
+
+  const demoUserClean = String(
+    input.trialConfig?.demoUsername ||
+      input.initialAdmin?.username ||
+      `demo_${cleanSlug.slice(0, 12)}`
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "");
+  const demoPassClean =
+    String(
+      input.trialConfig?.demoPassword ||
+        input.initialAdmin?.password ||
+        "Demo2026"
+    ).trim() || "Demo2026";
+
+  const trialMeta: ErpTenantTrialInfo | null = isTrialMode
+    ? {
+        isTrial: true,
+        status: "active_trial",
+        trialHours,
+        startedAt: startedAtIso,
+        endsAt: endsAtIso,
+        autoCancelAt: autoCancelAtIso,
+        demoUsername: demoUserClean,
+        demoPassword: demoPassClean,
+        quoteId: input.trialConfig?.quoteId || null,
+        quoteNumber: input.trialConfig?.quoteNumber || null,
+        extendedCount: 0,
+        confirmedAt: null,
+        cancelledAt: null,
+        cancelReason: null,
+      }
+    : null;
+
   const siteOrigin = input.siteOrigin || "https://www.minisistema.com.ar";
   const deployment: ErpTenantDeployment =
     optionType === 1 && cleanCustomDomain
@@ -1294,6 +1475,7 @@ export async function provisionNewCommerceTenant(input: {
             customDomain: cleanCustomDomain,
           })),
           actividadNegocio,
+          trial: trialMeta,
         }
       : {
           mode: "minisistema_subpath",
@@ -1308,8 +1490,10 @@ export async function provisionNewCommerceTenant(input: {
           vercelDomainVerified: true,
           dnsInstructions: [],
           provisionedAt: new Date().toISOString(),
-          notes:
-            "Opción 2 activa bajo dominio e identidad visual oficial de MiniSistema.",
+          notes: isTrialMode
+            ? `Período de prueba (${trialHours} hs) activo con base limpia.`
+            : "Opción 2 activa bajo dominio e identidad visual oficial de MiniSistema.",
+          trial: trialMeta,
         };
 
   const draftTenant: Omit<ErpTenantRecord, "id" | "created_at" | "updated_at"> = {
@@ -1329,7 +1513,16 @@ export async function provisionNewCommerceTenant(input: {
     deployment,
   };
 
-  // Provision isolated PostgreSQL schema + clean seed (Art 20 + Consumidor Final + @danielg + optional Admin)
+  const effectiveInitialAdmin = isTrialMode
+    ? {
+        username: demoUserClean,
+        password: demoPassClean,
+        name: input.initialAdmin?.name || `Demo ${fantasyName}`,
+        whatsapp: input.initialAdmin?.whatsapp || branding.whatsappDigits,
+        branch: fantasyName,
+      }
+    : input.initialAdmin || null;
+
   const cleanSeed = buildCleanTenantSeed({
     businessName,
     actividadNegocio,
@@ -1339,12 +1532,12 @@ export async function provisionNewCommerceTenant(input: {
     whatsappComercio: `+${branding.whatsappDigits.replace(/\D/g, "")}`,
     emailInfo: branding.emailInfo,
     enabledModules: enabledErpModules,
-    initialAdmin: input.initialAdmin || null,
+    initialAdmin: effectiveInitialAdmin,
   });
 
   await provisionTenantSchemaInDb(draftTenant, cleanSeed.docs, cleanSeed.users);
 
-  if (input.createMpSubscription !== false) {
+  if (!isTrialMode && input.createMpSubscription !== false) {
     try {
       draftTenant.subscription = await createOrUpdateMpPreapproval(
         draftTenant as ErpTenantRecord,
@@ -1367,4 +1560,118 @@ export async function provisionNewCommerceTenant(input: {
 
   invalidateTenantCache(cleanSlug);
   return created as ErpTenantRecord;
+}
+
+/**
+ * Evalúa el estado del período de prueba de un comercio y ejecuta automáticamente:
+ * - Paso a `expired_trial` al cumplirse las horas habilitadas.
+ * - Baja automática (`status: "cancelled"`, `trial.status: "cancelled_baja"`) a los 10 días posteriores
+ *   al vencimiento si no se confirmó la habilitación del Plan.
+ */
+export async function evaluateAndSyncTenantTrial(
+  tenant: ErpTenantRecord
+): Promise<{
+  tenant: ErpTenantRecord;
+  changed: boolean;
+  autoCancelledNow: boolean;
+}> {
+  const trial = tenant.deployment?.trial;
+  if (!trial || !trial.isTrial || tenant.is_base) {
+    return { tenant, changed: false, autoCancelledNow: false };
+  }
+  if (trial.status === "confirmed_plan" || trial.status === "cancelled_baja") {
+    return { tenant, changed: false, autoCancelledNow: false };
+  }
+
+  const nowMs = Date.now();
+  const endsMs = Date.parse(trial.endsAt || "");
+  const autoCancelMs = Date.parse(trial.autoCancelAt || "");
+  const sb = await getPlatformSupabase();
+
+  // 1) Si ya pasaron 10 días desde el fin del período de prueba sin confirmar Plan -> Baja Automática
+  if (Number.isFinite(autoCancelMs) && nowMs >= autoCancelMs) {
+    const nextTrial: ErpTenantTrialInfo = {
+      ...trial,
+      isTrial: true,
+      status: "cancelled_baja",
+      cancelledAt: new Date(nowMs).toISOString(),
+      cancelReason:
+        "Baja automática tras cumplirse 10 días desde el fin del período de prueba sin confirmación del Plan.",
+    };
+    const nextDep: ErpTenantDeployment = {
+      ...tenant.deployment,
+      trial: nextTrial,
+    };
+    const { data: updated } = await sb
+      .from("erp_tenants")
+      .update({
+        status: "cancelled",
+        deployment: nextDep,
+        updated_at: new Date(nowMs).toISOString(),
+      })
+      .eq("slug", tenant.slug)
+      .select("*")
+      .maybeSingle();
+
+    await sb.from("erp_subscription_events").insert({
+      tenant_slug: tenant.slug,
+      event_type: "TRIAL_AUTO_CANCELLED_10D",
+      mp_preapproval_id: null,
+      amount: 0,
+      payload: {
+        startedAt: trial.startedAt,
+        endsAt: trial.endsAt,
+        autoCancelAt: trial.autoCancelAt,
+        quoteNumber: trial.quoteNumber || null,
+      },
+    });
+
+    invalidateTenantCache(tenant.slug);
+    return {
+      tenant: (updated as ErpTenantRecord) || {
+        ...tenant,
+        status: "cancelled",
+        deployment: nextDep,
+      },
+      changed: true,
+      autoCancelledNow: true,
+    };
+  }
+
+  // 2) Si finalizaron las horas de prueba pero aún está dentro de los 10 días de margen
+  if (
+    Number.isFinite(endsMs) &&
+    nowMs >= endsMs &&
+    trial.status === "active_trial"
+  ) {
+    const nextTrial: ErpTenantTrialInfo = {
+      ...trial,
+      status: "expired_trial",
+    };
+    const nextDep: ErpTenantDeployment = {
+      ...tenant.deployment,
+      trial: nextTrial,
+    };
+    const { data: updated } = await sb
+      .from("erp_tenants")
+      .update({
+        deployment: nextDep,
+        updated_at: new Date(nowMs).toISOString(),
+      })
+      .eq("slug", tenant.slug)
+      .select("*")
+      .maybeSingle();
+
+    invalidateTenantCache(tenant.slug);
+    return {
+      tenant: (updated as ErpTenantRecord) || {
+        ...tenant,
+        deployment: nextDep,
+      },
+      changed: true,
+      autoCancelledNow: false,
+    };
+  }
+
+  return { tenant, changed: false, autoCancelledNow: false };
 }

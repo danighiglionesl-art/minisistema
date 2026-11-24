@@ -14,12 +14,14 @@ import {
   createOrUpdateMpPreapproval,
   enforceOptionBranding,
   ensureBaseMiniSistemaTenant,
+  evaluateAndSyncTenantTrial,
   getPlatformSecretsMap,
   getPricingConfig,
   getTenantBySlug,
   invalidateTenantCache,
   provisionNewCommerceTenant,
   provisionOption1Deployment,
+  sanitizeTenantSlug,
   savePlatformSecretsMap,
   savePricingConfig,
 } from "../tenant-service";
@@ -34,15 +36,69 @@ import {
   type DiscountDurationType,
   ERP_COMMERCIAL_MODULES,
   type ErpTenantRecord,
+  type ErpTenantTrialInfo,
   expandCommercialToErpModules,
   GENERAL_ADMIN_DEFAULT_PASS,
   GENERAL_ADMIN_USERNAME,
   normalizeErpRole,
+  type SuperAdminQuoteRecord,
+  type SuperAdminQuoteStatus,
 } from "../types";
 
 type AnyObj = Record<string, any>;
 
 const GLOBAL_USERS_DOC_KEY = "global_users_directory_v1";
+const SUPERADMIN_QUOTES_DOC_KEY = "superadmin_quotes_v1";
+
+interface SuperAdminQuotesDocPayload {
+  updatedAt: string;
+  lastSeq: number;
+  items: SuperAdminQuoteRecord[];
+}
+
+function formatNowArShort(): string {
+  return new Date().toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Cordoba",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+async function getQuotesDoc(
+  baseTenant: ErpTenantRecord
+): Promise<SuperAdminQuotesDocPayload> {
+  const { payload } = await getTenantDoc<SuperAdminQuotesDocPayload>(
+    baseTenant,
+    SUPERADMIN_QUOTES_DOC_KEY,
+    { updatedAt: new Date().toISOString(), lastSeq: 0, items: [] }
+  );
+  const items = Array.isArray(payload?.items) ? [...payload.items] : [];
+  const maxSeq = items.reduce((m, x) => Math.max(m, Number(x?.seq || 0)), 0);
+  return {
+    updatedAt: payload?.updatedAt || new Date().toISOString(),
+    lastSeq: Math.max(Number(payload?.lastSeq || 0), maxSeq),
+    items,
+  };
+}
+
+async function saveQuotesDoc(
+  baseTenant: ErpTenantRecord,
+  doc: SuperAdminQuotesDocPayload,
+  tag: string
+): Promise<void> {
+  doc.updatedAt = new Date().toISOString();
+  await putTenantDoc(
+    baseTenant,
+    SUPERADMIN_QUOTES_DOC_KEY,
+    doc,
+    GENERAL_ADMIN_USERNAME,
+    tag
+  );
+}
 
 interface GlobalUsersDocPayload {
   updatedAt: string;
@@ -324,7 +380,7 @@ export async function handleErpSuperAdmin(
       });
     }
 
-    const [{ data: tenants }, pricing, secrets, { data: events }] =
+    const [{ data: tenants }, pricing, secrets, { data: events }, quotesDoc] =
       await Promise.all([
         sb
           .from("erp_tenants")
@@ -338,9 +394,46 @@ export async function handleErpSuperAdmin(
           .select("*")
           .order("created_at", { ascending: false })
           .limit(30),
+        getQuotesDoc(baseTenant),
       ]);
 
-    const tenantsList = (tenants || []) as ErpTenantRecord[];
+    const rawTenantsList = (tenants || []) as ErpTenantRecord[];
+    const tenantsList: ErpTenantRecord[] = [];
+    let quotesChangedBySweep = false;
+
+    for (const t of rawTenantsList) {
+      if (t.deployment?.trial?.isTrial) {
+        const synced = await evaluateAndSyncTenantTrial(t);
+        tenantsList.push(synced.tenant);
+        if (synced.autoCancelledNow) {
+          for (const q of quotesDoc.items) {
+            if (
+              q.linkedTenantSlug === t.slug ||
+              (t.deployment?.trial?.quoteId && q.id === t.deployment.trial.quoteId)
+            ) {
+              q.estado = "BAJA_DEMO";
+              q.updatedAt = new Date().toISOString();
+              q.historial = [
+                {
+                  fecha: formatNowArShort(),
+                  accion: "BAJA AUTOMÁTICA (+10 DÍAS)",
+                  detalle: `Demo "${t.fantasy_name}" dada de baja automáticamente al cumplirse 10 días desde el fin del período de prueba sin contratación.`,
+                },
+                ...(Array.isArray(q.historial) ? q.historial : []),
+              ];
+              quotesChangedBySweep = true;
+            }
+          }
+        }
+      } else {
+        tenantsList.push(t);
+      }
+    }
+
+    if (quotesChangedBySweep) {
+      await saveQuotesDoc(baseTenant, quotesDoc, "auto_cancel_trial_10d_sweep");
+    }
+
     const globalUsers = await buildGlobalUsersInventory(baseTenant, tenantsList);
 
     if (action === "global_users") {
@@ -357,6 +450,7 @@ export async function handleErpSuperAdmin(
       definedUserTypes: DEFINED_USER_TYPES,
       globalUsers,
       pricingConfig: pricing,
+      quotes: quotesDoc.items,
       tenants: tenantsList,
       recentEvents: events || [],
       credentialsStatus: {
@@ -546,8 +640,315 @@ export async function handleErpSuperAdmin(
       });
     }
 
+    if (action === "save_quote") {
+      const pricingConfig = await getPricingConfig();
+      const quotesDoc = await getQuotesDoc(baseTenant);
+      const qIn = (body.quote || body) as AnyObj;
+      const reqId = String(qIn.id || "").trim();
+      const existingIdx = reqId
+        ? quotesDoc.items.findIndex((x) => x.id === reqId)
+        : -1;
+      const prev = existingIdx >= 0 ? quotesDoc.items[existingIdx] : null;
+
+      const optionType: 1 | 2 = Number(qIn.optionType ?? prev?.optionType ?? 1) === 1 ? 1 : 2;
+      const optionBasePrice = Math.max(
+        0,
+        Math.round(
+          qIn.optionBasePrice !== undefined
+            ? Number(qIn.optionBasePrice)
+            : optionType === 1
+              ? Number(pricingConfig.option_1_base || 0)
+              : Number(pricingConfig.option_2_base || 0)
+        )
+      );
+      const optionDiscountPct = Math.min(
+        100,
+        Math.max(0, Number(qIn.optionDiscountPct ?? prev?.optionDiscountPct ?? 0))
+      );
+      const optionNet = Math.max(
+        0,
+        Math.round(optionBasePrice * (1 - optionDiscountPct / 100))
+      );
+
+      const selectedSubmoduleKeys: string[] = Array.isArray(qIn.selectedSubmoduleKeys)
+        ? qIn.selectedSubmoduleKeys.map((x: unknown) => String(x || "").trim()).filter(Boolean)
+        : prev?.selectedSubmoduleKeys || [];
+
+      const selectedModuleKeys = Array.from(
+        new Set(
+          ERP_COMMERCIAL_MODULES.filter((m) =>
+            m.submodules.some((s) => selectedSubmoduleKeys.includes(s.key))
+          ).map((m) => m.key)
+        )
+      );
+
+      const subPricesSnap: Record<string, number> = {
+        ...(prev?.submodulePricesSnapshot || {}),
+        ...(qIn.submodulePricesSnapshot && typeof qIn.submodulePricesSnapshot === "object"
+          ? qIn.submodulePricesSnapshot
+          : {}),
+      };
+      const modDiscs: Record<string, number> = {
+        ...(prev?.moduleDiscountsPct || {}),
+        ...(qIn.moduleDiscountsPct && typeof qIn.moduleDiscountsPct === "object"
+          ? qIn.moduleDiscountsPct
+          : {}),
+      };
+
+      let modulesNet = 0;
+      for (const mod of ERP_COMMERCIAL_MODULES) {
+        const chosenSubs = mod.submodules.filter((s) =>
+          selectedSubmoduleKeys.includes(s.key)
+        );
+        if (!chosenSubs.length) continue;
+        const cfgSubMap = pricingConfig.module_prices?.[mod.key]?.submodulePrices || {};
+        let modSum = 0;
+        for (const s of chosenSubs) {
+          const sp =
+            subPricesSnap[s.key] !== undefined
+              ? Math.max(0, Math.round(Number(subPricesSnap[s.key])))
+              : cfgSubMap[s.key] !== undefined
+                ? Math.max(0, Math.round(Number(cfgSubMap[s.key])))
+                : s.defaultMonthlyArs;
+          subPricesSnap[s.key] = sp;
+          modSum += sp;
+        }
+        const mDisc = Math.min(100, Math.max(0, Number(modDiscs[mod.key] || 0)));
+        modulesNet += Math.max(0, Math.round(modSum * (1 - mDisc / 100)));
+      }
+
+      const subtotalMensual = Math.max(0, optionNet + modulesNet);
+      const globalDiscountType: DiscountDurationType =
+        qIn.globalDiscountType === "temporary" || qIn.globalDiscountType === "permanent"
+          ? qIn.globalDiscountType
+          : prev?.globalDiscountType || "none";
+      const globalDiscountPct =
+        globalDiscountType === "none"
+          ? 0
+          : Math.min(100, Math.max(0, Number(qIn.globalDiscountPct ?? prev?.globalDiscountPct ?? 0)));
+      const globalDiscountFixed =
+        globalDiscountType === "none"
+          ? 0
+          : Math.max(0, Math.round(Number(qIn.globalDiscountFixed ?? prev?.globalDiscountFixed ?? 0)));
+      const temporaryMonths =
+        globalDiscountType === "temporary"
+          ? Math.max(1, Math.min(60, Math.round(Number(qIn.temporaryMonths ?? prev?.temporaryMonths ?? 3))))
+          : 0;
+
+      const discounted = Math.max(
+        0,
+        Math.round(subtotalMensual * (1 - globalDiscountPct / 100) - globalDiscountFixed)
+      );
+      const totalPromoMensual = globalDiscountType === "none" ? subtotalMensual : discounted;
+      const totalRegularMensual =
+        globalDiscountType === "permanent" ? discounted : subtotalMensual;
+
+      const validStatuses: SuperAdminQuoteStatus[] = [
+        "BORRADOR",
+        "ENVIADO",
+        "ACEPTADO",
+        "EN_PRUEBA",
+        "CONFIRMADO",
+        "RECHAZADO",
+        "BAJA_DEMO",
+      ];
+      const rawEstado = String(qIn.estado || prev?.estado || "ENVIADO")
+        .trim()
+        .toUpperCase() as SuperAdminQuoteStatus;
+      const estado: SuperAdminQuoteStatus = validStatuses.includes(rawEstado)
+        ? rawEstado
+        : "ENVIADO";
+
+      const fantasyName = String(
+        qIn.fantasyName ?? prev?.fantasyName ?? "Cliente sin nombre"
+      ).trim();
+      const businessName = String(
+        qIn.businessName ?? prev?.businessName ?? fantasyName
+      ).trim();
+      const cleanSlugCandidate = sanitizeTenantSlug(
+        String(qIn.slug ?? prev?.slug ?? fantasyName)
+      );
+      const trialHours = Math.max(
+        1,
+        Math.min(24 * 90, Math.round(Number(qIn.trialHours ?? prev?.trialHours ?? 72)))
+      );
+      const demoUsername =
+        String(
+          qIn.demoUsername ??
+            prev?.demoUsername ??
+            `demo_${(cleanSlugCandidate || "cliente").slice(0, 12)}`
+        )
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9._-]/g, "") || "demo";
+      const demoPassword =
+        String(qIn.demoPassword ?? prev?.demoPassword ?? "Demo2026").trim() ||
+        "Demo2026";
+
+      const nowIso = new Date().toISOString();
+      const nextSeq = prev ? prev.seq : quotesDoc.lastSeq + 1;
+      if (!prev) quotesDoc.lastSeq = nextSeq;
+      const numero = prev?.numero || `PRES-${String(nextSeq).padStart(4, "0")}`;
+
+      const histEntry = {
+        fecha: formatNowArShort(),
+        accion: prev
+          ? String(qIn.histAction || `EDICIÓN (${estado})`)
+          : `ALTA DE PRESUPUESTO (${estado})`,
+        detalle: String(
+          qIn.histDetail ||
+            `Opción ${optionType} · ${selectedModuleKeys.length} módulos (${selectedSubmoduleKeys.length} submódulos) · Mensual: $ ${totalPromoMensual.toLocaleString("es-AR")} · Demo: ${trialHours} hs`
+        ),
+      };
+
+      const savedQuote: SuperAdminQuoteRecord = {
+        id: prev?.id || `quote_${Date.now()}_${nextSeq}`,
+        seq: nextSeq,
+        numero,
+        estado,
+        createdAt: prev?.createdAt || nowIso,
+        updatedAt: nowIso,
+        validDays: Math.max(1, Math.round(Number(qIn.validDays ?? prev?.validDays ?? 15))),
+        slug: cleanSlugCandidate,
+        fantasyName,
+        businessName,
+        cuit: String(qIn.cuit ?? prev?.cuit ?? "").trim(),
+        contactName: String(qIn.contactName ?? prev?.contactName ?? "").trim(),
+        payerEmail: String(qIn.payerEmail ?? prev?.payerEmail ?? "").trim(),
+        whatsappDigits: String(qIn.whatsappDigits ?? prev?.whatsappDigits ?? "").trim(),
+        localidad: String(qIn.localidad ?? prev?.localidad ?? "RÍO CUARTO").trim(),
+        optionType,
+        customDomain: String(qIn.customDomain ?? prev?.customDomain ?? "").trim(),
+        actividadNegocio:
+          qIn.actividadNegocio === "servicios" || qIn.actividadNegocio === "mixta"
+            ? qIn.actividadNegocio
+            : prev?.actividadNegocio || "comercial",
+        primaryHex: String(qIn.primaryHex ?? prev?.primaryHex ?? "#112D3A"),
+        accentHex: String(qIn.accentHex ?? prev?.accentHex ?? "#56D7A1"),
+        logo1x1Url: String(qIn.logo1x1Url ?? prev?.logo1x1Url ?? ""),
+        logoHorizontalUrl: String(
+          qIn.logoHorizontalUrl ?? prev?.logoHorizontalUrl ?? ""
+        ),
+        selectedModuleKeys,
+        selectedSubmoduleKeys,
+        optionBasePrice,
+        optionDiscountPct,
+        moduleDiscountsPct: modDiscs,
+        submodulePricesSnapshot: subPricesSnap,
+        globalDiscountType,
+        globalDiscountPct,
+        globalDiscountFixed,
+        temporaryMonths,
+        optionNet,
+        modulesNet,
+        subtotalMensual,
+        totalPromoMensual,
+        totalRegularMensual,
+        trialHours,
+        demoUsername,
+        demoPassword,
+        adminUsername: String(qIn.adminUsername ?? prev?.adminUsername ?? ""),
+        adminPassword: String(qIn.adminPassword ?? prev?.adminPassword ?? ""),
+        adminName: String(qIn.adminName ?? prev?.adminName ?? ""),
+        notas: String(qIn.notas ?? prev?.notas ?? "").trim(),
+        linkedTenantSlug:
+          qIn.linkedTenantSlug !== undefined
+            ? qIn.linkedTenantSlug
+            : prev?.linkedTenantSlug || null,
+        historial: [histEntry, ...(Array.isArray(prev?.historial) ? prev.historial : [])].slice(
+          0,
+          50
+        ),
+      };
+
+      if (existingIdx >= 0) {
+        quotesDoc.items[existingIdx] = savedQuote;
+      } else {
+        quotesDoc.items.unshift(savedQuote);
+      }
+
+      await saveQuotesDoc(baseTenant, quotesDoc, `save_quote:${numero}`);
+      return NextResponse.json({
+        ok: true,
+        message: `Presupuesto ${numero} (${fantasyName}) guardado correctamente.`,
+        quote: savedQuote,
+        quotes: quotesDoc.items,
+      });
+    }
+
+    if (action === "update_quote_status") {
+      const id = String(body.id || "").trim();
+      const quotesDoc = await getQuotesDoc(baseTenant);
+      const found = quotesDoc.items.find(
+        (q) => q.id === id || q.numero === id
+      );
+      if (!found) {
+        return NextResponse.json(
+          { ok: false, message: "Presupuesto no encontrado." },
+          { status: 404 }
+        );
+      }
+      if (body.estado) {
+        found.estado = String(body.estado)
+          .trim()
+          .toUpperCase() as SuperAdminQuoteStatus;
+      }
+      if (body.notas !== undefined) {
+        found.notas = String(body.notas || "").trim();
+      }
+      found.updatedAt = new Date().toISOString();
+      found.historial = [
+        {
+          fecha: formatNowArShort(),
+          accion: `ESTADO → ${found.estado}`,
+          detalle: String(body.detalle || body.notas || `Estado actualizado a ${found.estado}`),
+        },
+        ...(Array.isArray(found.historial) ? found.historial : []),
+      ].slice(0, 50);
+
+      await saveQuotesDoc(baseTenant, quotesDoc, `update_quote_status:${found.numero}`);
+      return NextResponse.json({
+        ok: true,
+        message: `Presupuesto ${found.numero} actualizado a ${found.estado}.`,
+        quote: found,
+        quotes: quotesDoc.items,
+      });
+    }
+
+    if (action === "delete_quote") {
+      const id = String(body.id || "").trim();
+      const quotesDoc = await getQuotesDoc(baseTenant);
+      const before = quotesDoc.items.length;
+      quotesDoc.items = quotesDoc.items.filter(
+        (q) => q.id !== id && q.numero !== id
+      );
+      if (quotesDoc.items.length === before) {
+        return NextResponse.json(
+          { ok: false, message: "Presupuesto no encontrado." },
+          { status: 404 }
+        );
+      }
+      await saveQuotesDoc(baseTenant, quotesDoc, `delete_quote:${id}`);
+      return NextResponse.json({
+        ok: true,
+        message: "Presupuesto eliminado.",
+        quotes: quotesDoc.items,
+      });
+    }
+
     if (action === "provision_tenant") {
       try {
+        const isTrialMode = Boolean(body.trialMode);
+        const trialHours = Math.max(
+          1,
+          Math.min(24 * 90, Math.round(Number(body.trialHours || 72)))
+        );
+        const quoteId = body.quoteId ? String(body.quoteId).trim() : null;
+        const quotesDoc = quoteId ? await getQuotesDoc(baseTenant) : null;
+        const linkedQuote = quotesDoc
+          ? quotesDoc.items.find((q) => q.id === quoteId || q.numero === quoteId) || null
+          : null;
+
         const created = await provisionNewCommerceTenant({
           slug: String(body.slug || ""),
           optionType: Number(body.optionType) === 1 ? 1 : 2,
@@ -562,6 +963,9 @@ export async function handleErpSuperAdmin(
           commercialModuleKeys: Array.isArray(body.commercialModuleKeys)
             ? body.commercialModuleKeys
             : [],
+          selectedSubmoduleKeys: Array.isArray(body.selectedSubmoduleKeys)
+            ? body.selectedSubmoduleKeys
+            : undefined,
           moduleOverrides: Array.isArray(body.moduleOverrides)
             ? body.moduleOverrides
             : undefined,
@@ -570,13 +974,17 @@ export async function handleErpSuperAdmin(
             body.customOptionBasePrice !== ""
               ? Number(body.customOptionBasePrice)
               : null,
+          optionDiscountPct:
+            body.optionDiscountPct !== undefined ? Number(body.optionDiscountPct) : 0,
           globalDiscountType: (body.globalDiscountType ||
             "none") as DiscountDurationType,
           globalDiscountPct: Number(body.globalDiscountPct || 0),
           globalDiscountFixed: Number(body.globalDiscountFixed || 0),
           temporaryMonths: Number(body.temporaryMonths || 3),
           payerEmail: String(body.payerEmail || ""),
-          createMpSubscription: body.createMpSubscription !== false,
+          createMpSubscription: isTrialMode
+            ? false
+            : body.createMpSubscription !== false,
           externalSupabaseUrl: body.externalSupabaseUrl
             ? String(body.externalSupabaseUrl).trim()
             : null,
@@ -584,25 +992,58 @@ export async function handleErpSuperAdmin(
             ? String(body.externalSupabaseKey).trim()
             : null,
           initialAdmin: body.initialAdmin || null,
+          trialConfig: isTrialMode
+            ? {
+                enabled: true,
+                trialHours,
+                demoUsername: String(body.demoUsername || "").trim(),
+                demoPassword: String(body.demoPassword || "").trim(),
+                quoteId: linkedQuote?.id || quoteId,
+                quoteNumber: linkedQuote?.numero || null,
+              }
+            : null,
           siteOrigin,
         });
 
+        if (quotesDoc && linkedQuote) {
+          linkedQuote.linkedTenantSlug = created.slug;
+          linkedQuote.estado = isTrialMode ? "EN_PRUEBA" : "CONFIRMADO";
+          linkedQuote.updatedAt = new Date().toISOString();
+          linkedQuote.historial = [
+            {
+              fecha: formatNowArShort(),
+              accion: isTrialMode
+                ? `DEMO HABILITADA (${trialHours} HS)`
+                : "PLAN DEFINITIVO HABILITADO",
+              detalle: isTrialMode
+                ? `Sistema demo "${created.slug}" creado con BD limpia. Usuario: @${created.deployment?.trial?.demoUsername} · Vence: ${new Date(created.deployment?.trial?.endsAt || "").toLocaleString("es-AR")}`
+                : `Sistema definitivo "${created.slug}" activo (${created.deployment.publicErpUrl}).`,
+            },
+            ...(Array.isArray(linkedQuote.historial) ? linkedQuote.historial : []),
+          ].slice(0, 50);
+          await saveQuotesDoc(baseTenant, quotesDoc, `link_quote_tenant:${linkedQuote.numero}`);
+        }
+
         await sb.from("erp_subscription_events").insert({
           tenant_slug: created.slug,
-          event_type: "TENANT_PROVISIONED",
+          event_type: isTrialMode ? "TRIAL_PROVISIONED" : "TENANT_PROVISIONED",
           mp_preapproval_id: created.subscription.mpPreapprovalId,
-          amount: created.subscription.activeMonthlyAmount,
+          amount: isTrialMode ? 0 : created.subscription.activeMonthlyAmount,
           payload: {
             optionType: created.option_type,
             schema: created.db_schema,
             publicErpUrl: created.deployment.publicErpUrl,
+            trial: created.deployment.trial || null,
           },
         });
 
         return NextResponse.json({
           ok: true,
-          message: `¡Sistema "${created.fantasy_name}" creado con base de datos aislada (${created.db_schema}) limpia!`,
+          message: isTrialMode
+            ? `🧪 Período de prueba (${trialHours} hs) habilitado para "${created.fantasy_name}" con base limpia (${created.db_schema}). Usuario demo: @${created.deployment.trial?.demoUsername}`
+            : `¡Sistema "${created.fantasy_name}" creado con base de datos aislada (${created.db_schema}) limpia!`,
           tenant: created,
+          quote: linkedQuote,
         });
       } catch (err) {
         return NextResponse.json(
@@ -616,6 +1057,301 @@ export async function handleErpSuperAdmin(
           { status: 400 }
         );
       }
+    }
+
+    if (action === "extend_tenant_trial") {
+      const slug = String(body.slug || "").trim().toLowerCase();
+      const addHours = Math.max(
+        1,
+        Math.min(24 * 90, Math.round(Number(body.addHours || body.hours || 72)))
+      );
+      const existing = await getTenantBySlug(slug);
+      if (!existing || existing.is_base) {
+        return NextResponse.json(
+          { ok: false, message: "Comercio de prueba no encontrado." },
+          { status: 404 }
+        );
+      }
+      const prevTrial = existing.deployment?.trial;
+      const nowMs = Date.now();
+      const prevEndsMs = prevTrial?.endsAt ? Date.parse(prevTrial.endsAt) : nowMs;
+      const baseMs = Number.isFinite(prevEndsMs) && prevEndsMs > nowMs ? prevEndsMs : nowMs;
+      const nextEndsMs = baseMs + addHours * 3600_000;
+      const nextAutoCancelMs = nextEndsMs + 10 * 24 * 3600_000;
+
+      const nextTrial: ErpTenantTrialInfo = {
+        isTrial: true,
+        status: "active_trial",
+        trialHours: Number(prevTrial?.trialHours || 0) + addHours,
+        startedAt: prevTrial?.startedAt || new Date(nowMs).toISOString(),
+        endsAt: new Date(nextEndsMs).toISOString(),
+        autoCancelAt: new Date(nextAutoCancelMs).toISOString(),
+        demoUsername: prevTrial?.demoUsername || "demo",
+        demoPassword: prevTrial?.demoPassword || "",
+        quoteId: prevTrial?.quoteId || null,
+        quoteNumber: prevTrial?.quoteNumber || null,
+        extendedCount: Number(prevTrial?.extendedCount || 0) + 1,
+        confirmedAt: null,
+        cancelledAt: null,
+        cancelReason: null,
+      };
+
+      const nextDep = {
+        ...existing.deployment,
+        trial: nextTrial,
+      };
+
+      const { data: updated, error } = await sb
+        .from("erp_tenants")
+        .update({
+          status: "active",
+          deployment: nextDep,
+          updated_at: new Date(nowMs).toISOString(),
+        })
+        .eq("slug", slug)
+        .select("*")
+        .single();
+
+      if (error) {
+        return NextResponse.json({ ok: false, message: error.message }, { status: 400 });
+      }
+      invalidateTenantCache(slug);
+
+      // Asegurar que los usuarios demo estén activos si venían de una baja previa
+      const tUsers = await listTenantUsersFromDb(existing);
+      for (const u of tUsers) {
+        if (u.active === false) {
+          await upsertTenantUserInDb(existing, {
+            ...u,
+            active: true,
+            actor: GENERAL_ADMIN_USERNAME,
+          });
+        }
+      }
+
+      const quotesDoc = await getQuotesDoc(baseTenant);
+      let touchedQuote = false;
+      for (const q of quotesDoc.items) {
+        if (q.linkedTenantSlug === slug || (nextTrial.quoteId && q.id === nextTrial.quoteId)) {
+          q.estado = "EN_PRUEBA";
+          q.trialHours = nextTrial.trialHours;
+          q.updatedAt = new Date(nowMs).toISOString();
+          q.historial = [
+            {
+              fecha: formatNowArShort(),
+              accion: `PRUEBA EXTENDIDA (+${addHours} HS)`,
+              detalle: `Nuevo vencimiento: ${new Date(nextEndsMs).toLocaleString("es-AR")} (Baja automática diferida al ${new Date(nextAutoCancelMs).toLocaleDateString("es-AR")}).`,
+            },
+            ...(Array.isArray(q.historial) ? q.historial : []),
+          ].slice(0, 50);
+          touchedQuote = true;
+        }
+      }
+      if (touchedQuote) {
+        await saveQuotesDoc(baseTenant, quotesDoc, `extend_trial:${slug}`);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        message: `⏱️ Período de prueba de "${existing.fantasy_name}" extendido por +${addHours} horas (vence ${new Date(nextEndsMs).toLocaleString("es-AR", { timeZone: "America/Argentina/Cordoba" })}).`,
+        tenant: updated,
+      });
+    }
+
+    if (action === "confirm_tenant_plan") {
+      const slug = String(body.slug || "").trim().toLowerCase();
+      const existing = await getTenantBySlug(slug);
+      if (!existing || existing.is_base) {
+        return NextResponse.json(
+          { ok: false, message: "Comercio no encontrado." },
+          { status: 404 }
+        );
+      }
+
+      const nowIso = new Date().toISOString();
+      const prevTrial = existing.deployment?.trial;
+      const nextTrial: ErpTenantTrialInfo | null = prevTrial
+        ? {
+            ...prevTrial,
+            isTrial: false,
+            status: "confirmed_plan",
+            confirmedAt: nowIso,
+            cancelledAt: null,
+            cancelReason: null,
+          }
+        : null;
+
+      let nextSub = { ...existing.subscription };
+      if (body.payerEmail) {
+        nextSub.payerEmail = String(body.payerEmail).trim();
+      }
+      if (body.createMpSubscription !== false) {
+        try {
+          nextSub = await createOrUpdateMpPreapproval(
+            { ...existing, subscription: nextSub },
+            siteOrigin
+          );
+        } catch {
+          // Non-fatal if MP token is in sandbox/offline
+        }
+      }
+
+      const nextDep = {
+        ...existing.deployment,
+        notes: "Plan comercial confirmado y activo.",
+        trial: nextTrial,
+      };
+
+      const { data: updated, error } = await sb
+        .from("erp_tenants")
+        .update({
+          status: "active",
+          subscription: nextSub,
+          deployment: nextDep,
+          updated_at: nowIso,
+        })
+        .eq("slug", slug)
+        .select("*")
+        .single();
+
+      if (error) {
+        return NextResponse.json({ ok: false, message: error.message }, { status: 400 });
+      }
+      invalidateTenantCache(slug);
+
+      const tUsers = await listTenantUsersFromDb(existing);
+      for (const u of tUsers) {
+        if (u.active === false) {
+          await upsertTenantUserInDb(existing, {
+            ...u,
+            active: true,
+            actor: GENERAL_ADMIN_USERNAME,
+          });
+        }
+      }
+
+      const quotesDoc = await getQuotesDoc(baseTenant);
+      let touchedQuote = false;
+      for (const q of quotesDoc.items) {
+        if (q.linkedTenantSlug === slug || (prevTrial?.quoteId && q.id === prevTrial.quoteId)) {
+          q.estado = "CONFIRMADO";
+          q.updatedAt = nowIso;
+          q.historial = [
+            {
+              fecha: formatNowArShort(),
+              accion: "PLAN DEFINITIVO CONFIRMADO",
+              detalle: `El cliente confirmó la contratación del servicio ($ ${Number(nextSub.activeMonthlyAmount || 0).toLocaleString("es-AR")}/mes).`,
+            },
+            ...(Array.isArray(q.historial) ? q.historial : []),
+          ].slice(0, 50);
+          touchedQuote = true;
+        }
+      }
+      if (touchedQuote) {
+        await saveQuotesDoc(baseTenant, quotesDoc, `confirm_plan:${slug}`);
+      }
+
+      await sb.from("erp_subscription_events").insert({
+        tenant_slug: slug,
+        event_type: "TRIAL_CONFIRMED_TO_PLAN",
+        mp_preapproval_id: nextSub.mpPreapprovalId,
+        amount: nextSub.activeMonthlyAmount,
+        payload: { initPoint: nextSub.mpInitPoint },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        message: `✅ ¡Plan definitivo habilitado para "${existing.fantasy_name}"! Se conservaron todos sus datos y usuarios.`,
+        tenant: updated,
+        subscription: nextSub,
+      });
+    }
+
+    if (action === "cancel_tenant_trial") {
+      const slug = String(body.slug || "").trim().toLowerCase();
+      const existing = await getTenantBySlug(slug);
+      if (!existing || existing.is_base) {
+        return NextResponse.json(
+          { ok: false, message: "Comercio no encontrado." },
+          { status: 404 }
+        );
+      }
+
+      const nowIso = new Date().toISOString();
+      const prevTrial = existing.deployment?.trial;
+      const reason =
+        String(body.reason || "").trim() ||
+        "Baja del período de prueba por no contratación del servicio.";
+
+      const nextTrial: ErpTenantTrialInfo = {
+        isTrial: true,
+        status: "cancelled_baja",
+        trialHours: Number(prevTrial?.trialHours || 72),
+        startedAt: prevTrial?.startedAt || nowIso,
+        endsAt: prevTrial?.endsAt || nowIso,
+        autoCancelAt: prevTrial?.autoCancelAt || nowIso,
+        demoUsername: prevTrial?.demoUsername || "demo",
+        demoPassword: prevTrial?.demoPassword || "",
+        quoteId: prevTrial?.quoteId || null,
+        quoteNumber: prevTrial?.quoteNumber || null,
+        extendedCount: Number(prevTrial?.extendedCount || 0),
+        confirmedAt: null,
+        cancelledAt: nowIso,
+        cancelReason: reason,
+      };
+
+      const { data: updated, error } = await sb
+        .from("erp_tenants")
+        .update({
+          status: "cancelled",
+          deployment: { ...existing.deployment, trial: nextTrial },
+          updated_at: nowIso,
+        })
+        .eq("slug", slug)
+        .select("*")
+        .single();
+
+      if (error) {
+        return NextResponse.json({ ok: false, message: error.message }, { status: 400 });
+      }
+      invalidateTenantCache(slug);
+
+      const tUsers = await listTenantUsersFromDb(existing);
+      for (const u of tUsers) {
+        if (u.username.toLowerCase() === GENERAL_ADMIN_USERNAME) continue;
+        await upsertTenantUserInDb(existing, {
+          ...u,
+          active: false,
+          actor: GENERAL_ADMIN_USERNAME,
+        });
+      }
+
+      const quotesDoc = await getQuotesDoc(baseTenant);
+      let touchedQuote = false;
+      for (const q of quotesDoc.items) {
+        if (q.linkedTenantSlug === slug || (prevTrial?.quoteId && q.id === prevTrial.quoteId)) {
+          q.estado = "BAJA_DEMO";
+          q.updatedAt = nowIso;
+          q.historial = [
+            {
+              fecha: formatNowArShort(),
+              accion: "DEMO DADA DE BAJA",
+              detalle: reason,
+            },
+            ...(Array.isArray(q.historial) ? q.historial : []),
+          ].slice(0, 50);
+          touchedQuote = true;
+        }
+      }
+      if (touchedQuote) {
+        await saveQuotesDoc(baseTenant, quotesDoc, `cancel_trial:${slug}`);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        message: `🗑️ El sistema demo "${existing.fantasy_name}" fue dado de baja correctamente.`,
+        tenant: updated,
+      });
     }
 
     if (action === "update_tenant") {

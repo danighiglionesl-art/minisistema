@@ -43,6 +43,7 @@ export type DiscountDurationType = "none" | "temporary" | "permanent";
 
 export interface ErpModuleSelection {
   moduleKey: string;
+  selectedSubmodules?: string[];
   basePrice: number;
   discountPct: number;
   discountFixed: number;
@@ -52,6 +53,7 @@ export interface ErpModuleSelection {
 export interface ErpTenantSubscription {
   optionType: 1 | 2;
   optionBasePrice: number;
+  optionDiscountPct?: number;
   selectedModules: ErpModuleSelection[];
   globalDiscountType: DiscountDurationType;
   globalDiscountPct: number;
@@ -70,6 +72,23 @@ export interface ErpTenantSubscription {
   lastSyncAt: string | null;
 }
 
+export interface ErpTenantTrialInfo {
+  isTrial: boolean;
+  status: "active_trial" | "expired_trial" | "confirmed_plan" | "cancelled_baja";
+  trialHours: number;
+  startedAt: string;
+  endsAt: string;
+  autoCancelAt: string;
+  demoUsername: string;
+  demoPassword?: string;
+  quoteId?: string | null;
+  quoteNumber?: string | null;
+  extendedCount?: number;
+  confirmedAt?: string | null;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+}
+
 export interface ErpTenantDeployment {
   mode: "minisistema_subpath" | "custom_domain_vercel_github";
   actividadNegocio?: "comercial" | "servicios" | "mixta";
@@ -84,6 +103,7 @@ export interface ErpTenantDeployment {
   dnsInstructions: Array<{ type: string; name: string; value: string }>;
   provisionedAt: string;
   notes: string;
+  trial?: ErpTenantTrialInfo | null;
 }
 
 export interface ErpTenantRecord {
@@ -106,12 +126,81 @@ export interface ErpTenantRecord {
   updated_at?: string;
 }
 
+export interface CommercialSubmoduleDef {
+  key: string;
+  name: string;
+  defaultMonthlyArs: number;
+}
+
 export interface CommercialModuleDef {
   key: string;
   name: string;
   description: string;
   defaultMonthlyArs: number;
   erpModuleKeys: string[];
+  submodules: CommercialSubmoduleDef[];
+}
+
+export type SuperAdminQuoteStatus =
+  | "BORRADOR"
+  | "ENVIADO"
+  | "ACEPTADO"
+  | "EN_PRUEBA"
+  | "CONFIRMADO"
+  | "RECHAZADO"
+  | "BAJA_DEMO";
+
+export interface SuperAdminQuoteRecord {
+  id: string;
+  seq: number;
+  numero: string;
+  estado: SuperAdminQuoteStatus;
+  createdAt: string;
+  updatedAt: string;
+  validDays: number;
+  slug: string;
+  fantasyName: string;
+  businessName: string;
+  cuit: string;
+  contactName: string;
+  payerEmail: string;
+  whatsappDigits: string;
+  localidad: string;
+  optionType: 1 | 2;
+  customDomain: string;
+  actividadNegocio: "comercial" | "servicios" | "mixta";
+  primaryHex: string;
+  accentHex: string;
+  logo1x1Url: string;
+  logoHorizontalUrl: string;
+  selectedModuleKeys: string[];
+  selectedSubmoduleKeys: string[];
+  optionBasePrice: number;
+  optionDiscountPct: number;
+  moduleDiscountsPct: Record<string, number>;
+  submodulePricesSnapshot: Record<string, number>;
+  globalDiscountType: DiscountDurationType;
+  globalDiscountPct: number;
+  globalDiscountFixed: number;
+  temporaryMonths: number;
+  optionNet: number;
+  modulesNet: number;
+  subtotalMensual: number;
+  totalPromoMensual: number;
+  totalRegularMensual: number;
+  trialHours: number;
+  demoUsername: string;
+  demoPassword: string;
+  adminUsername: string;
+  adminPassword: string;
+  adminName: string;
+  notas: string;
+  linkedTenantSlug: string | null;
+  historial: Array<{
+    fecha: string;
+    accion: string;
+    detalle: string;
+  }>;
 }
 
 export const MINISISTEMA_OFFICIAL_COLORS = {
@@ -205,10 +294,12 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "estadisticas:art_generico",
   "tema",
   "verificador",
+  "administracion_personal",
   "cv",
   "cv:recibidos",
   "cv:previsualizados",
   "personal:asistencias",
+  "gestion_consultorios",
   "turnos",
   "turnos:profesionales",
   "turnos:obras_sociales",
@@ -219,6 +310,16 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "turnos:gestion_turnos",
   "turnos:pagos_split",
   "turnos:portal",
+  "historia_clinica",
+  "historia_clinica:fichas",
+  "historia_clinica:evoluciones",
+  "historia_clinica:estudios",
+  "historia_clinica:recetas",
+  "gestion_web",
+  "gestion_web:usuarios",
+  "gestion_web:editor",
+  "gestion_web:recetas",
+  "gestion_web:profesionales",
   "inmobiliaria",
   "inmobiliaria:banners",
   "inmobiliaria:propiedades",
@@ -246,6 +347,8 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "servicios:abonos",
   "servicios:informes",
   "perfil",
+  "atajos",
+  "manual_usuario",
   "ayuda",
   "ayuda:atajos",
   "ayuda:manual_usuario",
@@ -272,6 +375,19 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "facturacion:comprobantes",
       "facturacion:admin_arca",
     ],
+    submodules: [
+      { key: "facturacion:caja1", name: "Caja 1 (POS)", defaultMonthlyArs: 2000 },
+      { key: "facturacion:caja2", name: "Caja 2 (POS)", defaultMonthlyArs: 2000 },
+      { key: "facturacion:caja3", name: "Caja 3 (POS)", defaultMonthlyArs: 2000 },
+      { key: "facturacion:facturador", name: "Facturador A4 / Directo", defaultMonthlyArs: 2000 },
+      { key: "facturacion:recibo", name: "Emisión de Recibos", defaultMonthlyArs: 2000 },
+      { key: "facturacion:apertura", name: "Apertura de Caja", defaultMonthlyArs: 2000 },
+      { key: "facturacion:retiro", name: "Retiro de Efectivo", defaultMonthlyArs: 2000 },
+      { key: "facturacion:cierre", name: "Cierre y Arqueo de Turno", defaultMonthlyArs: 2000 },
+      { key: "facturacion:movil", name: "Facturador Móvil / Soy Cajero", defaultMonthlyArs: 2000 },
+      { key: "facturacion:comprobantes", name: "Comprobantes Emitidos", defaultMonthlyArs: 2000 },
+      { key: "facturacion:admin_arca", name: "Administración Comprobantes ARCA", defaultMonthlyArs: 2000 },
+    ],
   },
   {
     key: "articulos",
@@ -294,6 +410,21 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "articulos:ofertas",
       "articulos:pedidos",
     ],
+    submodules: [
+      { key: "articulos:listado", name: "Listado y Padrón de Artículos", defaultMonthlyArs: 2000 },
+      { key: "articulos:nuevo", name: "Nuevo Artículo", defaultMonthlyArs: 1000 },
+      { key: "articulos:duplicar", name: "Duplicar Artículo", defaultMonthlyArs: 1000 },
+      { key: "articulos:config_precios", name: "Configuración de Listas y Precios", defaultMonthlyArs: 1500 },
+      { key: "articulos:abm_marcas", name: "ABM Marcas", defaultMonthlyArs: 1000 },
+      { key: "articulos:abm_rubros", name: "ABM Rubros", defaultMonthlyArs: 1000 },
+      { key: "articulos:factura_prov", name: "Lectura Factura Proveedor", defaultMonthlyArs: 1500 },
+      { key: "articulos:carga_rapida", name: "Carga Rápida de Stock y Precios", defaultMonthlyArs: 1500 },
+      { key: "articulos:control_stock", name: "Control e Inventario de Stock", defaultMonthlyArs: 1500 },
+      { key: "articulos:stock_negativo", name: "Control de Stock Negativo", defaultMonthlyArs: 1000 },
+      { key: "articulos:precios_gondola", name: "Etiquetas y Precios de Góndola", defaultMonthlyArs: 1000 },
+      { key: "articulos:ofertas", name: "Ofertas y Promociones", defaultMonthlyArs: 1000 },
+      { key: "articulos:pedidos", name: "Pedidos de Reposición", defaultMonthlyArs: 1000 },
+    ],
   },
   {
     key: "clientes",
@@ -306,6 +437,12 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "clientes:nuevo",
       "clientes:ctacte",
       "clientes:detalle_ctacte",
+    ],
+    submodules: [
+      { key: "clientes:padron", name: "Padrón de Clientes", defaultMonthlyArs: 3000 },
+      { key: "clientes:nuevo", name: "Alta y Edición de Cliente", defaultMonthlyArs: 3000 },
+      { key: "clientes:ctacte", name: "Resumen de Cuentas Corrientes", defaultMonthlyArs: 3000 },
+      { key: "clientes:detalle_ctacte", name: "Detalle e Imputación de Cta. Cte.", defaultMonthlyArs: 3000 },
     ],
   },
   {
@@ -326,6 +463,18 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "proveedores:precios_gondola",
       "proveedores:pedidos",
     ],
+    submodules: [
+      { key: "proveedores:padron", name: "Padrón de Proveedores", defaultMonthlyArs: 1500 },
+      { key: "proveedores:nuevo", name: "Alta y Edición de Proveedor", defaultMonthlyArs: 1500 },
+      { key: "proveedores:ctacte", name: "Cuentas Corrientes Proveedores", defaultMonthlyArs: 2000 },
+      { key: "proveedores:duales", name: "Titulares Duales (Cliente / Proveedor)", defaultMonthlyArs: 1500 },
+      { key: "proveedores:factura_prov", name: "Carga Facturas de Compra", defaultMonthlyArs: 2000 },
+      { key: "proveedores:carga_rapida", name: "Actualización Rápida por Proveedor", defaultMonthlyArs: 1500 },
+      { key: "proveedores:control_stock", name: "Control de Stock por Proveedor", defaultMonthlyArs: 1000 },
+      { key: "proveedores:stock_negativo", name: "Stock Negativo por Proveedor", defaultMonthlyArs: 1000 },
+      { key: "proveedores:precios_gondola", name: "Etiquetas Góndola por Proveedor", defaultMonthlyArs: 1000 },
+      { key: "proveedores:pedidos", name: "Pedidos a Proveedores", defaultMonthlyArs: 1000 },
+    ],
   },
   {
     key: "fondos",
@@ -340,6 +489,14 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "fondos:orden_pago",
       "fondos:bancos",
       "fondos:stock_valorizado",
+    ],
+    submodules: [
+      { key: "fondos:caja_central", name: "Caja Central y Recepción de Cierres", defaultMonthlyArs: 3000 },
+      { key: "fondos:caja", name: "Movimientos de Tesorería / Caja", defaultMonthlyArs: 2500 },
+      { key: "fondos:recibo_pago", name: "Recibo de Cobro", defaultMonthlyArs: 2000 },
+      { key: "fondos:orden_pago", name: "Orden de Pago", defaultMonthlyArs: 2000 },
+      { key: "fondos:bancos", name: "Cuentas Bancarias y Conciliación", defaultMonthlyArs: 2500 },
+      { key: "fondos:stock_valorizado", name: "Stock Valorizado", defaultMonthlyArs: 2000 },
     ],
   },
   {
@@ -356,6 +513,14 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "carrito:reg_online",
       "carrito:abrir_tienda",
     ],
+    submodules: [
+      { key: "carrito:abrir_tienda", name: "Tienda Online y Pedidos Web (/carrito)", defaultMonthlyArs: 5000 },
+      { key: "carrito:usuarios", name: "App de Clientes y Usuarios Registrados", defaultMonthlyArs: 4000 },
+      { key: "carrito:articulos", name: "Catálogo Web y Visibilidad", defaultMonthlyArs: 3500 },
+      { key: "carrito:banners", name: "Banners Promocionales y Carrusel", defaultMonthlyArs: 2500 },
+      { key: "carrito:ventana_emergente", name: "Popups y Avisos Emergentes", defaultMonthlyArs: 2500 },
+      { key: "carrito:reg_online", name: "Alta Online y Login con Google", defaultMonthlyArs: 2500 },
+    ],
   },
   {
     key: "fidelizacion",
@@ -371,6 +536,14 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "fidelizacion:config_notif",
       "fidelizacion:canjes",
     ],
+    submodules: [
+      { key: "fidelizacion:operaciones", name: "Suma y Operaciones de Puntos", defaultMonthlyArs: 2000 },
+      { key: "fidelizacion:catalogo", name: "Catálogo de Premios", defaultMonthlyArs: 2000 },
+      { key: "fidelizacion:clientes", name: "Padrón de Socios Fidelizados", defaultMonthlyArs: 2000 },
+      { key: "fidelizacion:config", name: "Reglas de Puntos y Factor Canje", defaultMonthlyArs: 2000 },
+      { key: "fidelizacion:config_notif", name: "Notificaciones WhatsApp y Email", defaultMonthlyArs: 2000 },
+      { key: "fidelizacion:canjes", name: "Entrega de Canjes Efectuados", defaultMonthlyArs: 2000 },
+    ],
   },
   {
     key: "whatsapp",
@@ -378,6 +551,9 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     description: "Envío de comprobantes, avisos automáticos y campañas segmentadas por WhatsApp.",
     defaultMonthlyArs: 12000,
     erpModuleKeys: ["whatsapp"],
+    submodules: [
+      { key: "whatsapp", name: "Envío de Comprobantes, Avisos y Campañas WhatsApp", defaultMonthlyArs: 12000 },
+    ],
   },
   {
     key: "estadisticas",
@@ -386,6 +562,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     defaultMonthlyArs: 12000,
     erpModuleKeys: [
       "estadisticas",
+      "estadisticas:dashboard",
       "estadisticas:facturacion",
       "estadisticas:ranking",
       "estadisticas:medios",
@@ -394,6 +571,16 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "estadisticas:ganancia_neta",
       "estadisticas:art_generico",
     ],
+    submodules: [
+      { key: "estadisticas:dashboard", name: "Tablero Ejecutivo", defaultMonthlyArs: 1500 },
+      { key: "estadisticas:facturacion", name: "Evolución de Facturación y PVs", defaultMonthlyArs: 1500 },
+      { key: "estadisticas:ranking", name: "Ranking de Artículos y Rubros", defaultMonthlyArs: 1500 },
+      { key: "estadisticas:medios", name: "Medios de Cobro", defaultMonthlyArs: 1500 },
+      { key: "estadisticas:margenes", name: "Márgenes de Rentabilidad", defaultMonthlyArs: 1500 },
+      { key: "estadisticas:ganancia_bruta", name: "Ganancia Bruta", defaultMonthlyArs: 1500 },
+      { key: "estadisticas:ganancia_neta", name: "Ganancia Neta", defaultMonthlyArs: 1500 },
+      { key: "estadisticas:art_generico", name: "Control Artículo Genérico", defaultMonthlyArs: 1500 },
+    ],
   },
   {
     key: "tema",
@@ -401,6 +588,9 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     description: "Selector de tema claro y oscuro en la pantalla principal del ERP (disponible sin costo).",
     defaultMonthlyArs: 0,
     erpModuleKeys: ["tema"],
+    submodules: [
+      { key: "tema", name: "Selector de Modo Claro / Oscuro", defaultMonthlyArs: 0 },
+    ],
   },
   {
     key: "verificador",
@@ -408,6 +598,9 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     description: "Pantalla interactiva para lectores de código de barras en góndola / salón comercial.",
     defaultMonthlyArs: 8000,
     erpModuleKeys: ["verificador"],
+    submodules: [
+      { key: "verificador", name: "Terminal Interactiva Verificador de Góndola (/verificador)", defaultMonthlyArs: 8000 },
+    ],
   },
   {
     key: "cv",
@@ -420,6 +613,11 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "cv:recibidos",
       "cv:previsualizados",
       "personal:asistencias",
+    ],
+    submodules: [
+      { key: "cv:recibidos", name: "Portal Público /cv y Bandeja Recibidos", defaultMonthlyArs: 4000 },
+      { key: "cv:previsualizados", name: "CV Previsualizados y Valoración 1 a 10", defaultMonthlyArs: 4000 },
+      { key: "personal:asistencias", name: "Control de Asistencias y Horarios", defaultMonthlyArs: 4000 },
     ],
   },
   {
@@ -446,6 +644,21 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "historia_clinica:estudios",
       "historia_clinica:recetas",
     ],
+    submodules: [
+      { key: "turnos:profesionales", name: "ABM Profesionales", defaultMonthlyArs: 2000 },
+      { key: "turnos:obras_sociales", name: "ABM Obras Sociales y Prepagas", defaultMonthlyArs: 2000 },
+      { key: "turnos:planes", name: "ABM Planes de Obras Sociales", defaultMonthlyArs: 1500 },
+      { key: "turnos:especialidades", name: "ABM Especialidades y Duración", defaultMonthlyArs: 1500 },
+      { key: "turnos:gestion_profesionales", name: "Agendas y Horarios de Profesionales", defaultMonthlyArs: 2500 },
+      { key: "turnos:pacientes", name: "Gestión y Padrón de Pacientes", defaultMonthlyArs: 2000 },
+      { key: "turnos:gestion_turnos", name: "Gestión de Turnos y Videollamadas", defaultMonthlyArs: 3000 },
+      { key: "turnos:pagos_split", name: "Cobros Online y Split Mercado Pago", defaultMonthlyArs: 2500 },
+      { key: "turnos:portal", name: "Portal Público /turnos 24 hs", defaultMonthlyArs: 3000 },
+      { key: "historia_clinica:fichas", name: "Historia Clínica · Fichas Médicas", defaultMonthlyArs: 2000 },
+      { key: "historia_clinica:evoluciones", name: "Historia Clínica · Evoluciones SOAP", defaultMonthlyArs: 2500 },
+      { key: "historia_clinica:estudios", name: "Historia Clínica · Estudios Adjuntos", defaultMonthlyArs: 1500 },
+      { key: "historia_clinica:recetas", name: "Historia Clínica · Recetas Digitales", defaultMonthlyArs: 2000 },
+    ],
   },
   {
     key: "gestion_web",
@@ -459,6 +672,12 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "gestion_web:editor",
       "gestion_web:recetas",
       "gestion_web:profesionales",
+    ],
+    submodules: [
+      { key: "gestion_web:usuarios", name: "Usuarios Registrados del Portal", defaultMonthlyArs: 4500 },
+      { key: "gestion_web:editor", name: "Editor de Contenidos Web en Vivo", defaultMonthlyArs: 4500 },
+      { key: "gestion_web:recetas", name: "Solicitud y Carga de Recetas Digitales", defaultMonthlyArs: 4500 },
+      { key: "gestion_web:profesionales", name: "Accesos y Perfiles de Profesionales", defaultMonthlyArs: 4500 },
     ],
   },
   {
@@ -474,6 +693,14 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "mi_contador:gastos_retiros",
       "mi_contador:finanzas_stock",
       "mi_contador:config",
+    ],
+    submodules: [
+      { key: "mi_contador:ia", name: "Asesor Impositivo y Empresarial IA", defaultMonthlyArs: 4500 },
+      { key: "mi_contador:arca_ri", name: "Pre-liquidación IVA Simple y Libro IVA Digital", defaultMonthlyArs: 4500 },
+      { key: "mi_contador:monotributo", name: "Monitor de Categorías Monotributo", defaultMonthlyArs: 3500 },
+      { key: "mi_contador:gastos_retiros", name: "Control de Gastos y Retiros", defaultMonthlyArs: 3500 },
+      { key: "mi_contador:finanzas_stock", name: "Stock Muerto y Rotación ABC", defaultMonthlyArs: 3500 },
+      { key: "mi_contador:config", name: "Configuración Fiscal y Parámetros", defaultMonthlyArs: 2500 },
     ],
   },
   {
@@ -492,6 +719,16 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "inmobiliaria:pagos_split",
       "inmobiliaria:consultas",
       "inmobiliaria:portal",
+    ],
+    submodules: [
+      { key: "inmobiliaria:banners", name: "Banners y Destacadas del Portal", defaultMonthlyArs: 3500 },
+      { key: "inmobiliaria:propiedades", name: "ABM Propiedades y Mapa Satelital", defaultMonthlyArs: 3500 },
+      { key: "inmobiliaria:clientes", name: "Propietarios, Inquilinos y Cta. Cte.", defaultMonthlyArs: 3500 },
+      { key: "inmobiliaria:contratos", name: "Contratos de Alquiler y Actualizaciones", defaultMonthlyArs: 3500 },
+      { key: "inmobiliaria:plantillas", name: "Plantillas Documentales", defaultMonthlyArs: 3500 },
+      { key: "inmobiliaria:pagos_split", name: "Liquidaciones y Split Mercado Pago", defaultMonthlyArs: 3500 },
+      { key: "inmobiliaria:consultas", name: "Bandeja de Consultas Web / WhatsApp", defaultMonthlyArs: 3500 },
+      { key: "inmobiliaria:portal", name: "Portal Público /inmobiliaria y Acceso Clientes", defaultMonthlyArs: 3500 },
     ],
   },
   {
@@ -512,6 +749,17 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "servicios:abonos",
       "servicios:informes",
     ],
+    submodules: [
+      { key: "servicios:panel", name: "Tablero Operativo de Servicios", defaultMonthlyArs: 3000 },
+      { key: "servicios:catalogo", name: "Catálogo de Servicios y Tarifas", defaultMonthlyArs: 3000 },
+      { key: "servicios:presupuestos", name: "Presupuestos de Servicios PDF", defaultMonthlyArs: 3500 },
+      { key: "servicios:ordenes", name: "Órdenes de Trabajo", defaultMonthlyArs: 3500 },
+      { key: "servicios:partes", name: "Partes Técnicos con Conformidad", defaultMonthlyArs: 3000 },
+      { key: "servicios:documentos", name: "Documentación Técnica Adjunta", defaultMonthlyArs: 2500 },
+      { key: "servicios:agenda", name: "Agenda y Asignación de Personal", defaultMonthlyArs: 2500 },
+      { key: "servicios:abonos", name: "Abonos Recurrentes", defaultMonthlyArs: 2500 },
+      { key: "servicios:informes", name: "Informes y Facturación Lote / Mixta", defaultMonthlyArs: 2500 },
+    ],
   },
   {
     key: "manual_usuario",
@@ -519,6 +767,11 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     description: "Guía interactiva paso a paso por rol, asistente con Inteligencia Artificial, registro de actualizaciones y exportación PDF.",
     defaultMonthlyArs: 0,
     erpModuleKeys: ["ayuda", "ayuda:atajos", "ayuda:manual_usuario", "ayuda:reporte_mejoras", "manual_usuario"],
+    submodules: [
+      { key: "ayuda:atajos", name: "Atajos Rápidos de Teclado", defaultMonthlyArs: 0 },
+      { key: "ayuda:manual_usuario", name: "Manual Interactivo e IA", defaultMonthlyArs: 0 },
+      { key: "ayuda:reporte_mejoras", name: "Reporte de Mejoras y Soporte CRM", defaultMonthlyArs: 0 },
+    ],
   },
 ];
 
@@ -531,6 +784,7 @@ export interface ErpPricingConfigRecord {
     {
       price: number;
       defaultDiscountPct: number;
+      submodulePrices?: Record<string, number>;
     }
   >;
   discount_presets: Array<{
@@ -562,18 +816,84 @@ export function normalizeErpRole(rawRole: unknown, username = ""): ErpUserRole {
   return "Usuario";
 }
 
-export function expandCommercialToErpModules(commercialKeys: string[]): string[] {
-  const out = new Set<string>(["tema", "perfil", "atajos", "ayuda", "ayuda:atajos", "ayuda:manual_usuario", "ayuda:reporte_mejoras", "manual_usuario"]);
-  const keySet = new Set(commercialKeys.map((k) => String(k || "").trim().toLowerCase()));
+/**
+ * Expands either top-level commercial module keys OR granular submodule keys into
+ * the exact set of ERP module/submodule keys enabled for the tenant.
+ * - If granular submodule keys (`mod:sub`) are provided for a module, ONLY those
+ *   submodules (plus their required parent container key) are enabled!
+ * - If only a top-level module key (`mod`) is provided with no child keys, all of its
+ *   submodules are enabled (backward compatible).
+ */
+export function expandCommercialToErpModules(
+  commercialKeys: string[],
+  explicitSubmoduleKeys?: string[]
+): string[] {
+  const out = new Set<string>([
+    "tema",
+    "perfil",
+    "atajos",
+    "ayuda",
+    "ayuda:atajos",
+    "ayuda:manual_usuario",
+    "ayuda:reporte_mejoras",
+    "manual_usuario",
+  ]);
+
+  if (Array.isArray(explicitSubmoduleKeys) && explicitSubmoduleKeys.length > 0) {
+    const subSet = new Set(
+      explicitSubmoduleKeys.map((k) => String(k || "").trim().toLowerCase())
+    );
+    for (const mod of ERP_COMMERCIAL_MODULES) {
+      const matchedSubs = mod.submodules.filter((s) =>
+        subSet.has(s.key.toLowerCase())
+      );
+      if (matchedSubs.length > 0) {
+        out.add(mod.key);
+        if (mod.key === "cv") out.add("administracion_personal");
+        if (mod.key === "turnos") {
+          out.add("gestion_consultorios");
+          if (matchedSubs.some((s) => s.key.startsWith("historia_clinica:"))) {
+            out.add("historia_clinica");
+          }
+          if (matchedSubs.some((s) => s.key.startsWith("turnos:"))) {
+            out.add("turnos");
+          }
+        }
+        for (const s of matchedSubs) {
+          out.add(s.key);
+        }
+      }
+    }
+    return Array.from(out);
+  }
+
+  const rawCleaned = commercialKeys.map((k) => String(k || "").trim().toLowerCase());
+  const keySet = new Set(rawCleaned);
+
   for (const mod of ERP_COMMERCIAL_MODULES) {
-    if (keySet.has(mod.key)) {
+    const childMatches = mod.submodules.filter((s) =>
+      keySet.has(s.key.toLowerCase())
+    );
+    if (childMatches.length > 0) {
+      out.add(mod.key);
+      if (mod.key === "cv") out.add("administracion_personal");
+      if (mod.key === "turnos") {
+        out.add("gestion_consultorios");
+        if (childMatches.some((s) => s.key.startsWith("historia_clinica:"))) {
+          out.add("historia_clinica");
+        }
+      }
+      for (const s of childMatches) {
+        out.add(s.key);
+      }
+    } else if (keySet.has(mod.key)) {
       for (const sub of mod.erpModuleKeys) {
         out.add(sub);
       }
     }
   }
-  // Also preserve any fine-grained module keys passed directly
-  for (const raw of commercialKeys) {
+
+  for (const raw of rawCleaned) {
     if (ALL_ERP_MODULE_KEYS.includes(raw)) {
       out.add(raw);
     }

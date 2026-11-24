@@ -14,6 +14,7 @@ import {
   softDeleteTenantUserInDb,
   upsertTenantUserInDb,
 } from "../supabase-server";
+import { evaluateAndSyncTenantTrial } from "../tenant-service";
 import {
   ALL_ERP_MODULE_KEYS,
   type ErpTenantRecord,
@@ -72,6 +73,24 @@ function buildPublicUserProfile(
     cajaAbierta: record.cajaAbierta ?? null,
     cajaAbiertaAt: record.cajaAbiertaAt ?? null,
     loginAt: loginAt || new Date().toISOString(),
+    trial:
+      tenant.deployment?.trial?.isTrial
+        ? {
+            isTrial: true,
+            status: tenant.deployment.trial.status,
+            trialHours: tenant.deployment.trial.trialHours,
+            startedAt: tenant.deployment.trial.startedAt,
+            endsAt: tenant.deployment.trial.endsAt,
+            autoCancelAt: tenant.deployment.trial.autoCancelAt,
+            remainingHours: Math.max(
+              0,
+              Math.ceil(
+                (Date.parse(tenant.deployment.trial.endsAt || "") - Date.now()) /
+                  3600_000
+              )
+            ),
+          }
+        : null,
   };
 }
 
@@ -103,17 +122,39 @@ async function ensureGeneralAdminPresent(
 
 export async function handleErpAuth(
   req: NextRequest,
-  tenant: ErpTenantRecord
+  rawTenant: ErpTenantRecord
 ): Promise<NextResponse> {
-  if (tenant.status === "suspended" || tenant.status === "cancelled") {
-    // Permitir únicamente a @danielg (Administrador General) ingresar a sistemas suspendidos
+  const { tenant } = rawTenant.deployment?.trial?.isTrial
+    ? await evaluateAndSyncTenantTrial(rawTenant)
+    : { tenant: rawTenant };
+
+  const activeTrial = tenant.deployment?.trial;
+  const isTrialExpired =
+    Boolean(activeTrial?.isTrial) &&
+    (activeTrial?.status === "expired_trial" ||
+      (activeTrial?.status === "active_trial" &&
+        Number.isFinite(Date.parse(activeTrial.endsAt || "")) &&
+        Date.now() >= Date.parse(activeTrial.endsAt)));
+
+  if (
+    tenant.status === "suspended" ||
+    tenant.status === "cancelled" ||
+    isTrialExpired
+  ) {
+    // Permitir únicamente a @danielg (Administrador General) ingresar a sistemas suspendidos o con prueba vencida
     const sessCheck = extractErpSessionFromRequest(req, tenant.slug);
     if (req.method === "GET" && sessCheck?.username !== GENERAL_ADMIN_USERNAME) {
+      const trialMsg =
+        activeTrial?.status === "cancelled_baja"
+          ? "El período de prueba y el plazo de 10 días finalizaron, dándose de baja la demo automáticamente. Contactate con MiniSistema."
+          : isTrialExpired
+            ? `El período de prueba de ${activeTrial?.trialHours || 72} horas ha finalizado. Contactate con MiniSistema para confirmar el Plan o extender la prueba.`
+            : "Este sistema se encuentra temporalmente suspendido por administración.";
       return NextResponse.json(
         {
           ok: false,
-          message:
-            "Este sistema se encuentra temporalmente suspendido por administración.",
+          trialExpired: isTrialExpired,
+          message: trialMsg,
         },
         { status: 403 }
       );
@@ -789,14 +830,22 @@ export async function handleErpAuth(
     }
 
     if (
-      (tenant.status === "suspended" || tenant.status === "cancelled") &&
+      (tenant.status === "suspended" ||
+        tenant.status === "cancelled" ||
+        isTrialExpired) &&
       username !== GENERAL_ADMIN_USERNAME
     ) {
+      const loginBlockMsg =
+        activeTrial?.status === "cancelled_baja"
+          ? "El período de prueba y los 10 días posteriores sin confirmación finalizaron (demo dada de baja automáticamente). Contactate con MiniSistema."
+          : isTrialExpired
+            ? `El período de prueba de ${activeTrial?.trialHours || 72} horas ha finalizado. Contactate con MiniSistema para confirmar la habilitación del Plan o solicitar una extensión.`
+            : "El sistema de este comercio se encuentra suspendido. Contactate con MiniSistema.";
       return NextResponse.json(
         {
           ok: false,
-          message:
-            "El sistema de este comercio se encuentra suspendido. Contactate con MiniSistema.",
+          trialExpired: isTrialExpired,
+          message: loginBlockMsg,
         },
         { status: 403 }
       );

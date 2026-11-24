@@ -1,31 +1,72 @@
 /* ==========================================================================
    MÓDULO EXCLUSIVO DEL ADMINISTRADOR GENERAL (@danielg) — MINISISTEMA ERP
-   Integrado con el diseño nativo de Módulos y Submódulos (.erp-section / .modules-grid / .module-card):
-   1. Comercios Habilitados (y gestión de Administradores / Usuarios por comercio)
-   2. Habilitar Nuevo Sistema (Opción 1 / Opción 2) con selección visual por tarjetas de módulos
-   3. Valor Mensual, Descuentos y Mercado Pago
-   4. Credenciales API (MP · GitHub · Vercel)
+   Integrado con el diseño canónico de Módulos y Submódulos (.erp-section / .modules-grid / .module-card):
+   1. Comercios Habilitados (incluye control de Períodos de Prueba, Extensión, Confirmación de Plan y Baja)
+   2. Habilitar Nuevo Sistema (UNIFICADO: Árbol de Módulos + Submódulos con suma automática,
+      Lista Oficial de Valores Mensuales, Descuentos, Presupuesto PDF, Alta/Edición/Seguimiento
+      de Presupuestos, Período de Prueba configurable en horas y Alta Definitiva con Mercado Pago)
+   3. Credenciales API (AFIP/ARCA · Mercado Pago · GitHub · Vercel)
+   4. Usuarios (Directorio Global Multi-Proyecto)
+   5. CRM · Reporte de Mejoras
    ========================================================================== */
 (function () {
   'use strict';
 
   var STATE_SA = {
-    activeView: 'menu', // 'menu' | 'tenants' | 'new' | 'pricing' | 'secrets'
+    activeView: 'menu', // 'menu' | 'tenants' | 'new' | 'secrets' | 'users'
+    newSubTab: 'config', // 'config' | 'quotes'
     data: null,
     loading: false,
-    quoteOptionType: 1,
-    quoteSelected: {},
-    quoteDiscountsByMod: {},
+    // Configurador unificado (Opción + Árbol de Submódulos + Descuentos + Cliente + Demo)
+    newOptionType: 1,
+    newActividadNegocio: 'comercial',
+    selectedSubmodules: {}, // { [subKey]: boolean }
+    expandedModules: {}, // { [modKey]: boolean }
+    submodulePrices: {}, // { [subKey]: number }
+    quoteDiscountsByMod: {}, // { [modKey]: number, '__opt1': number, '__opt2': number }
     quoteGlobalType: 'none',
     quoteGlobalPct: 0,
     quoteGlobalFixed: 0,
     quoteTempMonths: 3,
-    newOptionType: 1,
-    newActividadNegocio: 'comercial',
+    // Datos borrador de cliente / presupuesto / demo
+    editingQuoteId: '',
+    editingQuoteNumero: '',
+    editingQuoteEstado: 'BORRADOR',
+    draftForm: {
+      slug: '',
+      fantasyName: '',
+      businessName: '',
+      cuit: '',
+      contactName: '',
+      payerEmail: '',
+      whatsappDigits: '',
+      localidad: 'RÍO CUARTO',
+      customDomain: '',
+      primaryHex: '#112D3A',
+      accentHex: '#56D7A1',
+      logo1x1Url: '',
+      logoHorizontalUrl: '',
+      validDays: 15,
+      notas: '',
+      trialHours: 72,
+      demoUsername: '',
+      demoPassword: 'Demo2026',
+      adminUsername: '',
+      adminPassword: '',
+      adminName: '',
+      linkedTenantSlug: ''
+    },
     newLogo1x1Data: '',
     newLogoHorizData: '',
+    lastCreatedDemoBanner: null,
+    // Filtros Seguimiento de Presupuestos
+    quotesSearch: '',
+    quotesStatusFilter: 'ALL',
+    // Gestión comercios / usuarios / AFIP
     managingUsersSlug: null,
     managingUsersList: [],
+    afipSelectedSlug: 'minisistema',
+    afipTenantInfo: null,
     usersSearch: '',
     usersProjectFilter: 'ALL',
     usersTypeFilter: 'ALL',
@@ -42,51 +83,61 @@
     maximumFractionDigits: 0
   });
 
-  var MODULE_ICONS_SVG = {
-    facturacion:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="14" y2="12"></line><line x1="6" y1="16" x2="10" y2="16"></line></svg>',
-    articulos:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>',
-    clientes:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
-    proveedores:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>',
-    fondos:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M3 10h18"></path><polygon points="12 3 20 7 4 7"></polygon><line x1="6" y1="10" x2="6" y2="17"></line><line x1="10" y1="10" x2="10" y2="17"></line><line x1="14" y1="10" x2="14" y2="17"></line><line x1="18" y1="10" x2="18" y2="17"></line></svg>',
-    carrito:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>',
-    fidelizacion:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
-    whatsapp:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>',
-    estadisticas:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>',
-    tema:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>',
-    verificador:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5v14"></path><path d="M8 5v14"></path><path d="M12 5v14"></path><path d="M17 5v14"></path><path d="M21 5v14"></path></svg>',
-    cv:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
-    turnos:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"></path><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"></path><circle cx="20" cy="10" r="2"></circle></svg>',
-    gestion_web:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
-    inmobiliaria:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
-    mi_contador:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="10" y2="10"></line><line x1="14" y1="10" x2="16" y2="10"></line><line x1="8" y1="14" x2="10" y2="14"></line><line x1="14" y1="14" x2="16" y2="14"></line><line x1="8" y1="18" x2="16" y2="18"></line></svg>',
-    servicios:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>',
-    manual_usuario:
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
-  };
-
   function esc(str) {
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  function sanitizeSlugLocal(raw) {
+    return String(raw || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\.com\.ar.*$|\.ar.*$/g, '')
+      .replace(/[^a-z0-9_-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^[-_]+|[-_]+$/g, '')
+      .slice(0, 36);
+  }
+
+  function formatDateTimeAr(isoStr) {
+    if (!isoStr) return '—';
+    var d = new Date(isoStr);
+    if (isNaN(d.getTime())) return String(isoStr);
+    return d.toLocaleString('es-AR', {
+      timeZone: 'America/Argentina/Cordoba',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  }
+
+  function formatDateAr(isoStr) {
+    if (!isoStr) return '—';
+    var d = new Date(isoStr);
+    if (isNaN(d.getTime())) return String(isoStr);
+    return d.toLocaleDateString('es-AR', {
+      timeZone: 'America/Argentina/Cordoba',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
+
+  function generateRandomPass() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    var out = '';
+    for (var i = 0; i < 6; i++) out += chars.charAt(Math.floor(Math.random() * chars.length));
+    return out + '26';
   }
 
   function getActiveUser() {
@@ -107,7 +158,7 @@
   function isDanielGeneralAdmin() {
     var isBaseTenant = Boolean(
       (window.__ERP_TENANT_BOOT__ && window.__ERP_TENANT_BOOT__.isBase) ||
-      (window.ERP_BRAND && window.ERP_BRAND.isBase)
+        (window.ERP_BRAND && window.ERP_BRAND.isBase)
     );
     if (!isBaseTenant) return false;
     var u = getActiveUser();
@@ -130,11 +181,304 @@
 
   function getViewTitle(viewKey) {
     if (viewKey === 'tenants') return 'Comercios Habilitados';
-    if (viewKey === 'new') return 'Habilitar Nuevo Sistema';
-    if (viewKey === 'pricing') return 'Valor Mensual, Descuentos y Mercado Pago';
+    if (viewKey === 'new' || viewKey === 'pricing') return 'Habilitar Nuevo Sistema';
     if (viewKey === 'secrets') return 'Credenciales API';
     if (viewKey === 'users') return 'Usuarios';
     return 'Administrador General';
+  }
+
+  function getModuleSubmodules(mod) {
+    if (Array.isArray(mod.submodules) && mod.submodules.length > 0) {
+      return mod.submodules;
+    }
+    return [{ key: mod.key, name: mod.name, defaultMonthlyArs: Number(mod.defaultMonthlyArs || 0) }];
+  }
+
+  function syncSubmodulePricesFromServer(data) {
+    if (!data || !Array.isArray(data.commercialModules)) return;
+    var cfg = data.pricingConfig || {};
+    var modPrices = cfg.module_prices || {};
+    data.commercialModules.forEach(function (m) {
+      var subs = getModuleSubmodules(m);
+      var mEntry = modPrices[m.key] || {};
+      var srvSubMap = mEntry.submodulePrices || {};
+      subs.forEach(function (s) {
+        if (STATE_SA.submodulePrices[s.key] === undefined) {
+          var v =
+            srvSubMap[s.key] !== undefined
+              ? Number(srvSubMap[s.key])
+              : Number(s.defaultMonthlyArs || 0);
+          STATE_SA.submodulePrices[s.key] = Math.max(0, Math.round(v));
+        }
+      });
+      if (
+        STATE_SA.quoteDiscountsByMod[m.key] === undefined &&
+        Number(mEntry.defaultDiscountPct || 0) > 0
+      ) {
+        STATE_SA.quoteDiscountsByMod[m.key] = Number(mEntry.defaultDiscountPct || 0);
+      }
+    });
+  }
+
+  function applyActivityPresetSubmodules(actividad) {
+    var data = STATE_SA.data;
+    if (!data || !Array.isArray(data.commercialModules)) return;
+    var targetModKeys;
+    if (actividad === 'servicios') {
+      targetModKeys = ['servicios', 'facturacion', 'clientes', 'tema', 'manual_usuario'];
+    } else if (actividad === 'mixta') {
+      targetModKeys = [
+        'servicios',
+        'facturacion',
+        'articulos',
+        'clientes',
+        'proveedores',
+        'fondos',
+        'tema',
+        'manual_usuario'
+      ];
+    } else {
+      targetModKeys = [
+        'facturacion',
+        'articulos',
+        'clientes',
+        'proveedores',
+        'fondos',
+        'tema',
+        'manual_usuario'
+      ];
+    }
+    var nextSubs = {};
+    data.commercialModules.forEach(function (m) {
+      if (targetModKeys.indexOf(m.key) !== -1) {
+        getModuleSubmodules(m).forEach(function (s) {
+          nextSubs[s.key] = true;
+        });
+      }
+    });
+    STATE_SA.selectedSubmodules = nextSubs;
+  }
+
+  function resetNewConfiguratorBlank() {
+    STATE_SA.editingQuoteId = '';
+    STATE_SA.editingQuoteNumero = '';
+    STATE_SA.editingQuoteEstado = 'BORRADOR';
+    STATE_SA.newOptionType = 1;
+    STATE_SA.newActividadNegocio = 'comercial';
+    STATE_SA.quoteDiscountsByMod = {};
+    STATE_SA.quoteGlobalType = 'none';
+    STATE_SA.quoteGlobalPct = 0;
+    STATE_SA.quoteGlobalFixed = 0;
+    STATE_SA.quoteTempMonths = 3;
+    STATE_SA.newLogo1x1Data = '';
+    STATE_SA.newLogoHorizData = '';
+    STATE_SA.draftForm = {
+      slug: '',
+      fantasyName: '',
+      businessName: '',
+      cuit: '',
+      contactName: '',
+      payerEmail: '',
+      whatsappDigits: '',
+      localidad: 'RÍO CUARTO',
+      customDomain: '',
+      primaryHex: '#112D3A',
+      accentHex: '#56D7A1',
+      logo1x1Url: '',
+      logoHorizontalUrl: '',
+      validDays: 15,
+      notas: '',
+      trialHours: 72,
+      demoUsername: '',
+      demoPassword: 'Demo2026',
+      adminUsername: '',
+      adminPassword: '',
+      adminName: '',
+      linkedTenantSlug: ''
+    };
+    if (STATE_SA.data) {
+      STATE_SA.submodulePrices = {};
+      syncSubmodulePricesFromServer(STATE_SA.data);
+      applyActivityPresetSubmodules('comercial');
+    }
+  }
+
+  function loadQuoteIntoConfigurator(q) {
+    if (!q) return;
+    STATE_SA.editingQuoteId = q.id || '';
+    STATE_SA.editingQuoteNumero = q.numero || '';
+    STATE_SA.editingQuoteEstado = q.estado || 'ENVIADO';
+    STATE_SA.newOptionType = Number(q.optionType) === 2 ? 2 : 1;
+    STATE_SA.newActividadNegocio = q.actividadNegocio || 'comercial';
+    STATE_SA.quoteGlobalType = q.globalDiscountType || 'none';
+    STATE_SA.quoteGlobalPct = Number(q.globalDiscountPct || 0);
+    STATE_SA.quoteGlobalFixed = Number(q.globalDiscountFixed || 0);
+    STATE_SA.quoteTempMonths = Number(q.temporaryMonths || 3) || 3;
+
+    var nextDisc = Object.assign({}, q.moduleDiscountsPct || {});
+    nextDisc['__opt' + STATE_SA.newOptionType] = Number(q.optionDiscountPct || 0);
+    STATE_SA.quoteDiscountsByMod = nextDisc;
+
+    if (STATE_SA.data) {
+      STATE_SA.submodulePrices = {};
+      syncSubmodulePricesFromServer(STATE_SA.data);
+    }
+    if (q.submodulePricesSnapshot && typeof q.submodulePricesSnapshot === 'object') {
+      Object.keys(q.submodulePricesSnapshot).forEach(function (sk) {
+        STATE_SA.submodulePrices[sk] = Math.max(0, Math.round(Number(q.submodulePricesSnapshot[sk] || 0)));
+      });
+    }
+
+    var nextSel = {};
+    var subArr = Array.isArray(q.selectedSubmoduleKeys) ? q.selectedSubmoduleKeys : [];
+    if (subArr.length > 0) {
+      subArr.forEach(function (sk) {
+        nextSel[sk] = true;
+      });
+    } else if (Array.isArray(q.selectedModuleKeys) && STATE_SA.data) {
+      (STATE_SA.data.commercialModules || []).forEach(function (m) {
+        if (q.selectedModuleKeys.indexOf(m.key) !== -1) {
+          getModuleSubmodules(m).forEach(function (s) {
+            nextSel[s.key] = true;
+          });
+        }
+      });
+    }
+    STATE_SA.selectedSubmodules = nextSel;
+
+    STATE_SA.draftForm = {
+      slug: q.slug || '',
+      fantasyName: q.fantasyName || '',
+      businessName: q.businessName || '',
+      cuit: q.cuit || '',
+      contactName: q.contactName || '',
+      payerEmail: q.payerEmail || '',
+      whatsappDigits: q.whatsappDigits || '',
+      localidad: q.localidad || 'RÍO CUARTO',
+      customDomain: q.customDomain || '',
+      primaryHex: q.primaryHex || '#112D3A',
+      accentHex: q.accentHex || '#56D7A1',
+      logo1x1Url: q.logo1x1Url || '',
+      logoHorizontalUrl: q.logoHorizontalUrl || '',
+      validDays: Number(q.validDays || 15),
+      notas: q.notas || '',
+      trialHours: Number(q.trialHours || 72),
+      demoUsername: q.demoUsername || '',
+      demoPassword: q.demoPassword || 'Demo2026',
+      adminUsername: q.adminUsername || '',
+      adminPassword: q.adminPassword || '',
+      adminName: q.adminName || '',
+      linkedTenantSlug: q.linkedTenantSlug || ''
+    };
+    STATE_SA.newSubTab = 'config';
+  }
+
+  function computeTreeQuote() {
+    var data = STATE_SA.data;
+    if (!data) {
+      return {
+        optionRaw: 0,
+        optionDiscPct: 0,
+        optionBase: 0,
+        modTotal: 0,
+        subtotal: 0,
+        promoMonthly: 0,
+        regularMonthly: 0,
+        months: 0,
+        selectedModCount: 0,
+        selectedSubCount: 0,
+        selectedModuleKeys: [],
+        selectedSubmoduleKeys: [],
+        moduleBreakdown: []
+      };
+    }
+    var cfg = data.pricingConfig || {};
+    var optType = STATE_SA.newOptionType === 2 ? 2 : 1;
+    var rawOptBase = Math.max(
+      0,
+      Math.round(Number(optType === 1 ? cfg.option_1_base ?? 35000 : cfg.option_2_base ?? 15000))
+    );
+    var optDiscPct = Math.min(
+      100,
+      Math.max(0, Number(STATE_SA.quoteDiscountsByMod['__opt' + optType] || 0))
+    );
+    var optionBase = Math.round(rawOptBase * (1 - optDiscPct / 100));
+
+    var modTotal = 0;
+    var selectedModKeys = [];
+    var selectedSubKeys = [];
+    var breakdown = [];
+
+    (data.commercialModules || []).forEach(function (m) {
+      var subs = getModuleSubmodules(m);
+      var catalogSum = 0;
+      var activeSum = 0;
+      var chosenSubs = [];
+
+      subs.forEach(function (s) {
+        var sp = Math.max(
+          0,
+          Math.round(
+            STATE_SA.submodulePrices[s.key] !== undefined
+              ? Number(STATE_SA.submodulePrices[s.key])
+              : Number(s.defaultMonthlyArs || 0)
+          )
+        );
+        catalogSum += sp;
+        if (STATE_SA.selectedSubmodules[s.key]) {
+          activeSum += sp;
+          selectedSubKeys.push(s.key);
+          chosenSubs.push({ key: s.key, name: s.name, price: sp });
+        }
+      });
+
+      var modDiscPct = Math.min(
+        100,
+        Math.max(0, Number(STATE_SA.quoteDiscountsByMod[m.key] || 0))
+      );
+      var hasSelection = chosenSubs.length > 0;
+      var modNet = hasSelection ? Math.max(0, Math.round(activeSum * (1 - modDiscPct / 100))) : 0;
+
+      if (hasSelection) {
+        selectedModKeys.push(m.key);
+        modTotal += modNet;
+      }
+
+      breakdown.push({
+        key: m.key,
+        name: m.name,
+        totalSubsCount: subs.length,
+        selectedSubsCount: chosenSubs.length,
+        catalogSum: catalogSum,
+        selectedBaseSum: activeSum,
+        discountPct: modDiscPct,
+        netSelected: modNet,
+        chosenSubs: chosenSubs
+      });
+    });
+
+    var subtotal = Math.max(0, Math.round(optionBase + modTotal));
+    var gType = STATE_SA.quoteGlobalType || 'none';
+    var gPct = gType === 'none' ? 0 : Math.min(100, Math.max(0, Number(STATE_SA.quoteGlobalPct || 0)));
+    var gFix = gType === 'none' ? 0 : Math.max(0, Math.round(Number(STATE_SA.quoteGlobalFixed || 0)));
+    var discounted = Math.max(0, Math.round(subtotal * (1 - gPct / 100) - gFix));
+    var months = gType === 'temporary' ? Math.max(1, Number(STATE_SA.quoteTempMonths || 3)) : 0;
+
+    return {
+      optionRaw: rawOptBase,
+      optionDiscPct: optDiscPct,
+      optionBase: optionBase,
+      modTotal: modTotal,
+      subtotal: subtotal,
+      promoMonthly: gType === 'none' ? subtotal : discounted,
+      regularMonthly: gType === 'permanent' ? discounted : subtotal,
+      months: months,
+      selectedModCount: selectedModKeys.length,
+      selectedSubCount: selectedSubKeys.length,
+      selectedModuleKeys: selectedModKeys,
+      selectedSubmoduleKeys: selectedSubKeys,
+      moduleBreakdown: breakdown
+    };
   }
 
   function ensureSectionsMounted() {
@@ -143,6 +487,12 @@
 
     var menuSec = document.getElementById('sec-menu-superadmin');
     var detailSec = document.getElementById('sec-superadmin-detail');
+
+    // Si había un menú viejo con la tarjeta duplicada "pricing", reconstruirlo limpio
+    if (menuSec && menuSec.querySelector('[data-sa-open-view="pricing"]')) {
+      menuSec.remove();
+      menuSec = null;
+    }
 
     if (!menuSec) {
       menuSec = document.createElement('section');
@@ -183,15 +533,6 @@
             '</div>' +
             '<h3>Habilitar Nuevo Sistema</h3>' +
           '</article>' +
-          '<article class="module-card" role="button" tabindex="0" data-sa-open-view="pricing">' +
-            '<div class="module-icon" aria-hidden="true">' +
-              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-                '<rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>' +
-                '<line x1="1" y1="10" x2="23" y2="10"></line>' +
-              '</svg>' +
-            '</div>' +
-            '<h3>Valor Mensual, Descuentos y Mercado Pago</h3>' +
-          '</article>' +
           '<article class="module-card" role="button" tabindex="0" data-sa-open-view="secrets">' +
             '<div class="module-icon" aria-hidden="true">' +
               '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
@@ -219,7 +560,6 @@
               '</svg>' +
             '</div>' +
             '<h3>CRM · Reporte de Mejoras</h3>' +
-            '<span id="badge-sa-crm-pendientes" class="badge badge--gold" style="font-size:0.72rem;" hidden></span>' +
           '</article>' +
         '</div>';
 
@@ -287,6 +627,7 @@
   }
 
   async function openSuperAdminView(viewKey) {
+    if (viewKey === 'pricing') viewKey = 'new';
     if (viewKey === 'crm') {
       var menuSec0 = document.getElementById('sec-menu-superadmin');
       var detailSec0 = document.getElementById('sec-superadmin-detail');
@@ -314,7 +655,6 @@
       STATE_SA.managingUsersSlug = null;
     }
 
-    // Ocultar todas las demás secciones de .erp-main
     document.querySelectorAll('.erp-main > .erp-section').forEach(function (sec) {
       sec.hidden = true;
     });
@@ -336,11 +676,7 @@
     if (STATE_SA.activeView === 'menu') {
       secs.menuSec.hidden = false;
       secs.detailSec.hidden = true;
-      if (typeof window.__SUPERADMIN_REFRESH_CRM_BADGE__ === 'function') {
-        window.__SUPERADMIN_REFRESH_CRM_BADGE__();
-      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      // Pre-cargar datos en segundo plano
       if (!STATE_SA.data) {
         reloadSuperAdminData(false);
       }
@@ -365,7 +701,7 @@
     box.textContent = msg;
     setTimeout(function () {
       if (box.textContent === msg) box.style.display = 'none';
-    }, 7000);
+    }, 8000);
   }
 
   async function reloadSuperAdminData(shouldRender) {
@@ -384,71 +720,258 @@
       return;
     }
     STATE_SA.data = json;
-    if (Object.keys(STATE_SA.quoteSelected).length === 0 && Array.isArray(json.commercialModules)) {
-      json.commercialModules.forEach(function (m) {
-        if (['facturacion', 'articulos', 'clientes', 'tema', 'manual_usuario'].indexOf(m.key) !== -1) {
-          STATE_SA.quoteSelected[m.key] = true;
-        }
-      });
+    syncSubmodulePricesFromServer(json);
+    if (Object.keys(STATE_SA.selectedSubmodules).length === 0) {
+      applyActivityPresetSubmodules(STATE_SA.newActividadNegocio || 'comercial');
     }
     if (shouldRender) {
       renderBody();
     }
   }
 
-  function computeLocalQuote(optionType, selectedMap, modDiscountMap, globalType, globalPct, globalFixed, tempMonths) {
-    var data = STATE_SA.data;
-    if (!data) return { optionBase: 0, modTotal: 0, subtotal: 0, promoMonthly: 0, regularMonthly: 0 };
-    var cfg = data.pricingConfig || {};
-    var rawOptBase = Number(optionType === 1 ? cfg.option_1_base : cfg.option_2_base) || 0;
-    var optDiscPct = Math.min(100, Math.max(0, Number((modDiscountMap && modDiscountMap['__opt' + optionType]) || 0)));
-    var optionBase = Math.round(rawOptBase * (1 - optDiscPct / 100));
-    var modTotal = 0;
-    (data.commercialModules || []).forEach(function (m) {
-      if (!selectedMap[m.key]) return;
-      var baseP =
-        Number(
-          (cfg.module_prices && cfg.module_prices[m.key] && cfg.module_prices[m.key].price) ??
-            m.defaultMonthlyArs
-        ) || 0;
-      var discP = Math.min(100, Math.max(0, Number(modDiscountMap[m.key] || 0)));
-      modTotal += Math.round(baseP * (1 - discP / 100));
+  // =========================================================================
+  // GENERADOR DE PRESUPUESTO EN PDF (IMPRESIÓN / GUARDADO A4 PROFESIONAL)
+  // =========================================================================
+  function openQuotePdfWindow(quoteRecord) {
+    if (!quoteRecord) return;
+    var data = STATE_SA.data || {};
+    var allMods = data.commercialModules || [];
+    var subMapCfg = quoteRecord.submodulePricesSnapshot || {};
+    var modDiscMap = quoteRecord.moduleDiscountsPct || {};
+    var selSubSet = {};
+    (quoteRecord.selectedSubmoduleKeys || []).forEach(function (k) {
+      selSubSet[k] = true;
     });
-    var subtotal = Math.round(optionBase + modTotal);
-    var gPct = Math.min(100, Math.max(0, Number(globalPct || 0)));
-    var gFix = Math.max(0, Number(globalFixed || 0));
-    var discounted = Math.max(0, Math.round(subtotal * (1 - gPct / 100) - gFix));
 
-    if (globalType === 'permanent') {
-      return {
-        optionBase: optionBase,
-        modTotal: modTotal,
-        subtotal: subtotal,
-        promoMonthly: discounted,
-        regularMonthly: discounted,
-        months: 0
-      };
+    var optLabel =
+      Number(quoteRecord.optionType) === 1
+        ? 'Opción 1 · Dominio y Marca Propia' +
+          (quoteRecord.customDomain ? ' (' + quoteRecord.customDomain + ')' : '')
+        : 'Opción 2 · Subruta Oficial MiniSistema (minisistema.com.ar/' +
+          (quoteRecord.slug || 'comercio') +
+          ')';
+
+    var fechaEmision = formatDateAr(quoteRecord.updatedAt || quoteRecord.createdAt || new Date().toISOString());
+    var validDays = Number(quoteRecord.validDays || 15);
+    var vencDate = new Date(
+      (quoteRecord.createdAt ? Date.parse(quoteRecord.createdAt) : Date.now()) +
+        validDays * 86400000
+    );
+    var fechaValidez = formatDateAr(vencDate.toISOString());
+
+    var itemsRowsHtml = '';
+    var optRaw = Number(quoteRecord.optionBasePrice || 0);
+    var optDisc = Number(quoteRecord.optionDiscountPct || 0);
+    var optNet = Number(quoteRecord.optionNet != null ? quoteRecord.optionNet : Math.round(optRaw * (1 - optDisc / 100)));
+
+    itemsRowsHtml +=
+      '<tr class="mod-row">' +
+        '<td><strong>Infraestructura Base — ' + esc(optLabel) + '</strong><div class="sub-note">Base de datos aislada en la nube, copias de seguridad, SSL y actualizaciones continuas.</div></td>' +
+        '<td class="num">' + fmtArs.format(optRaw) + '</td>' +
+        '<td class="num">' + (optDisc > 0 ? optDisc + '%' : '—') + '</td>' +
+        '<td class="num"><strong>' + fmtArs.format(optNet) + '</strong></td>' +
+      '</tr>';
+
+    allMods.forEach(function (m) {
+      var subs = getModuleSubmodules(m);
+      var chosen = subs.filter(function (s) {
+        return Boolean(selSubSet[s.key]);
+      });
+      if (!chosen.length) return;
+      var modSum = 0;
+      var subsBadges = chosen
+        .map(function (s) {
+          var sp =
+            subMapCfg[s.key] !== undefined
+              ? Number(subMapCfg[s.key])
+              : STATE_SA.submodulePrices[s.key] !== undefined
+                ? Number(STATE_SA.submodulePrices[s.key])
+                : Number(s.defaultMonthlyArs || 0);
+          modSum += sp;
+          return (
+            '<span class="sub-chip">✓ ' +
+            esc(s.name) +
+            (sp > 0 ? ' <em>(' + fmtArs.format(sp) + ')</em>' : '') +
+            '</span>'
+          );
+        })
+        .join(' ');
+      var mDisc = Number(modDiscMap[m.key] || 0);
+      var mNet = Math.max(0, Math.round(modSum * (1 - mDisc / 100)));
+
+      itemsRowsHtml +=
+        '<tr class="mod-row">' +
+          '<td>' +
+            '<strong>Módulo: ' + esc(m.name) + '</strong> ' +
+            '<span style="font-size:11px;color:#475569;">(' + chosen.length + '/' + subs.length + ' submódulos)</span>' +
+            '<div class="subs-wrap">' + subsBadges + '</div>' +
+          '</td>' +
+          '<td class="num">' + (modSum > 0 ? fmtArs.format(modSum) : 'Sin cargo') + '</td>' +
+          '<td class="num">' + (mDisc > 0 ? mDisc + '%' : '—') + '</td>' +
+          '<td class="num"><strong>' + (mNet > 0 ? fmtArs.format(mNet) : 'Sin cargo') + '</strong></td>' +
+        '</tr>';
+    });
+
+    var subtotal = Number(quoteRecord.subtotalMensual || 0);
+    var totalFinal = Number(quoteRecord.totalPromoMensual || subtotal);
+    var totalReg = Number(quoteRecord.totalRegularMensual || subtotal);
+    var gType = quoteRecord.globalDiscountType || 'none';
+    var gPct = Number(quoteRecord.globalDiscountPct || 0);
+    var gFix = Number(quoteRecord.globalDiscountFixed || 0);
+    var ahorroGlobal = Math.max(0, subtotal - totalFinal);
+    var trialHs = Number(quoteRecord.trialHours || 72);
+
+    var waShareText =
+      '¡Hola' +
+      (quoteRecord.contactName ? ' ' + quoteRecord.contactName : '') +
+      '! Te compartimos el Presupuesto *' +
+      (quoteRecord.numero || 'MiniSistema') +
+      '* para *' +
+      (quoteRecord.fantasyName || 'tu sistema') +
+      '*:\n' +
+      '• Modalidad: ' +
+      optLabel +
+      '\n' +
+      '• Módulos incluidos: ' +
+      (quoteRecord.selectedModuleKeys || []).length +
+      ' (' +
+      (quoteRecord.selectedSubmoduleKeys || []).length +
+      ' submódulos)\n' +
+      '• Valor mensual: *' +
+      fmtArs.format(totalFinal) +
+      '/mes*' +
+      (gType === 'temporary' && quoteRecord.temporaryMonths
+        ? ' (promo por ' + quoteRecord.temporaryMonths + ' meses, luego ' + fmtArs.format(totalReg) + '/mes)'
+        : '') +
+      '\n' +
+      '• Incluye Período de Prueba sin cargo por *' +
+      trialHs +
+      ' horas* con base de datos limpia para que lo pruebes antes de contratar.';
+    var waDigitsClean = String(quoteRecord.whatsappDigits || '').replace(/\D/g, '');
+    var waHref =
+      'https://wa.me/' +
+      (waDigitsClean ? waDigitsClean : '') +
+      '?text=' +
+      encodeURIComponent(waShareText);
+
+    var win = window.open('', '_blank');
+    if (!win) {
+      showFeedback('Habilitá las ventanas emergentes del navegador para abrir el Presupuesto en PDF.', true);
+      return;
     }
-    if (globalType === 'temporary') {
-      return {
-        optionBase: optionBase,
-        modTotal: modTotal,
-        subtotal: subtotal,
-        promoMonthly: discounted,
-        regularMonthly: subtotal,
-        months: Math.max(1, Number(tempMonths || 3))
-      };
-    }
-    return {
-      optionBase: optionBase,
-      modTotal: modTotal,
-      subtotal: subtotal,
-      promoMonthly: subtotal,
-      regularMonthly: subtotal,
-      months: 0
-    };
+
+    var htmlDoc =
+      '<!DOCTYPE html><html lang="es-AR"><head><meta charset="UTF-8">' +
+      '<title>Presupuesto ' + esc(quoteRecord.numero || '') + ' — ' + esc(quoteRecord.fantasyName || 'MiniSistema') + '</title>' +
+      '<style>' +
+        '*{box-sizing:border-box;}' +
+        'body{margin:0;padding:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:#e2e8f0;color:#0f172a;}' +
+        '.toolbar{position:sticky;top:0;z-index:20;background:#112D3A;color:#fff;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 14px rgba(0,0,0,.22);}' +
+        '.toolbar-btns{display:flex;gap:10px;flex-wrap:wrap;}' +
+        '.tbtn{border:none;border-radius:8px;padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}' +
+        '.tbtn--mint{background:#56D7A1;color:#112D3A;}' +
+        '.tbtn--wa{background:#22c55e;color:#fff;}' +
+        '.tbtn--ghost{background:rgba(255,255,255,.14);color:#fff;}' +
+        '.sheet{max-width:210mm;margin:22px auto;background:#fff;padding:16mm 15mm;border-radius:12px;box-shadow:0 12px 36px rgba(15,23,42,.15);}' +
+        '.hdr{display:flex;justify-content:space-between;align-items:center;background:#112D3A;color:#fff;padding:20px 24px;border-radius:12px;border-bottom:4px solid #56D7A1;}' +
+        '.hdr img{height:42px;width:auto;object-fit:contain;}' +
+        '.hdr-right{text-align:right;}' +
+        '.pres-num{font-size:20px;font-weight:900;color:#56D7A1;letter-spacing:.03em;}' +
+        '.pres-meta{font-size:12px;color:#cbd5e1;margin-top:4px;}' +
+        '.client-box{margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;padding:14px 18px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;font-size:12.5px;}' +
+        '.client-box div strong{color:#112D3A;}' +
+        'table{width:100%;border-collapse:collapse;margin-top:16px;font-size:12.5px;}' +
+        'th{background:#112D3A;color:#fff;padding:9px 10px;text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;}' +
+        'th.num,td.num{text-align:right;white-space:nowrap;vertical-align:top;}' +
+        'td{padding:10px;border-bottom:1px solid #e2e8f0;vertical-align:top;}' +
+        '.sub-note{font-size:11px;color:#64748b;margin-top:3px;}' +
+        '.subs-wrap{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}' +
+        '.sub-chip{display:inline-block;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:5px;padding:2px 7px;font-size:10.5px;color:#1e293b;}' +
+        '.sub-chip em{font-style:normal;color:#0f766e;font-weight:700;}' +
+        '.totals-wrap{margin-top:16px;display:grid;grid-template-columns:1.25fr 1fr;gap:16px;align-items:start;}' +
+        '.trial-card{padding:14px 16px;border-radius:10px;background:#ecfdf5;border:1.5px solid #56D7A1;font-size:12px;color:#064e3b;line-height:1.45;}' +
+        '.totals-card{padding:14px 18px;border-radius:10px;background:#112D3A;color:#fff;}' +
+        '.tot-row{display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;color:#cbd5e1;}' +
+        '.tot-final{display:flex;justify-content:space-between;align-items:baseline;border-top:1.5px solid rgba(86,215,161,.45);margin-top:8px;padding-top:8px;font-size:18px;font-weight:900;color:#56D7A1;}' +
+        '.notes-box{margin-top:14px;padding:12px 16px;border-radius:8px;background:#f8fafc;border:1px dashed #94a3b8;font-size:12px;color:#334155;white-space:pre-wrap;}' +
+        '.sign-row{margin-top:26px;display:grid;grid-template-columns:1fr 1fr;gap:40px;font-size:11.5px;color:#475569;text-align:center;}' +
+        '.sign-line{border-top:1px solid #94a3b8;padding-top:6px;margin-top:34px;}' +
+        '@media print{body{background:#fff;} .toolbar{display:none !important;} .sheet{margin:0;padding:8mm;box-shadow:none;border-radius:0;max-width:100%;}}' +
+      '</style></head><body>' +
+      '<div class="toolbar">' +
+        '<div><strong>Presupuesto ' + esc(quoteRecord.numero || '') + '</strong> · ' + esc(quoteRecord.fantasyName || '') + '</div>' +
+        '<div class="toolbar-btns">' +
+          '<button class="tbtn tbtn--mint" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>' +
+          '<a class="tbtn tbtn--wa" href="' + esc(waHref) + '" target="_blank" rel="noopener">📲 Enviar Resumen por WhatsApp</a>' +
+          '<button class="tbtn tbtn--ghost" onclick="window.close()">✕ Cerrar</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sheet">' +
+        '<div class="hdr">' +
+          '<div>' +
+            '<img src="' + window.location.origin + '/sistema/assets/img/minisistema/logo-horizontal.png" alt="MiniSistema">' +
+            '<div style="font-size:11.5px;color:#cbd5e1;margin-top:5px;">Sistemas de Gestión ERP, Portales Web y Aplicaciones en la Nube · www.minisistema.com.ar</div>' +
+          '</div>' +
+          '<div class="hdr-right">' +
+            '<div class="pres-num">' + esc(quoteRecord.numero || 'PRESUPUESTO') + '</div>' +
+            '<div class="pres-meta">Fecha: ' + esc(fechaEmision) + ' · Validez: ' + validDays + ' días (hasta ' + esc(fechaValidez) + ')</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="client-box">' +
+          '<div><strong>Comercio / Fantasía:</strong> ' + esc(quoteRecord.fantasyName || '—') + '</div>' +
+          '<div><strong>Modalidad:</strong> ' + esc(optLabel) + '</div>' +
+          '<div><strong>Razón Social / Titular:</strong> ' + esc(quoteRecord.businessName || quoteRecord.fantasyName || '—') + '</div>' +
+          '<div><strong>CUIT / Documento:</strong> ' + esc(quoteRecord.cuit || '—') + '</div>' +
+          '<div><strong>Contacto:</strong> ' + esc(quoteRecord.contactName || '—') + (quoteRecord.localidad ? ' (' + esc(quoteRecord.localidad) + ')' : '') + '</div>' +
+          '<div><strong>Email / WhatsApp:</strong> ' + esc(quoteRecord.payerEmail || '—') + (quoteRecord.whatsappDigits ? ' · ' + esc(quoteRecord.whatsappDigits) : '') + '</div>' +
+        '</div>' +
+        '<table>' +
+          '<thead><tr><th>Módulo y Submódulos Incluidos</th><th class="num">Valor Lista</th><th class="num">Dto.</th><th class="num">Neto Mensual</th></tr></thead>' +
+          '<tbody>' + itemsRowsHtml + '</tbody>' +
+        '</table>' +
+        '<div class="totals-wrap">' +
+          '<div class="trial-card">' +
+            '<strong>🧪 Período de Prueba Operativo Incluido (' + trialHs + ' horas):</strong><br>' +
+            'Una vez aceptado este presupuesto, habilitamos un entorno real con <strong>base de datos propia y limpia</strong> durante <strong>' + trialHs + ' horas</strong> con usuario y contraseña demo para validar todos los módulos y submódulos seleccionados.<br>' +
+            'Al finalizar la prueba, podés confirmar la habilitación del Plan conservando los datos cargados (de no contratarse, el entorno demo se da de baja automáticamente a los 10 días).' +
+          '</div>' +
+          '<div class="totals-card">' +
+            '<div class="tot-row"><span>Subtotal Mensual:</span><span>' + fmtArs.format(subtotal) + '</span></div>' +
+            (ahorroGlobal > 0
+              ? '<div class="tot-row" style="color:#56D7A1;"><span>Bonificación (' +
+                (gPct > 0 ? gPct + '%' : '') +
+                (gFix > 0 ? (gPct > 0 ? ' + ' : '') + fmtArs.format(gFix) : '') +
+                '):</span><span>- ' +
+                fmtArs.format(ahorroGlobal) +
+                '</span></div>'
+              : '') +
+            '<div class="tot-final"><span>ABONO MENSUAL:</span><span>' + fmtArs.format(totalFinal) + ' / mes</span></div>' +
+            (gType === 'temporary' && quoteRecord.temporaryMonths > 0
+              ? '<div style="font-size:11px;color:#a7f3d0;margin-top:6px;text-align:right;">Valor promocional durante ' +
+                quoteRecord.temporaryMonths +
+                ' meses · Luego: ' +
+                fmtArs.format(totalReg) +
+                '/mes</div>'
+              : '') +
+          '</div>' +
+        '</div>' +
+        (quoteRecord.notas
+          ? '<div class="notes-box"><strong>Observaciones y Condiciones Particulares:</strong>\n' + esc(quoteRecord.notas) + '</div>'
+          : '') +
+        '<div class="sign-row">' +
+          '<div><div class="sign-line"><strong>MiniSistema</strong> · Dirección Comercial (@danielg)</div></div>' +
+          '<div><div class="sign-line"><strong>Conformidad del Cliente</strong> · ' + esc(quoteRecord.fantasyName || '') + '</div></div>' +
+        '</div>' +
+      '</div></body></html>';
+
+    win.document.open();
+    win.document.write(htmlDoc);
+    win.document.close();
   }
 
+  // =========================================================================
+  // VISTA 1: COMERCIOS HABILITADOS (CON GESTIÓN DE PERÍODOS DE PRUEBA)
+  // =========================================================================
   function renderTenantsTab() {
     var d = STATE_SA.data;
     var tenants = (d && d.tenants) || [];
@@ -528,13 +1051,26 @@
       .map(function (t) {
         var sub = t.subscription || {};
         var dep = t.deployment || {};
+        var trial = dep.trial || null;
+        var isTrial = Boolean(trial && trial.isTrial);
+        var remHours =
+          isTrial && trial.endsAt
+            ? Math.max(0, Math.ceil((Date.parse(trial.endsAt) - Date.now()) / 3600000))
+            : 0;
+
         var mpBadge = t.is_base
           ? '<span class="ms-sa-pill">Sistema Base Propio</span>'
-          : sub.mpStatus === 'authorized'
-            ? '<span class="ms-sa-pill" style="background:#dcfce7;color:#065f46;">✅ Débito MP Activo</span>'
-            : sub.mpStatus === 'sandbox_ready'
-              ? '<span class="ms-sa-pill" style="background:#fef3c7;color:#92400e;">🧪 Link Adhesión Prueba</span>'
-              : '<span class="ms-sa-pill" style="background:#e0f2fe;color:#075985;">⏳ Pendiente Adhesión MP</span>';
+          : t.status === 'cancelled' || (trial && trial.status === 'cancelled_baja')
+            ? '<span class="ms-sa-pill" style="background:#fee2e2;color:#991b1b;">🗑️ Dado de Baja</span>'
+            : isTrial
+              ? remHours > 0
+                ? '<span class="ms-sa-pill" style="background:#fef3c7;color:#92400e;">🧪 Demo Activa (' + remHours + ' hs rest.)</span>'
+                : '<span class="ms-sa-pill" style="background:#ffedd5;color:#9a3412;">⌛ Prueba Vencida (+10d gracia)</span>'
+              : sub.mpStatus === 'authorized'
+                ? '<span class="ms-sa-pill" style="background:#dcfce7;color:#065f46;">✅ Débito MP Activo</span>'
+                : sub.mpStatus === 'sandbox_ready'
+                  ? '<span class="ms-sa-pill" style="background:#fef3c7;color:#92400e;">🧪 Link Adhesión Prueba</span>'
+                  : '<span class="ms-sa-pill" style="background:#e0f2fe;color:#075985;">⏳ Pendiente Adhesión MP</span>';
 
         var optBadge = t.is_base
           ? 'Base Oficial MiniSistema'
@@ -556,6 +1092,57 @@
             )
           : '';
 
+        var trialBannerHtml = '';
+        if (trial && (trial.isTrial || trial.status === 'cancelled_baja')) {
+          var waDemoUrl =
+            'https://wa.me/' +
+            String((t.branding && t.branding.whatsappDigits) || '').replace(/\D/g, '') +
+            '?text=' +
+            encodeURIComponent(
+              '¡Hola! Ya habilitamos tu Período de Prueba de *' +
+                t.fantasy_name +
+                '* (' +
+                (trial.trialHours || 72) +
+                ' hs):\n🔗 Ingreso: ' +
+                (dep.publicErpUrl || '') +
+                '\n👤 Usuario: ' +
+                (trial.demoUsername || 'demo') +
+                '\n🔑 Contraseña: ' +
+                (trial.demoPassword || '') +
+                '\n⏱️ Vigente hasta: ' +
+                formatDateTimeAr(trial.endsAt)
+            );
+          trialBannerHtml =
+            '<div style="margin-top:0.65rem;padding:0.65rem 0.75rem;border-radius:10px;background:' +
+            (trial.status === 'cancelled_baja'
+              ? '#fef2f2;border:1px solid #fca5a5;color:#7f1d1d;'
+              : '#fffbeb;border:1px solid #fcd34d;color:#78350f;') +
+            'font-size:0.78rem;display:grid;gap:0.25rem;">' +
+              '<div><strong>🧪 Período de Prueba' +
+                (trial.quoteNumber ? ' (' + esc(trial.quoteNumber) + ')' : '') +
+                ':</strong> ' +
+                esc(trial.trialHours || 72) +
+                ' hs totales · Usuario Demo: <code>@' +
+                esc(trial.demoUsername || 'demo') +
+                '</code> / <code>' +
+                esc(trial.demoPassword || '—') +
+                '</code></div>' +
+              '<div><strong>Vence prueba:</strong> ' +
+                esc(formatDateTimeAr(trial.endsAt)) +
+                ' · <strong>Baja auto (+10d):</strong> ' +
+                esc(formatDateAr(trial.autoCancelAt)) +
+              '</div>' +
+              '<div style="display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.3rem;">' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.28rem 0.6rem;font-size:0.74rem;" data-extend-trial="' + esc(t.slug) + '">⏱️ Extender (+Horas)</button>' +
+                '<button type="button" class="ms-sa-btn" style="padding:0.28rem 0.6rem;font-size:0.74rem;" data-confirm-trial-plan="' + esc(t.slug) + '">✅ Confirmar Plan</button>' +
+                '<a class="ms-sa-btn ms-sa-btn--outline" style="padding:0.28rem 0.6rem;font-size:0.74rem;" href="' + esc(waDemoUrl) + '" target="_blank">📲 Enviar Demo WA</a>' +
+                (trial.status !== 'cancelled_baja'
+                  ? '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.28rem 0.6rem;font-size:0.74rem;border-color:#ef4444;color:#991b1b;" data-cancel-trial="' + esc(t.slug) + '">🗑️ Dar de Baja</button>'
+                  : '') +
+              '</div>' +
+            '</div>';
+        }
+
         return (
           '<div class="ms-sa-card" style="display:flex;flex-direction:column;justify-content:space-between;gap:0.85rem;">' +
           '<div>' +
@@ -570,6 +1157,7 @@
           '</div>' +
           mpBadge +
           '</div>' +
+          trialBannerHtml +
           '<div style="margin-top:0.7rem;padding:0.65rem;background:rgba(86,215,161,0.08);border:1px solid rgba(86,215,161,0.25);border-radius:10px;font-size:0.8rem;display:grid;gap:0.28rem;">' +
           '<div><strong>BD Supabase independiente:</strong> <code>' +
           esc(t.db_schema) +
@@ -585,48 +1173,6 @@
           '" target="_blank" style="color:#56D7A1;font-weight:800;">' +
           esc(dep.publicErpUrl || '/sistema') +
           '</a></div>' +
-          (t.is_base || (Array.isArray(t.enabled_modules) && t.enabled_modules.indexOf('turnos') !== -1)
-            ? '<div><strong>URL Turnero Web:</strong> <a href="' +
-              esc(
-                dep.publicTurnosUrl ||
-                  (t.option_type === 2 && !t.is_base
-                    ? 'https://www.minisistema.com.ar/' + t.slug + '/turnos'
-                    : t.custom_domain
-                      ? 'https://' + t.custom_domain + '/turnos'
-                      : 'https://www.minisistema.com.ar/turnos')
-              ) +
-              '" target="_blank" style="color:#56D7A1;font-weight:800;">' +
-              esc(
-                dep.publicTurnosUrl ||
-                  (t.option_type === 2 && !t.is_base
-                    ? 'https://www.minisistema.com.ar/' + t.slug + '/turnos'
-                    : t.custom_domain
-                      ? 'https://' + t.custom_domain + '/turnos'
-                      : 'https://www.minisistema.com.ar/turnos')
-              ) +
-              '</a></div>'
-            : '') +
-          (t.is_base || (Array.isArray(t.enabled_modules) && t.enabled_modules.indexOf('inmobiliaria') !== -1)
-            ? '<div><strong>URL Inmobiliaria:</strong> <a href="' +
-              esc(
-                dep.publicInmobiliariaUrl ||
-                  (t.option_type === 2 && !t.is_base
-                    ? 'https://www.minisistema.com.ar/' + t.slug + '/inmobiliaria'
-                    : t.custom_domain
-                      ? 'https://' + t.custom_domain + '/inmobiliaria'
-                      : 'https://www.minisistema.com.ar/inmobiliaria')
-              ) +
-              '" target="_blank" style="color:#56D7A1;font-weight:800;">' +
-              esc(
-                dep.publicInmobiliariaUrl ||
-                  (t.option_type === 2 && !t.is_base
-                    ? 'https://www.minisistema.com.ar/' + t.slug + '/inmobiliaria'
-                    : t.custom_domain
-                      ? 'https://' + t.custom_domain + '/inmobiliaria'
-                      : 'https://www.minisistema.com.ar/inmobiliaria')
-              ) +
-              '</a></div>'
-            : '') +
           (t.is_base
             ? ''
             : '<div><strong>Abono Mensual:</strong> ' +
@@ -640,13 +1186,6 @@
                   ')</small>'
                 : '') +
               '</div>') +
-          (dep.githubRepoUrl
-            ? '<div><strong>GitHub:</strong> <a href="' +
-              esc(dep.githubRepoUrl) +
-              '" target="_blank">' +
-              esc(dep.githubRepoUrl) +
-              '</a></div>'
-            : '') +
           '</div>' +
           '</div>' +
           '<div style="display:flex;flex-wrap:wrap;gap:0.45rem;">' +
@@ -698,7 +1237,7 @@
       '<h3 style="margin:0;">Sistemas y Comercios Habilitados (' +
       tenants.length +
       ')</h3>' +
-      '<button type="button" class="ms-sa-btn" id="ms-sa-go-new">+ Habilitar Nuevo Comercio</button>' +
+      '<button type="button" class="ms-sa-btn" id="ms-sa-go-new">+ Habilitar Nuevo Sistema</button>' +
       '</div>' +
       '<div class="ms-sa-grid">' +
       cards +
@@ -707,406 +1246,607 @@
     );
   }
 
-  function renderNewTenantTab() {
-    var d = STATE_SA.data;
-    var mods = (d && d.commercialModules) || [];
-    var quote = computeLocalQuote(
-      STATE_SA.newOptionType,
-      STATE_SA.quoteSelected,
-      STATE_SA.quoteDiscountsByMod,
-      STATE_SA.quoteGlobalType,
-      STATE_SA.quoteGlobalPct,
-      STATE_SA.quoteGlobalFixed,
-      STATE_SA.quoteTempMonths
-    );
-
-    // Tarjetas de Módulos estilo ERP (con ícono .module-icon, título y valor mensual, sin textos de detalle)
-    var modsCardsHtml = mods
-      .map(function (m) {
-        var checked = Boolean(STATE_SA.quoteSelected[m.key]);
-        var cfgP = Number(
-          (d.pricingConfig.module_prices &&
-            d.pricingConfig.module_prices[m.key] &&
-            d.pricingConfig.module_prices[m.key].price) ??
-            m.defaultMonthlyArs
-        );
-        var svgIcon = MODULE_ICONS_SVG[m.key] || MODULE_ICONS_SVG.facturacion;
-        return (
-          '<article class="module-card ' +
-          (checked ? 'is-sa-mod-selected' : '') +
-          '" role="button" tabindex="0" data-toggle-mod-card="' +
-          esc(m.key) +
-          '" style="cursor:pointer;border:2px solid ' +
-          (checked ? '#56D7A1' : 'rgba(17,45,58,0.16)') +
-          ';background:' +
-          (checked ? 'linear-gradient(135deg, #112D3A 0%, #173b4c 100%)' : '') +
-          ';color:' +
-          (checked ? '#FFFFFF' : '') +
-          ';">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:0.35rem;">' +
-          '<div class="module-icon" aria-hidden="true" style="margin:0;' +
-          (checked ? 'background:#56D7A1;color:#112D3A;' : '') +
-          '">' +
-          svgIcon +
-          '</div>' +
-          '<span style="font-size:0.78rem;font-weight:900;padding:0.22rem 0.6rem;border-radius:999px;background:' +
-          (checked ? '#56D7A1' : 'rgba(86,215,161,0.18)') +
-          ';color:#112D3A;">' +
-          (cfgP > 0 ? fmtArs.format(cfgP) : 'Sin costo') +
-          '</span>' +
-          '</div>' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;width:100%;">' +
-          '<h3 style="margin:0;font-size:0.95rem;' +
-          (checked ? 'color:#FFFFFF;' : '') +
-          '">' +
-          esc(m.name) +
-          '</h3>' +
-          '<input type="checkbox" data-new-mod="' +
-          esc(m.key) +
-          '" ' +
-          (checked ? 'checked' : '') +
-          ' style="width:18px;height:18px;accent-color:#56D7A1;pointer-events:none;">' +
-          '</div>' +
-          '</article>'
-        );
-      })
-      .join('');
-
+  // =========================================================================
+  // VISTA 2 (UNIFICADA): HABILITAR NUEVO SISTEMA
+  // (Árbol Módulos/Submódulos + Lista Oficial Valores + Presupuesto PDF + Seguimiento + Demo en Horas)
+  // =========================================================================
+  function getQuoteBadgeHtml(estado) {
+    var st = String(estado || 'BORRADOR').toUpperCase();
+    var map = {
+      BORRADOR: { bg: '#e2e8f0', fg: '#334155', lbl: '📝 Borrador' },
+      ENVIADO: { bg: '#e0f2fe', fg: '#075985', lbl: '📤 Enviado (PDF)' },
+      ACEPTADO: { bg: '#dcfce7', fg: '#166534', lbl: '👍 Aceptado' },
+      EN_PRUEBA: { bg: '#fef3c7', fg: '#92400e', lbl: '🧪 En Prueba Demo' },
+      CONFIRMADO: { bg: '#bbf7d0', fg: '#065f46', lbl: '✅ Plan Confirmado' },
+      RECHAZADO: { bg: '#fee2e2', fg: '#991b1b', lbl: '✕ Rechazado' },
+      BAJA_DEMO: { bg: '#f1f5f9', fg: '#64748b', lbl: '🗑️ Baja Demo' }
+    };
+    var m = map[st] || map.BORRADOR;
     return (
-      '<form id="ms-sa-create-tenant-form" style="display:grid;gap:1.1rem;">' +
-      '<div class="modules-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));">' +
-      '<article class="module-card" role="button" tabindex="0" data-pick-opt="1" style="cursor:pointer;border:2px solid ' +
-      (STATE_SA.newOptionType === 1 ? '#56D7A1' : 'rgba(17,45,58,0.16)') +
-      ';background:' +
-      (STATE_SA.newOptionType === 1 ? 'linear-gradient(135deg, #112D3A 0%, #173b4c 100%)' : '') +
+      '<span style="display:inline-block;padding:0.2rem 0.58rem;border-radius:999px;font-size:0.73rem;font-weight:800;background:' +
+      m.bg +
       ';color:' +
-      (STATE_SA.newOptionType === 1 ? '#FFFFFF' : '') +
+      m.fg +
       ';">' +
-      '<div class="module-icon" aria-hidden="true" style="' +
-      (STATE_SA.newOptionType === 1 ? 'background:#56D7A1;color:#112D3A;' : '') +
-      '"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></div>' +
-      '<h3 style="' +
-      (STATE_SA.newOptionType === 1 ? 'color:#FFFFFF;' : '') +
-      '">Opción 1 · Dominio y Marca Propia</h3>' +
-      '</article>' +
-      '<article class="module-card" role="button" tabindex="0" data-pick-opt="2" style="cursor:pointer;border:2px solid ' +
-      (STATE_SA.newOptionType === 2 ? '#56D7A1' : 'rgba(17,45,58,0.16)') +
-      ';background:' +
-      (STATE_SA.newOptionType === 2 ? 'linear-gradient(135deg, #112D3A 0%, #173b4c 100%)' : '') +
-      ';color:' +
-      (STATE_SA.newOptionType === 2 ? '#FFFFFF' : '') +
-      ';">' +
-      '<div class="module-icon" aria-hidden="true" style="' +
-      (STATE_SA.newOptionType === 2 ? 'background:#56D7A1;color:#112D3A;' : '') +
-      '"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>' +
-      '<h3 style="' +
-      (STATE_SA.newOptionType === 2 ? 'color:#FFFFFF;' : '') +
-      '">Opción 2 · Subruta MiniSistema</h3>' +
-      '</article>' +
-      '</div>' +
-      '<div class="ms-sa-grid">' +
-      '<div class="ms-sa-card">' +
-      '<h4 style="margin-top:0;">1. Datos del Comercio y Ruta</h4>' +
-      '<div style="display:grid;gap:0.7rem;">' +
-      '<div><label class="ms-sa-label">Identificador corto (slug sin espacios)</label><input class="ms-sa-input" name="slug" required placeholder="ej: superalberdi o ferreteriasur"></div>' +
-      '<div><label class="ms-sa-label">Nombre Comercial / Fantasía</label><input class="ms-sa-input" name="fantasyName" required placeholder="Ej: Despensa El Sol"></div>' +
-      '<div><label class="ms-sa-label">Razón Social / Titular</label><input class="ms-sa-input" name="businessName" required placeholder="Ej: Despensa El Sol S.A.S."></div>' +
-      (STATE_SA.newOptionType === 1
-        ? '<div><label class="ms-sa-label">Dominio Propio (Opción 1 — Vercel + GitHub)</label><input class="ms-sa-input" name="customDomain" required placeholder="www.nuevoerp.com.ar"></div>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">' +
-          '<div><label class="ms-sa-label">Color Principal Comercio</label><input type="color" class="ms-sa-input" name="primaryHex" value="#112D3A" style="height:40px;padding:3px;"></div>' +
-          '<div><label class="ms-sa-label">Color Acento Comercio</label><input type="color" class="ms-sa-input" name="accentHex" value="#56D7A1" style="height:40px;padding:3px;"></div>' +
-          '</div>' +
-          '<div><label class="ms-sa-label">Logo 1x1 (URL o subir PNG/JPG)</label><input class="ms-sa-input" name="logo1x1Url" placeholder="https://... o seleccioná archivo abajo"><input type="file" accept="image/*" id="ms-sa-file-logo1x1" style="margin-top:0.3rem;font-size:0.76rem;"></div>' +
-          '<div><label class="ms-sa-label">Logo Horizontal Cabecera (URL o subir PNG/JPG)</label><input class="ms-sa-input" name="logoHorizontalUrl" placeholder="https://... o seleccioná archivo abajo"><input type="file" accept="image/*" id="ms-sa-file-logohoriz" style="margin-top:0.3rem;font-size:0.76rem;"></div>'
-        : '<div style="padding:0.65rem;border-radius:9px;background:rgba(86,215,161,0.14);border:1px solid #56D7A1;font-size:0.8rem;">✓ <strong>Identidad MiniSistema activa:</strong> usará Azul Petróleo <code>#112D3A</code>, Verde Menta <code>#56D7A1</code> e isologotipo oficial de MiniSistema.</div>') +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">' +
-      '<div><label class="ms-sa-label">Localidad</label><input class="ms-sa-input" name="localidad" value="RÍO CUARTO"></div>' +
-      '<div><label class="ms-sa-label">WhatsApp Comercio</label><input class="ms-sa-input" name="whatsappDigits" placeholder="549358..."></div>' +
-      '</div>' +
-      '</div>' +
-      '</div>' +
-      '<div class="ms-sa-card">' +
-      '<h4 style="margin-top:0;">2. Administrador del Comercio + Base Limpia</h4>' +
-      '<div style="display:grid;gap:0.65rem;">' +
-      '<div><label class="ms-sa-label">Usuario Administrador del Comercio</label><input class="ms-sa-input" name="adminUsername" placeholder="ej: adminsol (opcional)"></div>' +
-      '<div><label class="ms-sa-label">Contraseña Inicial del Administrador</label><input class="ms-sa-input" name="adminPassword" placeholder="Mínimo 4 caracteres"></div>' +
-      '<div><label class="ms-sa-label">Nombre del Administrador</label><input class="ms-sa-input" name="adminName" placeholder="Ej: Carlos Gómez"></div>' +
-      '<div><label class="ms-sa-label">Email Pagador Mercado Pago (Débito Automático)</label><input type="email" class="ms-sa-input" name="payerEmail" required placeholder="cliente@comercio.com.ar"></div>' +
-      '</div>' +
-      '<div class="ms-sa-card ms-sa-card--highlight" style="margin-top:0.9rem;">' +
-      '<div style="font-size:0.78rem;color:#56D7A1;font-weight:800;">ABONO MENSUAL CALCULADO (MERCADO PAGO)</div>' +
-      '<div style="font-size:1.75rem;font-weight:900;margin:0.2rem 0;">' +
-      fmtArs.format(quote.promoMonthly) +
-      ' <span style="font-size:0.9rem;font-weight:500;">/ mes</span></div>' +
-      '<div style="font-size:0.78rem;color:#d1fae5;margin-top:0.15rem;">Base Opción ' +
-      STATE_SA.newOptionType +
-      ': ' +
-      fmtArs.format(quote.optionBase) +
-      ' + Módulos: ' +
-      fmtArs.format(quote.modTotal) +
-      ' = Subtotal: ' +
-      fmtArs.format(quote.subtotal) +
-      (STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0
-        ? ' · Dto. (' + esc(STATE_SA.quoteGlobalPct) + '%): -' + fmtArs.format(Math.max(0, quote.subtotal - quote.promoMonthly))
-        : '') +
-      '</div>' +
-      (quote.months > 0
-        ? '<div style="font-size:0.8rem;color:#56D7A1;font-weight:700;margin-top:0.2rem;">Promoción por <strong>' +
-          quote.months +
-          ' meses</strong> · Luego: ' +
-          fmtArs.format(quote.regularMonthly) +
-          '/mes</div>'
-        : '') +
-      '</div>' +
-      '</div>' +
-      '</div>' +
-      '<div class="ms-sa-card">' +
-      '<h4 style="margin-top:0;margin-bottom:0.55rem;">3. Perfil de Actividad, Módulos Contratados y Descuento del Abono</h4>' +
-      '<div style="display:flex;flex-wrap:wrap;gap:0.55rem;align-items:center;margin-bottom:0.95rem;padding:0.75rem;border-radius:10px;background:rgba(17,45,58,0.04);border:1px solid rgba(17,45,58,0.12);">' +
-      '<strong style="font-size:0.82rem;margin-right:0.25rem;">Actividad del Negocio:</strong>' +
-      '<button type="button" class="ms-sa-btn ' + (STATE_SA.newActividadNegocio === 'comercial' ? '' : 'ms-sa-btn--outline') + '" data-pick-actividad="comercial" style="padding:0.38rem 0.85rem;font-size:0.8rem;">🏪 Comercial</button>' +
-      '<button type="button" class="ms-sa-btn ' + (STATE_SA.newActividadNegocio === 'servicios' ? '' : 'ms-sa-btn--outline') + '" data-pick-actividad="servicios" style="padding:0.38rem 0.85rem;font-size:0.8rem;">🔧 Servicios (Directo sin Caja)</button>' +
-      '<button type="button" class="ms-sa-btn ' + (STATE_SA.newActividadNegocio === 'mixta' ? '' : 'ms-sa-btn--outline') + '" data-pick-actividad="mixta" style="padding:0.38rem 0.85rem;font-size:0.8rem;">🔀 Mixta (Comercial + Servicios)</button>' +
-      '<span style="font-size:0.75rem;opacity:0.78;margin-left:auto;">' +
-      (STATE_SA.newActividadNegocio === 'servicios'
-        ? 'Panel limpio: Gestión de Servicios + Facturación directa sin apertura/cierre de caja + Clientes (4 submódulos).'
-        : STATE_SA.newActividadNegocio === 'mixta'
-          ? 'Permite vender productos en Caja POS y prestar/facturar servicios integrados en el mismo ERP.'
-          : 'Configuración comercial estándar con Cajas, Stock, Proveedores y Clientes.') +
-      '</span>' +
-      '</div>' +
-      '<div class="modules-grid" style="margin-bottom:1.1rem;">' +
-      modsCardsHtml +
-      '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.7rem;align-items:end;">' +
-      '<div><label class="ms-sa-label">Tipo de Descuento</label><select class="ms-sa-select" id="ms-new-disc-type">' +
-      '<option value="none" ' +
-      (STATE_SA.quoteGlobalType === 'none' ? 'selected' : '') +
-      '>Sin descuento</option>' +
-      '<option value="temporary" ' +
-      (STATE_SA.quoteGlobalType === 'temporary' ? 'selected' : '') +
-      '>Por tiempo determinado (ej. 3 meses)</option>' +
-      '<option value="permanent" ' +
-      (STATE_SA.quoteGlobalType === 'permanent' ? 'selected' : '') +
-      '>Descuento Permanente</option>' +
-      '</select></div>' +
-      '<div><label class="ms-sa-label">% Descuento</label><input type="number" min="0" max="100" class="ms-sa-input" id="ms-new-disc-pct" value="' +
-      esc(STATE_SA.quoteGlobalPct) +
-      '"></div>' +
-      (STATE_SA.quoteGlobalType === 'temporary'
-        ? '<div><label class="ms-sa-label">Duración Promo (Meses)</label><input type="number" min="1" max="60" class="ms-sa-input" id="ms-new-disc-months" value="' +
-          esc(STATE_SA.quoteTempMonths) +
-          '"></div>'
-        : '') +
-      '<div><button type="submit" class="ms-sa-btn" style="width:100%;padding:0.75rem;">🚀 Crear Sistema + BD Limpia + Suscripción MP</button></div>' +
-      '</div>' +
-      '</div>' +
-      '</form>'
+      m.lbl +
+      '</span>'
     );
   }
 
-  function renderPricingTab() {
-    var d = STATE_SA.data;
-    var cfg = (d && d.pricingConfig) || {};
-    var mods = (d && d.commercialModules) || [];
-    var quote = computeLocalQuote(
-      STATE_SA.quoteOptionType,
-      STATE_SA.quoteSelected,
-      STATE_SA.quoteDiscountsByMod,
-      STATE_SA.quoteGlobalType,
-      STATE_SA.quoteGlobalPct,
-      STATE_SA.quoteGlobalFixed,
-      STATE_SA.quoteTempMonths
-    );
+  function renderQuotesTrackingSubTab() {
+    var d = STATE_SA.data || {};
+    var quotes = Array.isArray(d.quotes) ? d.quotes : [];
+    var tenants = Array.isArray(d.tenants) ? d.tenants : [];
+    var qSearch = String(STATE_SA.quotesSearch || '').trim().toLowerCase();
+    var qFilter = STATE_SA.quotesStatusFilter || 'ALL';
 
-    var opt1Price = Number(cfg.option_1_base ?? 35000);
-    var opt2Price = Number(cfg.option_2_base ?? 15000);
-    var opt1Disc = Number(STATE_SA.quoteDiscountsByMod['__opt1'] || 0);
-    var opt2Disc = Number(STATE_SA.quoteDiscountsByMod['__opt2'] || 0);
-    var opt1Net = Math.round(opt1Price * (1 - opt1Disc / 100));
-    var opt2Net = Math.round(opt2Price * (1 - opt2Disc / 100));
-    var isOpt1 = STATE_SA.quoteOptionType === 1;
+    var countEnv = 0;
+    var countDemo = 0;
+    var countConf = 0;
+    quotes.forEach(function (q) {
+      if (q.estado === 'ENVIADO' || q.estado === 'ACEPTADO' || q.estado === 'BORRADOR') countEnv++;
+      if (q.estado === 'EN_PRUEBA') countDemo++;
+      if (q.estado === 'CONFIRMADO') countConf++;
+    });
 
-    var optionRowsHtml =
-      '<tr style="border-bottom:1px solid rgba(86,215,161,0.28);background:rgba(86,215,161,0.06);">' +
-      '<td style="padding:0.5rem;"><input type="checkbox" data-q-opt-chk="1" ' +
-      (isOpt1 ? 'checked' : '') +
-      '></td>' +
-      '<td style="padding:0.5rem;"><strong>Base Mensual Opción 1 (Dominio + Marca Propia)</strong></td>' +
-      '<td style="padding:0.5rem;width:140px;"><input type="number" min="0" step="500" class="ms-sa-input" id="ms-cfg-opt1" value="' +
-      esc(opt1Price) +
-      '"></td>' +
-      '<td style="padding:0.5rem;width:110px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-opt-disc="1" value="' +
-      esc(opt1Disc) +
-      '"></td>' +
-      '<td data-net-opt-cell="1" style="padding:0.5rem;font-weight:800;text-align:right;">' +
-      (isOpt1 ? fmtArs.format(opt1Net) : '—') +
-      '</td>' +
-      '</tr>' +
-      '<tr style="border-bottom:2px solid rgba(86,215,161,0.38);background:rgba(86,215,161,0.06);">' +
-      '<td style="padding:0.5rem;"><input type="checkbox" data-q-opt-chk="2" ' +
-      (!isOpt1 ? 'checked' : '') +
-      '></td>' +
-      '<td style="padding:0.5rem;"><strong>Base Mensual Opción 2 (Subruta MiniSistema)</strong></td>' +
-      '<td style="padding:0.5rem;width:140px;"><input type="number" min="0" step="500" class="ms-sa-input" id="ms-cfg-opt2" value="' +
-      esc(opt2Price) +
-      '"></td>' +
-      '<td style="padding:0.5rem;width:110px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-opt-disc="2" value="' +
-      esc(opt2Disc) +
-      '"></td>' +
-      '<td data-net-opt-cell="2" style="padding:0.5rem;font-weight:800;text-align:right;">' +
-      (!isOpt1 ? fmtArs.format(opt2Net) : '—') +
-      '</td>' +
-      '</tr>';
+    var filtered = quotes.filter(function (q) {
+      if (qFilter !== 'ALL' && q.estado !== qFilter) return false;
+      if (qSearch) {
+        var hay =
+          (q.numero || '') +
+          ' ' +
+          (q.fantasyName || '') +
+          ' ' +
+          (q.businessName || '') +
+          ' ' +
+          (q.contactName || '') +
+          ' ' +
+          (q.slug || '') +
+          ' ' +
+          (q.payerEmail || '');
+        if (hay.toLowerCase().indexOf(qSearch) === -1) return false;
+      }
+      return true;
+    });
 
-    var selectedCount = 0;
-    var modRows = mods
-      .map(function (m) {
-        var curPrice = Number(
-          (cfg.module_prices && cfg.module_prices[m.key] && cfg.module_prices[m.key].price) ??
-            m.defaultMonthlyArs
-        );
-        var checked = Boolean(STATE_SA.quoteSelected[m.key]);
-        if (checked) selectedCount += 1;
-        var modDisc = Number(STATE_SA.quoteDiscountsByMod[m.key] || 0);
-        var netMod = Math.round(curPrice * (1 - modDisc / 100));
+    var rowsHtml = filtered
+      .map(function (q) {
+        var linkedT = q.linkedTenantSlug
+          ? tenants.find(function (t) {
+              return t.slug === q.linkedTenantSlug;
+            })
+          : null;
+        var trial = linkedT && linkedT.deployment ? linkedT.deployment.trial : null;
+        var trialNote = '';
+        if (linkedT && trial && trial.isTrial) {
+          var remHs = Math.max(0, Math.ceil((Date.parse(trial.endsAt || '') - Date.now()) / 3600000));
+          trialNote =
+            '<div style="font-size:0.72rem;color:#92400e;margin-top:0.2rem;">' +
+            '🧪 <code>/' + esc(linkedT.slug) + '</code> · ' +
+            (remHs > 0 ? 'Restan <strong>' + remHs + ' hs</strong>' : '<strong>Vencida</strong>') +
+            ' (vence ' + esc(formatDateTimeAr(trial.endsAt)) + ')' +
+            '</div>';
+        } else if (linkedT) {
+          trialNote =
+            '<div style="font-size:0.72rem;color:#0f766e;margin-top:0.2rem;">🔗 Sistema: <code>' +
+            esc(linkedT.slug) +
+            '</code></div>';
+        }
+
         return (
-          '<tr style="border-bottom:1px solid rgba(86,215,161,0.2);">' +
-          '<td style="padding:0.5rem;"><input type="checkbox" data-q-mod="' +
-          esc(m.key) +
-          '" ' +
-          (checked ? 'checked' : '') +
-          '></td>' +
-          '<td style="padding:0.5rem;"><strong>' +
-          esc(m.name) +
-          '</strong></td>' +
-          '<td style="padding:0.5rem;width:140px;"><input type="number" min="0" step="500" class="ms-sa-input" data-cfg-mod-price="' +
-          esc(m.key) +
-          '" value="' +
-          esc(curPrice) +
-          '"></td>' +
-          '<td style="padding:0.5rem;width:110px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-mod-disc="' +
-          esc(m.key) +
-          '" value="' +
-          esc(modDisc) +
-          '"></td>' +
-          '<td data-net-mod-cell="' +
-          esc(m.key) +
-          '" style="padding:0.5rem;font-weight:800;text-align:right;">' +
-          (checked ? fmtArs.format(netMod) : '—') +
-          '</td>' +
+          '<tr style="border-bottom:1px solid #e2ecf0;">' +
+            '<td style="padding:0.55rem;">' +
+              '<strong style="color:#112D3A;">' + esc(q.numero) + '</strong>' +
+              '<div style="font-size:0.72rem;opacity:0.75;">' + esc(formatDateTimeAr(q.updatedAt || q.createdAt)) + '</div>' +
+            '</td>' +
+            '<td style="padding:0.55rem;">' +
+              '<div style="font-weight:800;">' + esc(q.fantasyName) + '</div>' +
+              '<div style="font-size:0.73rem;opacity:0.8;">' +
+                esc(q.contactName || q.businessName || '') +
+                (q.whatsappDigits ? ' · 📱 ' + esc(q.whatsappDigits) : '') +
+              '</div>' +
+              trialNote +
+            '</td>' +
+            '<td style="padding:0.55rem;font-size:0.8rem;">' +
+              '<div><strong>' + (Number(q.optionType) === 1 ? 'Opción 1 (Marca Propia)' : 'Opción 2 (Subruta)') + '</strong></div>' +
+              '<div style="font-size:0.73rem;opacity:0.8;">' +
+                esc((q.selectedModuleKeys || []).length) + ' mód. · ' +
+                esc((q.selectedSubmoduleKeys || []).length) + ' submód. · Demo ' + esc(q.trialHours || 72) + ' hs' +
+              '</div>' +
+            '</td>' +
+            '<td style="padding:0.55rem;text-align:right;font-weight:900;color:#112D3A;">' +
+              fmtArs.format(q.totalPromoMensual || 0) + '<small style="font-weight:500;">/mes</small>' +
+            '</td>' +
+            '<td style="padding:0.55rem;">' +
+              getQuoteBadgeHtml(q.estado) +
+              '<div style="margin-top:0.25rem;">' +
+                '<select class="ms-sa-select" data-quote-status-sel="' + esc(q.id) + '" style="padding:0.18rem 0.4rem;font-size:0.72rem;width:auto;">' +
+                  ['BORRADOR', 'ENVIADO', 'ACEPTADO', 'EN_PRUEBA', 'CONFIRMADO', 'RECHAZADO', 'BAJA_DEMO']
+                    .map(function (st) {
+                      return '<option value="' + st + '"' + (q.estado === st ? ' selected' : '') + '>' + st + '</option>';
+                    })
+                    .join('') +
+                '</select>' +
+              '</div>' +
+            '</td>' +
+            '<td style="padding:0.55rem;">' +
+              '<div style="display:flex;flex-wrap:wrap;gap:0.32rem;">' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.28rem 0.55rem;font-size:0.73rem;" data-q-edit="' + esc(q.id) + '">✏️ Editar</button>' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--dark" style="padding:0.28rem 0.55rem;font-size:0.73rem;" data-q-pdf="' + esc(q.id) + '">📄 PDF</button>' +
+                (!linkedT
+                  ? '<button type="button" class="ms-sa-btn" style="padding:0.28rem 0.55rem;font-size:0.73rem;" data-q-start-demo="' + esc(q.id) + '">🧪 Activar Demo (' + esc(q.trialHours || 72) + 'h)</button>'
+                  : trial && trial.isTrial
+                    ? '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.28rem 0.55rem;font-size:0.73rem;" data-extend-trial="' + esc(linkedT.slug) + '">⏱️ +Horas</button>' +
+                      '<button type="button" class="ms-sa-btn" style="padding:0.28rem 0.55rem;font-size:0.73rem;" data-confirm-trial-plan="' + esc(linkedT.slug) + '">✅ Confirmar Plan</button>'
+                    : '') +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.28rem 0.5rem;font-size:0.73rem;border-color:#ef4444;color:#991b1b;" data-q-del="' + esc(q.id) + '">🗑️</button>' +
+              '</div>' +
+            '</td>' +
           '</tr>'
         );
       })
       .join('');
 
     return (
-      '<div style="display:grid;gap:1.1rem;">' +
-      '<div class="ms-sa-card">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.65rem;">' +
-      '<h4 style="margin:0;">📦 Valor Mensual y Descuento Individual por Módulo</h4>' +
-      '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-save-pricing-btn">💾 Guardar Lista Oficial de Valores Mensuales</button>' +
-      '</div>' +
-      '<div style="overflow-x:auto;">' +
-      '<table class="ms-sa-table" data-excel-table-key="sa-pricing" style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
-      '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;">' +
-      '<th style="padding:0.5rem;white-space:nowrap;">' +
-      '<label style="display:inline-flex;align-items:center;gap:0.45rem;cursor:pointer;user-select:none;font-weight:800;color:#112D3A;" title="Tildar o destildar todos los módulos">' +
-      '<input type="checkbox" id="ms-q-select-all-mods" ' +
-      (mods.length > 0 && selectedCount === mods.length ? 'checked' : '') +
-      '>' +
-      '<span>Tildar todos</span>' +
-      '</label>' +
-      '</th>' +
-      '<th style="padding:0.5rem;">Opción Base / Módulo del Sistema ERP</th><th style="padding:0.5rem;">Valor Mensual ($)</th><th style="padding:0.5rem;">Dto. Módulo (%)</th><th style="padding:0.5rem;text-align:right;">Neto Módulo</th></tr></thead>' +
-      '<tbody>' +
-      optionRowsHtml +
-      modRows +
-      '</tbody>' +
-      '<tfoot>' +
-      '<tr style="border-top:2px solid #56D7A1;background:rgba(86,215,161,0.12);">' +
-      '<td colspan="4" style="padding:0.75rem 0.6rem;font-weight:800;font-size:0.95rem;color:#112D3A;">Subtotal (<span id="ms-sa-selected-opt-label">Opción ' +
-      esc(STATE_SA.quoteOptionType) +
-      '</span> + <span id="ms-sa-selected-mods-count">' +
-      esc(selectedCount) +
-      '</span> módulos seleccionados)</td>' +
-      '<td id="ms-sa-selected-mods-subtotal" style="padding:0.75rem 0.5rem;font-weight:900;font-size:1.08rem;text-align:right;color:#112D3A;">' +
-      fmtArs.format(quote.subtotal) +
-      '</td>' +
-      '</tr>' +
-      '</tfoot>' +
-      '</table>' +
-      '</div>' +
-      '</div>' +
-      '<div class="ms-sa-card ms-sa-card--highlight">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-      '<span style="color:#56D7A1;font-weight:800;font-size:0.8rem;">SIMULADOR DE ABONO MENSUAL (DÉBITO MP)</span>' +
-      '</div>' +
-      '<div style="font-size:2rem;font-weight:900;margin:0.4rem 0;"><span id="ms-q-sim-promo">' +
-      fmtArs.format(quote.promoMonthly) +
-      '</span> <span style="font-size:0.95rem;font-weight:500;">/ mes</span>' +
-      '<span id="ms-q-sim-disc-badge" style="margin-left:0.6rem;font-size:0.76rem;font-weight:800;padding:0.2rem 0.6rem;border-radius:999px;background:#56D7A1;color:#112D3A;vertical-align:middle;' +
-      (STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0 ? '' : 'display:none;') +
-      '">' +
-      (STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0
-        ? '-' + esc(STATE_SA.quoteGlobalPct) + '% DTO. GLOBAL APLICADO'
-        : '') +
-      '</span></div>' +
-      '<div id="ms-q-sim-breakdown" style="font-size:0.82rem;color:#d1fae5;">Base Opción ' +
-      STATE_SA.quoteOptionType +
-      ': ' +
-      fmtArs.format(quote.optionBase) +
-      ' + Módulos: ' +
-      fmtArs.format(quote.modTotal) +
-      ' = Subtotal: ' +
-      fmtArs.format(quote.subtotal) +
-      (STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0
-        ? ' · Dto. global (' + esc(STATE_SA.quoteGlobalPct) + '%): -' + fmtArs.format(Math.max(0, quote.subtotal - quote.promoMonthly))
-        : '') +
-      '</div>' +
-      '<div id="ms-q-sim-temp-note" style="margin-top:0.35rem;font-size:0.83rem;color:#56D7A1;font-weight:700;' +
-      (quote.months > 0 ? '' : 'display:none;') +
-      '">' +
-      (quote.months > 0
-        ? '⏱ Descuento temporal por ' +
-          quote.months +
-          ' meses · Desde el mes ' +
-          (quote.months + 1) +
-          ': ' +
-          fmtArs.format(quote.regularMonthly) +
-          '/mes'
-        : '') +
-      '</div>' +
-      '<div style="display:grid;grid-template-columns:1.3fr 0.8fr 0.8fr;gap:0.5rem;margin-top:0.8rem;">' +
-      '<select id="ms-q-gtype" class="ms-sa-select">' +
-      '<option value="none" ' +
-      (STATE_SA.quoteGlobalType === 'none' ? 'selected' : '') +
-      '>Sin dto. global</option>' +
-      '<option value="temporary" ' +
-      (STATE_SA.quoteGlobalType === 'temporary' ? 'selected' : '') +
-      '>Dto. Temporal (Meses)</option>' +
-      '<option value="permanent" ' +
-      (STATE_SA.quoteGlobalType === 'permanent' ? 'selected' : '') +
-      '>Dto. Permanente</option>' +
-      '</select>' +
-      '<input type="number" min="0" max="100" id="ms-q-gpct" class="ms-sa-input" placeholder="% Dto" title="% Descuento Global" value="' +
-      esc(STATE_SA.quoteGlobalPct) +
-      '" ' +
-      (STATE_SA.quoteGlobalType === 'none' ? 'disabled' : '') +
-      '>' +
-      '<input type="number" min="1" max="60" id="ms-q-gmonths" class="ms-sa-input" placeholder="Meses" title="Meses de promoción" value="' +
-      esc(STATE_SA.quoteTempMonths) +
-      '" ' +
-      (STATE_SA.quoteGlobalType === 'temporary' ? '' : 'disabled') +
-      '>' +
-      '</div>' +
-      '<button type="button" class="ms-sa-btn" id="ms-q-apply-to-new" style="margin-top:0.8rem;width:100%;">Usar esta Cotización en Nuevo Comercio →</button>' +
-      '</div>' +
+      '<div style="display:grid;gap:1rem;">' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:0.75rem;">' +
+          '<div class="ms-sa-card" style="padding:0.85rem 1rem;border-left:4px solid #112D3A;">' +
+            '<div style="font-size:0.72rem;font-weight:800;opacity:0.75;text-transform:uppercase;">Total Presupuestos</div>' +
+            '<div style="font-size:1.55rem;font-weight:900;color:#112D3A;">' + quotes.length + '</div>' +
+          '</div>' +
+          '<div class="ms-sa-card" style="padding:0.85rem 1rem;border-left:4px solid #0284c7;">' +
+            '<div style="font-size:0.72rem;font-weight:800;opacity:0.75;text-transform:uppercase;">En Gestión / Enviados</div>' +
+            '<div style="font-size:1.55rem;font-weight:900;color:#0369a1;">' + countEnv + '</div>' +
+          '</div>' +
+          '<div class="ms-sa-card" style="padding:0.85rem 1rem;border-left:4px solid #d97706;">' +
+            '<div style="font-size:0.72rem;font-weight:800;opacity:0.75;text-transform:uppercase;">En Prueba Demo</div>' +
+            '<div style="font-size:1.55rem;font-weight:900;color:#b45309;">' + countDemo + '</div>' +
+          '</div>' +
+          '<div class="ms-sa-card" style="padding:0.85rem 1rem;border-left:4px solid #16a34a;">' +
+            '<div style="font-size:0.72rem;font-weight:800;opacity:0.75;text-transform:uppercase;">Planes Confirmados</div>' +
+            '<div style="font-size:1.55rem;font-weight:900;color:#15803d;">' + countConf + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ms-sa-card">' +
+          '<div style="display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.85rem;">' +
+            '<div style="display:flex;gap:0.65rem;flex-wrap:wrap;flex:1;">' +
+              '<div style="min-width:240px;flex:1;"><label class="ms-sa-label">🔎 Buscar Presupuesto / Cliente</label><input class="ms-sa-input" id="ms-q-track-search" value="' + esc(STATE_SA.quotesSearch) + '" placeholder="PRES-0001, nombre comercial, contacto..."></div>' +
+              '<div style="min-width:190px;"><label class="ms-sa-label">Estado</label><select class="ms-sa-select" id="ms-q-track-filter">' +
+                '<option value="ALL"' + (qFilter === 'ALL' ? ' selected' : '') + '>Todos los estados</option>' +
+                '<option value="BORRADOR"' + (qFilter === 'BORRADOR' ? ' selected' : '') + '>📝 Borrador</option>' +
+                '<option value="ENVIADO"' + (qFilter === 'ENVIADO' ? ' selected' : '') + '>📤 Enviado</option>' +
+                '<option value="ACEPTADO"' + (qFilter === 'ACEPTADO' ? ' selected' : '') + '>👍 Aceptado</option>' +
+                '<option value="EN_PRUEBA"' + (qFilter === 'EN_PRUEBA' ? ' selected' : '') + '>🧪 En Prueba Demo</option>' +
+                '<option value="CONFIRMADO"' + (qFilter === 'CONFIRMADO' ? ' selected' : '') + '>✅ Confirmado</option>' +
+                '<option value="RECHAZADO"' + (qFilter === 'RECHAZADO' ? ' selected' : '') + '>✕ Rechazado</option>' +
+                '<option value="BAJA_DEMO"' + (qFilter === 'BAJA_DEMO' ? ' selected' : '') + '>🗑️ Baja Demo</option>' +
+              '</select></div>' +
+            '</div>' +
+            '<button type="button" class="ms-sa-btn" id="ms-q-new-blank-btn">+ Nuevo Presupuesto / Sistema</button>' +
+          '</div>' +
+          '<div style="overflow-x:auto;">' +
+            '<table class="ms-sa-table" style="width:100%;border-collapse:collapse;font-size:0.84rem;">' +
+              '<thead><tr style="text-align:left;border-bottom:2px solid #112D3A;">' +
+                '<th style="padding:0.5rem;">N° / Fecha</th>' +
+                '<th style="padding:0.5rem;">Cliente / Comercio</th>' +
+                '<th style="padding:0.5rem;">Opción y Alcance</th>' +
+                '<th style="padding:0.5rem;text-align:right;">Mensual</th>' +
+                '<th style="padding:0.5rem;">Estado Seguimiento</th>' +
+                '<th style="padding:0.5rem;">Acciones</th>' +
+              '</tr></thead>' +
+              '<tbody>' +
+                (rowsHtml || '<tr><td colspan="6" style="padding:1.4rem;text-align:center;opacity:0.7;">Todavía no hay presupuestos registrados. Armá uno desde la pestaña Configurador y generá su PDF.</td></tr>') +
+              '</tbody>' +
+            '</table>' +
+          '</div>' +
+        '</div>' +
       '</div>'
     );
   }
 
+  function renderUnifiedNewSystemTab() {
+    var d = STATE_SA.data || {};
+    var cfg = d.pricingConfig || {};
+    var mods = d.commercialModules || [];
+    var quotesCount = Array.isArray(d.quotes) ? d.quotes.length : 0;
+
+    var subTabsHeader =
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.65rem;margin-bottom:1rem;">' +
+        '<div style="display:inline-flex;gap:0.45rem;background:rgba(17,45,58,0.07);padding:0.32rem;border-radius:12px;flex-wrap:wrap;">' +
+          '<button type="button" data-sa-new-subtab="config" class="ms-sa-btn ' +
+            (STATE_SA.newSubTab === 'config' ? '' : 'ms-sa-btn--outline') +
+            '" style="padding:0.45rem 0.95rem;font-size:0.82rem;border-radius:9px;">' +
+            '🛠️ 1. Configurar Módulos, Presupuesto PDF y Alta' +
+          '</button>' +
+          '<button type="button" data-sa-new-subtab="quotes" class="ms-sa-btn ' +
+            (STATE_SA.newSubTab === 'quotes' ? '' : 'ms-sa-btn--outline') +
+            '" style="padding:0.45rem 0.95rem;font-size:0.82rem;border-radius:9px;">' +
+            '📋 2. Alta y Seguimiento de Presupuestos (' + quotesCount + ')' +
+          '</button>' +
+        '</div>' +
+        (STATE_SA.editingQuoteId
+          ? '<div style="display:inline-flex;align-items:center;gap:0.55rem;background:#fef3c7;border:1px solid #f59e0b;color:#78350f;padding:0.38rem 0.8rem;border-radius:10px;font-size:0.8rem;font-weight:800;">' +
+              '<span>✏️ Editando ' + esc(STATE_SA.editingQuoteNumero || 'Presupuesto') + ' (' + esc(STATE_SA.editingQuoteEstado) + ')</span>' +
+              '<button type="button" id="ms-q-reset-blank" class="ms-sa-btn ms-sa-btn--outline" style="padding:0.2rem 0.55rem;font-size:0.73rem;">+ Nuevo Limpio</button>' +
+            '</div>'
+          : '') +
+      '</div>';
+
+    var demoBannerHtml = '';
+    if (STATE_SA.lastCreatedDemoBanner) {
+      var dbn = STATE_SA.lastCreatedDemoBanner;
+      var waCreatedHref =
+        'https://wa.me/' +
+        String(dbn.whatsappDigits || '').replace(/\D/g, '') +
+        '?text=' +
+        encodeURIComponent(
+          '¡Hola! Te habilitamos el Período de Prueba sin cargo de *' +
+            dbn.fantasyName +
+            '* por *' +
+            dbn.trialHours +
+            ' horas*:\n🔗 Acceso al Sistema: ' +
+            dbn.url +
+            '\n👤 Usuario: ' +
+            dbn.demoUsername +
+            '\n🔑 Contraseña: ' +
+            dbn.demoPassword +
+            '\n⏱️ Vigencia de la prueba: hasta el ' +
+            formatDateTimeAr(dbn.endsAt)
+        );
+      demoBannerHtml =
+        '<div class="ms-sa-card" style="margin-bottom:1rem;border:2px solid #56D7A1;background:#ecfdf5;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;flex-wrap:wrap;">' +
+            '<div>' +
+              '<div style="font-weight:900;color:#065f46;font-size:0.98rem;">🎉 ¡Período de Prueba Habilitado con Base de Datos Limpia! (' + esc(dbn.fantasyName) + ')</div>' +
+              '<div style="font-size:0.83rem;color:#064e3b;margin-top:0.3rem;">' +
+                'URL: <a href="' + esc(dbn.url) + '" target="_blank" style="font-weight:800;color:#0f766e;">' + esc(dbn.url) + ' ↗</a> · ' +
+                'Usuario Demo: <code>' + esc(dbn.demoUsername) + '</code> · ' +
+                'Clave: <code>' + esc(dbn.demoPassword) + '</code> · ' +
+                'Duración: <strong>' + esc(dbn.trialHours) + ' horas</strong> (vence ' + esc(formatDateTimeAr(dbn.endsAt)) + ' · baja auto +10d: ' + esc(formatDateAr(dbn.autoCancelAt)) + ')' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:0.45rem;flex-wrap:wrap;">' +
+              '<a class="ms-sa-btn" style="padding:0.38rem 0.75rem;font-size:0.78rem;" href="' + esc(waCreatedHref) + '" target="_blank">📲 Enviar Accesos por WhatsApp</a>' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-close-demo-banner" style="padding:0.38rem 0.65rem;font-size:0.78rem;">✕</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    }
+
+    if (STATE_SA.newSubTab === 'quotes') {
+      return subTabsHeader + demoBannerHtml + renderQuotesTrackingSubTab();
+    }
+
+    var quote = computeTreeQuote();
+    var opt1Price = Math.max(0, Math.round(Number(cfg.option_1_base ?? 35000)));
+    var opt2Price = Math.max(0, Math.round(Number(cfg.option_2_base ?? 15000)));
+    var opt1Disc = Number(STATE_SA.quoteDiscountsByMod['__opt1'] || 0);
+    var opt2Disc = Number(STATE_SA.quoteDiscountsByMod['__opt2'] || 0);
+    var opt1Net = Math.round(opt1Price * (1 - opt1Disc / 100));
+    var opt2Net = Math.round(opt2Price * (1 - opt2Disc / 100));
+    var isOpt1 = STATE_SA.newOptionType === 1;
+
+    var totalAllSubmodulesCount = 0;
+    mods.forEach(function (m) {
+      totalAllSubmodulesCount += getModuleSubmodules(m).length;
+    });
+
+    var optionRowsHtml =
+      '<tr style="border-bottom:1px solid rgba(86,215,161,0.28);background:rgba(86,215,161,0.08);">' +
+        '<td style="padding:0.5rem;"><input type="radio" name="ms_opt_radio" data-q-opt-chk="1" ' + (isOpt1 ? 'checked' : '') + '></td>' +
+        '<td style="padding:0.5rem;"><strong>🌐 Opción 1 · Dominio y Marca Propia</strong> <small style="opacity:0.75;">(Web + ERP con dominio e identidad del cliente)</small></td>' +
+        '<td style="padding:0.5rem;width:145px;"><input type="number" min="0" step="500" class="ms-sa-input" id="ms-cfg-opt1" value="' + esc(opt1Price) + '"></td>' +
+        '<td style="padding:0.5rem;width:105px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-opt-disc="1" value="' + esc(opt1Disc) + '"></td>' +
+        '<td data-net-opt-cell="1" style="padding:0.5rem;font-weight:800;text-align:right;">' + (isOpt1 ? fmtArs.format(opt1Net) : '—') + '</td>' +
+      '</tr>' +
+      '<tr style="border-bottom:2px solid rgba(86,215,161,0.42);background:rgba(86,215,161,0.08);">' +
+        '<td style="padding:0.5rem;"><input type="radio" name="ms_opt_radio" data-q-opt-chk="2" ' + (!isOpt1 ? 'checked' : '') + '></td>' +
+        '<td style="padding:0.5rem;"><strong>⚡ Opción 2 · Subruta MiniSistema</strong> <small style="opacity:0.75;">(minisistema.com.ar/comercio con marca MiniSistema)</small></td>' +
+        '<td style="padding:0.5rem;width:145px;"><input type="number" min="0" step="500" class="ms-sa-input" id="ms-cfg-opt2" value="' + esc(opt2Price) + '"></td>' +
+        '<td style="padding:0.5rem;width:105px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-opt-disc="2" value="' + esc(opt2Disc) + '"></td>' +
+        '<td data-net-opt-cell="2" style="padding:0.5rem;font-weight:800;text-align:right;">' + (!isOpt1 ? fmtArs.format(opt2Net) : '—') + '</td>' +
+      '</tr>';
+
+    var treeRowsHtml = mods
+      .map(function (m, mIdx) {
+        var subs = getModuleSubmodules(m);
+        var bInfo = quote.moduleBreakdown[mIdx];
+        var selCnt = bInfo.selectedSubsCount;
+        var totCnt = bInfo.totalSubsCount;
+        var allChecked = totCnt > 0 && selCnt === totCnt;
+        var someChecked = selCnt > 0;
+        var isExpanded = Boolean(STATE_SA.expandedModules[m.key]);
+        var modDisplayPrice = someChecked ? bInfo.selectedBaseSum : bInfo.catalogSum;
+        var modDisc = bInfo.discountPct;
+
+        var parentRow =
+          '<tr data-mod-parent-row="' + esc(m.key) + '" style="border-bottom:1px solid rgba(17,45,58,0.12);background:' +
+            (someChecked ? 'rgba(86,215,161,0.05)' : 'transparent') +
+          ';">' +
+            '<td style="padding:0.5rem;white-space:nowrap;">' +
+              '<input type="checkbox" data-tree-mod-chk="' + esc(m.key) + '" ' + (allChecked ? 'checked' : '') + '>' +
+            '</td>' +
+            '<td style="padding:0.5rem;">' +
+              '<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">' +
+                '<button type="button" data-tree-toggle="' + esc(m.key) + '" style="border:1px solid rgba(17,45,58,0.2);background:#fff;color:#112D3A;border-radius:6px;padding:0.15rem 0.45rem;font-size:0.74rem;font-weight:900;cursor:pointer;" title="Desplegar / ocultar submódulos">' +
+                  '<span data-tree-arrow="' + esc(m.key) + '">' + (isExpanded ? '▼' : '▶') + '</span> ' +
+                  '<span data-tree-count="' + esc(m.key) + '">' + selCnt + '/' + totCnt + '</span>' +
+                '</button>' +
+                '<strong style="cursor:pointer;" data-tree-toggle="' + esc(m.key) + '">' + esc(m.name) + '</strong>' +
+                (someChecked && selCnt < totCnt
+                  ? '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#0f766e;font-weight:700;">(Parcial: suma ' + selCnt + ' submód.)</span>'
+                  : '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#64748b;">(Σ ' + totCnt + ' submód.)</span>') +
+              '</div>' +
+            '</td>' +
+            '<td style="padding:0.5rem;width:145px;">' +
+              '<input type="number" min="0" step="500" class="ms-sa-input" data-cfg-mod-price="' + esc(m.key) + '" value="' + esc(modDisplayPrice) + '" title="Suma automática de sus submódulos (si editás este total se reparte entre sus submódulos)">' +
+            '</td>' +
+            '<td style="padding:0.5rem;width:105px;">' +
+              '<input type="number" min="0" max="100" class="ms-sa-input" data-q-mod-disc="' + esc(m.key) + '" value="' + esc(modDisc) + '">' +
+            '</td>' +
+            '<td data-net-mod-cell="' + esc(m.key) + '" style="padding:0.5rem;font-weight:800;text-align:right;">' +
+              (someChecked ? (bInfo.netSelected > 0 ? fmtArs.format(bInfo.netSelected) : 'Sin cargo') : '—') +
+            '</td>' +
+          '</tr>';
+
+        var childrenRows = subs
+          .map(function (s, sIdx) {
+            var sChecked = Boolean(STATE_SA.selectedSubmodules[s.key]);
+            var sPrice = Math.max(
+              0,
+              Math.round(
+                STATE_SA.submodulePrices[s.key] !== undefined
+                  ? Number(STATE_SA.submodulePrices[s.key])
+                  : Number(s.defaultMonthlyArs || 0)
+              )
+            );
+            var sNet = Math.round(sPrice * (1 - modDisc / 100));
+            var branchChar = sIdx === subs.length - 1 ? '└─' : '├─';
+            return (
+              '<tr data-sub-row-of="' + esc(m.key) + '" style="' +
+                (isExpanded ? '' : 'display:none;') +
+                'background:#f8fafc;border-bottom:1px dashed rgba(148,163,184,0.35);font-size:0.81rem;">' +
+                '<td style="padding:0.36rem 0.5rem 0.36rem 1.35rem;">' +
+                  '<input type="checkbox" data-tree-sub-chk="' + esc(s.key) + '" data-parent-mod="' + esc(m.key) + '" ' + (sChecked ? 'checked' : '') + '>' +
+                '</td>' +
+                '<td style="padding:0.36rem 0.5rem 0.36rem 1.6rem;color:#334155;">' +
+                  '<span style="color:#94a3b8;font-family:monospace;margin-right:0.35rem;">' + branchChar + '</span>' +
+                  '<label style="cursor:pointer;" data-sub-lbl="' + esc(s.key) + '">' + esc(s.name) + '</label>' +
+                '</td>' +
+                '<td style="padding:0.32rem 0.5rem;width:145px;">' +
+                  '<input type="number" min="0" step="250" class="ms-sa-input" style="padding:0.28rem 0.45rem;font-size:0.79rem;" data-cfg-sub-price="' + esc(s.key) + '" data-parent-mod="' + esc(m.key) + '" value="' + esc(sPrice) + '">' +
+                '</td>' +
+                '<td style="padding:0.36rem 0.5rem;text-align:center;color:#94a3b8;font-size:0.74rem;">' +
+                  (modDisc > 0 ? '-' + modDisc + '%' : '—') +
+                '</td>' +
+                '<td data-net-sub-cell="' + esc(s.key) + '" style="padding:0.36rem 0.5rem;text-align:right;font-weight:700;color:#0f766e;">' +
+                  (sChecked ? (sNet > 0 ? fmtArs.format(sNet) : 'Sin cargo') : '—') +
+                '</td>' +
+              '</tr>'
+            );
+          })
+          .join('');
+
+        return parentRow + childrenRows;
+      })
+      .join('');
+
+    var df = STATE_SA.draftForm;
+    var trialHsNow = Math.max(1, Number(df.trialHours || 72));
+    var previewEndsIso = new Date(Date.now() + trialHsNow * 3600000).toISOString();
+    var previewAutoBajaIso = new Date(Date.now() + (trialHsNow + 240) * 3600000).toISOString();
+
+    return (
+      subTabsHeader +
+      demoBannerHtml +
+      '<form id="ms-sa-unified-form" style="display:grid;gap:1.1rem;">' +
+        /* PASO 1: MODALIDAD + PERFIL + ÁRBOL DE MÓDULOS Y SUBMÓDULOS */
+        '<div class="ms-sa-card">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.65rem;margin-bottom:0.8rem;">' +
+            '<div>' +
+              '<h4 style="margin:0;">1. Modalidad, Árbol de Módulos y Submódulos y Valores Mensuales</h4>' +
+              '<div style="font-size:0.78rem;opacity:0.78;margin-top:0.15rem;">Cada módulo suma automáticamente el valor de sus submódulos tildados. Desplegá cualquier módulo (▶) para elegir submódulos puntuales.</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:0.45rem;flex-wrap:wrap;">' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-tree-expand-all" style="padding:0.38rem 0.7rem;font-size:0.76rem;">➕ Expandir Submódulos</button>' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-tree-collapse-all" style="padding:0.38rem 0.7rem;font-size:0.76rem;">➖ Contraer Todos</button>' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-save-pricing-btn" style="padding:0.38rem 0.8rem;font-size:0.78rem;">💾 Guardar Lista Oficial de Valores</button>' +
+            '</div>' +
+          '</div>' +
+
+          /* Selector rápido Opción 1 / Opción 2 + Perfil Actividad */
+          '<div style="display:flex;flex-wrap:wrap;gap:0.55rem;align-items:center;margin-bottom:0.85rem;padding:0.65rem 0.8rem;border-radius:10px;background:rgba(17,45,58,0.04);border:1px solid rgba(17,45,58,0.12);">' +
+            '<strong style="font-size:0.8rem;">Modalidad:</strong>' +
+            '<button type="button" class="ms-sa-btn ' + (isOpt1 ? '' : 'ms-sa-btn--outline') + '" data-pick-opt="1" style="padding:0.34rem 0.78rem;font-size:0.78rem;">🌐 Opción 1 · Dominio y Marca Propia</button>' +
+            '<button type="button" class="ms-sa-btn ' + (!isOpt1 ? '' : 'ms-sa-btn--outline') + '" data-pick-opt="2" style="padding:0.34rem 0.78rem;font-size:0.78rem;">⚡ Opción 2 · Subruta MiniSistema</button>' +
+            '<span style="margin-left:0.5rem;font-weight:800;font-size:0.8rem;">| Preselección por Actividad:</span>' +
+            '<button type="button" class="ms-sa-btn ' + (STATE_SA.newActividadNegocio === 'comercial' ? '' : 'ms-sa-btn--outline') + '" data-pick-actividad="comercial" style="padding:0.34rem 0.7rem;font-size:0.76rem;">🏪 Comercial</button>' +
+            '<button type="button" class="ms-sa-btn ' + (STATE_SA.newActividadNegocio === 'servicios' ? '' : 'ms-sa-btn--outline') + '" data-pick-actividad="servicios" style="padding:0.34rem 0.7rem;font-size:0.76rem;">🔧 Servicios</button>' +
+            '<button type="button" class="ms-sa-btn ' + (STATE_SA.newActividadNegocio === 'mixta' ? '' : 'ms-sa-btn--outline') + '" data-pick-actividad="mixta" style="padding:0.34rem 0.7rem;font-size:0.76rem;">🔀 Mixta</button>' +
+          '</div>' +
+
+          '<div style="overflow-x:auto;">' +
+            '<table class="ms-sa-table" style="width:100%;border-collapse:collapse;font-size:0.84rem;">' +
+              '<thead><tr style="text-align:left;border-bottom:2px solid #56D7A1;">' +
+                '<th style="padding:0.5rem;white-space:nowrap;width:95px;">' +
+                  '<label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;user-select:none;font-weight:800;color:#112D3A;">' +
+                    '<input type="checkbox" id="ms-q-select-all-mods" ' +
+                      (totalAllSubmodulesCount > 0 && quote.selectedSubCount === totalAllSubmodulesCount ? 'checked' : '') +
+                    '>' +
+                    '<span>Todos</span>' +
+                  '</label>' +
+                '</th>' +
+                '<th style="padding:0.5rem;">Opción Base / Árbol de Módulos y Submódulos</th>' +
+                '<th style="padding:0.5rem;">Valor Mensual ($)</th>' +
+                '<th style="padding:0.5rem;">Dto. (%)</th>' +
+                '<th style="padding:0.5rem;text-align:right;">Neto Mensual</th>' +
+              '</tr></thead>' +
+              '<tbody>' +
+                optionRowsHtml +
+                treeRowsHtml +
+              '</tbody>' +
+              '<tfoot>' +
+                '<tr style="border-top:2px solid #56D7A1;background:rgba(86,215,161,0.13);">' +
+                  '<td colspan="4" style="padding:0.72rem 0.6rem;font-weight:800;font-size:0.93rem;color:#112D3A;">' +
+                    'Subtotal (<span id="ms-sa-selected-opt-label">Opción ' + esc(STATE_SA.newOptionType) + '</span> + ' +
+                    '<span id="ms-sa-selected-mods-count">' + esc(quote.selectedModCount) + '</span> módulos / ' +
+                    '<span id="ms-sa-selected-subs-count">' + esc(quote.selectedSubCount) + '</span> submódulos)' +
+                  '</td>' +
+                  '<td id="ms-sa-selected-mods-subtotal" style="padding:0.72rem 0.5rem;font-weight:900;font-size:1.08rem;text-align:right;color:#112D3A;">' +
+                    fmtArs.format(quote.subtotal) +
+                  '</td>' +
+                '</tr>' +
+              '</tfoot>' +
+            '</table>' +
+          '</div>' +
+
+          /* Descuento Global + Resumen Mensual */
+          '<div class="ms-sa-card ms-sa-card--highlight" style="margin-top:1rem;">' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;align-items:center;">' +
+              '<div>' +
+                '<div style="color:#56D7A1;font-weight:800;font-size:0.78rem;letter-spacing:0.03em;">VALOR MENSUAL FINAL COTIZADO</div>' +
+                '<div style="font-size:1.95rem;font-weight:900;margin:0.2rem 0;">' +
+                  '<span id="ms-q-sim-promo">' + fmtArs.format(quote.promoMonthly) + '</span> ' +
+                  '<span style="font-size:0.9rem;font-weight:500;">/ mes</span>' +
+                '</div>' +
+                '<div id="ms-q-sim-breakdown" style="font-size:0.8rem;color:#d1fae5;">' +
+                  'Base Opción ' + STATE_SA.newOptionType + ': ' + fmtArs.format(quote.optionBase) +
+                  ' + Módulos/Submódulos: ' + fmtArs.format(quote.modTotal) +
+                  ' = Subtotal: ' + fmtArs.format(quote.subtotal) +
+                '</div>' +
+                '<div id="ms-q-sim-temp-note" style="margin-top:0.25rem;font-size:0.8rem;color:#56D7A1;font-weight:700;' + (quote.months > 0 ? '' : 'display:none;') + '">' +
+                  (quote.months > 0 ? '⏱ Promoción por ' + quote.months + ' meses · Luego: ' + fmtArs.format(quote.regularMonthly) + '/mes' : '') +
+                '</div>' +
+              '</div>' +
+              '<div style="display:grid;grid-template-columns:1.2fr 0.7fr 0.8fr 0.7fr;gap:0.45rem;align-items:end;">' +
+                '<div><label class="ms-sa-label" style="color:#d1fae5;">Descuento Global</label><select id="ms-q-gtype" class="ms-sa-select">' +
+                  '<option value="none"' + (STATE_SA.quoteGlobalType === 'none' ? ' selected' : '') + '>Sin dto. global</option>' +
+                  '<option value="temporary"' + (STATE_SA.quoteGlobalType === 'temporary' ? ' selected' : '') + '>Temporal (Meses)</option>' +
+                  '<option value="permanent"' + (STATE_SA.quoteGlobalType === 'permanent' ? ' selected' : '') + '>Permanente</option>' +
+                '</select></div>' +
+                '<div><label class="ms-sa-label" style="color:#d1fae5;">% Dto.</label><input type="number" min="0" max="100" id="ms-q-gpct" class="ms-sa-input" value="' + esc(STATE_SA.quoteGlobalPct) + '" ' + (STATE_SA.quoteGlobalType === 'none' ? 'disabled' : '') + '></div>' +
+                '<div><label class="ms-sa-label" style="color:#d1fae5;">$ Fijo Dto.</label><input type="number" min="0" step="500" id="ms-q-gfixed" class="ms-sa-input" value="' + esc(STATE_SA.quoteGlobalFixed) + '" ' + (STATE_SA.quoteGlobalType === 'none' ? 'disabled' : '') + '></div>' +
+                '<div><label class="ms-sa-label" style="color:#d1fae5;">Meses</label><input type="number" min="1" max="60" id="ms-q-gmonths" class="ms-sa-input" value="' + esc(STATE_SA.quoteTempMonths) + '" ' + (STATE_SA.quoteGlobalType === 'temporary' ? '' : 'disabled') + '></div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        /* PASO 2 y 3: DATOS DEL CLIENTE + CONFIGURACIÓN DE PERÍODO DE PRUEBA (HORAS) Y USUARIO DEMO */
+        '<div class="ms-sa-grid">' +
+          '<div class="ms-sa-card">' +
+            '<h4 style="margin-top:0;">2. Datos del Cliente y Configuración para Presupuesto / Alta</h4>' +
+            '<div style="display:grid;gap:0.65rem;">' +
+              '<div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:0.6rem;">' +
+                '<div><label class="ms-sa-label">Nombre Comercial / Fantasía *</label><input class="ms-sa-input" name="fantasyName" id="ms-inp-fantasy" required value="' + esc(df.fantasyName) + '" placeholder="Ej: Supermercado El Sol"></div>' +
+                '<div><label class="ms-sa-label">Identificador Ruta (slug) *</label><input class="ms-sa-input" name="slug" id="ms-inp-slug" value="' + esc(df.slug) + '" placeholder="ej: superelsol"></div>' +
+              '</div>' +
+              '<div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:0.6rem;">' +
+                '<div><label class="ms-sa-label">Razón Social / Titular</label><input class="ms-sa-input" name="businessName" value="' + esc(df.businessName) + '" placeholder="Ej: El Sol S.A.S."></div>' +
+                '<div><label class="ms-sa-label">CUIT (Opcional)</label><input class="ms-sa-input" name="cuit" value="' + esc(df.cuit) + '" placeholder="30-00000000-0"></div>' +
+              '</div>' +
+              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">' +
+                '<div><label class="ms-sa-label">Persona de Contacto</label><input class="ms-sa-input" name="contactName" value="' + esc(df.contactName) + '" placeholder="Ej: Martín López"></div>' +
+                '<div><label class="ms-sa-label">WhatsApp Cliente</label><input class="ms-sa-input" name="whatsappDigits" value="' + esc(df.whatsappDigits) + '" placeholder="549358..."></div>' +
+              '</div>' +
+              '<div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:0.6rem;">' +
+                '<div><label class="ms-sa-label">Email Cliente / Pagador Mercado Pago</label><input type="email" class="ms-sa-input" name="payerEmail" value="' + esc(df.payerEmail) + '" placeholder="cliente@comercio.com.ar"></div>' +
+                '<div><label class="ms-sa-label">Localidad</label><input class="ms-sa-input" name="localidad" value="' + esc(df.localidad || 'RÍO CUARTO') + '"></div>' +
+              '</div>' +
+              (isOpt1
+                ? '<div style="padding:0.65rem;border-radius:10px;background:#f8fafc;border:1px solid #cbd5e1;display:grid;gap:0.55rem;">' +
+                    '<div><label class="ms-sa-label">Dominio Propio (Opción 1 — ej: www.cliente.com.ar)</label><input class="ms-sa-input" name="customDomain" value="' + esc(df.customDomain) + '" placeholder="www.nuevoerp.com.ar"></div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">' +
+                      '<div><label class="ms-sa-label">Color Principal</label><input type="color" class="ms-sa-input" name="primaryHex" value="' + esc(df.primaryHex || '#112D3A') + '" style="height:38px;padding:3px;"></div>' +
+                      '<div><label class="ms-sa-label">Color Acento</label><input type="color" class="ms-sa-input" name="accentHex" value="' + esc(df.accentHex || '#56D7A1') + '" style="height:38px;padding:3px;"></div>' +
+                    '</div>' +
+                    '<div><label class="ms-sa-label">Logo 1x1 (URL o archivo)</label><input class="ms-sa-input" name="logo1x1Url" value="' + esc(df.logo1x1Url) + '" placeholder="https://..."><input type="file" accept="image/*" id="ms-sa-file-logo1x1" style="margin-top:0.25rem;font-size:0.74rem;"></div>' +
+                    '<div><label class="ms-sa-label">Logo Horizontal (URL o archivo)</label><input class="ms-sa-input" name="logoHorizontalUrl" value="' + esc(df.logoHorizontalUrl) + '" placeholder="https://..."><input type="file" accept="image/*" id="ms-sa-file-logohoriz" style="margin-top:0.25rem;font-size:0.74rem;"></div>' +
+                  '</div>'
+                : '<div style="padding:0.6rem 0.75rem;border-radius:9px;background:rgba(86,215,161,0.14);border:1px solid #56D7A1;font-size:0.79rem;">✓ <strong>Opción 2 (Subruta MiniSistema):</strong> el sistema operará en <code>minisistema.com.ar/' + esc(df.slug || 'comercio') + '</code> con los colores e isologotipo oficiales de MiniSistema.</div>') +
+              '<div style="display:grid;grid-template-columns:0.45fr 1.55fr;gap:0.6rem;">' +
+                '<div><label class="ms-sa-label">Validez PDF (días)</label><input type="number" min="1" max="90" class="ms-sa-input" name="validDays" value="' + esc(df.validDays || 15) + '"></div>' +
+                '<div><label class="ms-sa-label">Notas / Observaciones del Presupuesto</label><input class="ms-sa-input" name="notas" value="' + esc(df.notas) + '" placeholder="Ej: Incluye capacitación inicial online y soporte WhatsApp."></div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="ms-sa-card" style="display:flex;flex-direction:column;justify-content:space-between;gap:0.85rem;">' +
+            '<div>' +
+              '<h4 style="margin-top:0;">3. Período de Prueba (Demo en Horas · BD Limpia) y Accesos</h4>' +
+              '<div style="padding:0.8rem;border-radius:10px;background:#fffbeb;border:1.5px solid #f59e0b;display:grid;gap:0.6rem;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">' +
+                  '<strong style="font-size:0.84rem;color:#78350f;">⏱️ Cantidad de Horas del Período de Prueba:</strong>' +
+                  '<div style="display:flex;gap:0.3rem;flex-wrap:wrap;">' +
+                    [24, 48, 72, 120, 168]
+                      .map(function (hs) {
+                        var activeHs = trialHsNow === hs;
+                        return (
+                          '<button type="button" data-pick-trial-hs="' + hs + '" style="cursor:pointer;border:1px solid ' +
+                          (activeHs ? '#112D3A' : '#d97706') +
+                          ';background:' +
+                          (activeHs ? '#112D3A' : '#fff') +
+                          ';color:' +
+                          (activeHs ? '#56D7A1' : '#92400e') +
+                          ';border-radius:7px;padding:0.22rem 0.52rem;font-size:0.74rem;font-weight:800;">' +
+                          hs + ' hs' +
+                          '</button>'
+                        );
+                      })
+                      .join('') +
+                  '</div>' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:0.7fr 1.3fr;gap:0.6rem;align-items:center;">' +
+                  '<div><label class="ms-sa-label" style="color:#78350f;">Horas Habilitadas *</label><input type="number" min="1" max="2160" class="ms-sa-input" name="trialHours" id="ms-inp-trial-hs" value="' + esc(trialHsNow) + '"></div>' +
+                  '<div id="ms-trial-preview-dates" style="font-size:0.76rem;color:#78350f;line-height:1.4;">' +
+                    '• Vencimiento prueba: <strong>' + esc(formatDateTimeAr(previewEndsIso)) + '</strong><br>' +
+                    '• Si no contrata el Plan: <strong>baja automática el ' + esc(formatDateAr(previewAutoBajaIso)) + '</strong> (10 días después).' +
+                  '</div>' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">' +
+                  '<div><label class="ms-sa-label" style="color:#78350f;">Usuario Demo (@login)</label><input class="ms-sa-input" name="demoUsername" id="ms-inp-demo-user" value="' + esc(df.demoUsername) + '" placeholder="ej: demo_cliente"></div>' +
+                  '<div>' +
+                    '<label class="ms-sa-label" style="color:#78350f;">Contraseña Demo</label>' +
+                    '<div style="display:flex;gap:0.3rem;">' +
+                      '<input class="ms-sa-input" name="demoPassword" id="ms-inp-demo-pass" value="' + esc(df.demoPassword || 'Demo2026') + '">' +
+                      '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-gen-demo-pass" title="Generar clave demo" style="padding:0.35rem 0.6rem;">🎲</button>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+
+              '<div style="margin-top:0.85rem;padding:0.75rem;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;display:grid;gap:0.55rem;">' +
+                '<strong style="font-size:0.81rem;color:#112D3A;">👑 Usuario Administrador Titular (Opcional · Para Alta directa de Plan):</strong>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;">' +
+                  '<div><label class="ms-sa-label">Usuario Admin</label><input class="ms-sa-input" name="adminUsername" value="' + esc(df.adminUsername) + '" placeholder="ej: adminsol"></div>' +
+                  '<div><label class="ms-sa-label">Clave Admin</label><input class="ms-sa-input" name="adminPassword" value="' + esc(df.adminPassword) + '" placeholder="Mín. 4 caract."></div>' +
+                  '<div><label class="ms-sa-label">Nombre Titular</label><input class="ms-sa-input" name="adminName" value="' + esc(df.adminName) + '" placeholder="Ej: Carlos Gómez"></div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+
+            /* BOTONERA DE FLUJO COMERCIAL COMPLETO: 1) PDF -> 2) GUARDAR -> 3) DEMO -> 4) PLAN DEFINITIVO */
+            '<div style="display:grid;gap:0.55rem;margin-top:0.4rem;">' +
+              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;">' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--dark" id="ms-btn-quote-pdf" style="width:100%;padding:0.72rem;font-size:0.83rem;">📄 1. Guardar y Generar Presupuesto PDF</button>' +
+                '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-btn-quote-save" style="width:100%;padding:0.72rem;font-size:0.83rem;">💾 Guardar Presupuesto en Seguimiento</button>' +
+              '</div>' +
+              '<button type="button" class="ms-sa-btn" id="ms-btn-start-trial" style="width:100%;padding:0.78rem;font-size:0.86rem;background:#f59e0b;color:#112D3A;border-color:#d97706;">' +
+                '🧪 2. Habilitar Período de Prueba (<span id="ms-btn-trial-hs-lbl">' + esc(trialHsNow) + '</span> hs · Usuario Demo + BD Limpia)' +
+              '</button>' +
+              '<button type="submit" class="ms-sa-btn" id="ms-btn-confirm-direct-plan" style="width:100%;padding:0.78rem;font-size:0.86rem;">' +
+                '🚀 3. Confirmar y Habilitar Plan Definitivo (+ Suscripción Mercado Pago)' +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</form>'
+    );
+  }
+
+  // =========================================================================
+  // VISTA 3: CREDENCIALES API (INTACTA)
+  // =========================================================================
   function renderSecretsTab() {
     var d = STATE_SA.data || {};
     var st = d.credentialsStatus || {};
@@ -1167,7 +1907,6 @@
 
     return (
       '<div style="display:grid;gap:1.1rem;">' +
-      /* TARJETA 1: CREDENCIALES AFIP / ARCA */
       '<div class="ms-sa-card" style="border:2px solid #56D7A1;">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.65rem;margin-bottom:0.85rem;">' +
       '<div>' +
@@ -1231,7 +1970,6 @@
       '<div><button type="submit" class="ms-sa-btn">🏛️ Guardar y Vincular Credenciales AFIP / ARCA</button></div>' +
       '</form>' +
       '</div>' +
-      /* TARJETA 2 y 3: MERCADO PAGO + GITHUB / VERCEL */
       '<form id="ms-sa-secrets-form" style="display:grid;gap:1rem;">' +
       '<div class="ms-sa-grid">' +
       '<div class="ms-sa-card">' +
@@ -1293,6 +2031,9 @@
     });
   }
 
+  // =========================================================================
+  // VISTA 4: DIRECTORIO GLOBAL DE USUARIOS (INTACTA)
+  // =========================================================================
   function getUserTypeBadgeStyle(uType) {
     if (uType === 'Admin. Gral.') return 'background:#112D3A;color:#56D7A1;border:1px solid #56D7A1;';
     if (uType === 'Administrador') return 'background:#fef3c7;color:#92400e;border:1px solid #f59e0b;';
@@ -1668,12 +2409,11 @@
                   ';color:#064e3b;border:1px solid rgba(16,185,129,0.35);">' +
                   (showPass ? esc(u.password || '—') : '••••••••••') +
                 '</code>' +
-                '<button type="button" data-gu-reveal="' + esc(u.id) + '" title="' + (showPass ? 'Ocultar contraseña' : 'Mostrar contraseña') + '" aria-label="' + (showPass ? 'Ocultar contraseña' : 'Mostrar contraseña') + '" style="border:none;background:transparent;cursor:pointer;font-size:0.88rem;padding:0.15rem;">' + (showPass ? '🙈' : '👁️') + '</button>' +
+                '<button type="button" data-gu-reveal="' + esc(u.id) + '" title="' + (showPass ? 'Ocultar contraseña' : 'Mostrar contraseña') + '" style="border:none;background:transparent;cursor:pointer;font-size:0.88rem;padding:0.15rem;">' + (showPass ? '🙈' : '👁️') + '</button>' +
                 (u.password
                   ? '<button type="button" data-gu-copy="' + esc(u.password) + '" title="Copiar contraseña" style="border:none;background:transparent;cursor:pointer;font-size:0.85rem;padding:0.15rem;">📋</button>'
                   : '') +
               '</div>' +
-              (u.altPasswordNote ? '<div style="font-size:0.69rem;color:#0f766e;margin-top:0.15rem;">' + esc(u.altPasswordNote) + '</div>' : '') +
             '</td>' +
             '<td>' +
               '<span style="display:inline-block;padding:0.22rem 0.58rem;border-radius:999px;font-size:0.73rem;font-weight:800;' + getUserTypeBadgeStyle(u.userType) + '">' +
@@ -1687,7 +2427,7 @@
                 (!isBaseDaniel
                   ? isSuspended
                     ? '<button type="button" class="ms-sa-btn" data-gu-status="' + esc(u.id) + '" data-next-status="active" style="padding:0.28rem 0.55rem;font-size:0.73rem;">▶️ Habilitar</button>'
-                    : '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-gu-status="' + esc(u.id) + '" data-next-status="suspended_nonpayment" title="Deshabilitar transitoriamente por falta de pago" style="padding:0.28rem 0.55rem;font-size:0.73rem;border-color:#ea580c;color:#9a3412;">⏸️ Falta Pago</button>'
+                    : '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-gu-status="' + esc(u.id) + '" data-next-status="suspended_nonpayment" style="padding:0.28rem 0.55rem;font-size:0.73rem;border-color:#ea580c;color:#9a3412;">⏸️ Falta Pago</button>'
                   : '') +
                 (!isBaseDaniel
                   ? '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-gu-del="' + esc(u.id) + '" style="padding:0.28rem 0.52rem;font-size:0.73rem;border-color:#ef4444;color:#991b1b;">🗑️</button>'
@@ -1791,8 +2531,6 @@
           codeEl.style.background = nextShown ? '#ecfdf5' : '#f1f5f9';
         }
         btn.textContent = nextShown ? '🙈' : '👁️';
-        btn.title = nextShown ? 'Ocultar contraseña' : 'Mostrar contraseña';
-        btn.setAttribute('aria-label', btn.title);
       });
     });
 
@@ -1869,11 +2607,8 @@
     var genPassBtn = bodyEl.querySelector('#ms-gu-gen-pass');
     if (genPassBtn) {
       genPassBtn.addEventListener('click', function () {
-        var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-        var out = '';
-        for (var i = 0; i < 8; i++) out += chars.charAt(Math.floor(Math.random() * chars.length));
         var inp = bodyEl.querySelector('#ms-gu-pass-inp');
-        if (inp) inp.value = out + '26';
+        if (inp) inp.value = generateRandomPass();
       });
     }
 
@@ -2007,6 +2742,1032 @@
     }
   }
 
+  // =========================================================================
+  // RENDERIZADO Y EVENTOS INTERACTIVOS
+  // =========================================================================
+  function captureDraftFormFromDom(bodyEl) {
+    var form = bodyEl ? bodyEl.querySelector('#ms-sa-unified-form') : null;
+    if (!form) return;
+    var fd = new FormData(form);
+    var fields = [
+      'slug',
+      'fantasyName',
+      'businessName',
+      'cuit',
+      'contactName',
+      'payerEmail',
+      'whatsappDigits',
+      'localidad',
+      'customDomain',
+      'primaryHex',
+      'accentHex',
+      'logo1x1Url',
+      'logoHorizontalUrl',
+      'notas',
+      'demoUsername',
+      'demoPassword',
+      'adminUsername',
+      'adminPassword',
+      'adminName'
+    ];
+    fields.forEach(function (f) {
+      if (fd.has(f)) {
+        STATE_SA.draftForm[f] = String(fd.get(f) || '');
+      }
+    });
+    if (fd.has('validDays')) {
+      STATE_SA.draftForm.validDays = Math.max(1, Number(fd.get('validDays') || 15));
+    }
+    if (fd.has('trialHours')) {
+      STATE_SA.draftForm.trialHours = Math.max(1, Number(fd.get('trialHours') || 72));
+    }
+  }
+
+  function buildQuotePayloadFromState(targetStatus, histAction) {
+    var qCalc = computeTreeQuote();
+    var df = STATE_SA.draftForm;
+    var fantasy = String(df.fantasyName || '').trim() || 'Cliente en Cotización';
+    var slugClean = sanitizeSlugLocal(df.slug || fantasy) || 'comercio';
+    var modDiscOnly = {};
+    (STATE_SA.data.commercialModules || []).forEach(function (m) {
+      var v = Number(STATE_SA.quoteDiscountsByMod[m.key] || 0);
+      if (v > 0) modDiscOnly[m.key] = v;
+    });
+    var subSnap = {};
+    Object.keys(STATE_SA.submodulePrices).forEach(function (sk) {
+      subSnap[sk] = Number(STATE_SA.submodulePrices[sk] || 0);
+    });
+
+    return {
+      id: STATE_SA.editingQuoteId || '',
+      estado: targetStatus || STATE_SA.editingQuoteEstado || 'ENVIADO',
+      histAction: histAction || undefined,
+      slug: slugClean,
+      fantasyName: fantasy,
+      businessName: String(df.businessName || fantasy).trim(),
+      cuit: String(df.cuit || '').trim(),
+      contactName: String(df.contactName || '').trim(),
+      payerEmail: String(df.payerEmail || '').trim(),
+      whatsappDigits: String(df.whatsappDigits || '').trim(),
+      localidad: String(df.localidad || 'RÍO CUARTO').trim(),
+      optionType: STATE_SA.newOptionType,
+      customDomain: String(df.customDomain || '').trim(),
+      actividadNegocio: STATE_SA.newActividadNegocio || 'comercial',
+      primaryHex: df.primaryHex || '#112D3A',
+      accentHex: df.accentHex || '#56D7A1',
+      logo1x1Url: STATE_SA.newLogo1x1Data || df.logo1x1Url || '',
+      logoHorizontalUrl: STATE_SA.newLogoHorizData || df.logoHorizontalUrl || '',
+      selectedModuleKeys: qCalc.selectedModuleKeys,
+      selectedSubmoduleKeys: qCalc.selectedSubmoduleKeys,
+      optionBasePrice: qCalc.optionRaw,
+      optionDiscountPct: qCalc.optionDiscPct,
+      moduleDiscountsPct: modDiscOnly,
+      submodulePricesSnapshot: subSnap,
+      globalDiscountType: STATE_SA.quoteGlobalType || 'none',
+      globalDiscountPct: Number(STATE_SA.quoteGlobalPct || 0),
+      globalDiscountFixed: Number(STATE_SA.quoteGlobalFixed || 0),
+      temporaryMonths: Number(STATE_SA.quoteTempMonths || 3),
+      validDays: Number(df.validDays || 15),
+      trialHours: Math.max(1, Math.round(Number(df.trialHours || 72))),
+      demoUsername:
+        String(df.demoUsername || '').trim() ||
+        'demo_' + slugClean.slice(0, 12),
+      demoPassword: String(df.demoPassword || 'Demo2026').trim() || 'Demo2026',
+      adminUsername: String(df.adminUsername || '').trim(),
+      adminPassword: String(df.adminPassword || '').trim(),
+      adminName: String(df.adminName || '').trim(),
+      notas: String(df.notas || '').trim(),
+      linkedTenantSlug: df.linkedTenantSlug || null
+    };
+  }
+
+  function bindSharedTrialActionButtons(bodyEl) {
+    bodyEl.querySelectorAll('[data-extend-trial]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var slug = btn.getAttribute('data-extend-trial');
+        var rawHs = window.prompt(
+          '¿Cuántas horas adicionales querés extender el período de prueba para "' + slug + '"?',
+          '72'
+        );
+        if (rawHs === null) return;
+        var hs = Math.round(Number(rawHs));
+        if (!hs || hs < 1) {
+          showFeedback('Ingresá una cantidad de horas válida (ej: 24, 48, 72).', true);
+          return;
+        }
+        btn.disabled = true;
+        var res = await apiSuperAdmin('POST', {
+          action: 'extend_tenant_trial',
+          slug: slug,
+          addHours: hs
+        });
+        btn.disabled = false;
+        if (res && res.ok) {
+          showFeedback(res.message, false);
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo extender la prueba.', true);
+        }
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-confirm-trial-plan]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var slug = btn.getAttribute('data-confirm-trial-plan');
+        if (
+          !window.confirm(
+            '¿Confirmar la habilitación del Plan Definitivo para "' +
+              slug +
+              '"? Se conservarán todos sus datos y usuarios y se generará el enlace de suscripción en Mercado Pago.'
+          )
+        ) {
+          return;
+        }
+        btn.disabled = true;
+        var res = await apiSuperAdmin('POST', {
+          action: 'confirm_tenant_plan',
+          slug: slug
+        });
+        btn.disabled = false;
+        if (res && res.ok) {
+          showFeedback(res.message, false);
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo confirmar el plan.', true);
+        }
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-cancel-trial]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var slug = btn.getAttribute('data-cancel-trial');
+        if (
+          !window.confirm(
+            '¿Dar de baja ahora el sistema demo "' +
+              slug +
+              '"? Se deshabilitará el acceso de prueba.'
+          )
+        ) {
+          return;
+        }
+        btn.disabled = true;
+        var res = await apiSuperAdmin('POST', {
+          action: 'cancel_tenant_trial',
+          slug: slug
+        });
+        btn.disabled = false;
+        if (res && res.ok) {
+          showFeedback(res.message, false);
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo dar de baja la demo.', true);
+        }
+      });
+    });
+  }
+
+  function bindUnifiedNewTabEvents(bodyEl) {
+    var d = STATE_SA.data || {};
+    var mods = d.commercialModules || [];
+
+    bodyEl.querySelectorAll('[data-sa-new-subtab]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        captureDraftFormFromDom(bodyEl);
+        STATE_SA.newSubTab = btn.getAttribute('data-sa-new-subtab') || 'config';
+        renderBody();
+      });
+    });
+
+    var closeBannerBtn = bodyEl.querySelector('#ms-close-demo-banner');
+    if (closeBannerBtn) {
+      closeBannerBtn.addEventListener('click', function () {
+        STATE_SA.lastCreatedDemoBanner = null;
+        renderBody();
+      });
+    }
+
+    var resetBlankBtn = bodyEl.querySelector('#ms-q-reset-blank');
+    if (resetBlankBtn) {
+      resetBlankBtn.addEventListener('click', function () {
+        resetNewConfiguratorBlank();
+        renderBody();
+      });
+    }
+
+    // Eventos de Seguimiento de Presupuestos
+    if (STATE_SA.newSubTab === 'quotes') {
+      var qSearchInp = bodyEl.querySelector('#ms-q-track-search');
+      if (qSearchInp) {
+        qSearchInp.addEventListener('input', function () {
+          var pos = qSearchInp.selectionStart || 0;
+          STATE_SA.quotesSearch = qSearchInp.value;
+          renderBody();
+          var nextInp = document.getElementById('ms-q-track-search');
+          if (nextInp) {
+            nextInp.focus();
+            try { nextInp.setSelectionRange(pos, pos); } catch (_e) {}
+          }
+        });
+      }
+
+      var qFilterSel = bodyEl.querySelector('#ms-q-track-filter');
+      if (qFilterSel) {
+        qFilterSel.addEventListener('change', function () {
+          STATE_SA.quotesStatusFilter = qFilterSel.value;
+          renderBody();
+        });
+      }
+
+      var newBlankBtn = bodyEl.querySelector('#ms-q-new-blank-btn');
+      if (newBlankBtn) {
+        newBlankBtn.addEventListener('click', function () {
+          resetNewConfiguratorBlank();
+          STATE_SA.newSubTab = 'config';
+          renderBody();
+        });
+      }
+
+      bodyEl.querySelectorAll('[data-quote-status-sel]').forEach(function (sel) {
+        sel.addEventListener('change', async function () {
+          var id = sel.getAttribute('data-quote-status-sel');
+          var res = await apiSuperAdmin('POST', {
+            action: 'update_quote_status',
+            id: id,
+            estado: sel.value
+          });
+          if (res && res.ok) {
+            showFeedback(res.message, false);
+            await reloadSuperAdminData(true);
+          } else {
+            showFeedback((res && res.message) || 'Error actualizando estado.', true);
+          }
+        });
+      });
+
+      bodyEl.querySelectorAll('[data-q-edit]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-q-edit');
+          var found = (d.quotes || []).find(function (x) { return x.id === id; });
+          if (!found) return;
+          loadQuoteIntoConfigurator(found);
+          renderBody();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+
+      bodyEl.querySelectorAll('[data-q-pdf]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-q-pdf');
+          var found = (d.quotes || []).find(function (x) { return x.id === id; });
+          if (found) openQuotePdfWindow(found);
+        });
+      });
+
+      bodyEl.querySelectorAll('[data-q-start-demo]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          var id = btn.getAttribute('data-q-start-demo');
+          var found = (d.quotes || []).find(function (x) { return x.id === id; });
+          if (!found) return;
+          var askHs = window.prompt(
+            'Confirmá la cantidad de horas del período de prueba para "' + found.fantasyName + '":',
+            String(found.trialHours || 72)
+          );
+          if (askHs === null) return;
+          var hs = Math.max(1, Math.round(Number(askHs) || 72));
+          loadQuoteIntoConfigurator(found);
+          STATE_SA.draftForm.trialHours = hs;
+          await executeProvisionFromConfigurator(bodyEl, true);
+        });
+      });
+
+      bodyEl.querySelectorAll('[data-q-del]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          var id = btn.getAttribute('data-q-del');
+          var found = (d.quotes || []).find(function (x) { return x.id === id; });
+          if (!found) return;
+          if (!window.confirm('¿Eliminar el presupuesto ' + found.numero + ' (' + found.fantasyName + ')?')) return;
+          var res = await apiSuperAdmin('POST', { action: 'delete_quote', id: id });
+          if (res && res.ok) {
+            if (STATE_SA.editingQuoteId === id) resetNewConfiguratorBlank();
+            showFeedback(res.message, false);
+            await reloadSuperAdminData(true);
+          }
+        });
+      });
+
+      bindSharedTrialActionButtons(bodyEl);
+      return;
+    }
+
+    // Sincronizar estado visual indeterminado inicial en checkboxes de módulos padres
+    function syncIndeterminateAndDomTotals() {
+      var cfgObj = d.pricingConfig || (d.pricingConfig = {});
+      var opt1Inp = bodyEl.querySelector('#ms-cfg-opt1');
+      var opt2Inp = bodyEl.querySelector('#ms-cfg-opt2');
+      if (opt1Inp) cfgObj.option_1_base = Math.max(0, Number(opt1Inp.value || 0));
+      if (opt2Inp) cfgObj.option_2_base = Math.max(0, Number(opt2Inp.value || 0));
+
+      bodyEl.querySelectorAll('[data-q-opt-disc]').forEach(function (inp) {
+        var n = inp.getAttribute('data-q-opt-disc');
+        STATE_SA.quoteDiscountsByMod['__opt' + n] = Math.min(100, Math.max(0, Number(inp.value || 0)));
+      });
+
+      var gTypeEl = bodyEl.querySelector('#ms-q-gtype');
+      if (gTypeEl) STATE_SA.quoteGlobalType = gTypeEl.value;
+      var gPctEl = bodyEl.querySelector('#ms-q-gpct');
+      var gFixEl = bodyEl.querySelector('#ms-q-gfixed');
+      var gMonEl = bodyEl.querySelector('#ms-q-gmonths');
+      if (gPctEl) {
+        gPctEl.disabled = STATE_SA.quoteGlobalType === 'none';
+        STATE_SA.quoteGlobalPct =
+          STATE_SA.quoteGlobalType === 'none' ? 0 : Math.min(100, Math.max(0, Number(gPctEl.value || 0)));
+      }
+      if (gFixEl) {
+        gFixEl.disabled = STATE_SA.quoteGlobalType === 'none';
+        STATE_SA.quoteGlobalFixed =
+          STATE_SA.quoteGlobalType === 'none' ? 0 : Math.max(0, Math.round(Number(gFixEl.value || 0)));
+      }
+      if (gMonEl) {
+        gMonEl.disabled = STATE_SA.quoteGlobalType !== 'temporary';
+        STATE_SA.quoteTempMonths = Math.max(1, Number(gMonEl.value || 3));
+      }
+
+      var quote = computeTreeQuote();
+
+      var opt1Net = Math.round(Number(cfgObj.option_1_base || 0) * (1 - Number(STATE_SA.quoteDiscountsByMod['__opt1'] || 0) / 100));
+      var opt2Net = Math.round(Number(cfgObj.option_2_base || 0) * (1 - Number(STATE_SA.quoteDiscountsByMod['__opt2'] || 0) / 100));
+      var netOpt1El = bodyEl.querySelector('[data-net-opt-cell="1"]');
+      var netOpt2El = bodyEl.querySelector('[data-net-opt-cell="2"]');
+      if (netOpt1El) netOpt1El.textContent = STATE_SA.newOptionType === 1 ? fmtArs.format(opt1Net) : '—';
+      if (netOpt2El) netOpt2El.textContent = STATE_SA.newOptionType === 2 ? fmtArs.format(opt2Net) : '—';
+
+      var totalSubCount = 0;
+      quote.moduleBreakdown.forEach(function (b, idx) {
+        var mod = mods[idx];
+        var subs = getModuleSubmodules(mod);
+        totalSubCount += b.totalSubsCount;
+
+        var pChk = bodyEl.querySelector('[data-tree-mod-chk="' + b.key + '"]');
+        if (pChk) {
+          pChk.checked = b.totalSubsCount > 0 && b.selectedSubsCount === b.totalSubsCount;
+          pChk.indeterminate = b.selectedSubsCount > 0 && b.selectedSubsCount < b.totalSubsCount;
+        }
+        var cntSpan = bodyEl.querySelector('[data-tree-count="' + b.key + '"]');
+        if (cntSpan) cntSpan.textContent = b.selectedSubsCount + '/' + b.totalSubsCount;
+
+        var pNote = bodyEl.querySelector('[data-tree-partial-note="' + b.key + '"]');
+        if (pNote) {
+          if (b.selectedSubsCount > 0 && b.selectedSubsCount < b.totalSubsCount) {
+            pNote.style.color = '#0f766e';
+            pNote.style.fontWeight = '700';
+            pNote.textContent = '(Parcial: suma ' + b.selectedSubsCount + ' submód.)';
+          } else {
+            pNote.style.color = '#64748b';
+            pNote.style.fontWeight = '400';
+            pNote.textContent = '(Σ ' + b.totalSubsCount + ' submód.)';
+          }
+        }
+
+        var modPriceInp = bodyEl.querySelector('[data-cfg-mod-price="' + b.key + '"]');
+        if (modPriceInp && document.activeElement !== modPriceInp) {
+          modPriceInp.value = String(b.selectedSubsCount > 0 ? b.selectedBaseSum : b.catalogSum);
+        }
+
+        var netModCell = bodyEl.querySelector('[data-net-mod-cell="' + b.key + '"]');
+        if (netModCell) {
+          netModCell.textContent =
+            b.selectedSubsCount > 0
+              ? b.netSelected > 0
+                ? fmtArs.format(b.netSelected)
+                : 'Sin cargo'
+              : '—';
+        }
+
+        var parentRow = bodyEl.querySelector('[data-mod-parent-row="' + b.key + '"]');
+        if (parentRow) {
+          parentRow.style.background = b.selectedSubsCount > 0 ? 'rgba(86,215,161,0.05)' : 'transparent';
+        }
+
+        subs.forEach(function (s) {
+          var sChecked = Boolean(STATE_SA.selectedSubmodules[s.key]);
+          var sPrice = Math.max(0, Math.round(Number(STATE_SA.submodulePrices[s.key] || 0)));
+          var sNet = Math.round(sPrice * (1 - b.discountPct / 100));
+          var sNetCell = bodyEl.querySelector('[data-net-sub-cell="' + s.key + '"]');
+          if (sNetCell) {
+            sNetCell.textContent = sChecked ? (sNet > 0 ? fmtArs.format(sNet) : 'Sin cargo') : '—';
+          }
+        });
+      });
+
+      var selAllChk = bodyEl.querySelector('#ms-q-select-all-mods');
+      if (selAllChk) {
+        selAllChk.checked = totalSubCount > 0 && quote.selectedSubCount === totalSubCount;
+        selAllChk.indeterminate = quote.selectedSubCount > 0 && quote.selectedSubCount < totalSubCount;
+      }
+
+      var optLbl = bodyEl.querySelector('#ms-sa-selected-opt-label');
+      if (optLbl) optLbl.textContent = 'Opción ' + STATE_SA.newOptionType;
+      var modCntEl = bodyEl.querySelector('#ms-sa-selected-mods-count');
+      if (modCntEl) modCntEl.textContent = String(quote.selectedModCount);
+      var subCntEl = bodyEl.querySelector('#ms-sa-selected-subs-count');
+      if (subCntEl) subCntEl.textContent = String(quote.selectedSubCount);
+      var subTotEl = bodyEl.querySelector('#ms-sa-selected-mods-subtotal');
+      if (subTotEl) subTotEl.textContent = fmtArs.format(quote.subtotal);
+
+      var promoEl = bodyEl.querySelector('#ms-q-sim-promo');
+      if (promoEl) promoEl.textContent = fmtArs.format(quote.promoMonthly);
+      var brkEl = bodyEl.querySelector('#ms-q-sim-breakdown');
+      if (brkEl) {
+        var ahorro = Math.max(0, quote.subtotal - quote.promoMonthly);
+        brkEl.textContent =
+          'Base Opción ' +
+          STATE_SA.newOptionType +
+          ': ' +
+          fmtArs.format(quote.optionBase) +
+          ' + Módulos/Submódulos: ' +
+          fmtArs.format(quote.modTotal) +
+          ' = Subtotal: ' +
+          fmtArs.format(quote.subtotal) +
+          (ahorro > 0 ? ' · Bonificación: -' + fmtArs.format(ahorro) : '');
+      }
+      var tmpNote = bodyEl.querySelector('#ms-q-sim-temp-note');
+      if (tmpNote) {
+        if (quote.months > 0) {
+          tmpNote.style.display = '';
+          tmpNote.textContent =
+            '⏱ Promoción por ' + quote.months + ' meses · Luego: ' + fmtArs.format(quote.regularMonthly) + '/mes';
+        } else {
+          tmpNote.style.display = 'none';
+        }
+      }
+    }
+
+    syncIndeterminateAndDomTotals();
+
+    // Expandir / contraer árbol
+    bodyEl.querySelectorAll('[data-tree-toggle]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var mKey = el.getAttribute('data-tree-toggle');
+        var next = !STATE_SA.expandedModules[mKey];
+        STATE_SA.expandedModules[mKey] = next;
+        var arrow = bodyEl.querySelector('[data-tree-arrow="' + mKey + '"]');
+        if (arrow) arrow.textContent = next ? '▼' : '▶';
+        bodyEl.querySelectorAll('[data-sub-row-of="' + mKey + '"]').forEach(function (row) {
+          row.style.display = next ? '' : 'none';
+        });
+      });
+    });
+
+    var expAllBtn = bodyEl.querySelector('#ms-tree-expand-all');
+    if (expAllBtn) {
+      expAllBtn.addEventListener('click', function () {
+        mods.forEach(function (m) {
+          STATE_SA.expandedModules[m.key] = true;
+          var arrow = bodyEl.querySelector('[data-tree-arrow="' + m.key + '"]');
+          if (arrow) arrow.textContent = '▼';
+          bodyEl.querySelectorAll('[data-sub-row-of="' + m.key + '"]').forEach(function (r) {
+            r.style.display = '';
+          });
+        });
+      });
+    }
+
+    var colAllBtn = bodyEl.querySelector('#ms-tree-collapse-all');
+    if (colAllBtn) {
+      colAllBtn.addEventListener('click', function () {
+        mods.forEach(function (m) {
+          STATE_SA.expandedModules[m.key] = false;
+          var arrow = bodyEl.querySelector('[data-tree-arrow="' + m.key + '"]');
+          if (arrow) arrow.textContent = '▶';
+          bodyEl.querySelectorAll('[data-sub-row-of="' + m.key + '"]').forEach(function (r) {
+            r.style.display = 'none';
+          });
+        });
+      });
+    }
+
+    // Checkbox padre de módulo -> marca o desmarca todos sus submódulos
+    bodyEl.querySelectorAll('[data-tree-mod-chk]').forEach(function (chk) {
+      chk.addEventListener('change', function () {
+        var mKey = chk.getAttribute('data-tree-mod-chk');
+        var mod = mods.find(function (x) { return x.key === mKey; });
+        if (!mod) return;
+        var nextVal = Boolean(chk.checked);
+        getModuleSubmodules(mod).forEach(function (s) {
+          STATE_SA.selectedSubmodules[s.key] = nextVal;
+          var sChk = bodyEl.querySelector('[data-tree-sub-chk="' + s.key + '"]');
+          if (sChk) sChk.checked = nextVal;
+        });
+        syncIndeterminateAndDomTotals();
+      });
+    });
+
+    // Checkbox hijo de submódulo
+    bodyEl.querySelectorAll('[data-tree-sub-chk]').forEach(function (sChk) {
+      sChk.addEventListener('change', function () {
+        var sKey = sChk.getAttribute('data-tree-sub-chk');
+        STATE_SA.selectedSubmodules[sKey] = Boolean(sChk.checked);
+        syncIndeterminateAndDomTotals();
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-sub-lbl]').forEach(function (lbl) {
+      lbl.addEventListener('click', function () {
+        var sKey = lbl.getAttribute('data-sub-lbl');
+        var sChk = bodyEl.querySelector('[data-tree-sub-chk="' + sKey + '"]');
+        if (sChk) {
+          sChk.checked = !sChk.checked;
+          STATE_SA.selectedSubmodules[sKey] = Boolean(sChk.checked);
+          syncIndeterminateAndDomTotals();
+        }
+      });
+    });
+
+    // Tildar todos
+    var selAllModsChk = bodyEl.querySelector('#ms-q-select-all-mods');
+    if (selAllModsChk) {
+      selAllModsChk.addEventListener('change', function () {
+        var nextVal = Boolean(selAllModsChk.checked);
+        mods.forEach(function (m) {
+          getModuleSubmodules(m).forEach(function (s) {
+            STATE_SA.selectedSubmodules[s.key] = nextVal;
+            var sChk = bodyEl.querySelector('[data-tree-sub-chk="' + s.key + '"]');
+            if (sChk) sChk.checked = nextVal;
+          });
+        });
+        syncIndeterminateAndDomTotals();
+      });
+    }
+
+    // Edición de precio de submódulo -> suma automática en su módulo padre
+    bodyEl.querySelectorAll('[data-cfg-sub-price]').forEach(function (inp) {
+      var handler = function () {
+        var sKey = inp.getAttribute('data-cfg-sub-price');
+        STATE_SA.submodulePrices[sKey] = Math.max(0, Math.round(Number(inp.value || 0)));
+        syncIndeterminateAndDomTotals();
+      };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+
+    // Edición de precio del módulo padre -> reparte proporcionalmente entre sus submódulos
+    bodyEl.querySelectorAll('[data-cfg-mod-price]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        var mKey = inp.getAttribute('data-cfg-mod-price');
+        var mod = mods.find(function (x) { return x.key === mKey; });
+        if (!mod) return;
+        var targetTotal = Math.max(0, Math.round(Number(inp.value || 0)));
+        var subs = getModuleSubmodules(mod);
+        var activeSubs = subs.filter(function (s) { return Boolean(STATE_SA.selectedSubmodules[s.key]); });
+        var listToAdjust = activeSubs.length > 0 ? activeSubs : subs;
+        var currentSum = listToAdjust.reduce(function (a, s) {
+          return a + Math.max(0, Math.round(Number(STATE_SA.submodulePrices[s.key] || 0)));
+        }, 0);
+        var running = 0;
+        listToAdjust.forEach(function (s, idx) {
+          var v;
+          if (idx === listToAdjust.length - 1) {
+            v = Math.max(0, targetTotal - running);
+          } else if (currentSum > 0) {
+            v = Math.round((targetTotal * Number(STATE_SA.submodulePrices[s.key] || 0)) / currentSum);
+            running += v;
+          } else {
+            v = Math.round(targetTotal / listToAdjust.length);
+            running += v;
+          }
+          STATE_SA.submodulePrices[s.key] = v;
+          var sInp = bodyEl.querySelector('[data-cfg-sub-price="' + s.key + '"]');
+          if (sInp) sInp.value = String(v);
+        });
+        syncIndeterminateAndDomTotals();
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-q-mod-disc]').forEach(function (inp) {
+      var h = function () {
+        var mKey = inp.getAttribute('data-q-mod-disc');
+        STATE_SA.quoteDiscountsByMod[mKey] = Math.min(100, Math.max(0, Number(inp.value || 0)));
+        syncIndeterminateAndDomTotals();
+      };
+      inp.addEventListener('input', h);
+      inp.addEventListener('change', h);
+    });
+
+    ['#ms-cfg-opt1', '#ms-cfg-opt2', '#ms-q-gtype', '#ms-q-gpct', '#ms-q-gfixed', '#ms-q-gmonths'].forEach(function (sel) {
+      var el = bodyEl.querySelector(sel);
+      if (el) {
+        el.addEventListener('input', syncIndeterminateAndDomTotals);
+        el.addEventListener('change', syncIndeterminateAndDomTotals);
+      }
+    });
+
+    bodyEl.querySelectorAll('[data-q-opt-disc]').forEach(function (el) {
+      el.addEventListener('input', syncIndeterminateAndDomTotals);
+      el.addEventListener('change', syncIndeterminateAndDomTotals);
+    });
+
+    bodyEl.querySelectorAll('[data-q-opt-chk]').forEach(function (rad) {
+      rad.addEventListener('change', function () {
+        if (!rad.checked) return;
+        captureDraftFormFromDom(bodyEl);
+        STATE_SA.newOptionType = Number(rad.getAttribute('data-q-opt-chk')) === 2 ? 2 : 1;
+        renderBody();
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-pick-opt]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        captureDraftFormFromDom(bodyEl);
+        STATE_SA.newOptionType = Number(btn.getAttribute('data-pick-opt')) === 2 ? 2 : 1;
+        renderBody();
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-pick-actividad]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        captureDraftFormFromDom(bodyEl);
+        var act = btn.getAttribute('data-pick-actividad') || 'comercial';
+        STATE_SA.newActividadNegocio = act;
+        applyActivityPresetSubmodules(act);
+        renderBody();
+      });
+    });
+
+    // Guardar Lista Oficial de Valores Mensuales (con precios por submódulo)
+    var savePricingBtn = bodyEl.querySelector('#ms-save-pricing-btn');
+    if (savePricingBtn) {
+      savePricingBtn.addEventListener('click', async function () {
+        var opt1 = Number((bodyEl.querySelector('#ms-cfg-opt1') || {}).value || 0);
+        var opt2 = Number((bodyEl.querySelector('#ms-cfg-opt2') || {}).value || 0);
+        var modulePrices = {};
+        mods.forEach(function (m) {
+          var subMap = {};
+          var sum = 0;
+          getModuleSubmodules(m).forEach(function (s) {
+            var sp = Math.max(0, Math.round(Number(STATE_SA.submodulePrices[s.key] || 0)));
+            subMap[s.key] = sp;
+            sum += sp;
+          });
+          modulePrices[m.key] = {
+            price: sum,
+            defaultDiscountPct: Number(STATE_SA.quoteDiscountsByMod[m.key] || 0),
+            submodulePrices: subMap
+          };
+        });
+        savePricingBtn.disabled = true;
+        var res = await apiSuperAdmin('POST', {
+          action: 'save_pricing_config',
+          pricingConfig: {
+            option_1_base: opt1,
+            option_2_base: opt2,
+            module_prices: modulePrices
+          }
+        });
+        savePricingBtn.disabled = false;
+        if (res && res.ok) {
+          showFeedback(res.message || 'Lista oficial de valores mensuales por módulo y submódulo guardada.', false);
+          captureDraftFormFromDom(bodyEl);
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'Error guardando precios.', true);
+        }
+      });
+    }
+
+    // Autocompletar slug y usuario demo al escribir el Nombre Comercial
+    var fantasyInp = bodyEl.querySelector('#ms-inp-fantasy');
+    var slugInp = bodyEl.querySelector('#ms-inp-slug');
+    var demoUserInp = bodyEl.querySelector('#ms-inp-demo-user');
+    if (fantasyInp) {
+      fantasyInp.addEventListener('input', function () {
+        var autoS = sanitizeSlugLocal(fantasyInp.value);
+        if (slugInp && (!STATE_SA.draftForm.slug || slugInp.dataset.autoFilled === '1')) {
+          slugInp.value = autoS;
+          slugInp.dataset.autoFilled = '1';
+        }
+        if (demoUserInp && (!STATE_SA.draftForm.demoUsername || demoUserInp.dataset.autoFilled === '1')) {
+          demoUserInp.value = autoS ? 'demo_' + autoS.slice(0, 12) : 'demo';
+          demoUserInp.dataset.autoFilled = '1';
+        }
+      });
+    }
+    if (slugInp) {
+      slugInp.addEventListener('input', function () {
+        slugInp.dataset.autoFilled = '0';
+      });
+    }
+    if (demoUserInp) {
+      demoUserInp.addEventListener('input', function () {
+        demoUserInp.dataset.autoFilled = '0';
+      });
+    }
+
+    // Selector de horas de prueba (botones rápidos + input libre)
+    var trialHsInp = bodyEl.querySelector('#ms-inp-trial-hs');
+    function updateTrialPreviewDom(hsVal) {
+      var hs = Math.max(1, Math.min(2160, Math.round(Number(hsVal || 72))));
+      STATE_SA.draftForm.trialHours = hs;
+      if (trialHsInp && Number(trialHsInp.value) !== hs) trialHsInp.value = String(hs);
+      var lblBtn = bodyEl.querySelector('#ms-btn-trial-hs-lbl');
+      if (lblBtn) lblBtn.textContent = String(hs);
+      var prevBox = bodyEl.querySelector('#ms-trial-preview-dates');
+      if (prevBox) {
+        var endIso = new Date(Date.now() + hs * 3600000).toISOString();
+        var bajaIso = new Date(Date.now() + (hs + 240) * 3600000).toISOString();
+        prevBox.innerHTML =
+          '• Vencimiento prueba: <strong>' + esc(formatDateTimeAr(endIso)) + '</strong><br>' +
+          '• Si no contrata el Plan: <strong>baja automática el ' + esc(formatDateAr(bajaIso)) + '</strong> (10 días después).';
+      }
+      bodyEl.querySelectorAll('[data-pick-trial-hs]').forEach(function (b) {
+        var bHs = Number(b.getAttribute('data-pick-trial-hs'));
+        var act = bHs === hs;
+        b.style.background = act ? '#112D3A' : '#fff';
+        b.style.color = act ? '#56D7A1' : '#92400e';
+        b.style.borderColor = act ? '#112D3A' : '#d97706';
+      });
+    }
+
+    bodyEl.querySelectorAll('[data-pick-trial-hs]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        updateTrialPreviewDom(Number(b.getAttribute('data-pick-trial-hs') || 72));
+      });
+    });
+    if (trialHsInp) {
+      trialHsInp.addEventListener('input', function () {
+        updateTrialPreviewDom(Number(trialHsInp.value || 72));
+      });
+    }
+
+    var genDemoPassBtn = bodyEl.querySelector('#ms-gen-demo-pass');
+    if (genDemoPassBtn) {
+      genDemoPassBtn.addEventListener('click', function () {
+        var pInp = bodyEl.querySelector('#ms-inp-demo-pass');
+        if (pInp) {
+          pInp.value = generateRandomPass();
+          STATE_SA.draftForm.demoPassword = pInp.value;
+        }
+      });
+    }
+
+    var file1x1 = bodyEl.querySelector('#ms-sa-file-logo1x1');
+    if (file1x1) {
+      file1x1.addEventListener('change', async function () {
+        if (file1x1.files && file1x1.files[0]) {
+          STATE_SA.newLogo1x1Data = await fileToDataUrl(file1x1.files[0]);
+          showFeedback('Logo 1x1 cargado listo para aplicar.', false);
+        }
+      });
+    }
+    var fileHoriz = bodyEl.querySelector('#ms-sa-file-logohoriz');
+    if (fileHoriz) {
+      fileHoriz.addEventListener('change', async function () {
+        if (fileHoriz.files && fileHoriz.files[0]) {
+          STATE_SA.newLogoHorizData = await fileToDataUrl(fileHoriz.files[0]);
+          showFeedback('Logo Horizontal cargado listo para aplicar.', false);
+        }
+      });
+    }
+
+    // 1A. Guardar y Generar Presupuesto en PDF
+    var btnQuotePdf = bodyEl.querySelector('#ms-btn-quote-pdf');
+    if (btnQuotePdf) {
+      btnQuotePdf.addEventListener('click', async function () {
+        captureDraftFormFromDom(bodyEl);
+        if (!String(STATE_SA.draftForm.fantasyName || '').trim()) {
+          showFeedback('Ingresá al menos el Nombre Comercial del cliente para emitir el Presupuesto en PDF.', true);
+          var fEl = bodyEl.querySelector('#ms-inp-fantasy');
+          if (fEl) fEl.focus();
+          return;
+        }
+        var qPayload = buildQuotePayloadFromState(
+          STATE_SA.editingQuoteId && STATE_SA.editingQuoteEstado !== 'BORRADOR'
+            ? STATE_SA.editingQuoteEstado
+            : 'ENVIADO',
+          'EMISIÓN DE PRESUPUESTO PDF'
+        );
+        btnQuotePdf.disabled = true;
+        var res = await apiSuperAdmin('POST', { action: 'save_quote', quote: qPayload });
+        btnQuotePdf.disabled = false;
+        if (res && res.ok && res.quote) {
+          STATE_SA.editingQuoteId = res.quote.id;
+          STATE_SA.editingQuoteNumero = res.quote.numero;
+          STATE_SA.editingQuoteEstado = res.quote.estado;
+          showFeedback('📄 Presupuesto ' + res.quote.numero + ' guardado y abierto en PDF.', false);
+          openQuotePdfWindow(res.quote);
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo guardar el presupuesto.', true);
+        }
+      });
+    }
+
+    // 1B. Guardar Presupuesto en Seguimiento (sin abrir PDF)
+    var btnQuoteSave = bodyEl.querySelector('#ms-btn-quote-save');
+    if (btnQuoteSave) {
+      btnQuoteSave.addEventListener('click', async function () {
+        captureDraftFormFromDom(bodyEl);
+        if (!String(STATE_SA.draftForm.fantasyName || '').trim()) {
+          showFeedback('Ingresá el Nombre Comercial del cliente para guardar el presupuesto.', true);
+          return;
+        }
+        var qPayload = buildQuotePayloadFromState(
+          STATE_SA.editingQuoteId ? STATE_SA.editingQuoteEstado : 'BORRADOR'
+        );
+        btnQuoteSave.disabled = true;
+        var res = await apiSuperAdmin('POST', { action: 'save_quote', quote: qPayload });
+        btnQuoteSave.disabled = false;
+        if (res && res.ok && res.quote) {
+          STATE_SA.editingQuoteId = res.quote.id;
+          STATE_SA.editingQuoteNumero = res.quote.numero;
+          STATE_SA.editingQuoteEstado = res.quote.estado;
+          showFeedback('💾 ' + res.message, false);
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'Error guardando presupuesto.', true);
+        }
+      });
+    }
+
+    // 2. Habilitar Período de Prueba (Demo con BD Limpia por X horas)
+    var btnStartTrial = bodyEl.querySelector('#ms-btn-start-trial');
+    if (btnStartTrial) {
+      btnStartTrial.addEventListener('click', async function () {
+        captureDraftFormFromDom(bodyEl);
+        await executeProvisionFromConfigurator(bodyEl, true);
+      });
+    }
+
+    // 3. Confirmar y Habilitar Plan Definitivo
+    var unifiedForm = bodyEl.querySelector('#ms-sa-unified-form');
+    if (unifiedForm) {
+      unifiedForm.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        captureDraftFormFromDom(bodyEl);
+        // Si el presupuesto ya tenía un tenant demo vinculado, confirmarlo directamente sin duplicar BD
+        if (STATE_SA.draftForm.linkedTenantSlug) {
+          var slugExisting = STATE_SA.draftForm.linkedTenantSlug;
+          var resConf = await apiSuperAdmin('POST', {
+            action: 'confirm_tenant_plan',
+            slug: slugExisting,
+            payerEmail: STATE_SA.draftForm.payerEmail || ''
+          });
+          if (resConf && resConf.ok) {
+            resetNewConfiguratorBlank();
+            STATE_SA.activeView = 'tenants';
+            showFeedback(resConf.message, false);
+            await reloadSuperAdminData(true);
+            return;
+          }
+        }
+        await executeProvisionFromConfigurator(bodyEl, false);
+      });
+    }
+  }
+
+  async function executeProvisionFromConfigurator(bodyEl, isTrialMode) {
+    var qCalc = computeTreeQuote();
+    var df = STATE_SA.draftForm;
+    var fantasy = String(df.fantasyName || '').trim();
+    if (!fantasy) {
+      showFeedback('Ingresá el Nombre Comercial / Fantasía del cliente.', true);
+      return;
+    }
+    if (qCalc.selectedSubmoduleKeys.length === 0) {
+      showFeedback('Seleccioná al menos un módulo o submódulo en el árbol.', true);
+      return;
+    }
+    var slugClean = sanitizeSlugLocal(df.slug || fantasy);
+    if (!slugClean || slugClean.length < 2) {
+      showFeedback('Ingresá un identificador corto (slug) válido (ej: superelsol).', true);
+      return;
+    }
+    if (STATE_SA.newOptionType === 1 && !String(df.customDomain || '').trim()) {
+      showFeedback('Para la Opción 1 (Dominio y Marca Propia) indicá el dominio del cliente (o elegí Opción 2 Subruta MiniSistema para la prueba).', true);
+      return;
+    }
+
+    // Primero guardar/actualizar el Presupuesto en Seguimiento para trazabilidad completa
+    var qPayload = buildQuotePayloadFromState(
+      isTrialMode ? 'EN_PRUEBA' : 'CONFIRMADO',
+      isTrialMode ? 'ALTA DE PERÍODO DE PRUEBA' : 'ALTA DE PLAN DEFINITIVO'
+    );
+    var savedQuoteRes = await apiSuperAdmin('POST', { action: 'save_quote', quote: qPayload });
+    var quoteId =
+      savedQuoteRes && savedQuoteRes.ok && savedQuoteRes.quote
+        ? savedQuoteRes.quote.id
+        : STATE_SA.editingQuoteId || '';
+
+    var modOverrides = [];
+    (STATE_SA.data.commercialModules || []).forEach(function (m) {
+      var chosen = getModuleSubmodules(m)
+        .filter(function (s) {
+          return Boolean(STATE_SA.selectedSubmodules[s.key]);
+        })
+        .map(function (s) {
+          return s.key;
+        });
+      if (!chosen.length) return;
+      var sumSub = chosen.reduce(function (a, sk) {
+        return a + Math.max(0, Math.round(Number(STATE_SA.submodulePrices[sk] || 0)));
+      }, 0);
+      modOverrides.push({
+        moduleKey: m.key,
+        selectedSubmodules: chosen,
+        customPrice: sumSub,
+        discountPct: Number(STATE_SA.quoteDiscountsByMod[m.key] || 0)
+      });
+    });
+
+    var adminUser = String(df.adminUsername || '').trim();
+    var adminPass = String(df.adminPassword || '').trim();
+    var demoUser =
+      String(df.demoUsername || '').trim() || 'demo_' + slugClean.slice(0, 12);
+    var demoPass = String(df.demoPassword || 'Demo2026').trim() || 'Demo2026';
+    var trialHours = Math.max(1, Math.round(Number(df.trialHours || 72)));
+
+    var btnTarget = bodyEl
+      ? bodyEl.querySelector(isTrialMode ? '#ms-btn-start-trial' : '#ms-btn-confirm-direct-plan')
+      : null;
+    if (btnTarget) {
+      btnTarget.disabled = true;
+      btnTarget.textContent = 'Aprovisionando base de datos limpia en Supabase...';
+    }
+
+    var provRes = await apiSuperAdmin('POST', {
+      action: 'provision_tenant',
+      quoteId: quoteId,
+      trialMode: isTrialMode,
+      trialHours: trialHours,
+      demoUsername: demoUser,
+      demoPassword: demoPass,
+      optionType: STATE_SA.newOptionType,
+      actividadNegocio: STATE_SA.newActividadNegocio || 'comercial',
+      slug: slugClean,
+      fantasyName: fantasy,
+      businessName: String(df.businessName || fantasy).trim(),
+      customDomain: String(df.customDomain || '').trim(),
+      payerEmail: String(df.payerEmail || '').trim(),
+      commercialModuleKeys: qCalc.selectedModuleKeys,
+      selectedSubmoduleKeys: qCalc.selectedSubmoduleKeys,
+      moduleOverrides: modOverrides,
+      customOptionBasePrice: qCalc.optionRaw,
+      optionDiscountPct: qCalc.optionDiscPct,
+      globalDiscountType: STATE_SA.quoteGlobalType || 'none',
+      globalDiscountPct: Number(STATE_SA.quoteGlobalPct || 0),
+      globalDiscountFixed: Number(STATE_SA.quoteGlobalFixed || 0),
+      temporaryMonths: Number(STATE_SA.quoteTempMonths || 3),
+      branding: {
+        primaryHex: df.primaryHex || '#112D3A',
+        accentHex: df.accentHex || '#56D7A1',
+        logo1x1Url: STATE_SA.newLogo1x1Data || df.logo1x1Url || '',
+        logoHorizontalUrl: STATE_SA.newLogoHorizData || df.logoHorizontalUrl || '',
+        localidad: df.localidad || 'RÍO CUARTO',
+        whatsappDigits: df.whatsappDigits || '5493585095475',
+        emailInfo: df.payerEmail || '',
+        cuitFmt: df.cuit || 'A CONFIGURAR'
+      },
+      initialAdmin:
+        adminUser && adminPass.length >= 4
+          ? {
+              username: adminUser,
+              password: adminPass,
+              name: String(df.adminName || df.contactName || adminUser)
+            }
+          : null
+    });
+
+    if (btnTarget) btnTarget.disabled = false;
+
+    if (provRes && provRes.ok && provRes.tenant) {
+      var createdT = provRes.tenant;
+      var trInfo = (createdT.deployment && createdT.deployment.trial) || null;
+      resetNewConfiguratorBlank();
+      if (isTrialMode && trInfo) {
+        STATE_SA.lastCreatedDemoBanner = {
+          fantasyName: createdT.fantasy_name,
+          slug: createdT.slug,
+          url: (createdT.deployment && createdT.deployment.publicErpUrl) || '/' + createdT.slug,
+          demoUsername: trInfo.demoUsername,
+          demoPassword: trInfo.demoPassword,
+          trialHours: trInfo.trialHours,
+          endsAt: trInfo.endsAt,
+          autoCancelAt: trInfo.autoCancelAt,
+          whatsappDigits: (createdT.branding && createdT.branding.whatsappDigits) || ''
+        };
+        STATE_SA.newSubTab = 'quotes';
+        showFeedback(provRes.message, false);
+        await reloadSuperAdminData(true);
+      } else {
+        STATE_SA.activeView = 'tenants';
+        showFeedback(provRes.message, false);
+        await reloadSuperAdminData(true);
+      }
+    } else {
+      showFeedback((provRes && provRes.message) || 'No se pudo habilitar el sistema.', true);
+      renderBody();
+    }
+  }
+
   function renderBody() {
     var bodyEl = document.getElementById('ms-sa-body');
     if (!bodyEl || !STATE_SA.data) return;
@@ -2015,13 +3776,15 @@
     if (bc) bc.textContent = getViewTitle(STATE_SA.activeView);
 
     if (STATE_SA.activeView === 'tenants') bodyEl.innerHTML = renderTenantsTab();
-    else if (STATE_SA.activeView === 'new') bodyEl.innerHTML = renderNewTenantTab();
-    else if (STATE_SA.activeView === 'pricing') bodyEl.innerHTML = renderPricingTab();
-    else if (STATE_SA.activeView === 'secrets') bodyEl.innerHTML = renderSecretsTab();
+    else if (STATE_SA.activeView === 'new' || STATE_SA.activeView === 'pricing') {
+      bodyEl.innerHTML = renderUnifiedNewSystemTab();
+    } else if (STATE_SA.activeView === 'secrets') bodyEl.innerHTML = renderSecretsTab();
     else if (STATE_SA.activeView === 'users') bodyEl.innerHTML = renderUsersTab();
 
     bindBodyEvents(bodyEl);
-    if (STATE_SA.activeView === 'users') {
+    if (STATE_SA.activeView === 'new' || STATE_SA.activeView === 'pricing') {
+      bindUnifiedNewTabEvents(bodyEl);
+    } else if (STATE_SA.activeView === 'users') {
       bindUsersTabEvents(bodyEl);
     }
   }
@@ -2032,6 +3795,10 @@
       goNew.addEventListener('click', function () {
         openSuperAdminView('new');
       });
+    }
+
+    if (STATE_SA.activeView === 'tenants') {
+      bindSharedTrialActionButtons(bodyEl);
     }
 
     bodyEl.querySelectorAll('[data-manage-users]').forEach(function (btn) {
@@ -2155,13 +3922,7 @@
         });
         sel.disabled = false;
         if (res && res.ok) {
-          showFeedback('Actividad de "' + slug + '" actualizada a ' + act.toUpperCase() + ' sin pérdida de datos.', false);
-          if (window.__ERP_TENANT_BOOT__ && window.__ERP_TENANT_BOOT__.slug === slug) {
-            window.__ERP_TENANT_BOOT__.actividadNegocio = act;
-            if (typeof window.__MS_APPLY_ACTIVIDAD_MODE__ === 'function') {
-              window.__MS_APPLY_ACTIVIDAD_MODE__(act);
-            }
-          }
+          showFeedback('Actividad de "' + slug + '" actualizada a ' + act.toUpperCase() + '.', false);
           await reloadSuperAdminData(true);
         } else {
           showFeedback((res && res.message) || 'No se pudo actualizar la actividad.', true);
@@ -2169,411 +3930,7 @@
       });
     });
 
-    // Tab 2: New Tenant
-    bodyEl.querySelectorAll('[data-pick-opt]').forEach(function (card) {
-      card.addEventListener('click', function () {
-        var opt = Number(card.getAttribute('data-pick-opt')) === 1 ? 1 : 2;
-        STATE_SA.newOptionType = opt;
-        STATE_SA.quoteOptionType = opt;
-        renderBody();
-      });
-    });
-
-    bodyEl.querySelectorAll('[data-pick-actividad]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var act = btn.getAttribute('data-pick-actividad') || 'comercial';
-        STATE_SA.newActividadNegocio = act;
-        var nextSel = {};
-        if (act === 'servicios') {
-          nextSel = { servicios: true, facturacion: true, clientes: true, tema: true, manual_usuario: true };
-        } else if (act === 'mixta') {
-          nextSel = { servicios: true, facturacion: true, articulos: true, clientes: true, proveedores: true, fondos: true, tema: true, manual_usuario: true };
-        } else {
-          nextSel = { facturacion: true, articulos: true, clientes: true, proveedores: true, fondos: true, tema: true, manual_usuario: true };
-        }
-        STATE_SA.quoteSelected = nextSel;
-        renderBody();
-      });
-    });
-
-    bodyEl.querySelectorAll('[data-toggle-mod-card]').forEach(function (card) {
-      card.addEventListener('click', function () {
-        var key = card.getAttribute('data-toggle-mod-card');
-        STATE_SA.quoteSelected[key] = !STATE_SA.quoteSelected[key];
-        renderBody();
-      });
-    });
-
-    var newDiscType = bodyEl.querySelector('#ms-new-disc-type');
-    if (newDiscType) {
-      newDiscType.addEventListener('change', function () {
-        STATE_SA.quoteGlobalType = newDiscType.value;
-        renderBody();
-      });
-    }
-    var newDiscPct = bodyEl.querySelector('#ms-new-disc-pct');
-    if (newDiscPct) {
-      newDiscPct.addEventListener('input', function () {
-        STATE_SA.quoteGlobalPct = Number(newDiscPct.value || 0);
-      });
-      newDiscPct.addEventListener('change', renderBody);
-    }
-    var newDiscMonths = bodyEl.querySelector('#ms-new-disc-months');
-    if (newDiscMonths) {
-      newDiscMonths.addEventListener('change', function () {
-        STATE_SA.quoteTempMonths = Number(newDiscMonths.value || 3);
-        renderBody();
-      });
-    }
-
-    var file1x1 = bodyEl.querySelector('#ms-sa-file-logo1x1');
-    if (file1x1) {
-      file1x1.addEventListener('change', async function () {
-        if (file1x1.files && file1x1.files[0]) {
-          STATE_SA.newLogo1x1Data = await fileToDataUrl(file1x1.files[0]);
-          showFeedback('Logo 1x1 cargado listo para aplicar.', false);
-        }
-      });
-    }
-    var fileHoriz = bodyEl.querySelector('#ms-sa-file-logohoriz');
-    if (fileHoriz) {
-      fileHoriz.addEventListener('change', async function () {
-        if (fileHoriz.files && fileHoriz.files[0]) {
-          STATE_SA.newLogoHorizData = await fileToDataUrl(fileHoriz.files[0]);
-          showFeedback('Logo Horizontal cargado listo para aplicar.', false);
-        }
-      });
-    }
-
-    var createForm = bodyEl.querySelector('#ms-sa-create-tenant-form');
-    if (createForm) {
-      createForm.addEventListener('submit', async function (ev) {
-        ev.preventDefault();
-        var fd = new FormData(createForm);
-        var selectedMods = Object.keys(STATE_SA.quoteSelected).filter(function (k) {
-          return Boolean(STATE_SA.quoteSelected[k]);
-        });
-        var modOverrides = selectedMods.map(function (k) {
-          return {
-            moduleKey: k,
-            discountPct: Number(STATE_SA.quoteDiscountsByMod[k] || 0)
-          };
-        });
-        var adminUser = String(fd.get('adminUsername') || '').trim();
-        var adminPass = String(fd.get('adminPassword') || '').trim();
-
-        var payload = {
-          action: 'provision_tenant',
-          optionType: STATE_SA.newOptionType,
-          actividadNegocio: STATE_SA.newActividadNegocio || 'comercial',
-          slug: fd.get('slug'),
-          fantasyName: fd.get('fantasyName'),
-          businessName: fd.get('businessName'),
-          customDomain: fd.get('customDomain') || '',
-          payerEmail: fd.get('payerEmail') || '',
-          commercialModuleKeys: selectedMods,
-          moduleOverrides: modOverrides,
-          globalDiscountType: STATE_SA.quoteGlobalType,
-          globalDiscountPct: STATE_SA.quoteGlobalPct,
-          temporaryMonths: STATE_SA.quoteTempMonths,
-          branding: {
-            primaryHex: fd.get('primaryHex') || '#112D3A',
-            accentHex: fd.get('accentHex') || '#56D7A1',
-            logo1x1Url: STATE_SA.newLogo1x1Data || fd.get('logo1x1Url') || '',
-            logoHorizontalUrl: STATE_SA.newLogoHorizData || fd.get('logoHorizontalUrl') || '',
-            localidad: fd.get('localidad') || 'RÍO CUARTO',
-            whatsappDigits: fd.get('whatsappDigits') || '5493585095475',
-            emailInfo: fd.get('payerEmail') || ''
-          },
-          initialAdmin:
-            adminUser && adminPass.length >= 4
-              ? {
-                  username: adminUser,
-                  password: adminPass,
-                  name: String(fd.get('adminName') || adminUser)
-                }
-              : null
-        };
-
-        var submitBtn = createForm.querySelector('button[type="submit"]');
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Aprovisionando esquema aislado en Supabase...';
-        }
-        var res = await apiSuperAdmin('POST', payload);
-        if (submitBtn) submitBtn.disabled = false;
-
-        if (res && res.ok) {
-          STATE_SA.newLogo1x1Data = '';
-          STATE_SA.newLogoHorizData = '';
-          STATE_SA.activeView = 'tenants';
-          showFeedback(res.message, false);
-          await reloadSuperAdminData(true);
-        } else {
-          showFeedback((res && res.message) || 'No se pudo crear el comercio.', true);
-          renderBody();
-        }
-      });
-    }
-
-    // Tab 3: Pricing & Quote Simulator
-    function refreshPricingDomLive() {
-      var d = STATE_SA.data;
-      if (!d) return;
-      if (!d.pricingConfig) d.pricingConfig = {};
-      if (!d.pricingConfig.module_prices) d.pricingConfig.module_prices = {};
-
-      var opt1Inp = bodyEl.querySelector('#ms-cfg-opt1');
-      var opt2Inp = bodyEl.querySelector('#ms-cfg-opt2');
-      if (opt1Inp) d.pricingConfig.option_1_base = Math.max(0, Number(opt1Inp.value || 0));
-      if (opt2Inp) d.pricingConfig.option_2_base = Math.max(0, Number(opt2Inp.value || 0));
-
-      bodyEl.querySelectorAll('[data-q-opt-disc]').forEach(function (inp) {
-        var optNum = inp.getAttribute('data-q-opt-disc');
-        STATE_SA.quoteDiscountsByMod['__opt' + optNum] = Math.min(100, Math.max(0, Number(inp.value || 0)));
-      });
-
-      var chkOpt1 = bodyEl.querySelector('[data-q-opt-chk="1"]');
-      var chkOpt2 = bodyEl.querySelector('[data-q-opt-chk="2"]');
-      var qOptEl = bodyEl.querySelector('#ms-q-opt');
-      if (chkOpt1) chkOpt1.checked = STATE_SA.quoteOptionType === 1;
-      if (chkOpt2) chkOpt2.checked = STATE_SA.quoteOptionType === 2;
-      if (qOptEl) qOptEl.value = String(STATE_SA.quoteOptionType);
-
-      var opt1Net = Math.round(
-        Number(d.pricingConfig.option_1_base || 0) *
-          (1 - Number(STATE_SA.quoteDiscountsByMod['__opt1'] || 0) / 100)
-      );
-      var opt2Net = Math.round(
-        Number(d.pricingConfig.option_2_base || 0) *
-          (1 - Number(STATE_SA.quoteDiscountsByMod['__opt2'] || 0) / 100)
-      );
-      var netOptCell1 = bodyEl.querySelector('[data-net-opt-cell="1"]');
-      var netOptCell2 = bodyEl.querySelector('[data-net-opt-cell="2"]');
-      if (netOptCell1) netOptCell1.textContent = STATE_SA.quoteOptionType === 1 ? fmtArs.format(opt1Net) : '—';
-      if (netOptCell2) netOptCell2.textContent = STATE_SA.quoteOptionType === 2 ? fmtArs.format(opt2Net) : '—';
-
-      var qGTypeEl = bodyEl.querySelector('#ms-q-gtype');
-      if (qGTypeEl) STATE_SA.quoteGlobalType = qGTypeEl.value;
-
-      var qGPctEl = bodyEl.querySelector('#ms-q-gpct');
-      if (qGPctEl) {
-        qGPctEl.disabled = STATE_SA.quoteGlobalType === 'none';
-        if (STATE_SA.quoteGlobalType === 'none') {
-          STATE_SA.quoteGlobalPct = 0;
-        } else {
-          STATE_SA.quoteGlobalPct = Math.min(100, Math.max(0, Number(qGPctEl.value || 0)));
-        }
-      }
-
-      var qGMonthsEl = bodyEl.querySelector('#ms-q-gmonths');
-      if (qGMonthsEl) {
-        qGMonthsEl.disabled = STATE_SA.quoteGlobalType !== 'temporary';
-        STATE_SA.quoteTempMonths = Math.max(1, Number(qGMonthsEl.value || 3));
-      }
-
-      var selectedCount = 0;
-      var modChks = bodyEl.querySelectorAll('[data-q-mod]');
-      modChks.forEach(function (chk) {
-        var k = chk.getAttribute('data-q-mod');
-        STATE_SA.quoteSelected[k] = chk.checked;
-        if (chk.checked) selectedCount += 1;
-      });
-
-      var selectAllChk = bodyEl.querySelector('#ms-q-select-all-mods');
-      if (selectAllChk) {
-        selectAllChk.checked = modChks.length > 0 && selectedCount === modChks.length;
-        selectAllChk.indeterminate = selectedCount > 0 && selectedCount < modChks.length;
-      }
-
-      bodyEl.querySelectorAll('[data-q-mod-disc]').forEach(function (inp) {
-        var k = inp.getAttribute('data-q-mod-disc');
-        STATE_SA.quoteDiscountsByMod[k] = Math.min(100, Math.max(0, Number(inp.value || 0)));
-      });
-
-      bodyEl.querySelectorAll('[data-cfg-mod-price]').forEach(function (inp) {
-        var k = inp.getAttribute('data-cfg-mod-price');
-        var curPrice = Math.max(0, Number(inp.value || 0));
-        if (!d.pricingConfig.module_prices[k]) d.pricingConfig.module_prices[k] = {};
-        d.pricingConfig.module_prices[k].price = curPrice;
-        d.pricingConfig.module_prices[k].defaultDiscountPct = Number(STATE_SA.quoteDiscountsByMod[k] || 0);
-
-        var checked = Boolean(STATE_SA.quoteSelected[k]);
-        var modDisc = Number(STATE_SA.quoteDiscountsByMod[k] || 0);
-        var netMod = Math.round(curPrice * (1 - modDisc / 100));
-        var netCell = bodyEl.querySelector('[data-net-mod-cell="' + k + '"]');
-        if (netCell) {
-          netCell.textContent = checked ? fmtArs.format(netMod) : '—';
-        }
-      });
-
-      var quote = computeLocalQuote(
-        STATE_SA.quoteOptionType,
-        STATE_SA.quoteSelected,
-        STATE_SA.quoteDiscountsByMod,
-        STATE_SA.quoteGlobalType,
-        STATE_SA.quoteGlobalPct,
-        STATE_SA.quoteGlobalFixed,
-        STATE_SA.quoteTempMonths
-      );
-
-      var optLabelEl = bodyEl.querySelector('#ms-sa-selected-opt-label');
-      if (optLabelEl) optLabelEl.textContent = 'Opción ' + String(STATE_SA.quoteOptionType);
-
-      var countEl = bodyEl.querySelector('#ms-sa-selected-mods-count');
-      if (countEl) countEl.textContent = String(selectedCount);
-
-      var subModsEl = bodyEl.querySelector('#ms-sa-selected-mods-subtotal');
-      if (subModsEl) subModsEl.textContent = fmtArs.format(quote.subtotal);
-
-      var promoEl = bodyEl.querySelector('#ms-q-sim-promo');
-      if (promoEl) promoEl.textContent = fmtArs.format(quote.promoMonthly);
-
-      var discBadgeEl = bodyEl.querySelector('#ms-q-sim-disc-badge');
-      if (discBadgeEl) {
-        if (STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0) {
-          discBadgeEl.style.display = '';
-          discBadgeEl.textContent = '-' + STATE_SA.quoteGlobalPct + '% DTO. GLOBAL APLICADO';
-        } else {
-          discBadgeEl.style.display = 'none';
-          discBadgeEl.textContent = '';
-        }
-      }
-
-      var breakdownEl = bodyEl.querySelector('#ms-q-sim-breakdown');
-      if (breakdownEl) {
-        var extraDiscTxt =
-          STATE_SA.quoteGlobalType !== 'none' && STATE_SA.quoteGlobalPct > 0
-            ? ' · Dto. global (' +
-              STATE_SA.quoteGlobalPct +
-              '%): -' +
-              fmtArs.format(Math.max(0, quote.subtotal - quote.promoMonthly))
-            : '';
-        breakdownEl.textContent =
-          'Base Opción ' +
-          STATE_SA.quoteOptionType +
-          ': ' +
-          fmtArs.format(quote.optionBase) +
-          ' + Módulos: ' +
-          fmtArs.format(quote.modTotal) +
-          ' = Subtotal: ' +
-          fmtArs.format(quote.subtotal) +
-          extraDiscTxt;
-      }
-
-      var tempNoteEl = bodyEl.querySelector('#ms-q-sim-temp-note');
-      if (tempNoteEl) {
-        if (quote.months > 0) {
-          tempNoteEl.style.display = '';
-          tempNoteEl.textContent =
-            '⏱ Descuento temporal por ' +
-            quote.months +
-            ' meses · Desde el mes ' +
-            (quote.months + 1) +
-            ': ' +
-            fmtArs.format(quote.regularMonthly) +
-            '/mes';
-        } else {
-          tempNoteEl.style.display = 'none';
-          tempNoteEl.textContent = '';
-        }
-      }
-    }
-
-    bodyEl.querySelectorAll('[data-q-opt-chk]').forEach(function (chk) {
-      chk.addEventListener('change', function () {
-        var which = Number(chk.getAttribute('data-q-opt-chk')) === 1 ? 1 : 2;
-        if (chk.checked) {
-          STATE_SA.quoteOptionType = which;
-        } else {
-          STATE_SA.quoteOptionType = which === 1 ? 2 : 1;
-        }
-        STATE_SA.newOptionType = STATE_SA.quoteOptionType;
-        refreshPricingDomLive();
-      });
-    });
-
-    var qOptSelect = bodyEl.querySelector('#ms-q-opt');
-    if (qOptSelect) {
-      qOptSelect.addEventListener('change', function () {
-        STATE_SA.quoteOptionType = Number(qOptSelect.value) === 1 ? 1 : 2;
-        STATE_SA.newOptionType = STATE_SA.quoteOptionType;
-        refreshPricingDomLive();
-      });
-    }
-
-    ['#ms-q-gtype', '#ms-q-gpct', '#ms-q-gmonths', '#ms-cfg-opt1', '#ms-cfg-opt2'].forEach(function (sel) {
-      var el = bodyEl.querySelector(sel);
-      if (el) {
-        el.addEventListener('input', refreshPricingDomLive);
-        el.addEventListener('change', refreshPricingDomLive);
-      }
-    });
-
-    var selectAllModsChk = bodyEl.querySelector('#ms-q-select-all-mods');
-    if (selectAllModsChk) {
-      var initModChks = bodyEl.querySelectorAll('[data-q-mod]');
-      var initSelectedCount = 0;
-      initModChks.forEach(function (chk) {
-        if (chk.checked) initSelectedCount += 1;
-      });
-      selectAllModsChk.indeterminate = initSelectedCount > 0 && initSelectedCount < initModChks.length;
-
-      selectAllModsChk.addEventListener('change', function () {
-        var checkAll = Boolean(selectAllModsChk.checked);
-        bodyEl.querySelectorAll('[data-q-mod]').forEach(function (chk) {
-          chk.checked = checkAll;
-          var k = chk.getAttribute('data-q-mod');
-          STATE_SA.quoteSelected[k] = checkAll;
-        });
-        refreshPricingDomLive();
-      });
-    }
-
-    bodyEl.querySelectorAll('[data-q-mod], [data-q-mod-disc], [data-cfg-mod-price], [data-q-opt-disc]').forEach(function (el) {
-      el.addEventListener('input', refreshPricingDomLive);
-      el.addEventListener('change', refreshPricingDomLive);
-    });
-
-    var applyToNewBtn = bodyEl.querySelector('#ms-q-apply-to-new');
-    if (applyToNewBtn) {
-      applyToNewBtn.addEventListener('click', function () {
-        STATE_SA.newOptionType = STATE_SA.quoteOptionType;
-        openSuperAdminView('new');
-      });
-    }
-
-    var savePricingBtn = bodyEl.querySelector('#ms-save-pricing-btn');
-    if (savePricingBtn) {
-      savePricingBtn.addEventListener('click', async function () {
-        var opt1 = Number(bodyEl.querySelector('#ms-cfg-opt1').value || 0);
-        var opt2 = Number(bodyEl.querySelector('#ms-cfg-opt2').value || 0);
-        var modulePrices = {};
-        bodyEl.querySelectorAll('[data-cfg-mod-price]').forEach(function (inp) {
-          var k = inp.getAttribute('data-cfg-mod-price');
-          modulePrices[k] = {
-            price: Math.max(0, Number(inp.value || 0)),
-            defaultDiscountPct: Number(STATE_SA.quoteDiscountsByMod[k] || 0)
-          };
-        });
-        var res = await apiSuperAdmin('POST', {
-          action: 'save_pricing_config',
-          pricingConfig: {
-            option_1_base: opt1,
-            option_2_base: opt2,
-            module_prices: modulePrices
-          }
-        });
-        if (res && res.ok) {
-          showFeedback(res.message, false);
-          await reloadSuperAdminData(true);
-        } else {
-          showFeedback((res && res.message) || 'Error guardando precios.', true);
-        }
-      });
-    }
-
-    // Tab 4: Secrets & AFIP Credentials
+    // Tab Credenciales AFIP + Secretos
     bodyEl.querySelectorAll('[data-open-afip-tenant]').forEach(function (btn) {
       btn.addEventListener('click', async function () {
         var slug = btn.getAttribute('data-open-afip-tenant') || 'minisistema';
@@ -2712,32 +4069,37 @@
     if (window.__MS_SA_NAV_BOUND__) return;
     window.__MS_SA_NAV_BOUND__ = true;
 
-    document.addEventListener('click', function (ev) {
-      var target = ev.target;
-      if (!target || typeof target.closest !== 'function') return;
+    document.addEventListener(
+      'click',
+      function (ev) {
+        var target = ev.target;
+        if (!target || typeof target.closest !== 'function') return;
 
-      // Si el usuario hace clic en el logo de inicio o en cualquier botón nativo data-open-section, ocultar secciones de superadmin
-      var homeBtn = target.closest('#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card');
-      if (homeBtn) {
-        var menuSec = document.getElementById('sec-menu-superadmin');
-        var detailSec = document.getElementById('sec-superadmin-detail');
-        var isSaActive = (menuSec && !menuSec.hidden) || (detailSec && !detailSec.hidden);
+        var homeBtn = target.closest(
+          '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card'
+        );
+        if (homeBtn) {
+          var menuSec = document.getElementById('sec-menu-superadmin');
+          var detailSec = document.getElementById('sec-superadmin-detail');
+          var isSaActive = (menuSec && !menuSec.hidden) || (detailSec && !detailSec.hidden);
 
-        if (homeBtn.id === 'btn-topbar-back-facturacion' && isSaActive) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          if (detailSec && !detailSec.hidden) {
-            openSuperAdminView('menu');
-          } else {
-            closeSuperAdminSectionsToHome();
+          if (homeBtn.id === 'btn-topbar-back-facturacion' && isSaActive) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (detailSec && !detailSec.hidden) {
+              openSuperAdminView('menu');
+            } else {
+              closeSuperAdminSectionsToHome();
+            }
+            return;
           }
-          return;
-        }
 
-        if (menuSec) menuSec.hidden = true;
-        if (detailSec) detailSec.hidden = true;
-      }
-    }, true);
+          if (menuSec) menuSec.hidden = true;
+          if (detailSec) detailSec.hidden = true;
+        }
+      },
+      true
+    );
   }
 
   function syncSuperAdminEntrypointVisibility() {
@@ -2748,7 +4110,6 @@
       existingBtn.remove();
     }
 
-    // Inyectar tarjeta destacada en #sec-inicio para @danielg (sin texto descriptivo)
     var inicioGrid = document.querySelector('#sec-inicio .modules-grid');
     var existingCard = document.getElementById('ms-superadmin-home-card');
     if (allowed && inicioGrid && !existingCard) {
@@ -2784,22 +4145,8 @@
     }
   }
 
-  window.__SUPERADMIN_REFRESH_CRM_BADGE__ = function (reportsList) {
-    var saBadge = document.getElementById('badge-sa-crm-pendientes');
-    var homeBadge = document.getElementById('badge-inicio-crm-pendientes');
-    if (Array.isArray(reportsList)) {
-      var pend = reportsList.filter(function (r) {
-        return !r || (r.estado || 'PENDIENTE') === 'PENDIENTE';
-      }).length;
-      var txt = pend > 0 ? pend + (pend === 1 ? ' pendiente' : ' pendientes') : '';
-      if (saBadge) {
-        saBadge.hidden = pend === 0;
-        saBadge.textContent = txt;
-      }
-    } else if (saBadge && homeBadge) {
-      saBadge.hidden = homeBadge.hidden;
-      saBadge.textContent = homeBadge.textContent;
-    }
+  window.__SUPERADMIN_REFRESH_CRM_BADGE__ = function () {
+    // Mantenido por compatibilidad; las tarjetas .module-card no muestran pills según regla de diseño
   };
 
   setInterval(syncSuperAdminEntrypointVisibility, 900);
