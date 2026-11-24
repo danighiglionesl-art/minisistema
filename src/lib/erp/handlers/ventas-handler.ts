@@ -239,18 +239,27 @@ function applyPendingVentasEvents(
       const isFullClose = p.isFullClose !== false;
       const isHistoricalSync = Boolean(p.isHistoricalSync);
       const closedMs =
-        Date.parse(String(cierre.closedAtIso || cierre.createdAt || "")) || 0;
+        Date.parse(String(cierre.closedAtIso || cierre.createdAt || ev.created_at || "")) || 0;
 
       if (isFullClose && cKey) {
-        if (!isHistoricalSync) {
+        const hasNewerApertura =
+          closedMs > 0 &&
+          db.aperturasCajaCentral.some((ap: AnyObj) => {
+            if (!ap || String(ap.cajaId || "") !== cKey) return false;
+            const apMs =
+              Date.parse(String(ap.createdAt || ap.openedAtIso || "")) || 0;
+            return apMs > closedMs;
+          });
+
+        if (!isHistoricalSync && !hasNewerApertura) {
           db.efectivoInicialPorCaja[cKey] = round2(cierre.efectivoCambio || 0);
         }
         for (const ap of db.aperturasCajaCentral) {
           if (ap && String(ap.cajaId || "") === cKey && ap.cerradaEnTurno !== true) {
-            if (isHistoricalSync && closedMs > 0) {
+            if (closedMs > 0) {
               const apMs =
                 Date.parse(String(ap.createdAt || ap.openedAtIso || "")) || 0;
-              if (apMs > closedMs + 60_000) continue;
+              if (apMs > closedMs) continue;
             }
             ap.cerradaEnTurno = true;
             if (!ap.cerradaPorPlanilla) {
@@ -265,9 +274,9 @@ function applyPendingVentasEvents(
           db.comprobantesPorCaja[cKey] = db.comprobantesPorCaja[cKey].map(
             (comp: AnyObj) => {
               if (!comp || comp.cerradoEnTurno) return comp;
-              if (isHistoricalSync && closedMs > 0) {
+              if (closedMs > 0) {
                 const compMs = Date.parse(String(comp.createdAt || "")) || 0;
-                if (compMs > closedMs + 60_000) return comp;
+                if (compMs > closedMs) return comp;
               }
               return {
                 ...comp,
@@ -940,7 +949,7 @@ export async function handleErpVentas(
         : 0;
       for (const ap of db.aperturasCajaCentral) {
         if (ap && String(ap.cajaId || "") === cKey && ap.cerradaEnTurno !== true && lastCloseMs > 0) {
-          const apMs = Date.parse(String(ap.openedAtIso || ap.createdAt || "")) || 0;
+          const apMs = Date.parse(String(ap.createdAt || ap.openedAtIso || "")) || 0;
           if (apMs > 0 && apMs <= lastCloseMs) {
             ap.cerradaEnTurno = true;
           }
