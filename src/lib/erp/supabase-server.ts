@@ -225,24 +225,53 @@ function storageDocPath(schema: string, docKey: string, rev: number): string {
   return `${schema}/${docKey}_r${rev}.json.gz`;
 }
 
+function storageLatestDocPath(schema: string, docKey: string): string {
+  return `${schema}/${docKey}_latest.json.gz`;
+}
+
 async function fetchDocMetaFromDb(
   sb: SupabaseClient,
   schema: string,
   docKey: string
-): Promise<{ rev: number; updatedAt: string; sizeBytes: number } | null> {
-  const { data, error } = await sb.rpc("erp_get_doc_meta", {
-    p_schema: schema,
-    p_doc_key: docKey,
-  });
-  if (error || !data || typeof data !== "object" || !("rev" in data)) {
+): Promise<{ ok: true; meta: { rev: number; updatedAt: string; sizeBytes: number } | null } | { ok: false }> {
+  try {
+    const { data, error } = await sb.rpc("erp_get_doc_meta", {
+      p_schema: schema,
+      p_doc_key: docKey,
+    });
+    if (error) {
+      return { ok: false };
+    }
+    if (!data || typeof data !== "object" || !("rev" in data)) {
+      return { ok: true, meta: null };
+    }
+    const row = data as { rev?: number; updated_at?: string; size_bytes?: number };
+    return {
+      ok: true,
+      meta: {
+        rev: Number(row.rev || 1),
+        updatedAt: String(row.updated_at || new Date().toISOString()),
+        sizeBytes: Number(row.size_bytes || 0),
+      },
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
+async function downloadStoragePathBuffer(
+  sb: SupabaseClient,
+  path: string
+): Promise<Buffer | null> {
+  try {
+    const { data, error } = await sb.storage.from(DOC_CACHE_BUCKET).download(path);
+    if (error || !data) return null;
+    const ab = await data.arrayBuffer();
+    if (!ab || ab.byteLength < 20) return null;
+    return Buffer.from(ab);
+  } catch {
     return null;
   }
-  const row = data as { rev?: number; updated_at?: string; size_bytes?: number };
-  return {
-    rev: Number(row.rev || 1),
-    updatedAt: String(row.updated_at || new Date().toISOString()),
-    sizeBytes: Number(row.size_bytes || 0),
-  };
 }
 
 async function downloadGzipFromStorage(
@@ -251,14 +280,38 @@ async function downloadGzipFromStorage(
   docKey: string,
   rev: number
 ): Promise<Buffer | null> {
+  return downloadStoragePathBuffer(sb, storageDocPath(schema, docKey, rev));
+}
+
+async function downloadLatestGzipFromStorage(
+  sb: SupabaseClient,
+  schema: string,
+  docKey: string
+): Promise<{ gzBuf: Buffer; rev: number } | null> {
+  const latestBuf = await downloadStoragePathBuffer(sb, storageLatestDocPath(schema, docKey));
+  if (latestBuf) {
+    return { gzBuf: latestBuf, rev: 0 };
+  }
   try {
-    const { data, error } = await sb.storage
+    const { data: files, error } = await sb.storage
       .from(DOC_CACHE_BUCKET)
-      .download(storageDocPath(schema, docKey, rev));
-    if (error || !data) return null;
-    const ab = await data.arrayBuffer();
-    if (!ab || ab.byteLength < 20) return null;
-    return Buffer.from(ab);
+      .list(schema, { search: `${docKey}_r`, limit: 25 });
+    if (error || !Array.isArray(files) || files.length === 0) return null;
+    const rx = new RegExp(`^${docKey}_r(\\d+)\\.json\\.gz$`);
+    let bestName = "";
+    let bestRev = -1;
+    for (const f of files) {
+      const m = rx.exec(String(f.name || ""));
+      if (!m) continue;
+      const r = Number(m[1]);
+      if (r > bestRev) {
+        bestRev = r;
+        bestName = f.name;
+      }
+    }
+    if (!bestName) return null;
+    const buf = await downloadStoragePathBuffer(sb, `${schema}/${bestName}`);
+    return buf ? { gzBuf: buf, rev: bestRev } : null;
   } catch {
     return null;
   }
@@ -272,12 +325,16 @@ async function uploadGzipToStorage(
   gzBuf: Buffer
 ): Promise<void> {
   try {
-    await sb.storage
-      .from(DOC_CACHE_BUCKET)
-      .upload(storageDocPath(schema, docKey, rev), gzBuf, {
+    await Promise.all([
+      sb.storage.from(DOC_CACHE_BUCKET).upload(storageDocPath(schema, docKey, rev), gzBuf, {
         contentType: "application/gzip",
         upsert: true,
-      });
+      }),
+      sb.storage.from(DOC_CACHE_BUCKET).upload(storageLatestDocPath(schema, docKey), gzBuf, {
+        contentType: "application/gzip",
+        upsert: true,
+      }),
+    ]);
     // Limpiar revisiones viejas (rev - 2) en segundo plano para no acumular cientos de snapshots
     if (rev >= 3) {
       sb.storage
@@ -356,8 +413,9 @@ export async function getTenantDocGzippedSnapshot(
     const useL2 = HEAVY_DOC_KEYS.has(docKey) && isUsingPlatformStorage(tenant);
 
     if (useL2) {
-      const meta = await fetchDocMetaFromDb(sb, tenant.db_schema, docKey);
-      if (meta) {
+      const metaRes = await fetchDocMetaFromDb(sb, tenant.db_schema, docKey);
+      if (metaRes.ok && metaRes.meta) {
+        const meta = metaRes.meta;
         if (cached && cached.rev === meta.rev && cached.gzBuf) {
           cached.checkedAt = Date.now();
           return { gzBuf: cached.gzBuf, rev: cached.rev, updatedAt: cached.updatedAt };
@@ -371,6 +429,22 @@ export async function getTenantDocGzippedSnapshot(
             checkedAt: Date.now(),
           });
           return { gzBuf: l2Buf, rev: meta.rev, updatedAt: meta.updatedAt };
+        }
+      } else if (!metaRes.ok) {
+        // Postgres saturado/timeout: servir desde L1 RAM o último snapshot en Storage sin golpear Postgres con 12 MB
+        if (cached && cached.gzBuf) {
+          return { gzBuf: cached.gzBuf, rev: cached.rev, updatedAt: cached.updatedAt };
+        }
+        const fallbackL2 = await downloadLatestGzipFromStorage(sb, tenant.db_schema, docKey);
+        if (fallbackL2) {
+          const nowIso = new Date().toISOString();
+          docMemoryCache.set(cacheKey, {
+            gzBuf: fallbackL2.gzBuf,
+            rev: fallbackL2.rev || 1,
+            updatedAt: nowIso,
+            checkedAt: Date.now(),
+          });
+          return { gzBuf: fallbackL2.gzBuf, rev: fallbackL2.rev || 1, updatedAt: nowIso };
         }
       }
     }
@@ -437,8 +511,9 @@ export async function getTenantDoc<T = Record<string, unknown>>(
       const useL2 = isUsingPlatformStorage(tenant);
 
       if (useL2) {
-        const meta = await fetchDocMetaFromDb(sb, tenant.db_schema, docKey);
-        if (meta) {
+        const metaRes = await fetchDocMetaFromDb(sb, tenant.db_schema, docKey);
+        if (metaRes.ok && metaRes.meta) {
+          const meta = metaRes.meta;
           if (cached && cached.rev === meta.rev && cached.payload !== undefined) {
             cached.checkedAt = Date.now();
             return { payload: cached.payload, rev: cached.rev, updatedAt: cached.updatedAt };
@@ -455,6 +530,27 @@ export async function getTenantDoc<T = Record<string, unknown>>(
                 checkedAt: Date.now(),
               });
               return { payload: parsed, gzBuf: l2Buf, rev: meta.rev, updatedAt: meta.updatedAt };
+            } catch {
+              // Fall through to DB if corrupt snapshot
+            }
+          }
+        } else if (!metaRes.ok) {
+          if (cached && cached.payload !== undefined) {
+            return { payload: cached.payload, rev: cached.rev, updatedAt: cached.updatedAt };
+          }
+          const fallbackL2 = await downloadLatestGzipFromStorage(sb, tenant.db_schema, docKey);
+          if (fallbackL2) {
+            try {
+              const parsed = JSON.parse(zlib.gunzipSync(fallbackL2.gzBuf).toString("utf8")) as T;
+              const nowIso = new Date().toISOString();
+              docMemoryCache.set(cacheKey, {
+                payload: parsed,
+                gzBuf: fallbackL2.gzBuf,
+                rev: fallbackL2.rev || 1,
+                updatedAt: nowIso,
+                checkedAt: Date.now(),
+              });
+              return { payload: parsed, gzBuf: fallbackL2.gzBuf, rev: fallbackL2.rev || 1, updatedAt: nowIso };
             } catch {
               // Fall through to DB if corrupt snapshot
             }
