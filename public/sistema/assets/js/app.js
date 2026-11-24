@@ -69064,13 +69064,13 @@ function initApp() {
         recalculateFcrItemPricing(it);
         const reasons = getInvoiceRowSanityAlerts({
           qty: it.ingreso,
-          price: it.precioFactura,
+          price: isSoloStock ? 0 : it.precioFactura,
           newNetCost: it.nuevoCostoNeto,
           oldNetCost: Number(art.cn) || 0,
           oldFinalCost: Number(art.cfn) || 0,
           codProv: it.codProv,
-          keepPrice: Boolean(it.keepCurrentPrice) || !(Number(it.precioFactura) > 0),
-          onlyStock: false
+          keepPrice: isSoloStock || Boolean(it.keepCurrentPrice) || !(Number(it.precioFactura) > 0),
+          onlyStock: isSoloStock
         });
         if (reasons.length > 0) {
           fcrAnomalies.push({
@@ -69093,9 +69093,10 @@ function initApp() {
         `¿Confirmás registrar los datos cargados en el sistema?\n\n` +
           `• Proveedor: ${selProv.nombre}\n` +
           `• Comprobante: ${upperTipo} ${nroFinal !== '0' ? nroFinal : 'S/N'} (${isoToDdMmYyyy(fechaIso)})\n` +
+          `• Modo de carga: ${isSoloStock ? 'Solo Stock (sin modificar precios)' : 'Stock y Precios'}\n` +
           `• Importe a Cuenta Corriente: $ ${formatArs(impTotal)}\n` +
           `• Stock a actualizar: ${itemsWithIngreso.length} artículo(s) (+${totalUnidadesIngresadas} u.)\n` +
-          `• Precios a actualizar: ${itemsWithPriceUpdate.length} artículo(s)`
+          `• Precios a actualizar: ${isSoloStock ? '0 (Sin cambios · Solo Stock)' : `${itemsWithPriceUpdate.length} artículo(s)`}`
       );
       if (!okConfirmFcr) return;
 
@@ -69103,14 +69104,16 @@ function initApp() {
         itemsWithIngreso.length > 0
           ? `STOCK ACTUALIZADO: ${itemsWithIngreso.length} ART. (+${totalUnidadesIngresadas} UNID.)`
           : '';
-      const priceDetailNote =
-        itemsWithPriceUpdate.length > 0
-          ? `PRECIOS ACTUALIZADOS: ${itemsWithPriceUpdate.length} ART.`
-          : '';
+      const priceDetailNote = isSoloStock
+        ? 'SOLO STOCK (PRECIOS SIN CAMBIOS)'
+        : itemsWithPriceUpdate.length > 0
+        ? `PRECIOS ACTUALIZADOS: ${itemsWithPriceUpdate.length} ART.`
+        : '';
 
       const userObs = String(document.getElementById('fcr-obs')?.value || '')
         .replace(/STOCK\s+ACTUALIZADO:\s*\d+\s*ART\.\s*\([+\-]?\d+(?:[.,]\d+)?\s*UNID\.\)\s*·?\s*/gi, '')
         .replace(/PRECIOS\s+ACTUALIZADOS:\s*\d+\s*ART\.\s*·?\s*/gi, '')
+        .replace(/SOLO\s+STOCK\s*\(PRECIOS\s+SIN\s+CAMBIOS\)\s*·?\s*/gi, '')
         .replace(/^·+|·+$/g, '')
         .trim()
         .toUpperCase();
@@ -69127,16 +69130,18 @@ function initApp() {
       const vencStr = addDaysToIsoAsDdMmYyyy(fechaIso, selProv.plazoDias || 0);
       const currentModoIva = getSelectedFcrModoIva();
 
+      ensureFcrItemRenglonNumbers(FCR_STATE.invoiceArticles);
       const fcrItemsSnapshot = (FCR_STATE.invoiceArticles || []).map((it) => ({
         artId: Number(it.artId || it.art?.id) || 0,
+        renglonNro: Number(it.renglonNro) || 0,
         codInterno: String(it.art?.c || ''),
         nombre: String(it.art?.n || ''),
         codProv: String(it.codProv || ''),
         codProvModified: Boolean(it.codProvModified),
         ingreso: round2(Number(it.ingreso) || 0),
-        precioFactura: round2(Number(it.precioFactura) || 0),
-        keepCurrentPrice: Boolean(it.keepCurrentPrice),
-        manualKeepDecision: Boolean(it.manualKeepDecision),
+        precioFactura: isSoloStock ? 0 : round2(Number(it.precioFactura) || 0),
+        keepCurrentPrice: isSoloStock ? true : Boolean(it.keepCurrentPrice),
+        manualKeepDecision: isSoloStock ? true : Boolean(it.manualKeepDecision),
         modoIva: currentModoIva
       }));
 
@@ -69161,6 +69166,7 @@ function initApp() {
         v: vencStr,
         obs: obsStr,
         origen: 'COMPRA',
+        fcrCargaMode: isSoloStock ? 'solo_stock' : 'completo',
         fcrModoIva: currentModoIva,
         fcrItems: fcrItemsSnapshot
       };
@@ -69171,17 +69177,22 @@ function initApp() {
         submitBtn.disabled = true;
         submitBtn.textContent = editingInfo
           ? '⏳ Guardando cambios...'
+          : isSoloStock
+          ? '⏳ Guardando Factura (Solo Stock)...'
           : '⏳ Guardando Factura, Stock y Precios...';
       }
 
       try {
-        // 0) Persistir la configuración de precios (Con IVA / Sin IVA) elegida para este proveedor
-        persistFcrSupplierModoIvaPreference(selProv, getSelectedFcrModoIva());
+        // 0) Persistir la configuración de precios (Con IVA / Sin IVA) elegida para este proveedor (solo en modo completo)
+        if (!isSoloStock) {
+          persistFcrSupplierModoIvaPreference(selProv, getSelectedFcrModoIva());
+        }
 
-        // 1) Aplicar ingresos de stock, actualización de precios (Con o Sin IVA) y vinculación al proveedor
+        // 1) Aplicar ingresos de stock, actualización de precios (solo si no es Solo Stock) y vinculación al proveedor
         const { provIdsSet, primaryProvId } = getMatchingProvIdsForFcr(selProv);
         const factorCanje = Number(STATE.fidelizacionConfig?.factorCanje) || 1.12;
         const updatedArticlesFull = [];
+        const serverArticlesPayload = [];
         let anyPriceUpdated = false;
         const prevAppliedMap =
           editingInfo && editingInfo.prevAppliedIngresoByArtId instanceof Map
@@ -69206,7 +69217,7 @@ function initApp() {
             : 0;
           prevAppliedMap.delete(Number(art.id));
           const addQty = round2(enteredQty - prevQty);
-          const hasPriceToUpdate = round2(Number(it.precioFactura) || 0) > 0 && !it.keepCurrentPrice;
+          const hasPriceToUpdate = !isSoloStock && round2(Number(it.precioFactura) || 0) > 0 && !it.keepCurrentPrice;
           const hasCodProvChange = Boolean(it.codProvModified);
           const wasAddedManual = !it.isAssigned;
 
@@ -69271,6 +69282,20 @@ function initApp() {
           }
 
           updatedArticlesFull.push(art);
+          if (isSoloStock || !hasPriceToUpdate) {
+            serverArticlesPayload.push({
+              id: Number(art.id),
+              addStock: addQty,
+              pr: art.pr,
+              cf: art.cf,
+              p: art.p
+            });
+          } else {
+            serverArticlesPayload.push({
+              ...art,
+              addStock: addQty
+            });
+          }
         });
 
         // Si al editar una factura se quitó de la lista un artículo que tenía ingreso previo en esta factura, revertir su stock anterior
@@ -69284,6 +69309,10 @@ function initApp() {
             art.sf = round2((Number(art.si) || 0) + art.sc);
             if (!updatedArticlesFull.some((u) => Number(u.id) === Number(art.id))) {
               updatedArticlesFull.push(art);
+              serverArticlesPayload.push({
+                id: Number(art.id),
+                addStock: deltaRev
+              });
             }
           });
         }
@@ -69299,8 +69328,8 @@ function initApp() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'bulk_update_from_invoice',
-              onlyStock: !anyPriceUpdated,
-              articles: updatedArticlesFull
+              onlyStock: isSoloStock || !anyPriceUpdated,
+              articles: serverArticlesPayload
             })
           })
             .then((r) => (r.ok ? r.json() : null))
@@ -69410,7 +69439,7 @@ function initApp() {
         renderCuentasCorrientesSection();
         applyProveedoresFilters(STATE.proveedoresPage || 1);
 
-        // Si esta factura provenía de un Guardado Parcial, eliminarlo de la lista de pendientes al finalizarla
+        // Si esta factura provenía de un Guardado Parcial, eliminarlo de la lista de pendientes (local y servidor) al finalizarla
         loadFcrDrafts();
         const completedDraftId = FCR_STATE.activeDraftId;
         FCR_STATE.drafts = (FCR_STATE.drafts || []).filter((d) => {
@@ -69427,6 +69456,12 @@ function initApp() {
           return true;
         });
         saveFcrDrafts(true);
+        if (completedDraftId || (nroFinal && nroFinal !== '0' && nroFinal !== 'S/N')) {
+          deleteFcrDraftFromServer(completedDraftId || '', {
+            clientId: selProv.clientId,
+            nroFactura: nroFinal
+          });
+        }
 
         resetFacturaCargaRapidaForm(true, true);
         renderFcrHistorialTable();
@@ -69435,10 +69470,11 @@ function initApp() {
           itemsWithIngreso.length > 0
             ? ` Se sumó el ingreso de stock en ${itemsWithIngreso.length} artículo(s) (+${totalUnidadesIngresadas} unid.).`
             : '';
-        const priceMsgPart =
-          itemsWithPriceUpdate.length > 0
-            ? ` Se actualizaron precios en ${itemsWithPriceUpdate.length} artículo(s).`
-            : '';
+        const priceMsgPart = isSoloStock
+          ? ' Modo Solo Stock: precios de venta sin cambios.'
+          : itemsWithPriceUpdate.length > 0
+          ? ` Se actualizaron precios en ${itemsWithPriceUpdate.length} artículo(s).`
+          : '';
 
         if (savedMov && updatedClient) {
           showFcrAlert(
@@ -69470,6 +69506,8 @@ function initApp() {
           submitBtn.disabled = false;
           submitBtn.textContent = FCR_STATE.editingMov
             ? '💾 Guardar Cambios en Factura'
+            : isFcrSoloStockMode()
+            ? '✅ Cargar Factura (Solo Stock)'
             : '✅ Cargar Factura y Actualizar Stock';
         }
       }
