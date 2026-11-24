@@ -564,6 +564,9 @@ function savePosSyncOutbox(list) {
     } catch {}
   }
   renderPosSyncOutboxPill(safeList.length);
+  if (typeof window !== 'undefined' && window.MS_OFFLINE_POS && typeof window.MS_OFFLINE_POS.refreshUi === 'function') {
+    window.MS_OFFLINE_POS.refreshUi();
+  }
 }
 
 function backupRescueItem(bucket, key, record) {
@@ -53642,13 +53645,36 @@ function initApp() {
     crm_reportes_db: null
   };
   let dbStatusPollInFlight = false;
+  let lastDbStatusCheckAt = 0;
+  const DB_STATUS_POLL_INTERVAL_MS = 30000;
+  const DB_STATUS_FOCUS_COOLDOWN_MS = 8000;
 
   async function checkAndSyncDatabaseRevisions(forceEvenIfHidden = false) {
-    if (dbStatusPollInFlight || !STATE.currentUser || (document.hidden && !forceEvenIfHidden)) return;
+    if (dbStatusPollInFlight || !STATE.currentUser) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      if (window.MS_OFFLINE_POS && typeof window.MS_OFFLINE_POS.markOffline === 'function') {
+        window.MS_OFFLINE_POS.markOffline('Sin conexión a internet');
+      }
+      return;
+    }
+    if (document.hidden && !forceEvenIfHidden) return;
+    const nowMs = Date.now();
+    if (!forceEvenIfHidden && nowMs - lastDbStatusCheckAt < DB_STATUS_POLL_INTERVAL_MS - 1000) return;
+    if (forceEvenIfHidden && nowMs - lastDbStatusCheckAt < DB_STATUS_FOCUS_COOLDOWN_MS) return;
+
     dbStatusPollInFlight = true;
+    lastDbStatusCheckAt = nowMs;
     try {
       const res = await origFetch(`api/db_status.php?_t=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (res.status >= 500 && window.MS_OFFLINE_POS && typeof window.MS_OFFLINE_POS.markOffline === 'function') {
+          window.MS_OFFLINE_POS.markOffline(`Servidor no disponible (HTTP ${res.status})`);
+        }
+        return;
+      }
+      if (window.MS_OFFLINE_POS && typeof window.MS_OFFLINE_POS.markOnline === 'function') {
+        window.MS_OFFLINE_POS.markOnline();
+      }
       const payload = await res.json();
       if (payload && payload.appVersion) {
         window.__LAST_DETECTED_SERVER_APP_VERSION__ = String(payload.appVersion);
@@ -53733,7 +53759,10 @@ function initApp() {
         dbRevisionsKnown.crm_reportes_db = rev;
       }
     } catch {
-      // Ignorar fallos transitorios de red
+      // Ignorar fallos transitorios de red y activar aviso de contingencia si corresponde
+      if (window.MS_OFFLINE_POS && typeof window.MS_OFFLINE_POS.markOffline === 'function') {
+        window.MS_OFFLINE_POS.markOffline('Sin respuesta del servidor');
+      }
     } finally {
       dbStatusPollInFlight = false;
     }
@@ -53742,10 +53771,21 @@ function initApp() {
   if (STATE.currentUser) {
     checkAndSyncDatabaseRevisions();
   }
-  setInterval(() => checkAndSyncDatabaseRevisions(false), 10000);
-  window.addEventListener('focus', () => checkAndSyncDatabaseRevisions(true));
+  // Polling optimizado: cada 30s solo con pestaña visible y con internet (reduce ~75% la carga sobre Supabase)
+  setInterval(() => {
+    if (!document.hidden && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+      checkAndSyncDatabaseRevisions(false);
+    }
+  }, DB_STATUS_POLL_INTERVAL_MS);
+  window.addEventListener('focus', () => {
+    if (!document.hidden) checkAndSyncDatabaseRevisions(true);
+  });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) checkAndSyncDatabaseRevisions(true);
+  });
+  window.addEventListener('online', () => {
+    lastDbStatusCheckAt = 0;
+    checkAndSyncDatabaseRevisions(true);
   });
 
   // =========================================================================

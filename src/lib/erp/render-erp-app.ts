@@ -376,13 +376,17 @@ export function renderErpHtmlResponse(params: {
     `$1src="${brand.logoSymbolUrl}"`
   );
 
-  // 5. Asegurar carga de brand.js y superadmin-panel.js con la versión sincronizada del ERP
+  // 5. Asegurar carga de brand.js, offline-pos.js (Capa 3 Contingencia) y superadmin-panel.js con la versión sincronizada del ERP
   html = html.replace(
     /src="(?:\.\.\/sistema\/)?assets\/js\/brand\.js[^"]*"/gi,
     `src="/sistema/assets/js/brand.js?v=${assetVer}"`
   );
 
   if (kind === "sistema") {
+    html = html.replace(
+      /(<script\s+src="\/sistema\/assets\/js\/brand\.js[^"]*"[^>]*><\/script>)/i,
+      `$1\n  <script src="/sistema/assets/js/offline-pos.js?v=${assetVer}"></script>`
+    );
     html = html.replace(
       /href="assets\/css\/styles\.css(?:\?v=[^"]*)?"/gi,
       `href="assets/css/styles.css?v=${assetVer}"`
