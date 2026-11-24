@@ -1866,18 +1866,43 @@ async function loadCatalogDatabase(forceReload = false) {
   }
 
   let data = null;
-  try {
-    const res = await fetch(`api/catalog.php?action=all&_t=${Date.now()}`, { cache: 'no-store' });
-    if (res.ok) {
-      data = await res.json();
+  let lastErrMsg = '';
+  for (let attempt = 0; attempt < 3 && (!data || !Array.isArray(data.articulos)); attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 700 * attempt));
     }
-  } catch {
-    // Fallback to static JSON
+    try {
+      const res = await fetch(`api/catalog.php?action=all&_t=${Date.now()}`, { cache: 'no-store' });
+      const parsed = await res.json().catch(() => null);
+      if (res.ok && parsed && Array.isArray(parsed.articulos)) {
+        data = parsed;
+      } else if (parsed && parsed.message) {
+        lastErrMsg = String(parsed.message);
+      }
+    } catch (err) {
+      lastErrMsg = err instanceof Error ? err.message : 'Error de red';
+    }
   }
 
   if (!data || !Array.isArray(data.articulos)) {
-    const resFallback = await fetch(`data/catalog_db.json?_t=${Date.now()}`, { cache: 'no-store' });
-    data = await resFallback.json();
+    try {
+      const resFallback = await fetch(`data/catalog_db.json?_t=${Date.now()}`, { cache: 'no-store' });
+      if (resFallback.ok) {
+        const parsedFb = await resFallback.json().catch(() => null);
+        if (parsedFb && Array.isArray(parsedFb.articulos)) {
+          data = parsedFb;
+        }
+      }
+    } catch {
+      // No static fallback available
+    }
+  }
+
+  if (!data || !Array.isArray(data.articulos)) {
+    if (statusEl) {
+      statusEl.textContent = `No se pudo cargar el catálogo (${lastErrMsg || 'reintentá en unos segundos'}).`;
+    }
+    throw new Error(lastErrMsg || 'No se pudo descargar catalog_db desde el servidor.');
   }
 
   STATE.rubros = data.rubros || [];
@@ -12436,8 +12461,11 @@ function initApp() {
   }
 
   function notifyServerActiveCaja(cajaIdOrNull, options = {}) {
-    const uKey = String(STATE.currentUser?.username || '').toLowerCase();
-    if (!uKey || !ADMIN_DIRECTORY[uKey]) return;
+    const uKey = String(
+      STATE.currentUser?.username ||
+      (typeof getActiveUserClosureInfo === 'function' ? getActiveUserClosureInfo().username : '') ||
+      ''
+    ).toLowerCase();
     const cleanCaja = cajaIdOrNull ? String(cajaIdOrNull) : null;
     const closedCajaId = options.closedCajaId ? String(options.closedCajaId) : null;
     const fromApertura = Boolean(options.fromApertura);
@@ -12456,10 +12484,31 @@ function initApp() {
         }
       });
     }
-    saveCustomUserOverride(uKey, { cajaAbierta: cleanCaja });
-    const wa = ADMIN_DIRECTORY[uKey].whatsapp || STATE.currentUser?.whatsapp || '';
+    if (uKey && ADMIN_DIRECTORY[uKey]) {
+      saveCustomUserOverride(uKey, { cajaAbierta: cleanCaja });
+    }
+    if (STATE.currentUser && typeof STATE.currentUser === 'object') {
+      if (uKey && String(STATE.currentUser.username || '').toLowerCase() === uKey) {
+        STATE.currentUser.cajaAbierta = cleanCaja;
+        STATE.currentUser.cajaAbiertaAt = cleanCaja ? new Date().toISOString() : null;
+      } else if (closedCajaId && STATE.currentUser.cajaAbierta === closedCajaId) {
+        STATE.currentUser.cajaAbierta = null;
+        STATE.currentUser.cajaAbiertaAt = null;
+      }
+      try {
+        const sKey = typeof ACTIVE_ADMIN_STORAGE_KEY === 'string' ? ACTIVE_ADMIN_STORAGE_KEY : '';
+        if (sKey) {
+          const serialized = JSON.stringify(STATE.currentUser);
+          sessionStorage.setItem(sKey, serialized);
+          localStorage.setItem(sKey, serialized);
+        }
+      } catch {}
+    }
+    if (!uKey && !closedCajaId) return;
+    const wa = (uKey && ADMIN_DIRECTORY[uKey]?.whatsapp) || STATE.currentUser?.whatsapp || '';
     fetch('api/auth.php', {
       method: 'POST',
+      keepalive: true,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'set_active_caja',
@@ -15995,7 +16044,7 @@ function initApp() {
     if (isLocked && alertBox && !preserveAlert) {
       const isAdminUser = isErpAdminUser(STATE.currentUser);
       const adminEditBtnHtml = isAdminUser
-        ? `<button type="button" id="btn-apertura-admin-edit" class="btn-secondary btn-sm" style="width:auto; white-space:nowrap; font-weight:800;">✏️ Editar Apertura (Admin)</button>`
+        ? `<button type="button" id="btn-apertura-admin-edit" class="btn-secondary btn-sm" style="width:auto; white-space:nowrap; font-weight:800;">✏️ Editar Apertura (Admin)</button><button type="button" id="btn-apertura-admin-release" class="btn-secondary btn-sm" style="width:auto; white-space:nowrap; font-weight:800; border-color:#dc2626; color:#b91c1c;">🔓 Liberar Caja (Admin)</button>`
         : '';
       alertBox.hidden = false;
       if (isSameUser) {
@@ -16037,6 +16086,45 @@ function initApp() {
         if (typeof window.openAdminEditAperturaDialog === 'function') {
           window.openAdminEditAperturaDialog(activeAp);
         }
+      });
+      document.getElementById('btn-apertura-admin-release')?.addEventListener('click', async () => {
+        const ok = await showBrandConfirmDialog(
+          `¿Deseás liberar la Apertura activa de ${cfg.nombre} registrada por ${activeAp.usuario || activeAp.username || 'Cajero'}?\n\nEsto dejará la caja disponible de inmediato para un nuevo turno.`
+        );
+        if (!ok) return;
+        if (Array.isArray(STATE.aperturasCajaCentral)) {
+          STATE.aperturasCajaCentral.forEach((ap) => {
+            if (ap && ap.cajaId === cajaId && ap.cerradaEnTurno !== true) {
+              ap.cerradaEnTurno = true;
+            }
+          });
+        }
+        normalizeClientAperturasState();
+        notifyServerActiveCaja(null, { closedCajaId: cajaId });
+        saveCajasState();
+        loadAperturaBaselineFromPreviousCierre(cajaId);
+        renderCajaAperturaBilletesTable();
+        applyCajaAperturaTurnoLockState(cajaId);
+        if (typeof renderCajaSubmenuView === 'function') renderCajaSubmenuView(cajaId);
+        fetch('api/ventas.php', {
+          method: 'POST',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'force_close_apertura_caja',
+            cajaId,
+            usuario: STATE.currentUser?.username || 'admin'
+          })
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((res) => {
+            if (res && Array.isArray(res.aperturasCajaCentral)) {
+              STATE.aperturasCajaCentral = res.aperturasCajaCentral;
+              normalizeClientAperturasState();
+              saveCajasState();
+            }
+          })
+          .catch(() => {});
       });
     }
   }
@@ -23770,6 +23858,7 @@ function initApp() {
         if (typeof normalizeClientAperturasState === 'function') {
           normalizeClientAperturasState();
         }
+        saveCajasState();
       }
 
       const serverList = Array.isArray(data.cierres)
@@ -25118,17 +25207,16 @@ function initApp() {
 
     document.getElementById('cierre-caja-dialog')?.close();
 
-    // Imprimir SIEMPRE el reporte simple del cajero (Fecha y Hora, N° de Planilla, Billetes y Total que traspasa)
-    if (typeof window.printReporteSimpleTraspasoCajero === 'function') {
-      window.printReporteSimpleTraspasoCajero(nuevoCierre);
-    }
-
-    fetch('api/ventas.php', {
+    // Persistir PRIMERO en el servidor (con keepalive) antes de abrir el diálogo de impresión del navegador,
+    // evitando que window.print() bloquee la petición o se cancele al cerrar pestaña/sesión.
+    const saveCierrePromise = fetch('api/ventas.php', {
       method: 'POST',
+      keepalive: true,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'save_cierre',
         cajaId: cfg.id,
+        usuario: activeUserInfo.username || empleado,
         cierre: nuevoCierre
       })
     })
@@ -25140,6 +25228,7 @@ function initApp() {
           }
           if (Array.isArray(res.aperturasCajaCentral)) {
             STATE.aperturasCajaCentral = res.aperturasCajaCentral;
+            normalizeClientAperturasState();
           }
           if (res.efectivoInicialPorCaja && typeof res.efectivoInicialPorCaja === 'object') {
             STATE.efectivoInicialPorCaja = {
@@ -25152,6 +25241,16 @@ function initApp() {
         }
       })
       .catch(() => {});
+
+    // Imprimir el reporte simple del cajero luego de despachar el guardado al servidor
+    if (typeof window.printReporteSimpleTraspasoCajero === 'function') {
+      Promise.race([
+        saveCierrePromise,
+        new Promise((resolve) => setTimeout(resolve, 600))
+      ]).finally(() => {
+        window.printReporteSimpleTraspasoCajero(nuevoCierre);
+      });
+    }
   });
 
   // -------------------------------------------------------------------------

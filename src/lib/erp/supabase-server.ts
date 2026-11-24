@@ -9,8 +9,8 @@ const HEAVY_DOC_KEYS = new Set([
   "arca_comprobantes_db",
 ]);
 const DOC_CACHE_BUCKET = "erp-doc-cache";
-const META_TRUST_MS = 3_000;
-const STATUS_CACHE_MS = 2_000;
+const META_TRUST_MS = 15_000;
+const STATUS_CACHE_MS = 8_000;
 
 interface DocCacheEntry {
   payload?: unknown;
@@ -40,19 +40,28 @@ let cachedPrimaryClient: CachedAuthClient | null = null;
 let pendingPrimaryAuth: Promise<SupabaseClient> | null = null;
 const externalClientsCache = new Map<string, SupabaseClient>();
 
+function cleanEnvStr(val: string | undefined | null): string {
+  return String(val || "")
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u200B-\u200D\uFEFF\r\n]/g, "")
+    .trim()
+    .replace(/^["']|["']$/g, "");
+}
+
 function getSupabaseEnv() {
-  const url = process.env.SUPABASE_URL || "https://ghrxmirhilrlveqyyscq.supabase.co";
+  const url =
+    cleanEnvStr(process.env.SUPABASE_URL) || "https://ghrxmirhilrlveqyyscq.supabase.co";
   const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SECRET_KEY ||
+    cleanEnvStr(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
+    cleanEnvStr(process.env.SUPABASE_SECRET_KEY) ||
     "";
   const key =
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    cleanEnvStr(process.env.SUPABASE_PUBLISHABLE_KEY) ||
     "sb_publishable_ORbjp1JRY95Up_qfZ7atjw_SmcH6SYm";
   const email =
-    process.env.ERP_SUPABASE_SERVICE_EMAIL ||
+    cleanEnvStr(process.env.ERP_SUPABASE_SERVICE_EMAIL) ||
     "erp-backend-service@minisistema.com.ar";
-  const password = process.env.ERP_SUPABASE_SERVICE_PASSWORD || "";
+  const password = cleanEnvStr(process.env.ERP_SUPABASE_SERVICE_PASSWORD);
   return { url, serviceRoleKey, key, email, password };
 }
 
@@ -175,11 +184,13 @@ export async function getPlatformSupabase(): Promise<SupabaseClient> {
 export async function getTenantDataSupabase(
   tenant: Pick<ErpTenantRecord, "external_supabase_url" | "external_supabase_key">
 ): Promise<SupabaseClient> {
-  if (tenant.external_supabase_url && tenant.external_supabase_key) {
-    const cacheKey = `${tenant.external_supabase_url}::${tenant.external_supabase_key.slice(0, 16)}`;
+  const extUrl = cleanEnvStr(tenant.external_supabase_url);
+  const extKey = cleanEnvStr(tenant.external_supabase_key);
+  if (extUrl && extKey) {
+    const cacheKey = `${extUrl}::${extKey.slice(0, 16)}`;
     const existing = externalClientsCache.get(cacheKey);
     if (existing) return existing;
-    const ext = createClient(tenant.external_supabase_url, tenant.external_supabase_key, {
+    const ext = createClient(extUrl, extKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     externalClientsCache.set(cacheKey, ext);
