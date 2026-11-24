@@ -41020,6 +41020,18 @@ function initApp() {
     const frag = document.createDocumentFragment();
     visibleRows.forEach((row, idx) => {
       const tr = document.createElement('tr');
+      const sanityAlerts = getInvoiceRowSanityAlerts({
+        qty: row.cantidad,
+        price: row.precioUnitario,
+        newNetCost: row.nuevoCostoNeto,
+        oldNetCost: art ? Number(art.cn) || 0 : 0,
+        oldFinalCost: art ? Number(art.cfn) || 0 : 0,
+        codProv: row.codProveedor,
+        keepPrice: row.priceDecision === 'mantener',
+        onlyStock: false
+      });
+      row.sanityAlerts = sanityAlerts;
+
       if (!row.matchedArtId) {
         tr.className = 'fp-row--unmatched';
       } else if (row.priceDecision === 'mantener' && (row.priceDecisionConfirmed || row.manualPriceDecision)) {
@@ -41027,7 +41039,10 @@ function initApp() {
       } else if (row.hasPriceAlert) {
         tr.className = 'fp-row--price-alert';
       }
-      if (row.hasPxqAlert) {
+      if (sanityAlerts.length > 0) {
+        tr.style.background = 'rgba(220, 38, 38, 0.13)';
+        tr.style.outline = '1px solid rgba(220, 38, 38, 0.45)';
+      } else if (row.hasPxqAlert) {
         tr.style.background = 'rgba(220, 38, 38, 0.07)';
       }
 
@@ -41326,6 +41341,23 @@ function initApp() {
         stHint.className = 'price-neto-val';
         stHint.textContent = `Sumará +${row.cantidad} u. al vincular`;
         stStack.appendChild(stHint);
+      }
+
+      if (Array.isArray(row.sanityAlerts) && row.sanityAlerts.length > 0) {
+        qtyInput.style.borderColor = '#dc2626';
+        qtyInput.style.background = '#fef2f2';
+        const sanityBadge = document.createElement('span');
+        sanityBadge.style.display = 'inline-block';
+        sanityBadge.style.marginTop = '0.2rem';
+        sanityBadge.style.padding = '0.18rem 0.42rem';
+        sanityBadge.style.borderRadius = '6px';
+        sanityBadge.style.fontSize = '0.7rem';
+        sanityBadge.style.fontWeight = '700';
+        sanityBadge.style.background = '#fee2e2';
+        sanityBadge.style.color = '#991b1b';
+        sanityBadge.style.border = '1px solid #fca5a5';
+        sanityBadge.textContent = `🚨 ${row.sanityAlerts.join(' · ')}`;
+        stStack.appendChild(sanityBadge);
       }
 
       tdStock.appendChild(stStack);
@@ -43810,6 +43842,79 @@ function initApp() {
     renderFpHistoryPaginationBar(totalItems, pageSize, currentPage, totalPages);
   }
 
+  /**
+   * Control preventivo de sanidad para Factura Proveedor, Solo Stock y Carga Rápida:
+   * detecta cantidades que coinciden con el precio o código de proveedor, cantidades inusualmente altas
+   * y saltos extremos de costo antes de impactar stock/precios.
+   */
+  function getInvoiceRowSanityAlerts({
+    qty = 0,
+    price = 0,
+    newNetCost = 0,
+    oldNetCost = 0,
+    oldFinalCost = 0,
+    codProv = '',
+    keepPrice = false,
+    onlyStock = false
+  } = {}) {
+    const reasons = [];
+    const q = Number(qty) || 0;
+    const p = Number(price) || 0;
+    const newCn = Number(newNetCost) || 0;
+    const oldCn = Number(oldNetCost) || 0;
+    const oldCfn = Number(oldFinalCost) || 0;
+    const cleanCodDigits = String(codProv || '').trim().replace(/^0+/, '');
+
+    if (q >= 20) {
+      const priceRefs = [p, newCn, oldCn, oldCfn].filter((v) => Number.isFinite(v) && v >= 20);
+      if (priceRefs.some((ref) => Math.abs(q - ref) <= Math.max(2, ref * 0.015))) {
+        reasons.push(`Cantidad (${q} u.) coincide con el precio/costo del artículo`);
+      }
+    }
+
+    if (q >= 20 && /^\d{2,7}$/.test(cleanCodDigits)) {
+      const codNum = Number(cleanCodDigits);
+      if (codNum >= 20 && Math.abs(q - codNum) <= 1) {
+        reasons.push(`Cantidad (${q} u.) coincide con el Cód. de Proveedor (${codProv})`);
+      }
+    }
+
+    if (q > 100) {
+      reasons.push(`Cantidad inusualmente alta (+${q} u.)`);
+    }
+
+    if (!onlyStock && !keepPrice && newCn > 0 && oldCn > 0) {
+      const ratio = newCn / oldCn;
+      if (ratio >= 2.0) {
+        const pctUp = Math.round((ratio - 1) * 100);
+        reasons.push(`Costo sube +${pctUp}% ($ ${formatArs(oldCn)} → $ ${formatArs(newCn)}) — verificar si es subtotal o caja`);
+      } else if (ratio <= 0.4) {
+        const pctDown = Math.round((1 - ratio) * 100);
+        reasons.push(`Costo baja -${pctDown}% ($ ${formatArs(oldCn)} → $ ${formatArs(newCn)}) — verificar que no sea cantidad/código`);
+      }
+    }
+
+    return reasons;
+  }
+
+  async function confirmInvoiceSanityAnomalies(anomalies, moduleLabel) {
+    if (!Array.isArray(anomalies) || anomalies.length === 0) return true;
+    const previewLines = anomalies.slice(0, 8).map((a) => `• ${a.label}: ${a.reasons.join(' · ')}`);
+    if (anomalies.length > 8) {
+      previewLines.push(`• Y ${anomalies.length - 8} renglón(es) más con alertas.`);
+    }
+    return showBrandConfirmDialog(
+      `🚨 ALERTA DE SANIDAD (${moduleLabel}): se detectaron ${anomalies.length} renglón(es) con valores sospechosos que podrían corromper el Stock o los Precios:\n\n` +
+        previewLines.join('\n') +
+        `\n\nTe recomendamos CANCELAR y revisar las filas marcadas en rojo antes de impactar.\n¿Querés impactar estos valores DE TODAS FORMAS bajo tu responsabilidad?`,
+      {
+        title: '🚨 Revisar Cantidades / Precios Sospechosos',
+        acceptLabel: '⚠️ Sí, impactar de todas formas',
+        cancelLabel: '🛑 Cancelar y revisar'
+      }
+    );
+  }
+
   async function applyFacturaProveedorImpact() {
     const provObj = getSelectedFpProveedorObj();
     if (!provObj) {
@@ -43822,6 +43927,32 @@ function initApp() {
     if (readyRows.length === 0) {
       window.alert('No hay artículos vinculados listos para actualizar.');
       return;
+    }
+
+    const fpAnomalies = [];
+    readyRows.forEach((r) => {
+      const art = r.matchedArt;
+      const reasons = getInvoiceRowSanityAlerts({
+        qty: r.cantidad,
+        price: r.precioUnitario,
+        newNetCost: r.nuevoCostoNeto,
+        oldNetCost: art ? Number(art.cn) || 0 : 0,
+        oldFinalCost: art ? Number(art.cfn) || 0 : 0,
+        codProv: r.codProveedor,
+        keepPrice: r.priceDecision === 'mantener',
+        onlyStock: false
+      });
+      if (reasons.length > 0) {
+        fpAnomalies.push({
+          label: `#${art?.c || r.manualSysCode || '?'} ${(art?.n || r.descripcionFactura || '').slice(0, 42)}`,
+          reasons
+        });
+      }
+    });
+    if (fpAnomalies.length > 0) {
+      renderFpInvoiceTableAndAlerts();
+      const allowFpAnomalies = await confirmInvoiceSanityAnomalies(fpAnomalies, 'Factura Proveedor');
+      if (!allowFpAnomalies) return;
     }
 
     const impInputEl = document.getElementById('fp-importe-factura');
@@ -45155,11 +45286,22 @@ function initApp() {
 
     visibleRows.forEach((row, idx) => {
       const tr = document.createElement('tr');
+      const art = row.matchedArt;
+      const fpsSanityAlerts = getInvoiceRowSanityAlerts({
+        qty: row.cantidad,
+        oldNetCost: art ? Number(art.cn) || 0 : 0,
+        oldFinalCost: art ? Number(art.cfn) || 0 : 0,
+        codProv: row.codProveedor,
+        onlyStock: true
+      });
+      row.sanityAlerts = fpsSanityAlerts;
       if (!row.isReady) {
         tr.className = 'fp-row--unmatched';
       }
-
-      const art = row.matchedArt;
+      if (fpsSanityAlerts.length > 0) {
+        tr.style.background = 'rgba(220, 38, 38, 0.13)';
+        tr.style.outline = '1px solid rgba(220, 38, 38, 0.45)';
+      }
 
       // COLUMNA 1: Código de Proveedor (Obligatorio)
       const tdCod = document.createElement('td');
@@ -45430,6 +45572,23 @@ function initApp() {
         stHint.className = 'price-neto-val';
         stHint.textContent = `Sumará +${row.cantidad} u. al cargar Cód. Prov.`;
         stStack.appendChild(stHint);
+      }
+
+      if (Array.isArray(row.sanityAlerts) && row.sanityAlerts.length > 0) {
+        qtyInp.style.borderColor = '#dc2626';
+        qtyInp.style.background = '#fef2f2';
+        const sanityBadge = document.createElement('span');
+        sanityBadge.style.display = 'inline-block';
+        sanityBadge.style.marginTop = '0.2rem';
+        sanityBadge.style.padding = '0.18rem 0.42rem';
+        sanityBadge.style.borderRadius = '6px';
+        sanityBadge.style.fontSize = '0.7rem';
+        sanityBadge.style.fontWeight = '700';
+        sanityBadge.style.background = '#fee2e2';
+        sanityBadge.style.color = '#991b1b';
+        sanityBadge.style.border = '1px solid #fca5a5';
+        sanityBadge.textContent = `🚨 ${row.sanityAlerts.join(' · ')}`;
+        stStack.appendChild(sanityBadge);
       }
 
       tdStock.appendChild(stStack);
@@ -46403,6 +46562,29 @@ function initApp() {
         importeInp.value = importeFactura.toFixed(2);
         FPS_STATE.manualImporteOverride = true;
       }
+    }
+
+    const fpsAnomalies = [];
+    includedRows.forEach((r) => {
+      const art = r.matchedArt;
+      const reasons = getInvoiceRowSanityAlerts({
+        qty: r.cantidad,
+        oldNetCost: art ? Number(art.cn) || 0 : 0,
+        oldFinalCost: art ? Number(art.cfn) || 0 : 0,
+        codProv: r.codProveedor,
+        onlyStock: true
+      });
+      if (reasons.length > 0) {
+        fpsAnomalies.push({
+          label: `#${art?.c || '?'} ${(art?.n || r.descripcionFactura || '').slice(0, 42)}`,
+          reasons
+        });
+      }
+    });
+    if (fpsAnomalies.length > 0) {
+      renderFpsInvoiceTableAndAlerts();
+      const allowFpsAnomalies = await confirmInvoiceSanityAnomalies(fpsAnomalies, 'Factura Solo Stock');
+      if (!allowFpsAnomalies) return;
     }
 
     const tipoCompConfirm = document.getElementById('fps-tipo-comprobante')?.value || 'FACTURA A';
@@ -68479,6 +68661,33 @@ function initApp() {
           );
           if (!proceedDup) return;
         }
+      }
+
+      const fcrAnomalies = [];
+      (FCR_STATE.invoiceArticles || []).forEach((it) => {
+        const art = (STATE.articulos || []).find((a) => Number(a.id) === Number(it.artId)) || it.art;
+        if (!art) return;
+        recalculateFcrItemPricing(it);
+        const reasons = getInvoiceRowSanityAlerts({
+          qty: it.ingreso,
+          price: it.precioFactura,
+          newNetCost: it.nuevoCostoNeto,
+          oldNetCost: Number(art.cn) || 0,
+          oldFinalCost: Number(art.cfn) || 0,
+          codProv: it.codProv,
+          keepPrice: Boolean(it.keepCurrentPrice) || !(Number(it.precioFactura) > 0),
+          onlyStock: false
+        });
+        if (reasons.length > 0) {
+          fcrAnomalies.push({
+            label: `#${art.c || '?'} ${(art.n || '').slice(0, 42)}`,
+            reasons
+          });
+        }
+      });
+      if (fcrAnomalies.length > 0) {
+        const allowFcrAnomalies = await confirmInvoiceSanityAnomalies(fcrAnomalies, 'Factura Carga Rápida');
+        if (!allowFcrAnomalies) return;
       }
 
       const totalUnidadesIngresadas = itemsWithIngreso.reduce(
