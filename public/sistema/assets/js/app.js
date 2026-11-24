@@ -40142,7 +40142,7 @@ function initApp() {
   }
 
   /**
-   * Busca un artículo por Código de Sistema (ej: "112" o "00112")
+   * Busca un artículo por Código de Sistema (ej: "112" o "00112") o Código de Barras (EAN)
    */
   function findArticleBySystemCodeManual(rawSysCode) {
     const clean = normalizeCodeForMatch(rawSysCode);
@@ -40153,6 +40153,14 @@ function initApp() {
       (a) => a.bl !== 1 && (normalizeCodeForMatch(a.c) === padded || normalizeCodeForMatch(a.c) === clean)
     );
     if (exact) return exact;
+
+    const byBarcode = STATE.articulos.find(
+      (a) =>
+        a.bl !== 1 &&
+        Array.isArray(a.bc) &&
+        a.bc.some((b) => normalizeCodeForMatch(b) === clean)
+    );
+    if (byBarcode) return byBarcode;
 
     return STATE.articulos.find(
       (a) => normalizeCodeForMatch(a.c) === padded || normalizeCodeForMatch(a.c) === clean
@@ -41213,14 +41221,29 @@ function initApp() {
 
       const applyManualSysCode = () => {
         const rawVal = inpSysCode.value.trim();
-        if (!rawVal) return;
+        if (!rawVal) {
+          // Si el casillero está vacío, abrir el buscador del padrón prefiltrando por la descripción de la factura
+          openFpSystemCodeSearchModal(row.rowId, row.descripcionFactura || row.codProveedor || '');
+          return;
+        }
         const found = findArticleBySystemCodeManual(rawVal);
         if (found) {
+          const alreadySame = Number(row.matchedArtId) === Number(found.id);
           row.matchedArtId = found.id;
           row.manualSysCode = found.c;
           row.matchSource = 'manual_cod_sistema';
+          row.unlinkedCodProv = false;
+          if (row.codProveedor) row.saveCodProvLink = true;
           recalculateFpRow(row);
           renderFpInvoiceTableAndAlerts();
+          if (typeof showToast === 'function') {
+            if (alreadySame) {
+              showToast(`Este renglón ya está vinculado a #${found.c} · ${found.n}. Escribí otro código o usá "🔎 Padrón" para cambiarlo.`);
+            } else {
+              const provHint = row.codProveedor ? ` (guardará cód. prov. "${row.codProveedor}" al confirmar)` : '';
+              showToast(`✅ Vinculado: #${found.c} · ${found.n}${provHint}`);
+            }
+          }
         } else {
           // Si no es un código exacto, abrimos el buscador con ese texto
           openFpSystemCodeSearchModal(row.rowId, rawVal);
@@ -41240,6 +41263,7 @@ function initApp() {
       btnApplySys.style.padding = '0.22rem 0.5rem';
       btnApplySys.style.fontSize = '0.74rem';
       btnApplySys.textContent = 'Vincular Cód.';
+      btnApplySys.title = 'Vincular el Código de Sistema (o EAN) escrito; si está vacío, abre el buscador del padrón';
       btnApplySys.addEventListener('click', applyManualSysCode);
 
       const btnModalSearch = document.createElement('button');
@@ -65683,17 +65707,124 @@ function initApp() {
     const FCR_STATE = {
       selectedProv: null,
       nroMode: 'con', // 'con' = XXXX-XXXXXXXX | 'sin' = S/N
+      cargaMode: 'completo', // 'completo' = Stock y Precios | 'solo_stock' = Solo Stock
       dropdownResults: [],
       activeDropdownIndex: -1,
       awaitingNewProveedor: false,
       submitting: false,
       editingMov: null, // { clientId, movId, originalMov, provNombre }
-      invoiceArticles: [], // [{ artId, art, ingreso, isAssigned }]
+      invoiceArticles: [], // [{ artId, art, ingreso, isAssigned, renglonNro }]
       artDropdownResults: [],
       activeArtDropdownIndex: -1,
-      histPage: 1
+      histPage: 1,
+      activeDraftId: null,
+      activeDraftSavedAtLabel: '',
+      drafts: [],
+      draftsSyncing: false
     };
     const FCR_HIST_PAGE_SIZE = 10;
+
+    function isFcrSoloStockMode() {
+      return FCR_STATE.cargaMode === 'solo_stock';
+    }
+
+    function ensureFcrItemRenglonNumbers(itemsList) {
+      const list = Array.isArray(itemsList) ? itemsList : FCR_STATE.invoiceArticles || [];
+      if (list.length === 0) return 0;
+      let maxNro = 0;
+      list.forEach((it) => {
+        const n = Number(it && it.renglonNro);
+        if (Number.isInteger(n) && n > maxNro) maxNro = n;
+      });
+      // Los ítems más recientes están al principio (unshift), así que asignamos de atrás hacia adelante a los que no tengan número
+      for (let i = list.length - 1; i >= 0; i--) {
+        const it = list[i];
+        if (!it) continue;
+        if (!Number.isInteger(Number(it.renglonNro)) || Number(it.renglonNro) <= 0) {
+          maxNro += 1;
+          it.renglonNro = maxNro;
+        }
+      }
+      return maxNro;
+    }
+
+    function getNextFcrRenglonNro() {
+      const maxNro = ensureFcrItemRenglonNumbers(FCR_STATE.invoiceArticles);
+      return maxNro + 1;
+    }
+
+    function updateFcrRenglonIndicator() {
+      const indEl = document.getElementById('fcr-renglon-indicator');
+      if (!indEl) return;
+      const items = Array.isArray(FCR_STATE.invoiceArticles) ? FCR_STATE.invoiceArticles : [];
+      const maxNro = ensureFcrItemRenglonNumbers(items);
+      const nextNro = maxNro + 1;
+      const totalUnid = items.reduce((acc, it) => round2(acc + (Number(it.ingreso) || 0)), 0);
+      const lastItem = items.reduce((best, it) => {
+        if (!it) return best;
+        if (!best || (Number(it.renglonNro) || 0) > (Number(best.renglonNro) || 0)) return it;
+        return best;
+      }, null);
+
+      const draftTag = FCR_STATE.activeDraftId
+        ? `<span class="badge badge--gold" style="font-size:0.72rem;">⏸️ Guardado Parcial activo${
+            FCR_STATE.activeDraftSavedAtLabel ? ` (${escapeHtml(FCR_STATE.activeDraftSavedAtLabel)})` : ''
+          }</span>`
+        : '';
+
+      if (items.length === 0) {
+        indEl.innerHTML = `<span>📝 Sin renglones cargados aún · <strong>Próximo renglón a cargar: #1</strong></span>${draftTag}`;
+        return;
+      }
+
+      const lastName = String(lastItem?.art?.n || '').trim();
+      const lastLabel = lastItem
+        ? ` · Último: <strong>#${lastItem.renglonNro}</strong>${lastName ? ` (${escapeHtml(lastName.slice(0, 38))})` : ''}`
+        : '';
+      indEl.innerHTML = `<span>✅ <strong>${items.length}</strong> renglón(es) confirmado(s) (+${totalUnid} u.)${lastLabel} → <strong style="color:var(--gold-dark);">Próximo renglón a cargar: #${nextNro}</strong></span>${draftTag}`;
+    }
+
+    function setFcrCargaMode(mode, options = {}) {
+      const { persistAutoSave = true, skipRender = false } = options || {};
+      const nextMode = mode === 'solo_stock' ? 'solo_stock' : 'completo';
+      FCR_STATE.cargaMode = nextMode;
+      const isSolo = nextMode === 'solo_stock';
+
+      const radComp = document.getElementById('fcr-modo-carga-completo');
+      const radSolo = document.getElementById('fcr-modo-carga-solo-stock');
+      if (radComp) radComp.checked = !isSolo;
+      if (radSolo) radSolo.checked = isSolo;
+
+      const ivaControls = document.getElementById('fcr-modo-iva-controls');
+      if (ivaControls) ivaControls.hidden = isSolo;
+
+      const soloBanner = document.getElementById('fcr-solo-stock-banner');
+      if (soloBanner) soloBanner.hidden = !isSolo;
+
+      const thPrecio = document.getElementById('fcr-th-precio-costo');
+      if (thPrecio) thPrecio.hidden = isSolo;
+
+      const stepLabel = document.getElementById('fcr-articulos-step-label');
+      if (stepLabel) {
+        stepLabel.textContent = isSolo
+          ? 'Ítems de la Factura de Compra (Modo Solo Stock · Sin editar precios)'
+          : 'Ítems de la Factura de Compra (Ingreso a Stock y Actualización de Precio)';
+      }
+
+      const submitBtn = document.getElementById('btn-fcr-submit');
+      if (submitBtn && !FCR_STATE.submitting && !FCR_STATE.editingMov) {
+        submitBtn.textContent = isSolo
+          ? '✅ Cargar Factura (Solo Stock)'
+          : '✅ Cargar Factura y Actualizar Stock';
+      }
+
+      if (!skipRender) {
+        renderFcrSupplierArticlesTable();
+      }
+      if (persistAutoSave && typeof autoSaveActiveFcrSession === 'function') {
+        autoSaveActiveFcrSession();
+      }
+    }
 
     function ddMmYyyyToIso(fechaStr) {
       const m = String(fechaStr || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -66249,22 +66380,29 @@ function initApp() {
       if (!tbody) return;
       tbody.textContent = '';
 
+      const isSoloStock = isFcrSoloStockMode();
+      const thPrecio = document.getElementById('fcr-th-precio-costo');
+      if (thPrecio) thPrecio.hidden = isSoloStock;
+
       const modoIva = getSelectedFcrModoIva();
       const thModoLbl = document.getElementById('fcr-th-modo-iva-lbl');
       if (thModoLbl) {
         thModoLbl.textContent = modoIva === 'neto' ? 'Sin IVA' : 'Con IVA';
       }
 
+      ensureFcrItemRenglonNumbers(FCR_STATE.invoiceArticles);
+      updateFcrRenglonIndicator();
       updateFcrArticlesSummaryBadge();
 
       const items = FCR_STATE.invoiceArticles || [];
       if (items.length === 0) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 8;
+        td.colSpan = isSoloStock ? 8 : 9;
         td.className = 'table-loading-cell';
-        td.innerHTML =
-          'Aún no agregaste ítems a esta factura de compra. Buscá arriba por <strong>Código de Proveedor</strong> (o nombre/EAN) para ir agregando los productos comprados, o usá <strong>📋 Duplicar Producto</strong> / <strong>➕ Crear Producto Nuevo</strong>.';
+        td.innerHTML = isSoloStock
+          ? 'Modo <strong>Solo Stock</strong>: buscá arriba por <strong>Código de Proveedor</strong> (o nombre/EAN) y cargá únicamente las cantidades recibidas.'
+          : 'Aún no agregaste ítems a esta factura de compra. Buscá arriba por <strong>Código de Proveedor</strong> (o nombre/EAN) para ir agregando los productos comprados, o usá <strong>📋 Duplicar Producto</strong> / <strong>➕ Crear Producto Nuevo</strong>.';
         tr.appendChild(td);
         tbody.appendChild(tr);
         return;
@@ -66284,11 +66422,17 @@ function initApp() {
         const origAppliedQty = round2(Number(item.originalAppliedIngreso) || 0);
         const stockActual = round2(Number(art.sf ?? 0));
         const baseStockSinEstaFactura = round2(stockActual - origAppliedQty);
-        const hasPriceInput = round2(Number(item.precioFactura) || 0) > 0;
+        const hasPriceInput = !isSoloStock && round2(Number(item.precioFactura) || 0) > 0;
 
         if (ingresoVal > 0 || hasPriceInput) {
           tr.style.background = 'rgba(22, 163, 74, 0.08)';
         }
+
+        // COL 0: Renglón #
+        const tdReng = document.createElement('td');
+        tdReng.style.textAlign = 'center';
+        tdReng.innerHTML = `<span class="badge" style="font-size:0.74rem; font-weight:800;">#${escapeHtml(String(item.renglonNro || 1))}</span>`;
+        tr.appendChild(tdReng);
 
         // COL 1: Código de Sistema
         const tdCod = document.createElement('td');
@@ -66386,8 +66530,9 @@ function initApp() {
         renderNuevoCell(normalizedIngresoVal);
         tr.appendChild(tdNuevo);
 
-        // COL 7: Precio Costo Factura (Con o Sin IVA) y Venta
+        // COL 7: Precio Costo Factura (Con o Sin IVA) y Venta (se oculta en modo Solo Stock)
         const tdPrecio = document.createElement('td');
+        tdPrecio.hidden = isSoloStock;
         const precioStack = document.createElement('div');
         precioStack.className = 'price-cell-stack';
 
@@ -66511,8 +66656,10 @@ function initApp() {
           const parsedVal = parseFloat(String(inp.value || '').replace(',', '.')) || 0;
           const v = fcrAllowFrac ? round2(parsedVal) : Math.round(parsedVal);
           item.ingreso = v;
-          tr.style.background = v > 0 || round2(Number(item.precioFactura) || 0) > 0 ? 'rgba(22, 163, 74, 0.08)' : '';
+          const rowHasPrice = !isFcrSoloStockMode() && round2(Number(item.precioFactura) || 0) > 0;
+          tr.style.background = v > 0 || rowHasPrice ? 'rgba(22, 163, 74, 0.08)' : '';
           renderNuevoCell(v);
+          updateFcrRenglonIndicator();
           updateFcrArticlesSummaryBadge();
         });
         inp.addEventListener('keydown', (ev) => {
@@ -66520,8 +66667,16 @@ function initApp() {
           if (ev.key === 'Enter') {
             ev.preventDefault();
             ev.stopPropagation();
-            inpPrecio.focus();
-            inpPrecio.select?.();
+            if (isFcrSoloStockMode()) {
+              const searchInp = document.getElementById('fcr-add-art-search');
+              if (searchInp) {
+                searchInp.focus();
+                searchInp.select?.();
+              }
+            } else {
+              inpPrecio.focus();
+              inpPrecio.select?.();
+            }
           }
         });
 
@@ -66654,9 +66809,11 @@ function initApp() {
 
       const existing = (FCR_STATE.invoiceArticles || []).find((x) => Number(x.artId) === Number(art.id));
       if (!existing) {
+        const nextRenglon = getNextFcrRenglonNro();
         const newItem = {
           artId: Number(art.id),
           art,
+          renglonNro: nextRenglon,
           ingreso: 1,
           isAssigned: isAssignedToProv,
           codProv: assignCodProv || existingCodProv || '',
@@ -67253,6 +67410,13 @@ function initApp() {
         (Number(provItem.clientId) > 0 && nroKey ? localMap[`cli_${Number(provItem.clientId)}_${nroKey}`] : null) ||
         null;
 
+      const explicitCargaMode =
+        mov.fcrCargaMode === 'solo_stock' ||
+        /SOLO\s+STOCK/i.test(String(mov.obs || ''))
+          ? 'solo_stock'
+          : 'completo';
+      setFcrCargaMode(explicitCargaMode, { persistAutoSave: false, skipRender: true });
+
       const explicitModoIva =
         mov.fcrModoIva === 'neto' || mov.fcrModoIva === 'final'
           ? mov.fcrModoIva
@@ -67306,6 +67470,7 @@ function initApp() {
           const itemObj = {
             artId: Number(art.id),
             art,
+            renglonNro: Number(savedIt.renglonNro) > 0 ? Math.floor(Number(savedIt.renglonNro)) : 0,
             ingreso: qtyVal,
             originalAppliedIngreso: qtyVal,
             isAssigned,
@@ -67854,10 +68019,20 @@ function initApp() {
       tbody.appendChild(frag);
     }
 
+    const FCR_STORAGE_PREFIX =
+      typeof ACTIVE_BRAND !== 'undefined' && ACTIVE_BRAND && ACTIVE_BRAND.storagePrefix
+        ? ACTIVE_BRAND.storagePrefix
+        : 'cn_';
+    const FCR_DRAFTS_STORAGE_KEY = `${FCR_STORAGE_PREFIX}erp_fcr_drafts_v1`;
+    const FCR_ACTIVE_AUTOSAVE_KEY = `${FCR_STORAGE_PREFIX}erp_fcr_active_autosave_v1`;
+    const FCR_LEGACY_DRAFTS_KEY = 'cn_erp_fcr_drafts_v1';
+    const FCR_LEGACY_AUTOSAVE_KEY = 'cn_erp_fcr_active_autosave_v1';
+
     function resetFacturaCargaRapidaForm(keepFecha = true, clearAutoSave = true) {
       const wasEditing = Boolean(FCR_STATE.editingMov);
       FCR_STATE.editingMov = null;
       FCR_STATE.activeDraftId = null;
+      FCR_STATE.activeDraftSavedAtLabel = '';
 
       const searchInp = document.getElementById('fcr-prov-search');
       const fechaInp = document.getElementById('fcr-fecha');
@@ -67870,6 +68045,7 @@ function initApp() {
       const submitBtn = document.getElementById('btn-fcr-submit');
       const resetBtn = document.getElementById('btn-fcr-reset');
 
+      setFcrCargaMode('completo', { persistAutoSave: false, skipRender: true });
       if (submitBtn) submitBtn.textContent = '✅ Cargar Factura y Actualizar Stock';
       if (resetBtn) resetBtn.textContent = 'Limpiar formulario';
 
@@ -67891,7 +68067,10 @@ function initApp() {
       selectFcrProveedor(null, false);
       if (clearAutoSave) {
         try {
-          localStorage.removeItem('cn_erp_fcr_active_autosave_v1');
+          localStorage.removeItem(FCR_ACTIVE_AUTOSAVE_KEY);
+          if (FCR_ACTIVE_AUTOSAVE_KEY !== FCR_LEGACY_AUTOSAVE_KEY && (!ACTIVE_BRAND || ACTIVE_BRAND.isCasaNueva !== false)) {
+            localStorage.removeItem(FCR_LEGACY_AUTOSAVE_KEY);
+          }
         } catch {}
       }
       renderFcrDraftsPanel();
@@ -67900,16 +68079,16 @@ function initApp() {
       }
     }
 
-    const FCR_DRAFTS_STORAGE_KEY = 'cn_erp_fcr_drafts_v1';
-    const FCR_ACTIVE_AUTOSAVE_KEY = 'cn_erp_fcr_active_autosave_v1';
-
     function loadFcrDrafts() {
       try {
-        const raw = localStorage.getItem(FCR_DRAFTS_STORAGE_KEY);
+        let raw = localStorage.getItem(FCR_DRAFTS_STORAGE_KEY);
+        if (!raw && FCR_DRAFTS_STORAGE_KEY !== FCR_LEGACY_DRAFTS_KEY && (!ACTIVE_BRAND || ACTIVE_BRAND.isCasaNueva !== false)) {
+          raw = localStorage.getItem(FCR_LEGACY_DRAFTS_KEY);
+        }
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            FCR_STATE.drafts = parsed;
+            FCR_STATE.drafts = parsed.filter((d) => d && typeof d === 'object');
             return;
           }
         }
@@ -67926,6 +68105,123 @@ function initApp() {
       }
     }
 
+    function mergeFcrDraftLists(serverList, localList) {
+      const byId = new Map();
+      (Array.isArray(serverList) ? serverList : []).forEach((d) => {
+        if (!d || !d.id) return;
+        byId.set(String(d.id), { ...d, syncedServer: true });
+      });
+      (Array.isArray(localList) ? localList : []).forEach((d) => {
+        if (!d || !d.id) return;
+        const idKey = String(d.id);
+        const existing = byId.get(idKey);
+        if (!existing) {
+          // Conservar borradores locales que todavía no se subieron (ej: guardados sin conexión)
+          if (!d.syncedServer) {
+            byId.set(idKey, d);
+          }
+        } else if (String(d.savedAtIso || '') > String(existing.savedAtIso || '')) {
+          byId.set(idKey, { ...d, syncedServer: Boolean(d.syncedServer) });
+        }
+      });
+      return Array.from(byId.values())
+        .sort((a, b) => String(b.savedAtIso || '').localeCompare(String(a.savedAtIso || '')))
+        .slice(0, 50);
+    }
+
+    async function syncFcrDraftsFromServer() {
+      if (FCR_STATE.draftsSyncing) return;
+      FCR_STATE.draftsSyncing = true;
+      try {
+        loadFcrDrafts();
+        const localBefore = Array.isArray(FCR_STATE.drafts) ? FCR_STATE.drafts : [];
+        const res = await fetch('api/catalog.php?action=fcr_drafts', {
+          cache: 'no-store'
+        });
+        const json = await res.json().catch(() => null);
+        if (res.ok && json && json.ok && Array.isArray(json.drafts)) {
+          FCR_STATE.drafts = mergeFcrDraftLists(json.drafts, localBefore);
+          saveFcrDrafts(false);
+          renderFcrDraftsPanel(true);
+        }
+      } catch {
+        // Sin conexión: mantener copia local sin interrumpir
+      } finally {
+        FCR_STATE.draftsSyncing = false;
+      }
+    }
+
+    async function persistFcrDraftToServer(draftObj) {
+      try {
+        const res = await fetch('api/catalog.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'save_fcr_draft',
+            usuario: STATE.currentUser?.name || STATE.currentUser?.username || 'OPERADOR',
+            draft: draftObj
+          })
+        });
+        const json = await res.json().catch(() => null);
+        if (res.ok && json && json.ok) {
+          if (Array.isArray(json.drafts)) {
+            FCR_STATE.drafts = mergeFcrDraftLists(json.drafts, []);
+            saveFcrDrafts(true);
+          }
+          return { ok: true, draft: json.draft || draftObj };
+        }
+      } catch {}
+      return { ok: false, draft: draftObj };
+    }
+
+    async function deleteFcrDraftFromServer(draftId, extra = {}) {
+      try {
+        const res = await fetch('api/catalog.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete_fcr_draft',
+            id: draftId || '',
+            clientId: Number(extra.clientId) || 0,
+            nroFactura: String(extra.nroFactura || '').trim(),
+            usuario: STATE.currentUser?.name || STATE.currentUser?.username || 'OPERADOR'
+          })
+        });
+        const json = await res.json().catch(() => null);
+        if (res.ok && json && json.ok && Array.isArray(json.drafts)) {
+          FCR_STATE.drafts = mergeFcrDraftLists(json.drafts, []);
+          saveFcrDrafts(true);
+          renderFcrDraftsPanel(true);
+          return true;
+        }
+      } catch {}
+      return false;
+    }
+
+    function getFcrDraftProgressMeta(d) {
+      const items = Array.isArray(d?.items) ? d.items : [];
+      const count = items.length;
+      const totalUnid = items.reduce((acc, it) => round2(acc + (Number(it?.ingreso) || 0)), 0);
+      let maxRenglon = Number(d?.lastRenglonNro) || 0;
+      let lastItem = null;
+      items.forEach((it, idx) => {
+        const rNro = Number(it?.renglonNro) > 0 ? Math.floor(Number(it.renglonNro)) : (count - idx);
+        if (rNro >= maxRenglon) {
+          maxRenglon = rNro;
+          lastItem = it;
+        }
+      });
+      if (count === 0) maxRenglon = 0;
+      const nextRenglon = Math.max(1, Number(d?.nextRenglonNro) || (maxRenglon + 1));
+      return {
+        count,
+        totalUnid,
+        lastRenglon: maxRenglon,
+        nextRenglon,
+        lastItemName: String(lastItem?.nombre || '').trim()
+      };
+    }
+
     function serializeCurrentFcrStateToDraftObject(forcedId = null) {
       if (!FCR_STATE.selectedProv) return null;
       const now = new Date();
@@ -67939,9 +68235,12 @@ function initApp() {
       const importeTotalNum = parseArsAmountInput(importeTotalRaw);
       const obs = String(document.getElementById('fcr-obs')?.value || '').trim();
       const modoIva = getSelectedFcrModoIva();
+      const cargaMode = isFcrSoloStockMode() ? 'solo_stock' : 'completo';
+      const lastRenglonNro = ensureFcrItemRenglonNumbers(FCR_STATE.invoiceArticles);
 
       const items = (FCR_STATE.invoiceArticles || []).map((it) => ({
         artId: Number(it.artId || it.art?.id) || 0,
+        renglonNro: Number(it.renglonNro) || 0,
         codInterno: String(it.art?.c || ''),
         nombre: String(it.art?.n || ''),
         ingreso: round2(Number(it.ingreso) || 0),
@@ -67978,6 +68277,9 @@ function initApp() {
         importeTotalNum,
         obs,
         modoIva,
+        cargaMode,
+        lastRenglonNro,
+        nextRenglonNro: lastRenglonNro + 1,
         items
       };
     }
@@ -67995,20 +68297,26 @@ function initApp() {
       try {
         localStorage.setItem(FCR_ACTIVE_AUTOSAVE_KEY, JSON.stringify(snap));
       } catch {}
-      // Si la factura ya tenía un Guardado Parcial activo, mantenerlo sincronizado en tiempo real
+      // Si la factura ya tenía un Guardado Parcial activo, mantenerlo sincronizado en memoria local
       if (FCR_STATE.activeDraftId) {
         loadFcrDrafts();
         const idx = FCR_STATE.drafts.findIndex((d) => d && d.id === FCR_STATE.activeDraftId);
         if (idx >= 0) {
-          FCR_STATE.drafts[idx] = { ...snap, id: FCR_STATE.activeDraftId };
+          const prevSynced = Boolean(FCR_STATE.drafts[idx].syncedServer);
+          FCR_STATE.drafts[idx] = { ...snap, id: FCR_STATE.activeDraftId, syncedServer: prevSynced };
           saveFcrDrafts(false);
-          renderFcrDraftsPanel();
+          renderFcrDraftsPanel(true);
         }
       }
     }
 
-    function applyDraftSnapshotToFcrForm(draft, isExplicitResume = true) {
+    async function applyDraftSnapshotToFcrForm(draft, isExplicitResume = true) {
       if (!draft || !draft.prov) return;
+      if ((!Array.isArray(STATE.articulos) || STATE.articulos.length === 0) && typeof loadCatalogDatabase === 'function') {
+        try {
+          await loadCatalogDatabase();
+        } catch {}
+      }
       const allProvs = buildProveedoresDirectoryForFcr();
       const matchedProv =
         allProvs.find((p) => Number(p.clientId) > 0 && Number(p.clientId) === Number(draft.prov.clientId)) ||
@@ -68018,6 +68326,7 @@ function initApp() {
 
       FCR_STATE.editingMov = null;
       FCR_STATE.activeDraftId = draft.id && draft.id !== 'ACTIVE_SESSION' ? draft.id : null;
+      FCR_STATE.activeDraftSavedAtLabel = draft.savedAtLabel || '';
 
       selectFcrProveedor(matchedProv, false);
 
@@ -68042,9 +68351,13 @@ function initApp() {
         updateFcrSavedModoIvaBadgeUI('final', true);
       }
 
+      const restoredCargaMode = draft.cargaMode === 'solo_stock' ? 'solo_stock' : 'completo';
+      setFcrCargaMode(restoredCargaMode, { persistAutoSave: false, skipRender: true });
+
       const { provIdsSet } = getMatchingProvIdsForFcr(matchedProv);
+      const rawItems = Array.isArray(draft.items) ? draft.items : [];
       const restoredItems = [];
-      (draft.items || []).forEach((savedIt) => {
+      rawItems.forEach((savedIt, idx) => {
         const art =
           (STATE.articulos || []).find((a) => Number(a.id) === Number(savedIt.artId)) ||
           (savedIt.codInterno ? (STATE.articulos || []).find((a) => String(a.c) === String(savedIt.codInterno)) : null);
@@ -68052,9 +68365,11 @@ function initApp() {
         const isAssigned =
           provIdsSet.has(Number(art.p)) ||
           (Array.isArray(art.pr) && art.pr.some((x) => provIdsSet.has(Number(x && x.p))));
+        const fallbackRenglon = rawItems.length - idx;
         const itemObj = {
           artId: Number(art.id),
           art,
+          renglonNro: Number(savedIt.renglonNro) > 0 ? Math.floor(Number(savedIt.renglonNro)) : fallbackRenglon,
           ingreso: round2(Number(savedIt.ingreso) || 0),
           isAssigned,
           codProv: savedIt.codProv !== undefined ? String(savedIt.codProv) : getArtSupplierCodeForFcr(art, provIdsSet),
@@ -68068,22 +68383,31 @@ function initApp() {
       });
 
       FCR_STATE.invoiceArticles = restoredItems;
+      ensureFcrItemRenglonNumbers(FCR_STATE.invoiceArticles);
       renderFcrSupplierArticlesTable();
       updateFcrProjectedBalance();
-      renderFcrDraftsPanel();
+      renderFcrDraftsPanel(true);
       autoSaveActiveFcrSession();
 
       if (isExplicitResume) {
+        const nextRenglon = getNextFcrRenglonNro();
+        const modoTxt = restoredCargaMode === 'solo_stock' ? ' · Modo Solo Stock' : '';
         showFcrAlert(
-          `▶️ Factura en curso retomada: "${matchedProv.nombre}" (${restoredItems.length} ítem(s) cargados). Podés continuar agregando productos o finalizar la carga.`,
+          `▶️ Factura retomada: "${matchedProv.nombre}"${modoTxt} (${restoredItems.length} renglón(es) confirmado(s) recuperado(s)). Continuá cargando desde el renglón #${nextRenglon}.`,
           true
         );
-        document.getElementById('fcr-add-art-search')?.focus();
+        const searchArtInp = document.getElementById('fcr-add-art-search');
+        if (searchArtInp) {
+          searchArtInp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          searchArtInp.focus();
+        }
       }
     }
 
-    function renderFcrDraftsPanel() {
-      loadFcrDrafts();
+    function renderFcrDraftsPanel(skipReload = false) {
+      if (!skipReload) {
+        loadFcrDrafts();
+      }
       const panel = document.getElementById('fcr-drafts-panel');
       const tbody = document.getElementById('fcr-drafts-tbody');
       const badge = document.getElementById('fcr-drafts-count-badge');
@@ -68107,16 +68431,26 @@ function initApp() {
         if (isCurrent) {
           tr.style.background = 'rgba(212, 160, 23, 0.12)';
         }
-        const itemsCount = Array.isArray(d.items) ? d.items.length : 0;
-        const totalUnid = (d.items || []).reduce((acc, it) => round2(acc + (Number(it.ingreso) || 0)), 0);
+        const prog = getFcrDraftProgressMeta(d);
         const compLabel = `${d.tipoComp || 'FACTURA A'} ${d.nroFactura && d.nroFactura !== '0' ? d.nroFactura : 'S/N'}`;
         const fechaFmt = d.fechaIso ? isoToDdMmYyyy(d.fechaIso) : '—';
+        const isDraftSoloStock = d.cargaMode === 'solo_stock';
+        const modeBadge = isDraftSoloStock
+          ? '<span class="badge" style="font-size:0.68rem; background:rgba(22,163,74,0.14); color:#166534; border:1px solid rgba(22,163,74,0.35);">📦 SOLO STOCK</span>'
+          : '<span class="badge badge--gold" style="font-size:0.68rem;">💲 STOCK + PRECIOS</span>';
+        const syncBadge = d.syncedServer
+          ? '<span class="art-sub-meta" style="color:#15803d; font-weight:700;">☁️ Guardado en servidor</span>'
+          : '<span class="art-sub-meta" style="color:#b45309; font-weight:700;">💻 Solo local (pendiente sync)</span>';
+        const lastItemHint = prog.lastItemName
+          ? `<span class="art-sub-meta">Último (#${prog.lastRenglon}): ${escapeHtml(prog.lastItemName.slice(0, 34))}</span>`
+          : '';
 
         tr.innerHTML = `
           <td>
             <div class="price-cell-stack">
               <strong>${escapeHtml(d.savedAtLabel || '')}</strong>
               <span class="art-sub-meta">👤 ${escapeHtml(d.usuario || 'OPERADOR')}</span>
+              ${syncBadge}
             </div>
           </td>
           <td>
@@ -68127,18 +68461,25 @@ function initApp() {
           </td>
           <td>
             <div class="price-cell-stack">
-              <span class="art-code-pill">${escapeHtml(compLabel)}</span>
+              <div style="display:flex; align-items:center; gap:0.3rem; flex-wrap:wrap;">
+                <span class="art-code-pill">${escapeHtml(compLabel)}</span>
+                ${modeBadge}
+              </div>
               <span class="art-sub-meta">Fecha: ${escapeHtml(fechaFmt)}${d.obs ? ` · ${escapeHtml(d.obs)}` : ''}</span>
             </div>
           </td>
           <td class="num-col"><strong>$ ${formatArs(d.importeTotalNum || 0)}</strong></td>
           <td>
-            <span class="badge badge--gold">${itemsCount} ítem(s) · +${totalUnid} u.</span>
+            <div class="price-cell-stack">
+              <span class="badge badge--gold" style="width:fit-content;">${prog.count} renglón(es) · +${prog.totalUnid} u.</span>
+              <span class="art-sub-meta" style="font-weight:700; color:var(--gold-dark);">Siguiente: Renglón #${prog.nextRenglon}</span>
+              ${lastItemHint}
+            </div>
           </td>
           <td class="actions-col">
             <div style="display:flex; gap:0.35rem; justify-content:flex-end; flex-wrap:wrap;">
               <button type="button" class="btn-primary btn-sm" data-fcr-draft-resume="${escapeHtml(d.id)}" style="width:auto; font-weight:700;">
-                ${isCurrent ? '🔄 En pantalla (Recargar)' : '▶️ Retomar Carga'}
+                ${isCurrent ? '🔄 En pantalla' : `▶️ Retomar (#${prog.nextRenglon})`}
               </button>
               <button type="button" class="btn-secondary btn-sm" data-fcr-draft-del="${escapeHtml(d.id)}" style="width:auto; color:var(--danger, #dc2626);" title="Descartar este guardado parcial">
                 🗑️
@@ -68152,16 +68493,22 @@ function initApp() {
         });
         tr.querySelector(`[data-fcr-draft-del="${d.id}"]`)?.addEventListener('click', async () => {
           const ok = await showBrandConfirmDialog(
-            `¿Descartar el guardado parcial de "${d.prov?.nombre || 'Proveedor'}" (${compLabel})?`
+            `¿Descartar el guardado parcial de "${d.prov?.nombre || 'Proveedor'}" (${compLabel})?\n\nSe eliminará también del servidor.`
           );
           if (!ok) return;
           loadFcrDrafts();
           FCR_STATE.drafts = FCR_STATE.drafts.filter((x) => x && x.id !== d.id);
           if (FCR_STATE.activeDraftId === d.id) {
             FCR_STATE.activeDraftId = null;
+            FCR_STATE.activeDraftSavedAtLabel = '';
+            updateFcrRenglonIndicator();
           }
           saveFcrDrafts(true);
-          renderFcrDraftsPanel();
+          renderFcrDraftsPanel(true);
+          await deleteFcrDraftFromServer(d.id, {
+            clientId: d.prov?.clientId,
+            nroFactura: d.nroFactura
+          });
         });
 
         frag.appendChild(tr);
@@ -68170,49 +68517,76 @@ function initApp() {
       tbody.appendChild(frag);
     }
 
-    function saveCurrentFcrAsPartialDraft() {
+    async function saveCurrentFcrAsPartialDraft() {
       if (!FCR_STATE.selectedProv) {
         showFcrAlert('SELECCIONE UN PROVEEDOR ANTES DE REALIZAR EL GUARDADO PARCIAL.');
         document.getElementById('fcr-prov-search')?.focus();
         return;
       }
-      loadFcrDrafts();
-      const draftObj = serializeCurrentFcrStateToDraftObject(FCR_STATE.activeDraftId);
-      if (!draftObj) return;
+      const btnDraft = document.getElementById('btn-fcr-save-draft');
+      const prevBtnTxt = btnDraft ? btnDraft.textContent : '⏸️ Guardado Parcial';
+      if (btnDraft) {
+        btnDraft.disabled = true;
+        btnDraft.textContent = '⏳ Guardando parcial...';
+      }
+      try {
+        loadFcrDrafts();
+        const draftObj = serializeCurrentFcrStateToDraftObject(FCR_STATE.activeDraftId);
+        if (!draftObj) return;
 
-      // Buscar si ya existe por ID o mismo proveedor + número de factura
-      let existingIdx = FCR_STATE.drafts.findIndex((d) => d && d.id === draftObj.id);
-      if (existingIdx < 0 && draftObj.nroFactura && draftObj.nroFactura !== '0') {
-        existingIdx = FCR_STATE.drafts.findIndex(
-          (d) =>
-            d &&
-            Number(d.prov?.clientId) === Number(draftObj.prov.clientId) &&
-            String(d.nroFactura || '').trim().toUpperCase() === draftObj.nroFactura.toUpperCase()
-        );
+        // Buscar si ya existe por ID o mismo proveedor + número de factura
+        let existingIdx = FCR_STATE.drafts.findIndex((d) => d && d.id === draftObj.id);
+        if (existingIdx < 0 && draftObj.nroFactura && draftObj.nroFactura !== '0' && draftObj.nroFactura.toUpperCase() !== 'S/N') {
+          existingIdx = FCR_STATE.drafts.findIndex(
+            (d) =>
+              d &&
+              Number(d.prov?.clientId) === Number(draftObj.prov.clientId) &&
+              String(d.nroFactura || '').trim().toUpperCase() === draftObj.nroFactura.toUpperCase()
+          );
+          if (existingIdx >= 0) {
+            draftObj.id = FCR_STATE.drafts[existingIdx].id;
+          }
+        }
+
+        FCR_STATE.activeDraftId = draftObj.id;
+        FCR_STATE.activeDraftSavedAtLabel = draftObj.savedAtLabel || '';
         if (existingIdx >= 0) {
-          draftObj.id = FCR_STATE.drafts[existingIdx].id;
+          FCR_STATE.drafts[existingIdx] = { ...draftObj, syncedServer: false };
+        } else {
+          FCR_STATE.drafts.unshift({ ...draftObj, syncedServer: false });
+        }
+
+        saveFcrDrafts(true);
+        autoSaveActiveFcrSession();
+        renderFcrDraftsPanel(true);
+
+        const serverRes = await persistFcrDraftToServer(draftObj);
+        if (serverRes.ok && serverRes.draft?.id) {
+          FCR_STATE.activeDraftId = serverRes.draft.id;
+        }
+        renderFcrDraftsPanel(true);
+        updateFcrRenglonIndicator();
+
+        const nextRenglon = draftObj.nextRenglonNro || (draftObj.items.length + 1);
+        const modoTxt = draftObj.cargaMode === 'solo_stock' ? ' (Solo Stock)' : '';
+        const syncMsg = serverRes.ok
+          ? 'Sincronizado en el servidor: podés cerrar sesión o cambiar de PC y retomar'
+          : 'Guardado localmente (sin conexión al servidor): podés retomar en esta PC';
+        showFcrAlert(
+          `⏸️ Guardado Parcial registrado para "${draftObj.prov.nombre}"${modoTxt}: ${draftObj.items.length} renglón(es) confirmado(s). ${syncMsg} desde el renglón #${nextRenglon}.`,
+          true
+        );
+      } finally {
+        if (btnDraft) {
+          btnDraft.disabled = false;
+          btnDraft.textContent = prevBtnTxt || '⏸️ Guardado Parcial';
         }
       }
-
-      FCR_STATE.activeDraftId = draftObj.id;
-      if (existingIdx >= 0) {
-        FCR_STATE.drafts[existingIdx] = draftObj;
-      } else {
-        FCR_STATE.drafts.unshift(draftObj);
-      }
-
-      saveFcrDrafts(true);
-      autoSaveActiveFcrSession();
-      renderFcrDraftsPanel();
-
-      showFcrAlert(
-        `⏸️ Guardado Parcial registrado correctamente para "${draftObj.prov.nombre}" (${draftObj.items.length} ítem(s) resguardados). Podés hacer una pausa, ir a dar de alta un artículo o limpiar el formulario y retomar esta factura cuando quieras desde el cuadro superior.`,
-        true
-      );
     }
 
     window.onFcrDraftsUpdatedFromOtherWindow = function onFcrDraftsUpdatedFromOtherWindow() {
       renderFcrDraftsPanel();
+      syncFcrDraftsFromServer();
     };
 
     window.onCatalogUpdatedForFacturaCargaRapida = function onCatalogUpdatedForFacturaCargaRapida() {
@@ -68248,9 +68622,13 @@ function initApp() {
         provDrop.hidden = true;
       }
       renderFcrDraftsPanel();
+      syncFcrDraftsFromServer();
       if (!FCR_STATE.selectedProv && !FCR_STATE.editingMov) {
         try {
-          const rawAuto = localStorage.getItem(FCR_ACTIVE_AUTOSAVE_KEY);
+          let rawAuto = localStorage.getItem(FCR_ACTIVE_AUTOSAVE_KEY);
+          if (!rawAuto && FCR_ACTIVE_AUTOSAVE_KEY !== FCR_LEGACY_AUTOSAVE_KEY && (!ACTIVE_BRAND || ACTIVE_BRAND.isCasaNueva !== false)) {
+            rawAuto = localStorage.getItem(FCR_LEGACY_AUTOSAVE_KEY);
+          }
           if (rawAuto) {
             const parsedAuto = JSON.parse(rawAuto);
             if (parsedAuto && parsedAuto.prov) {
@@ -68320,6 +68698,17 @@ function initApp() {
         addArticleToFcrInvoice(savedArt, { assignCodProv: pendingCf });
       }
     };
+
+    document.querySelectorAll('input[name="fcr_modo_carga"]').forEach((rad) => {
+      rad.addEventListener('change', () => {
+        if (!rad.checked) return;
+        setFcrCargaMode(rad.value, { persistAutoSave: true });
+      });
+    });
+
+    document.getElementById('btn-fcr-refresh-drafts')?.addEventListener('click', () => {
+      syncFcrDraftsFromServer();
+    });
 
     document.querySelectorAll('input[name="fcr_modo_iva"]').forEach((rad) => {
       rad.addEventListener('change', () => {
@@ -68599,13 +68988,16 @@ function initApp() {
         }
       }
 
+      const isSoloStock = isFcrSoloStockMode();
       const impTotal = parseArsAmountInput(document.getElementById('fcr-importe-total')?.value || '');
       const itemsWithIngreso = (FCR_STATE.invoiceArticles || []).filter(
         (it) => round2(Number(it.ingreso) || 0) !== 0
       );
-      const itemsWithPriceUpdate = (FCR_STATE.invoiceArticles || []).filter(
-        (it) => round2(Number(it.precioFactura) || 0) > 0 && !it.keepCurrentPrice
-      );
+      const itemsWithPriceUpdate = isSoloStock
+        ? []
+        : (FCR_STATE.invoiceArticles || []).filter(
+            (it) => round2(Number(it.precioFactura) || 0) > 0 && !it.keepCurrentPrice
+          );
       const itemsWithCodProvUpdate = (FCR_STATE.invoiceArticles || []).filter(
         (it) => Boolean(it.codProvModified)
       );
@@ -68617,7 +69009,9 @@ function initApp() {
         itemsWithCodProvUpdate.length === 0
       ) {
         showFcrAlert(
-          'INGRESE UN IMPORTE TOTAL MAYOR A $ 0,00, O CARGUE AL MENOS UN INGRESO DE STOCK O ACTUALIZACIÓN DE PRECIO.'
+          isSoloStock
+            ? 'INGRESE UN IMPORTE TOTAL MAYOR A $ 0,00 O CARGUE AL MENOS UN INGRESO DE STOCK.'
+            : 'INGRESE UN IMPORTE TOTAL MAYOR A $ 0,00, O CARGUE AL MENOS UN INGRESO DE STOCK O ACTUALIZACIÓN DE PRECIO.'
         );
         document.getElementById('fcr-importe-total')?.focus();
         return;
