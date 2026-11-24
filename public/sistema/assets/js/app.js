@@ -589,9 +589,12 @@ function renderPosSyncOutboxPill(pendingCountOverride = null) {
     });
     document.body.appendChild(pill);
   }
+  const queueNow = loadPosSyncOutbox();
+  const firstLabel = queueNow[0]?.label ? ` (${queueNow[0].label})` : '';
+  pill.title = queueNow.map((j) => j.label || j.dedupeKey).join('\n') || 'Click para reintentar sincronización ahora';
   pill.textContent = _posOutboxFlushing
     ? `Sincronizando ${count} operación${count === 1 ? '' : 'es'} pendiente${count === 1 ? '' : 's'}...`
-    : `Pendiente de sincronizar: ${count} operación${count === 1 ? '' : 'es'} (click para reintentar)`;
+    : `Pendiente de sincronizar: ${count}${count === 1 ? firstLabel : ' operaciones'} (click para reintentar)`;
 }
 
 function enqueuePosSyncJob(endpoint, payload, dedupeKey, label = '') {

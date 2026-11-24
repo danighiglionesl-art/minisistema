@@ -62,6 +62,19 @@ function applyPendingVentasEvents(
     artMonthly: Array.isArray(rawDb.artMonthly)
       ? rawDb.artMonthly.map((m: AnyObj) => (m && typeof m === "object" ? { ...m } : m))
       : [],
+    cierresCajaCentral: Array.isArray(rawDb.cierresCajaCentral)
+      ? [...rawDb.cierresCajaCentral]
+      : [],
+    aperturasCajaCentral: Array.isArray(rawDb.aperturasCajaCentral)
+      ? rawDb.aperturasCajaCentral.map((a: AnyObj) =>
+          a && typeof a === "object" ? { ...a } : a
+        )
+      : [],
+    efectivoInicialPorCaja: {
+      caja1: round2(rawDb.efectivoInicialPorCaja?.caja1 || 0),
+      caja2: round2(rawDb.efectivoInicialPorCaja?.caja2 || 0),
+      caja3: round2(rawDb.efectivoInicialPorCaja?.caja3 || 0),
+    },
   };
 
   for (const ev of events) {
@@ -205,6 +218,65 @@ function applyPendingVentasEvents(
           }
           return row;
         });
+      }
+    } else if (
+      ev.event_type === "save_cierre" ||
+      ev.event_type === "close_caja_turno"
+    ) {
+      const cierre = p.cierre as AnyObj | undefined;
+      if (!cierre || typeof cierre !== "object") continue;
+      const cUid = String(cierre.uid || "").trim();
+      const alreadyCierre = db.cierresCajaCentral.some(
+        (c: AnyObj) =>
+          c &&
+          ((cUid && String(c.uid || "").trim() === cUid) ||
+            (!cUid && String(c.id || "") === String(cierre.id || "")))
+      );
+      if (!alreadyCierre) {
+        db.cierresCajaCentral.unshift(cierre);
+      }
+      const cKey = String(p.cajaId || cierre.cajaId || "").trim();
+      const isFullClose = p.isFullClose !== false;
+      const isHistoricalSync = Boolean(p.isHistoricalSync);
+      const closedMs =
+        Date.parse(String(cierre.closedAtIso || cierre.createdAt || "")) || 0;
+
+      if (isFullClose && cKey) {
+        if (!isHistoricalSync) {
+          db.efectivoInicialPorCaja[cKey] = round2(cierre.efectivoCambio || 0);
+        }
+        for (const ap of db.aperturasCajaCentral) {
+          if (ap && String(ap.cajaId || "") === cKey && ap.cerradaEnTurno !== true) {
+            if (isHistoricalSync && closedMs > 0) {
+              const apMs =
+                Date.parse(String(ap.createdAt || ap.openedAtIso || "")) || 0;
+              if (apMs > closedMs + 60_000) continue;
+            }
+            ap.cerradaEnTurno = true;
+            if (!ap.cerradaPorPlanilla) {
+              ap.cerradaPorPlanilla = cierre.numeroPlanilla;
+            }
+            if (!ap.closedAtIso) {
+              ap.closedAtIso = cierre.closedAtIso || cierre.createdAt;
+            }
+          }
+        }
+        if (Array.isArray(db.comprobantesPorCaja?.[cKey])) {
+          db.comprobantesPorCaja[cKey] = db.comprobantesPorCaja[cKey].map(
+            (comp: AnyObj) => {
+              if (!comp || comp.cerradoEnTurno) return comp;
+              if (isHistoricalSync && closedMs > 0) {
+                const compMs = Date.parse(String(comp.createdAt || "")) || 0;
+                if (compMs > closedMs + 60_000) return comp;
+              }
+              return {
+                ...comp,
+                cerradoEnTurno: true,
+                cerradoPorPlanilla: comp.cerradoPorPlanilla || cierre.numeroPlanilla,
+              };
+            }
+          );
+        }
       }
     }
   }
@@ -760,26 +832,39 @@ export async function handleErpVentas(
         (mx: number, c: AnyObj) => Math.max(mx, Number(c?.numeroPlanilla || 0)),
         0
       );
-      return commitVentas(
-        action,
+
+      // Escritura atómica ultrarrápida (~3 KB / ~20 ms) en erp_pos_events:
+      // evita reescribir la fila TOAST de 10.4 MB de ventas_db al cerrar turno o rescatar cierres.
+      const cierreDedupeKey = `cierre:${
+        incomingUid || savedCierre.id || `NP-${savedCierre.numeroPlanilla}`
+      }`;
+      const evRes = await appendPosEvent(
+        tenant,
+        "save_cierre",
+        cierreDedupeKey,
         {
+          cajaId: cKey,
           cierre: savedCierre,
-          historicalSync: isHistoricalSync,
-          nextNumero: nextMaxPlanilla + 1,
-          cierresCajaCentral: db.cierresCajaCentral,
-          aperturasCajaCentral: db.aperturasCajaCentral,
-          efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+          isFullClose,
+          isHistoricalSync,
         },
-        [
-          "cierresCajaCentral",
-          "aperturasCajaCentral",
-          "comprobantesPorCaja",
-          "nextCorrelativos",
-          "lastEmitidosDetalle",
-          "dailyRecords",
-          "efectivoInicialPorCaja",
-        ]
+        actor,
+        false
       );
+
+      return NextResponse.json({
+        ok: true,
+        eventId: evRes.id,
+        alreadyExists: !evRes.inserted,
+        cierre: evRes.inserted
+          ? savedCierre
+          : evRes.payload?.cierre || savedCierre,
+        historicalSync: isHistoricalSync,
+        nextNumero: nextMaxPlanilla + 1,
+        cierresCajaCentral: db.cierresCajaCentral,
+        aperturasCajaCentral: db.aperturasCajaCentral,
+        efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+      });
     }
 
     if (action === "force_close_apertura_caja") {
