@@ -91,7 +91,7 @@ export async function getPlatformSupabase(): Promise<SupabaseClient> {
         fetch: (input, init) =>
           fetch(input, {
             ...init,
-            signal: init?.signal || AbortSignal.timeout(45_000),
+            signal: init?.signal || AbortSignal.timeout(55_000),
           }),
       },
     });
@@ -164,7 +164,7 @@ export async function getPlatformSupabase(): Promise<SupabaseClient> {
         fetch: (input, init) =>
           fetch(input, {
             ...init,
-            signal: init?.signal || AbortSignal.timeout(45_000),
+            signal: init?.signal || AbortSignal.timeout(55_000),
           }),
       },
     });
@@ -626,6 +626,20 @@ export async function getTenantDoc<T = Record<string, unknown>>(
   };
 }
 
+async function uploadGzipToStorageBounded(
+  sb: SupabaseClient,
+  schema: string,
+  docKey: string,
+  rev: number,
+  gzBuf: Buffer,
+  maxWaitMs = 4_000
+): Promise<void> {
+  await Promise.race([
+    uploadGzipToStorage(sb, schema, docKey, rev, gzBuf),
+    new Promise<void>((resolve) => setTimeout(resolve, maxWaitMs)),
+  ]).catch(() => {});
+}
+
 export async function putTenantDoc(
   tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">,
   docKey: string,
@@ -666,8 +680,69 @@ export async function putTenantDoc(
       checkedAt: Date.now(),
     });
     if (useL2 && gzBuf) {
-      await uploadGzipToStorage(sb, tenant.db_schema, docKey, rev, gzBuf);
+      await uploadGzipToStorageBounded(sb, tenant.db_schema, docKey, rev, gzBuf);
     }
+  }
+
+  return { rev, updatedAt };
+}
+
+/**
+ * Actualiza quirúrgicamente uno o varios artículos dentro de catalog_db directamente en Postgres
+ * (envía ~1 KB en lugar de los ~8-11 MB completos del catálogo), evitando timeouts en escrituras.
+ */
+export async function patchCatalogArticles(
+  tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">,
+  params: {
+    upserts?: Array<Record<string, unknown>>;
+    deleteIds?: Array<number | string>;
+    metaPatch?: Record<string, unknown>;
+    fullMergedPayload: unknown;
+    actor?: string;
+    action?: string;
+  }
+): Promise<{ rev: number; updatedAt: string }> {
+  const actor = params.actor || "system";
+  const action = params.action || "save_article";
+  const sb = await getTenantDataSupabase(tenant);
+  const { data, error } = await sb.rpc("erp_catalog_patch_articles", {
+    p_schema: tenant.db_schema,
+    p_upserts: params.upserts ?? [],
+    p_delete_ids: params.deleteIds ?? [],
+    p_meta_patch: params.metaPatch ?? {},
+    p_actor: actor,
+    p_action: action,
+  });
+
+  if (
+    error ||
+    !data ||
+    typeof data !== "object" ||
+    (data as { not_found?: boolean }).not_found
+  ) {
+    return putTenantDoc(tenant, "catalog_db", params.fullMergedPayload, actor, action);
+  }
+
+  const res = data as { rev?: number; updated_at?: string };
+  const rev = Number(res.rev || 1);
+  const updatedAt = String(res.updated_at || new Date().toISOString());
+
+  statusMemoryCache.delete(tenant.db_schema);
+
+  const cacheKey = `${tenant.db_schema}:catalog_db`;
+  const useL2 = isUsingPlatformStorage(tenant);
+  const gzBuf = useL2
+    ? zlib.gzipSync(Buffer.from(JSON.stringify(params.fullMergedPayload), "utf8"), { level: 4 })
+    : undefined;
+  docMemoryCache.set(cacheKey, {
+    payload: params.fullMergedPayload,
+    gzBuf,
+    rev,
+    updatedAt,
+    checkedAt: Date.now(),
+  });
+  if (useL2 && gzBuf) {
+    await uploadGzipToStorageBounded(sb, tenant.db_schema, "catalog_db", rev, gzBuf);
   }
 
   return { rev, updatedAt };
@@ -723,7 +798,7 @@ export async function patchTenantDocKeys(
       checkedAt: Date.now(),
     });
     if (useL2 && gzBuf) {
-      await uploadGzipToStorage(sb, tenant.db_schema, docKey, rev, gzBuf);
+      await uploadGzipToStorageBounded(sb, tenant.db_schema, docKey, rev, gzBuf);
     }
   }
 

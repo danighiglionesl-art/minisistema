@@ -7,6 +7,8 @@ import {
   getTenantDocGzippedSnapshot,
   listPendingPosEvents,
   markPosEventsCompacted,
+  patchCatalogArticles,
+  patchTenantDocKeys,
   putTenantDoc,
   putTenantMediaInDb,
   type ErpPosEventRecord,
@@ -75,6 +77,27 @@ export async function handleErpCatalog(
 
   if (req.method === "GET") {
     const action = req.nextUrl.searchParams.get("action") || "summary";
+
+    if (action === "fcr_drafts") {
+      const { payload: draftsDoc } = await getTenantDoc<AnyObj>(
+        tenant,
+        "fcr_drafts_db",
+        { drafts: [], updatedAt: "" }
+      );
+      const drafts = Array.isArray(draftsDoc?.drafts) ? draftsDoc.drafts : [];
+      return NextResponse.json(
+        {
+          ok: true,
+          drafts,
+          updatedAt: draftsDoc?.updatedAt || "",
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        }
+      );
+    }
 
     if (action === "smart_images") {
       const q = (req.nextUrl.searchParams.get("q") || "").trim();
@@ -219,6 +242,110 @@ export async function handleErpCatalog(
       payload.usuario || payload.actor || req.headers.get("x-erp-user") || "sistema"
     );
 
+    if (postAction === "save_fcr_draft") {
+      const incoming = payload.draft;
+      if (!incoming || typeof incoming !== "object" || !incoming.prov) {
+        return NextResponse.json(
+          { ok: false, message: "Borrador de factura inválido" },
+          { status: 400 }
+        );
+      }
+      const { payload: draftsDoc } = await getTenantDoc<AnyObj>(
+        tenant,
+        "fcr_drafts_db",
+        { drafts: [], updatedAt: "" }
+      );
+      const list: AnyObj[] = Array.isArray(draftsDoc?.drafts)
+        ? draftsDoc.drafts.filter((d: AnyObj) => d && typeof d === "object")
+        : [];
+
+      const draftId = String(
+        incoming.id || `FCR-DRAFT-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+      ).trim();
+      const nroUpper = String(incoming.nroFactura || "").trim().toUpperCase();
+      const clientId = Number(incoming.prov?.clientId || 0);
+
+      let existingIdx = list.findIndex((d) => String(d.id || "") === draftId);
+      if (existingIdx < 0 && nroUpper && nroUpper !== "0" && nroUpper !== "S/N" && clientId > 0) {
+        existingIdx = list.findIndex(
+          (d) =>
+            Number(d.prov?.clientId || 0) === clientId &&
+            String(d.nroFactura || "").trim().toUpperCase() === nroUpper
+        );
+      }
+
+      const finalId = existingIdx >= 0 ? String(list[existingIdx].id || draftId) : draftId;
+      const savedDraft: AnyObj = {
+        ...incoming,
+        id: finalId,
+        savedAtIso: String(incoming.savedAtIso || new Date().toISOString()),
+        usuario: String(incoming.usuario || actor || "OPERADOR"),
+        syncedServer: true,
+      };
+
+      if (existingIdx >= 0) {
+        list[existingIdx] = savedDraft;
+      } else {
+        list.unshift(savedDraft);
+      }
+
+      list.sort((a, b) =>
+        String(b.savedAtIso || "").localeCompare(String(a.savedAtIso || ""))
+      );
+      const trimmed = list.slice(0, 50);
+      const nextDoc = {
+        drafts: trimmed,
+        updatedAt: new Date().toISOString(),
+        lastModifiedBy: actor,
+      };
+      await putTenantDoc(tenant, "fcr_drafts_db", nextDoc, actor, "save_fcr_draft");
+      return NextResponse.json({
+        ok: true,
+        draft: savedDraft,
+        drafts: trimmed,
+        updatedAt: nextDoc.updatedAt,
+      });
+    }
+
+    if (postAction === "delete_fcr_draft") {
+      const targetId = String(payload.id || payload.draftId || "").trim();
+      const clientId = Number(payload.clientId || 0);
+      const nroUpper = String(payload.nroFactura || "").trim().toUpperCase();
+      const { payload: draftsDoc } = await getTenantDoc<AnyObj>(
+        tenant,
+        "fcr_drafts_db",
+        { drafts: [], updatedAt: "" }
+      );
+      const list: AnyObj[] = Array.isArray(draftsDoc?.drafts)
+        ? draftsDoc.drafts.filter((d: AnyObj) => d && typeof d === "object")
+        : [];
+      const filtered = list.filter((d) => {
+        if (targetId && String(d.id || "") === targetId) return false;
+        if (
+          nroUpper &&
+          nroUpper !== "0" &&
+          nroUpper !== "S/N" &&
+          clientId > 0 &&
+          Number(d.prov?.clientId || 0) === clientId &&
+          String(d.nroFactura || "").trim().toUpperCase() === nroUpper
+        ) {
+          return false;
+        }
+        return true;
+      });
+      const nextDoc = {
+        drafts: filtered,
+        updatedAt: new Date().toISOString(),
+        lastModifiedBy: actor,
+      };
+      await putTenantDoc(tenant, "fcr_drafts_db", nextDoc, actor, "delete_fcr_draft");
+      return NextResponse.json({
+        ok: true,
+        drafts: filtered,
+        updatedAt: nextDoc.updatedAt,
+      });
+    }
+
     if (postAction === "upload_image") {
       const b64Raw = String(payload.imageBase64 || payload.dataUrl || "");
       const m = b64Raw.match(/^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/i);
@@ -271,7 +398,16 @@ export async function handleErpCatalog(
     if (!Array.isArray(db.marcas)) db.marcas = [];
     if (!Array.isArray(db.configuracionesPrecios)) db.configuracionesPrecios = [];
 
-    const saveAndReply = async (actionTag: string, responseObj: AnyObj) => {
+    const deltaArtIds = new Set<number>();
+    for (const ev of pendingStockEvents) {
+      const deltas = Array.isArray(ev.stock_deltas) ? ev.stock_deltas : [];
+      for (const d of deltas) {
+        const aid = Number(d?.artId || 0);
+        if (aid > 0 && Number(d?.delta || 0) !== 0) deltaArtIds.add(aid);
+      }
+    }
+
+    const buildCatalogMeta = (actionTag: string) => {
       db.updatedAt = new Date().toISOString();
       db.totalArticulos = db.articulos.length;
       db.totalActivos = db.articulos.filter((a: AnyObj) => !a.bl).length;
@@ -280,6 +416,80 @@ export async function handleErpCatalog(
       ).length;
       db.lastModifiedBy = actor;
       db.lastAction = actionTag;
+      return {
+        updatedAt: db.updatedAt,
+        totalArticulos: db.totalArticulos,
+        totalActivos: db.totalActivos,
+        totalCarritoWeb: db.totalCarritoWeb,
+        lastModifiedBy: db.lastModifiedBy,
+        lastAction: db.lastAction,
+      };
+    };
+
+    const saveArticlesAndReply = async (
+      actionTag: string,
+      responseObj: AnyObj,
+      opts: {
+        upserts?: AnyObj[];
+        deleteIds?: Array<number | string>;
+        extraMeta?: Record<string, unknown>;
+      }
+    ) => {
+      const metaPatch = {
+        ...buildCatalogMeta(actionTag),
+        ...(opts.extraMeta || {}),
+      };
+      // Incluir artículos con deltas pendientes de POS para compactar de forma atómica
+      const deleteSet = new Set((opts.deleteIds || []).map((x) => String(x)));
+      const upsertMap = new Map<string, AnyObj>();
+      for (const u of opts.upserts || []) {
+        if (u && u.id !== undefined) upsertMap.set(String(u.id), u);
+      }
+      if (deltaArtIds.size > 0) {
+        for (const a of db.articulos) {
+          const aid = Number(a?.id || 0);
+          if (deltaArtIds.has(aid) && !deleteSet.has(String(aid)) && !upsertMap.has(String(aid))) {
+            upsertMap.set(String(aid), a);
+          }
+        }
+      }
+      const saved = await patchCatalogArticles(tenant, {
+        upserts: Array.from(upsertMap.values()),
+        deleteIds: opts.deleteIds || [],
+        metaPatch,
+        fullMergedPayload: db,
+        actor,
+        action: actionTag,
+      });
+      if (maxStockEvId > 0) {
+        await markPosEventsCompacted(tenant, maxStockEvId, "catalog");
+      }
+      return NextResponse.json({ ok: true, rev: saved.rev, ...responseObj });
+    };
+
+    const saveMetaKeysAndReply = async (
+      actionTag: string,
+      responseObj: AnyObj,
+      keysPatch: Record<string, unknown>
+    ) => {
+      const metaPatch = {
+        ...buildCatalogMeta(actionTag),
+        ...keysPatch,
+      };
+      const saved = await patchTenantDocKeys(
+        tenant,
+        "catalog_db",
+        metaPatch,
+        db,
+        actor,
+        actionTag
+      );
+      // No compactamos pos_events de stock aquí porque solo modificamos metadatos (rubros/marcas/góndola)
+      return NextResponse.json({ ok: true, rev: saved.rev, ...responseObj });
+    };
+
+    const saveAndReply = async (actionTag: string, responseObj: AnyObj) => {
+      buildCatalogMeta(actionTag);
       const saved = await putTenantDoc(tenant, "catalog_db", db, actor, actionTag);
       if (maxStockEvId > 0) {
         await markPosEventsCompacted(tenant, maxStockEvId, "catalog");
@@ -361,7 +571,7 @@ export async function handleErpCatalog(
       } else {
         db.articulos.push(merged);
       }
-      return saveAndReply("save_article", { article: merged });
+      return saveArticlesAndReply("save_article", { article: merged }, { upserts: [merged] });
     }
 
     if (postAction === "delete") {
@@ -381,11 +591,11 @@ export async function handleErpCatalog(
       }
       if (payload.hard) {
         db.articulos.splice(idx, 1);
-      } else {
-        db.articulos[idx].bl = 1;
-        db.articulos[idx].fb = new Date().toLocaleDateString("es-AR");
+        return saveArticlesAndReply("delete_article", { id }, { deleteIds: [id] });
       }
-      return saveAndReply("delete_article", { id });
+      db.articulos[idx].bl = 1;
+      db.articulos[idx].fb = new Date().toLocaleDateString("es-AR");
+      return saveArticlesAndReply("delete_article", { id }, { upserts: [db.articulos[idx]] });
     }
 
     if (postAction === "update_article_stock_minimo") {
@@ -399,7 +609,7 @@ export async function handleErpCatalog(
         );
       }
       art.sm = sm;
-      return saveAndReply("update_sm", { article: art });
+      return saveArticlesAndReply("update_sm", { article: art }, { upserts: [art] });
     }
 
     if (postAction === "toggle_envase_retornable") {
@@ -412,7 +622,7 @@ export async function handleErpCatalog(
         );
       }
       art.env = payload.env ? 1 : 0;
-      return saveAndReply("toggle_envase", { article: art });
+      return saveArticlesAndReply("toggle_envase", { article: art }, { upserts: [art] });
     }
 
     if (postAction === "save_fp_supplier_config") {
@@ -421,18 +631,22 @@ export async function handleErpCatalog(
         db.fpSupplierConfigs = {};
       }
       db.fpSupplierConfigs[provId] = payload.config || payload;
-      return saveAndReply("save_fp_supplier_config", {
-        config: db.fpSupplierConfigs[provId],
-      });
+      return saveMetaKeysAndReply(
+        "save_fp_supplier_config",
+        { config: db.fpSupplierConfigs[provId] },
+        { fpSupplierConfigs: db.fpSupplierConfigs }
+      );
     }
 
     if (postAction === "bulk_update_from_invoice") {
+      const onlyStock = Boolean(payload.onlyStock);
       const items = Array.isArray(payload.articles)
         ? payload.articles
         : Array.isArray(payload.items)
           ? payload.items
           : [];
       let updatedCount = 0;
+      const modifiedArts: AnyObj[] = [];
       for (const it of items) {
         if (!it || typeof it !== "object") continue;
         const id = Number(it.id || it.artId || 0);
@@ -445,22 +659,26 @@ export async function handleErpCatalog(
           if (it.sc !== undefined) art.sc = round3(it.sc);
           if (it.sf !== undefined) art.sf = round3(it.sf);
         }
-        if (it.cn !== undefined) art.cn = round2(it.cn);
-        if (it.cfn !== undefined) art.cfn = round2(it.cfn);
-        if (it.p1n !== undefined) art.p1n = round2(it.p1n);
-        if (it.p1f !== undefined) art.p1f = round2(it.p1f);
-        if (it.p2n !== undefined) art.p2n = round2(it.p2n);
-        if (it.p2f !== undefined) art.p2f = round2(it.p2f);
-        if (it.iv !== undefined) art.iv = Number(it.iv);
-        if (it.iva !== undefined) art.iva = Number(it.iva);
-        if (it.m1 !== undefined) art.m1 = round2(it.m1);
-        if (it.m2 !== undefined) art.m2 = round2(it.m2);
-        if (it.pfid !== undefined) art.pfid = Math.max(1, Math.round(Number(it.pfid)));
+        if (!onlyStock) {
+          if (it.cn !== undefined) art.cn = round2(it.cn);
+          if (it.cfn !== undefined) art.cfn = round2(it.cfn);
+          if (it.p1n !== undefined) art.p1n = round2(it.p1n);
+          if (it.p1f !== undefined) art.p1f = round2(it.p1f);
+          if (it.p2n !== undefined) art.p2n = round2(it.p2n);
+          if (it.p2f !== undefined) art.p2f = round2(it.p2f);
+          if (it.iv !== undefined) art.iv = Number(it.iv);
+          if (it.iva !== undefined) art.iva = Number(it.iva);
+          if (it.m1 !== undefined) art.m1 = round2(it.m1);
+          if (it.m2 !== undefined) art.m2 = round2(it.m2);
+          if (it.pfid !== undefined) art.pfid = Math.max(1, Math.round(Number(it.pfid)));
+        }
         if (Array.isArray(it.pr)) art.pr = it.pr;
         if (it.cf !== undefined) art.cf = String(it.cf || "");
         if (it.p !== undefined) art.p = Number(it.p);
+        modifiedArts.push(art);
         updatedCount++;
       }
+      const extraMeta: Record<string, unknown> = {};
       if (payload.supplierConfig && typeof payload.supplierConfig === "object") {
         const scProvId = String(payload.supplierConfig.proveedorId || "");
         if (scProvId) {
@@ -468,14 +686,20 @@ export async function handleErpCatalog(
             db.fpSupplierConfigs = {};
           }
           db.fpSupplierConfigs[scProvId] = payload.supplierConfig;
+          extraMeta.fpSupplierConfigs = db.fpSupplierConfigs;
         }
       }
-      return saveAndReply("bulk_update_from_invoice", { updatedCount });
+      return saveArticlesAndReply(
+        "bulk_update_from_invoice",
+        { updatedCount },
+        { upserts: modifiedArts, extraMeta }
+      );
     }
 
     if (postAction === "bulk_fix_negative_stock") {
       const items = Array.isArray(payload.items) ? payload.items : [];
       let fixed = 0;
+      const modifiedArts: AnyObj[] = [];
       if (items.length > 0) {
         for (const it of items) {
           const art = db.articulos.find(
@@ -483,6 +707,7 @@ export async function handleErpCatalog(
           );
           if (art) {
             art.sf = round3(it.sf ?? 0);
+            modifiedArts.push(art);
             fixed++;
           }
         }
@@ -490,11 +715,16 @@ export async function handleErpCatalog(
         for (const art of db.articulos) {
           if (Number(art.sf || 0) < 0) {
             art.sf = 0;
+            modifiedArts.push(art);
             fixed++;
           }
         }
       }
-      return saveAndReply("bulk_fix_negative_stock", { fixed });
+      return saveArticlesAndReply(
+        "bulk_fix_negative_stock",
+        { fixed },
+        { upserts: modifiedArts }
+      );
     }
 
     if (postAction === "save_article_supplier_code") {
@@ -515,7 +745,7 @@ export async function handleErpCatalog(
       if (existing) existing.cf = codFab;
       else if (provId > 0) art.pr.push({ p: provId, cf: codFab });
       art.cf = codFab;
-      return saveAndReply("save_article_supplier_code", { article: art });
+      return saveArticlesAndReply("save_article_supplier_code", { article: art }, { upserts: [art] });
     }
 
     if (postAction === "unlink_article_supplier_code") {
@@ -525,6 +755,7 @@ export async function handleErpCatalog(
         .trim()
         .toUpperCase();
       const unlinkedIds: number[] = [];
+      const modifiedArts: AnyObj[] = [];
       for (const art of db.articulos) {
         const eId = Number(art.id || 0);
         const isTargetArt = artId > 0 && eId === artId;
@@ -566,9 +797,14 @@ export async function handleErpCatalog(
         if (changed) {
           art.pr = prList;
           unlinkedIds.push(eId);
+          modifiedArts.push(art);
         }
       }
-      return saveAndReply("unlink_article_supplier_code", { unlinkedIds });
+      return saveArticlesAndReply(
+        "unlink_article_supplier_code",
+        { unlinkedIds },
+        { upserts: modifiedArts }
+      );
     }
 
     if (postAction === "create_rubro" || postAction === "save_rubro") {
@@ -588,7 +824,7 @@ export async function handleErpCatalog(
           found.nombre = nombre;
           if (payload.codigo !== undefined) found.codigo = Number(payload.codigo);
           found.bl = payload.bl ? 1 : 0;
-          return saveAndReply("save_rubro", { rubro: found });
+          return saveMetaKeysAndReply("save_rubro", { rubro: found }, { rubros: db.rubros });
         }
       }
       const dup = db.rubros.find(
@@ -596,10 +832,11 @@ export async function handleErpCatalog(
       );
       if (dup) {
         dup.bl = 0;
-        return saveAndReply("reactivate_rubro", {
-          rubro: dup,
-          alreadyExists: true,
-        });
+        return saveMetaKeysAndReply(
+          "reactivate_rubro",
+          { rubro: dup, alreadyExists: true },
+          { rubros: db.rubros }
+        );
       }
       const maxId = db.rubros.reduce(
         (m: number, r: AnyObj) => Math.max(m, Number(r.id || 0)),
@@ -616,13 +853,13 @@ export async function handleErpCatalog(
         bl: 0,
       };
       db.rubros.push(newRubro);
-      return saveAndReply("create_rubro", { rubro: newRubro });
+      return saveMetaKeysAndReply("create_rubro", { rubro: newRubro }, { rubros: db.rubros });
     }
 
     if (postAction === "delete_rubro") {
       const id = Number(payload.id || 0);
       db.rubros = db.rubros.filter((r: AnyObj) => Number(r.id) !== id);
-      return saveAndReply("delete_rubro", { deleted: true, id });
+      return saveMetaKeysAndReply("delete_rubro", { deleted: true, id }, { rubros: db.rubros });
     }
 
     if (postAction === "create_marca" || postAction === "save_marca") {
@@ -642,7 +879,7 @@ export async function handleErpCatalog(
           found.nombre = nombre;
           if (payload.codigo !== undefined) found.codigo = Number(payload.codigo);
           found.bl = payload.bl ? 1 : 0;
-          return saveAndReply("save_marca", { marca: found });
+          return saveMetaKeysAndReply("save_marca", { marca: found }, { marcas: db.marcas });
         }
       }
       const dup = db.marcas.find(
@@ -650,10 +887,11 @@ export async function handleErpCatalog(
       );
       if (dup) {
         dup.bl = 0;
-        return saveAndReply("reactivate_marca", {
-          marca: dup,
-          alreadyExists: true,
-        });
+        return saveMetaKeysAndReply(
+          "reactivate_marca",
+          { marca: dup, alreadyExists: true },
+          { marcas: db.marcas }
+        );
       }
       const maxId = db.marcas.reduce(
         (mx: number, m: AnyObj) => Math.max(mx, Number(m.id || 0)),
@@ -666,29 +904,33 @@ export async function handleErpCatalog(
         bl: 0,
       };
       db.marcas.push(newMarca);
-      return saveAndReply("create_marca", { marca: newMarca });
+      return saveMetaKeysAndReply("create_marca", { marca: newMarca }, { marcas: db.marcas });
     }
 
     if (postAction === "delete_marca") {
       const id = Number(payload.id || 0);
       db.marcas = db.marcas.filter((m: AnyObj) => Number(m.id) !== id);
-      return saveAndReply("delete_marca", { deleted: true, id });
+      return saveMetaKeysAndReply("delete_marca", { deleted: true, id }, { marcas: db.marcas });
     }
 
     if (postAction === "save_price_configs") {
       if (Array.isArray(payload.configuracionesPrecios)) {
         db.configuracionesPrecios = payload.configuracionesPrecios;
       }
-      return saveAndReply("save_price_configs", {
-        configuracionesPrecios: db.configuracionesPrecios,
-      });
+      return saveMetaKeysAndReply(
+        "save_price_configs",
+        { configuracionesPrecios: db.configuracionesPrecios },
+        { configuracionesPrecios: db.configuracionesPrecios }
+      );
     }
 
     if (postAction === "save_gondola_queue") {
       db.gondolaQueue = payload.gondolaQueue ?? [];
-      return saveAndReply("save_gondola_queue", {
-        gondolaQueue: db.gondolaQueue,
-      });
+      return saveMetaKeysAndReply(
+        "save_gondola_queue",
+        { gondolaQueue: db.gondolaQueue },
+        { gondolaQueue: db.gondolaQueue }
+      );
     }
 
     if (postAction === "bulk_set_carrito_web") {
@@ -698,10 +940,18 @@ export async function handleErpCatalog(
         )
       );
       const val = payload.cw ? 1 : 0;
+      const modifiedArts: AnyObj[] = [];
       for (const art of db.articulos) {
-        if (ids.has(Number(art.id))) art.cw = val;
+        if (ids.has(Number(art.id))) {
+          art.cw = val;
+          modifiedArts.push(art);
+        }
       }
-      return saveAndReply("bulk_set_carrito_web", { updated: ids.size });
+      return saveArticlesAndReply(
+        "bulk_set_carrito_web",
+        { updated: ids.size },
+        { upserts: modifiedArts }
+      );
     }
 
     if (
@@ -720,7 +970,11 @@ export async function handleErpCatalog(
             art.pfid = Number(payload.ptsCanje);
             art.ptsCanje = Number(payload.ptsCanje);
           }
-          return saveAndReply("update_article_canje", { article: art });
+          return saveArticlesAndReply(
+            "update_article_canje",
+            { article: art },
+            { upserts: [art] }
+          );
         }
       }
       if (postAction === "bulk_set_canje_fidelizacion") {
@@ -730,9 +984,18 @@ export async function handleErpCatalog(
           )
         );
         const cfid = payload.cfid ? 1 : 0;
+        const modifiedArts: AnyObj[] = [];
         for (const art of db.articulos) {
-          if (ids.has(Number(art.id))) art.cfid = cfid;
+          if (ids.has(Number(art.id))) {
+            art.cfid = cfid;
+            modifiedArts.push(art);
+          }
         }
+        return saveArticlesAndReply(
+          "bulk_set_canje_fidelizacion",
+          {},
+          { upserts: modifiedArts }
+        );
       }
       if (postAction === "recalc_all_canje_points") {
         const factor = Number(payload.factorCanje || 1.12);
