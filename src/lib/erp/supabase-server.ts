@@ -295,7 +295,11 @@ async function downloadLatestGzipFromStorage(
   try {
     const { data: files, error } = await sb.storage
       .from(DOC_CACHE_BUCKET)
-      .list(schema, { search: `${docKey}_r`, limit: 25 });
+      .list(schema, {
+        search: `${docKey}_r`,
+        limit: 200,
+        sortBy: { column: "updated_at", order: "desc" },
+      });
     if (error || !Array.isArray(files) || files.length === 0) return null;
     const rx = new RegExp(`^${docKey}_r(\\d+)\\.json\\.gz$`);
     let bestName = "";
