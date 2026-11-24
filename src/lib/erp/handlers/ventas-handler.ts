@@ -4,6 +4,7 @@ import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
   getTenantDoc,
   listTenantUsersFromDb,
+  patchTenantDocKeys,
   putTenantDoc,
   upsertTenantUserInDb,
 } from "../supabase-server";
@@ -90,10 +91,33 @@ export async function handleErpVentas(
     if (!Array.isArray(db.cierresCajaCentral)) db.cierresCajaCentral = [];
     if (!Array.isArray(db.aperturasCajaCentral)) db.aperturasCajaCentral = [];
 
-    const commitVentas = async (tag: string, extra: AnyObj = {}) => {
+    const commitVentas = async (
+      tag: string,
+      extra: AnyObj = {},
+      changedKeys?: string[]
+    ) => {
       db.updatedAt = new Date().toISOString();
       db.todayIso = db.updatedAt.slice(0, 10);
-      const saved = await putTenantDoc(tenant, "ventas_db", db, actor, tag);
+      let saved: { rev: number; updatedAt: string };
+      if (Array.isArray(changedKeys) && changedKeys.length > 0) {
+        const patchObj: Record<string, unknown> = {
+          updatedAt: db.updatedAt,
+          todayIso: db.todayIso,
+        };
+        for (const k of changedKeys) {
+          patchObj[k] = db[k];
+        }
+        saved = await patchTenantDocKeys(
+          tenant,
+          "ventas_db",
+          patchObj,
+          db,
+          actor,
+          tag
+        );
+      } else {
+        saved = await putTenantDoc(tenant, "ventas_db", db, actor, tag);
+      }
       return NextResponse.json({ ok: true, rev: saved.rev, ...extra });
     };
 
@@ -263,7 +287,7 @@ export async function handleErpVentas(
         db.comprobantesPorCaja[cajaId] = [];
       }
       db.comprobantesPorCaja[cajaId].unshift(mov);
-      return commitVentas(action, { movement: mov });
+      return commitVentas(action, { movement: mov }, ["comprobantesPorCaja"]);
     }
 
     if (action === "annul_caja_movement") {
@@ -276,7 +300,7 @@ export async function handleErpVentas(
           if (item) item.anulado = true;
         }
       }
-      return commitVentas("annul_caja_movement", { id });
+      return commitVentas("annul_caja_movement", { id }, ["comprobantesPorCaja"]);
     }
 
     if (action === "update_comprobante_medio_pago") {
@@ -291,7 +315,11 @@ export async function handleErpVentas(
           }
         }
       }
-      return commitVentas("update_comprobante_medio_pago", { comprobante: updated });
+      return commitVentas(
+        "update_comprobante_medio_pago",
+        { comprobante: updated },
+        ["comprobantesPorCaja"]
+      );
     }
 
     if (action === "close_caja_turno" || action === "save_cierre") {
@@ -386,13 +414,22 @@ export async function handleErpVentas(
         (mx: number, c: AnyObj) => Math.max(mx, Number(c?.numeroPlanilla || 0)),
         0
       );
-      return commitVentas(action, {
-        cierre: savedCierre,
-        nextNumero: nextMaxPlanilla + 1,
-        cierresCajaCentral: db.cierresCajaCentral,
-        aperturasCajaCentral: db.aperturasCajaCentral,
-        efectivoInicialPorCaja: db.efectivoInicialPorCaja,
-      });
+      return commitVentas(
+        action,
+        {
+          cierre: savedCierre,
+          nextNumero: nextMaxPlanilla + 1,
+          cierresCajaCentral: db.cierresCajaCentral,
+          aperturasCajaCentral: db.aperturasCajaCentral,
+          efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+        },
+        [
+          "cierresCajaCentral",
+          "aperturasCajaCentral",
+          "comprobantesPorCaja",
+          "efectivoInicialPorCaja",
+        ]
+      );
     }
 
     if (action === "force_close_apertura_caja") {
@@ -426,12 +463,16 @@ export async function handleErpVentas(
           }
         }
       } catch {}
-      return commitVentas("force_close_apertura_caja", {
-        cajaId: cKey,
-        closedCount,
-        aperturasCajaCentral: db.aperturasCajaCentral,
-        efectivoInicialPorCaja: db.efectivoInicialPorCaja,
-      });
+      return commitVentas(
+        "force_close_apertura_caja",
+        {
+          cajaId: cKey,
+          closedCount,
+          aperturasCajaCentral: db.aperturasCajaCentral,
+          efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+        },
+        ["aperturasCajaCentral"]
+      );
     }
 
     if (action === "save_apertura_caja" || action === "open_caja_turno") {
@@ -487,11 +528,15 @@ export async function handleErpVentas(
         db.efectivoInicialPorCaja[cKey] = round2(
           apIn.efectivoConfirmado ?? apIn.efectivoInicial ?? apIn.importe ?? 0
         );
-        return commitVentas(action, {
-          apertura: activeExisting,
-          aperturasCajaCentral: db.aperturasCajaCentral,
-          efectivoInicialPorCaja: db.efectivoInicialPorCaja,
-        });
+        return commitVentas(
+          action,
+          {
+            apertura: activeExisting,
+            aperturasCajaCentral: db.aperturasCajaCentral,
+            efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+          },
+          ["aperturasCajaCentral", "efectivoInicialPorCaja"]
+        );
       }
 
       const savedAp: AnyObj = {
@@ -534,11 +579,15 @@ export async function handleErpVentas(
         } catch {}
       }
 
-      return commitVentas(action, {
-        apertura: savedAp,
-        aperturasCajaCentral: db.aperturasCajaCentral,
-        efectivoInicialPorCaja: db.efectivoInicialPorCaja,
-      });
+      return commitVentas(
+        action,
+        {
+          apertura: savedAp,
+          aperturasCajaCentral: db.aperturasCajaCentral,
+          efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+        },
+        ["aperturasCajaCentral", "efectivoInicialPorCaja"]
+      );
     }
 
     if (action === "update_apertura_caja") {
@@ -557,16 +606,20 @@ export async function handleErpVentas(
           db.efectivoInicialPorCaja[cKey] = target.efectivoInicial;
         }
       }
-      return commitVentas("update_apertura_caja", {
-        apertura: target || null,
-        aperturasCajaCentral: db.aperturasCajaCentral,
-        efectivoInicialPorCaja: db.efectivoInicialPorCaja,
-      });
+      return commitVentas(
+        "update_apertura_caja",
+        {
+          apertura: target || null,
+          aperturasCajaCentral: db.aperturasCajaCentral,
+          efectivoInicialPorCaja: db.efectivoInicialPorCaja,
+        },
+        ["aperturasCajaCentral", "efectivoInicialPorCaja"]
+      );
     }
 
     if (action === "save_fondos_state") {
       db.fondosDb = payload.fondosDb ?? payload.fondos ?? payload;
-      return commitVentas("save_fondos_state", { fondosDb: db.fondosDb });
+      return commitVentas("save_fondos_state", { fondosDb: db.fondosDb }, ["fondosDb"]);
     }
 
     if (action === "confirm_cierre_central" || action === "update_cierre_central") {
@@ -584,10 +637,14 @@ export async function handleErpVentas(
           target.confirmadoPor = actor;
         }
       }
-      return commitVentas(action, {
-        cierre: target || null,
-        cierresCajaCentral: db.cierresCajaCentral,
-      });
+      return commitVentas(
+        action,
+        {
+          cierre: target || null,
+          cierresCajaCentral: db.cierresCajaCentral,
+        },
+        ["cierresCajaCentral"]
+      );
     }
 
     return commitVentas(action || "ventas_update", {});

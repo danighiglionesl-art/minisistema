@@ -91,7 +91,7 @@ export async function getPlatformSupabase(): Promise<SupabaseClient> {
         fetch: (input, init) =>
           fetch(input, {
             ...init,
-            signal: init?.signal || AbortSignal.timeout(15_000),
+            signal: init?.signal || AbortSignal.timeout(45_000),
           }),
       },
     });
@@ -164,7 +164,7 @@ export async function getPlatformSupabase(): Promise<SupabaseClient> {
         fetch: (input, init) =>
           fetch(input, {
             ...init,
-            signal: init?.signal || AbortSignal.timeout(15_000),
+            signal: init?.signal || AbortSignal.timeout(45_000),
           }),
       },
     });
@@ -660,6 +660,63 @@ export async function putTenantDoc(
       : undefined;
     docMemoryCache.set(cacheKey, {
       payload,
+      gzBuf,
+      rev,
+      updatedAt,
+      checkedAt: Date.now(),
+    });
+    if (useL2 && gzBuf) {
+      await uploadGzipToStorage(sb, tenant.db_schema, docKey, rev, gzBuf);
+    }
+  }
+
+  return { rev, updatedAt };
+}
+
+/**
+ * Actualiza solo las claves modificadas de un documento JSONB pesado (ej. aperturasCajaCentral,
+ * cierresCajaCentral o fondosDb dentro de ventas_db de 10 MB) sin reenviar 8 MB de estadísticas históricas.
+ */
+export async function patchTenantDocKeys(
+  tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">,
+  docKey: string,
+  patchObj: Record<string, unknown>,
+  fullMergedPayload: unknown,
+  actor = "system",
+  action = "patch"
+): Promise<{ rev: number; updatedAt: string }> {
+  const sb = await getTenantDataSupabase(tenant);
+  const { data, error } = await sb.rpc("erp_merge_doc_keys", {
+    p_schema: tenant.db_schema,
+    p_doc_key: docKey,
+    p_patch: patchObj,
+    p_actor: actor,
+    p_action: action,
+  });
+
+  if (
+    error ||
+    !data ||
+    typeof data !== "object" ||
+    (data as { not_found?: boolean }).not_found
+  ) {
+    return putTenantDoc(tenant, docKey, fullMergedPayload, actor, action);
+  }
+
+  const res = data as { rev?: number; updated_at?: string };
+  const rev = Number(res.rev || 1);
+  const updatedAt = String(res.updated_at || new Date().toISOString());
+
+  statusMemoryCache.delete(tenant.db_schema);
+
+  if (HEAVY_DOC_KEYS.has(docKey)) {
+    const cacheKey = `${tenant.db_schema}:${docKey}`;
+    const useL2 = isUsingPlatformStorage(tenant);
+    const gzBuf = useL2
+      ? zlib.gzipSync(Buffer.from(JSON.stringify(fullMergedPayload), "utf8"), { level: 4 })
+      : undefined;
+    docMemoryCache.set(cacheKey, {
+      payload: fullMergedPayload,
       gzBuf,
       rev,
       updatedAt,
