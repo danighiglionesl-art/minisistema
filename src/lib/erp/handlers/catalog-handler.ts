@@ -427,16 +427,23 @@ export async function handleErpCatalog(
     }
 
     if (postAction === "bulk_update_from_invoice") {
-      const items = Array.isArray(payload.items) ? payload.items : [];
+      const items = Array.isArray(payload.articles)
+        ? payload.articles
+        : Array.isArray(payload.items)
+          ? payload.items
+          : [];
       let updatedCount = 0;
       for (const it of items) {
+        if (!it || typeof it !== "object") continue;
         const id = Number(it.id || it.artId || 0);
         const art = db.articulos.find((a: AnyObj) => Number(a.id) === id);
         if (!art) continue;
         if (it.addStock !== undefined) {
+          art.sc = round3(Number(art.sc || 0) + Number(it.addStock || 0));
           art.sf = round3(Number(art.sf || 0) + Number(it.addStock || 0));
-        } else if (it.sf !== undefined) {
-          art.sf = round3(it.sf);
+        } else {
+          if (it.sc !== undefined) art.sc = round3(it.sc);
+          if (it.sf !== undefined) art.sf = round3(it.sf);
         }
         if (it.cn !== undefined) art.cn = round2(it.cn);
         if (it.cfn !== undefined) art.cfn = round2(it.cfn);
@@ -444,7 +451,24 @@ export async function handleErpCatalog(
         if (it.p1f !== undefined) art.p1f = round2(it.p1f);
         if (it.p2n !== undefined) art.p2n = round2(it.p2n);
         if (it.p2f !== undefined) art.p2f = round2(it.p2f);
+        if (it.iv !== undefined) art.iv = Number(it.iv);
+        if (it.iva !== undefined) art.iva = Number(it.iva);
+        if (it.m1 !== undefined) art.m1 = round2(it.m1);
+        if (it.m2 !== undefined) art.m2 = round2(it.m2);
+        if (it.pfid !== undefined) art.pfid = Math.max(1, Math.round(Number(it.pfid)));
+        if (Array.isArray(it.pr)) art.pr = it.pr;
+        if (it.cf !== undefined) art.cf = String(it.cf || "");
+        if (it.p !== undefined) art.p = Number(it.p);
         updatedCount++;
+      }
+      if (payload.supplierConfig && typeof payload.supplierConfig === "object") {
+        const scProvId = String(payload.supplierConfig.proveedorId || "");
+        if (scProvId) {
+          if (!db.fpSupplierConfigs || typeof db.fpSupplierConfigs !== "object") {
+            db.fpSupplierConfigs = {};
+          }
+          db.fpSupplierConfigs[scProvId] = payload.supplierConfig;
+        }
       }
       return saveAndReply("bulk_update_from_invoice", { updatedCount });
     }

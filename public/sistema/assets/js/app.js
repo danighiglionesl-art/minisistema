@@ -41458,6 +41458,31 @@ function initApp() {
         calcCostoSpan.innerHTML = `${tipoCostoFpLbl} Factura: <strong>$ ${formatArs(newCompFp)}</strong>`;
         costoStack.appendChild(calcCostoSpan);
 
+        const keepLbl = document.createElement('label');
+        keepLbl.className = 'fp-keep-price-check-label' + (keepingSystemPrice ? ' is-checked' : '');
+        keepLbl.style.cssText =
+          'display:inline-flex; align-items:center; gap:0.35rem; width:fit-content; margin-top:0.2rem; padding:0.2rem 0.5rem; border-radius:6px; font-size:0.74rem; font-weight:700; cursor:pointer; user-select:none; border:1px solid ' +
+          (keepingSystemPrice ? 'rgba(22,163,74,0.45); background:rgba(22,163,74,0.12); color:#15803d;' : 'rgba(217,119,6,0.45); background:rgba(245,158,11,0.12); color:#b45309;');
+        keepLbl.title = keepingSystemPrice
+          ? 'Destildá esta opción para permitir bajar / actualizar el precio al valor de la factura'
+          : 'Tildá esta opción si preferís conservar el precio actual del sistema';
+
+        const keepChk = document.createElement('input');
+        keepChk.type = 'checkbox';
+        keepChk.checked = keepingSystemPrice;
+        keepChk.style.accentColor = '#16a34a';
+        keepChk.addEventListener('change', () => {
+          row.manualPriceDecision = true;
+          row.priceDecisionConfirmed = true;
+          row.priceDecision = keepChk.checked ? 'mantener' : (row.hasPriceAlert ? 'bajar' : 'actualizar');
+          renderFpInvoiceTableAndAlerts();
+        });
+        const keepSpan = document.createElement('span');
+        keepSpan.textContent = 'Mantener precio Actual';
+        keepLbl.appendChild(keepChk);
+        keepLbl.appendChild(keepSpan);
+        costoStack.appendChild(keepLbl);
+
         const resultCostoSpan = document.createElement('span');
         resultCostoSpan.style.fontSize = '0.76rem';
         resultCostoSpan.style.fontWeight = '800';
@@ -41475,6 +41500,18 @@ function initApp() {
           resultCostoSpan.textContent = `✅ ${tipoCostoFpLbl} sin cambios: $ ${formatArs(newCompFp)}`;
         }
         costoStack.appendChild(resultCostoSpan);
+
+        const ventaPreviewSpan = document.createElement('span');
+        ventaPreviewSpan.style.fontSize = '0.73rem';
+        ventaPreviewSpan.style.fontWeight = '700';
+        if (keepingSystemPrice) {
+          ventaPreviewSpan.style.color = '#15803d';
+          ventaPreviewSpan.textContent = `Venta Min: $ ${formatArs(row.p1fSistema)} | May: $ ${formatArs(row.p2fSistema)}`;
+        } else {
+          ventaPreviewSpan.style.color = 'var(--silver-bright)';
+          ventaPreviewSpan.innerHTML = `➔ Nuevo Min: <strong>$ ${formatArs(row.nuevoP1f)}</strong> | May: <strong>$ ${formatArs(row.nuevoP2f)}</strong>`;
+        }
+        costoStack.appendChild(ventaPreviewSpan);
       } else {
         const isNetoFp = getSelectedFpModoIva() === 'neto';
         const calcCostoSpan = document.createElement('span');
