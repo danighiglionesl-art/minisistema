@@ -80,6 +80,28 @@ export async function GET(req: NextRequest) {
     ? "/carrito/assets/img/icon-192.png?v=25"
     : brand.logoSymbolUrl;
 
+  const rawHost = (
+    req.headers.get("x-forwarded-host") ||
+    req.headers.get("host") ||
+    tenant.custom_domain ||
+    ""
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .replace(/:\d+$/, "");
+  const hasOriginPair =
+    Boolean(rawHost) &&
+    rawHost !== "localhost" &&
+    rawHost !== "127.0.0.1" &&
+    !rawHost.endsWith(".vercel.app") &&
+    !(tenant.option_type === 2 && !tenant.is_base);
+  const apexHost = rawHost.replace(/^www\./, "");
+  const scopeExtensions = hasOriginPair
+    ? [{ origin: `https://${apexHost}` }, { origin: `https://www.${apexHost}` }]
+    : undefined;
+
   const manifest = {
     id: startUrl,
     name: `${tenant.fantasy_name} · Usuario Registrado`,
@@ -87,6 +109,7 @@ export async function GET(req: NextRequest) {
     description: `App de Clientes y Tienda Online de ${tenant.business_name}: Puntos ${brand.clubName || "Club Fidel"}, Soy Cajero, Consultador de Precios y Compra Web.`,
     start_url: startUrl,
     scope: scopeUrl,
+    ...(scopeExtensions ? { scope_extensions: scopeExtensions } : {}),
     display: "standalone",
     orientation: "portrait-primary",
     background_color: isCasaNueva ? "#ffffff" : brand.primaryHex,
