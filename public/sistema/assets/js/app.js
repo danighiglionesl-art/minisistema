@@ -12370,6 +12370,7 @@ function initApp() {
     }
     const activeByCaja = {};
     const cleaned = [];
+    let didSanitizeStaleAp = false;
     STATE.aperturasCajaCentral.forEach((ap) => {
       if (!ap || typeof ap !== 'object') return;
       if (
@@ -12379,6 +12380,13 @@ function initApp() {
         !ap.editedByAdminAt
       ) {
         return;
+      }
+      if (
+        (ap.uid === 'AP-1795467385346-841' || ap.uid === 'AP-1795467372290-7940') &&
+        ap.cerradaEnTurno !== true
+      ) {
+        ap.cerradaEnTurno = true;
+        didSanitizeStaleAp = true;
       }
       const cId = String(ap.cajaId || '');
       if (!['caja1', 'caja2', 'caja3'].includes(cId)) {
@@ -12415,9 +12423,13 @@ function initApp() {
       cleaned.push(ap);
     });
     STATE.aperturasCajaCentral = cleaned;
+    if (didSanitizeStaleAp) {
+      saveCajasState();
+    }
     syncUsersCajaAbiertaFromAperturas();
     renderMenuFacturacionCajaBadges();
   }
+  normalizeClientAperturasState();
 
   function syncUsersCajaAbiertaFromAperturas() {
     const ownerCajaByUser = {};
@@ -12597,6 +12609,11 @@ function initApp() {
       targetId === 'sec-club-previo';
     syncUsersCajaAbiertaFromAperturas();
     renderMenuFacturacionCajaBadges();
+    if (targetId === 'sec-menu-facturacion' || targetId === 'sec-submenu-caja') {
+      if (typeof syncCierresCajaFromServer === 'function') {
+        syncCierresCajaFromServer();
+      }
+    }
 
     const posWaBadge = document.getElementById('pos-whatsapp-dispatch-badge');
     if (posWaBadge) {

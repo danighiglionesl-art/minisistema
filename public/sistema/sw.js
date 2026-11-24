@@ -1,4 +1,4 @@
-const CACHE_NAME = 'minisistema-erp-v325.4';
+const CACHE_NAME = 'minisistema-erp-v325.8';
 const ASSETS_TO_CACHE = [];
 
 self.addEventListener('install', (event) => {

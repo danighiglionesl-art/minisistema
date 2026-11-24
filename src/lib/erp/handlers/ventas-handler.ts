@@ -146,6 +146,7 @@ export async function handleErpVentas(
         createdAt: nowIso,
         usuario: src.usuario || actor,
       };
+      delete saleRecord.qrImgSrc;
 
       if (!Array.isArray(db.comprobantesPorCaja[cajaId])) {
         db.comprobantesPorCaja[cajaId] = [];
