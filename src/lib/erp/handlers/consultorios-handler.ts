@@ -1185,13 +1185,323 @@ export async function handlePublicCemepPost(
   const action = String(body.action || "").trim();
   const nowIso = new Date().toISOString();
 
+  // Acciones de cierre de sesión: sin consultas innecesarias a base de datos
+  if (action === "patient_logout") {
+    const res = NextResponse.json({ ok: true });
+    res.cookies.delete(PATIENT_SESSION_COOKIE);
+    return res;
+  }
+
+  if (action === "prof_logout") {
+    const res = NextResponse.json({ ok: true });
+    res.cookies.delete(PROF_SESSION_COOKIE);
+    return res;
+  }
+
+  const loadHcSafe = () =>
+    loadHistoriaClinicaDb(tenant).catch(() => buildInitialHistoriaClinicaDb());
+  const loadTurnosSafe = () =>
+    loadTurnosDb(tenant).catch(
+      () =>
+        ({
+          turnos: [],
+          pacientes: [],
+          profesionales: [],
+          especialidades: [],
+          obrasSociales: [],
+        }) as unknown as TurnosDbDoc
+    );
+
+  // =================== PORTAL PACIENTES: AUTH ===================
+
+  if (action === "patient_login") {
+    const email = String(body.email || "").trim().toLowerCase();
+    const password = String(body.password || "").trim();
+    if (!email || !email.includes("@")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Ingresá un correo electrónico de paciente (con @) o usá el botón Google. Para usuarios internos o médicos, ingresá desde «Acceso a Profesionales».",
+        },
+        { status: 400 }
+      );
+    }
+    const webDb = await loadGestionWebDb(tenant);
+    const user = webDb.webUsers.find(
+      (u) => u.activo !== false && u.email.toLowerCase() === email
+    );
+    if (!user || !verifyPasswordScrypt(password, user.passwordHash)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Correo o contraseña incorrectos. Si olvidaste tu clave podés recuperarla automáticamente.",
+        },
+        { status: 401 }
+      );
+    }
+    user.ultimoAccesoAt = nowIso;
+    user.updatedAt = nowIso;
+    await putTenantDoc(tenant, GESTION_WEB_DOC_KEY, webDb, email, "cemep_patient_login");
+
+    const [hc, turnosDb] = await Promise.all([loadHcSafe(), loadTurnosSafe()]);
+    const token = signToken({ userId: user.id, tenantSlug: tenant.slug, email: user.email });
+    const res = NextResponse.json({
+      ok: true,
+      message: `¡Hola ${user.nombres}! Sesión iniciada correctamente.`,
+      ...buildPatientPortalBundle(user, hc, turnosDb),
+    });
+    res.cookies.set(PATIENT_SESSION_COOKIE, token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 14,
+    });
+    return res;
+  }
+
+  if (action === "patient_google_login") {
+    let googleEmail = "";
+    let googleName = "";
+    let googleGivenName = "";
+    let googleFamilyName = "";
+    let googlePicture = "";
+    let googleSub = "";
+
+    const credential = String(body.credential || "").trim();
+    const accessToken = String(body.accessToken || "").trim();
+
+    if (credential && credential.split(".").length === 3) {
+      try {
+        const verifyResp = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
+          { signal: AbortSignal.timeout(5000) }
+        );
+        if (verifyResp.ok) {
+          const info = (await verifyResp.json()) as AnyObj;
+          googleEmail = String(info.email || "").trim().toLowerCase();
+          googleName = String(info.name || info.given_name || "").trim();
+          googleGivenName = String(info.given_name || "").trim();
+          googleFamilyName = String(info.family_name || "").trim();
+          googlePicture = String(info.picture || "").trim();
+          googleSub = String(info.sub || "").trim();
+        }
+      } catch {
+        // Fallback decode below if network fails
+      }
+      if (!googleEmail) {
+        try {
+          const decoded = JSON.parse(
+            Buffer.from(credential.split(".")[1], "base64url").toString("utf8")
+          ) as AnyObj;
+          googleEmail = String(decoded.email || "").trim().toLowerCase();
+          googleName = String(decoded.name || "").trim();
+          googleGivenName = String(decoded.given_name || "").trim();
+          googleFamilyName = String(decoded.family_name || "").trim();
+          googlePicture = String(decoded.picture || "").trim();
+          googleSub = String(decoded.sub || "").trim();
+        } catch {
+          // ignore
+        }
+      }
+    } else if (accessToken) {
+      try {
+        const uRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!uRes.ok) {
+          return NextResponse.json(
+            { ok: false, message: "No se pudo verificar tu cuenta de Google. Intentá nuevamente." },
+            { status: 401 }
+          );
+        }
+        const uData = (await uRes.json()) as AnyObj;
+        googleEmail = String(uData.email || "").trim().toLowerCase();
+        googleName = String(uData.name || "").trim();
+        googleGivenName = String(uData.given_name || "").trim();
+        googleFamilyName = String(uData.family_name || "").trim();
+        googlePicture = String(uData.picture || "").trim();
+        googleSub = String(uData.sub || "").trim();
+      } catch {
+        return NextResponse.json(
+          { ok: false, message: "Error al obtener tu perfil de Google." },
+          { status: 502 }
+        );
+      }
+    }
+
+    if (!googleEmail || !googleEmail.includes("@")) {
+      return NextResponse.json(
+        { ok: false, message: "No se pudo validar tu cuenta de Google. Intentá nuevamente." },
+        { status: 400 }
+      );
+    }
+
+    const webDb = await loadGestionWebDb(tenant);
+    const parts = googleName.split(/\s+/).filter(Boolean);
+    const resolvedNombres =
+      googleGivenName ||
+      (parts.length > 1 ? parts.slice(0, -1).join(" ") : parts[0] || "Paciente");
+    const resolvedApellidos =
+      googleFamilyName || (parts.length > 1 ? parts.slice(-1).join(" ") : "");
+
+    let user = webDb.webUsers.find((u) => u.email.toLowerCase() === googleEmail);
+    if (!user) {
+      user = {
+        id: `usr_${crypto.randomUUID().slice(0, 10)}`,
+        email: googleEmail,
+        authProvider: "google",
+        googleSub,
+        fotoUrl: googlePicture || undefined,
+        dni: normalizeDni(body.dni),
+        apellidos: resolvedApellidos,
+        nombres: resolvedNombres,
+        nombreCompleto: resolvedApellidos
+          ? `${resolvedApellidos}, ${resolvedNombres}`
+          : resolvedNombres,
+        whatsapp: String(body.whatsapp || "").trim(),
+        esAfiliadoCemepPlus: false,
+        activo: true,
+        ultimoAccesoAt: nowIso,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      webDb.webUsers.unshift(user);
+    } else {
+      if (user.activo === false) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Tu cuenta se encuentra deshabilitada. Comunicate con recepción de CEMEP.",
+          },
+          { status: 403 }
+        );
+      }
+      user.googleSub = googleSub || user.googleSub;
+      if (googlePicture) user.fotoUrl = googlePicture;
+      if (!user.nombres && resolvedNombres) user.nombres = resolvedNombres;
+      if (!user.apellidos && resolvedApellidos) user.apellidos = resolvedApellidos;
+      user.nombreCompleto = user.apellidos
+        ? `${user.apellidos}, ${user.nombres}`
+        : user.nombres || user.email;
+      user.ultimoAccesoAt = nowIso;
+      user.updatedAt = nowIso;
+    }
+
+    webDb.updatedAt = nowIso;
+    await putTenantDoc(tenant, GESTION_WEB_DOC_KEY, webDb, googleEmail, "cemep_patient_google_login");
+
+    const [hc, turnosDb] = await Promise.all([loadHcSafe(), loadTurnosSafe()]);
+    const needsProfileCompletion = !user.dni || !user.whatsapp;
+    const token = signToken({ userId: user.id, tenantSlug: tenant.slug, email: user.email });
+    const res = NextResponse.json({
+      ok: true,
+      needsProfileCompletion,
+      message: needsProfileCompletion
+        ? "Ingresaste con Google. Revisá tus datos y completá los campos faltantes en Mi Perfil."
+        : `Sesión iniciada con Google (${googleEmail}).`,
+      ...buildPatientPortalBundle(user, hc, turnosDb),
+    });
+    res.cookies.set(PATIENT_SESSION_COOKIE, token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 14,
+    });
+    return res;
+  }
+
+  if (action === "patient_request_reset") {
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      return NextResponse.json(
+        { ok: false, message: "Ingresá un correo electrónico válido." },
+        { status: 400 }
+      );
+    }
+    const webDb = await loadGestionWebDb(tenant);
+    const user = webDb.webUsers.find(
+      (u) => u.activo !== false && u.email.toLowerCase() === email
+    );
+    if (!user) {
+      return NextResponse.json(
+        { ok: false, message: "No encontramos una cuenta registrada con ese correo electrónico." },
+        { status: 404 }
+      );
+    }
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    user.resetCode = code;
+    user.resetCodeExpiresAt = new Date(Date.now() + 1000 * 60 * 20).toISOString();
+    user.updatedAt = nowIso;
+    await putTenantDoc(tenant, GESTION_WEB_DOC_KEY, webDb, email, "cemep_patient_request_reset");
+
+    const sent = await trySendEmail({
+      to: user.email,
+      subject: "Código de recuperación de contraseña — CEMEP Portal de Pacientes",
+      html: `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;border-radius:16px;background:#1B335D;color:#ffffff;">
+        <h2 style="margin:0 0 8px;color:#57B7B8;">Recuperación Automática de Contraseña</h2>
+        <p>Hola ${user.nombres}, usá este código de 6 dígitos para crear una nueva contraseña en el Portal de Pacientes de <strong>CEMEP</strong>:</p>
+        <div style="font-size:30px;font-weight:900;letter-spacing:6px;background:#ffffff;color:#1B335D;padding:14px;border-radius:12px;text-align:center;margin:16px 0;">${code}</div>
+        <p style="font-size:12px;opacity:0.85;">Válido por 20 minutos.</p>
+      </div>`,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      emailSent: sent,
+      devCodeHint: sent ? undefined : code,
+      message: sent
+        ? `Te enviamos un código de 6 dígitos a ${user.email}. Ingresalo para definir tu nueva contraseña.`
+        : `Código de recuperación generado (${code}). Ingresalo junto con tu nueva contraseña.`,
+    });
+  }
+
+  if (action === "patient_confirm_reset") {
+    const email = String(body.email || "").trim().toLowerCase();
+    const code = String(body.code || "").trim();
+    const newPassword = String(body.newPassword || "").trim();
+    if (newPassword.length < 4) {
+      return NextResponse.json(
+        { ok: false, message: "La nueva contraseña debe tener al menos 4 caracteres." },
+        { status: 400 }
+      );
+    }
+    const webDb = await loadGestionWebDb(tenant);
+    const user = webDb.webUsers.find(
+      (u) => u.activo !== false && u.email.toLowerCase() === email
+    );
+    if (
+      !user ||
+      !user.resetCode ||
+      user.resetCode !== code ||
+      !user.resetCodeExpiresAt ||
+      new Date(user.resetCodeExpiresAt).getTime() < Date.now()
+    ) {
+      return NextResponse.json(
+        { ok: false, message: "El código es inválido o ya venció." },
+        { status: 400 }
+      );
+    }
+    user.passwordHash = hashPasswordScrypt(newPassword);
+    user.resetCode = null;
+    user.resetCodeExpiresAt = null;
+    user.updatedAt = nowIso;
+    await putTenantDoc(tenant, GESTION_WEB_DOC_KEY, webDb, email, "cemep_patient_confirm_reset");
+    return NextResponse.json({
+      ok: true,
+      message: "¡Contraseña actualizada! Ya podés ingresar con tu nueva clave.",
+    });
+  }
+
   const [hc, webDb, turnosDb] = await Promise.all([
     loadHistoriaClinicaDb(tenant),
     loadGestionWebDb(tenant),
     loadTurnosDb(tenant),
   ]);
-
-  // =================== PORTAL PACIENTES: AUTH ===================
 
   if (action === "patient_register") {
     const email = String(body.email || "").trim().toLowerCase();
@@ -1290,266 +1600,6 @@ export async function handlePublicCemepPost(
       path: "/",
       maxAge: 60 * 60 * 24 * 14,
     });
-    return res;
-  }
-
-  if (action === "patient_login") {
-    const email = String(body.email || "").trim().toLowerCase();
-    const password = String(body.password || "").trim();
-    const user = webDb.webUsers.find(
-      (u) => u.activo !== false && u.email.toLowerCase() === email
-    );
-    if (!user || !verifyPasswordScrypt(password, user.passwordHash)) {
-      return NextResponse.json(
-        { ok: false, message: "Correo o contraseña incorrectos. Si olvidaste tu clave podés recuperarla automáticamente." },
-        { status: 401 }
-      );
-    }
-    user.ultimoAccesoAt = nowIso;
-    user.updatedAt = nowIso;
-    await putTenantDoc(tenant, GESTION_WEB_DOC_KEY, webDb, email, "cemep_patient_login");
-
-    const token = signToken({ userId: user.id, tenantSlug: tenant.slug, email: user.email });
-    const res = NextResponse.json({
-      ok: true,
-      message: `¡Hola ${user.nombres}! Sesión iniciada correctamente.`,
-      ...buildPatientPortalBundle(user, hc, turnosDb),
-    });
-    res.cookies.set(PATIENT_SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 14,
-    });
-    return res;
-  }
-
-  if (action === "patient_google_login") {
-    let googleEmail = "";
-    let googleName = "";
-    let googleGivenName = "";
-    let googleFamilyName = "";
-    let googlePicture = "";
-    let googleSub = "";
-
-    const credential = String(body.credential || "").trim();
-    const accessToken = String(body.accessToken || "").trim();
-
-    if (credential && credential.split(".").length === 3) {
-      try {
-        const verifyResp = await fetch(
-          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
-          { signal: AbortSignal.timeout(5000) }
-        );
-        if (verifyResp.ok) {
-          const info = (await verifyResp.json()) as AnyObj;
-          googleEmail = String(info.email || "").trim().toLowerCase();
-          googleName = String(info.name || info.given_name || "").trim();
-          googleGivenName = String(info.given_name || "").trim();
-          googleFamilyName = String(info.family_name || "").trim();
-          googlePicture = String(info.picture || "").trim();
-          googleSub = String(info.sub || "").trim();
-        }
-      } catch {
-        // Fallback decode below if network fails
-      }
-      if (!googleEmail) {
-        try {
-          const decoded = JSON.parse(
-            Buffer.from(credential.split(".")[1], "base64url").toString("utf8")
-          ) as AnyObj;
-          googleEmail = String(decoded.email || "").trim().toLowerCase();
-          googleName = String(decoded.name || "").trim();
-          googleGivenName = String(decoded.given_name || "").trim();
-          googleFamilyName = String(decoded.family_name || "").trim();
-          googlePicture = String(decoded.picture || "").trim();
-          googleSub = String(decoded.sub || "").trim();
-        } catch {
-          // ignore
-        }
-      }
-    } else if (accessToken) {
-      try {
-        const uRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          signal: AbortSignal.timeout(5000),
-        });
-        if (!uRes.ok) {
-          return NextResponse.json(
-            { ok: false, message: "No se pudo verificar tu cuenta de Google. Intentá nuevamente." },
-            { status: 401 }
-          );
-        }
-        const uData = (await uRes.json()) as AnyObj;
-        googleEmail = String(uData.email || "").trim().toLowerCase();
-        googleName = String(uData.name || "").trim();
-        googleGivenName = String(uData.given_name || "").trim();
-        googleFamilyName = String(uData.family_name || "").trim();
-        googlePicture = String(uData.picture || "").trim();
-        googleSub = String(uData.sub || "").trim();
-      } catch {
-        return NextResponse.json(
-          { ok: false, message: "Error al obtener tu perfil de Google." },
-          { status: 502 }
-        );
-      }
-    }
-
-    if (!googleEmail || !googleEmail.includes("@")) {
-      return NextResponse.json(
-        { ok: false, message: "No se pudo validar tu cuenta de Google. Intentá nuevamente." },
-        { status: 400 }
-      );
-    }
-
-    const parts = googleName.split(/\s+/).filter(Boolean);
-    const resolvedNombres =
-      googleGivenName ||
-      (parts.length > 1 ? parts.slice(0, -1).join(" ") : parts[0] || "Paciente");
-    const resolvedApellidos =
-      googleFamilyName || (parts.length > 1 ? parts.slice(-1).join(" ") : "");
-
-    let user = webDb.webUsers.find((u) => u.email.toLowerCase() === googleEmail);
-    if (!user) {
-      user = {
-        id: `usr_${crypto.randomUUID().slice(0, 10)}`,
-        email: googleEmail,
-        authProvider: "google",
-        googleSub,
-        fotoUrl: googlePicture || undefined,
-        dni: normalizeDni(body.dni),
-        apellidos: resolvedApellidos,
-        nombres: resolvedNombres,
-        nombreCompleto: resolvedApellidos
-          ? `${resolvedApellidos}, ${resolvedNombres}`
-          : resolvedNombres,
-        whatsapp: String(body.whatsapp || "").trim(),
-        esAfiliadoCemepPlus: false,
-        activo: true,
-        ultimoAccesoAt: nowIso,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
-      webDb.webUsers.unshift(user);
-    } else {
-      if (user.activo === false) {
-        return NextResponse.json(
-          { ok: false, message: "Tu cuenta se encuentra deshabilitada. Comunicate con recepción de CEMEP." },
-          { status: 403 }
-        );
-      }
-      user.googleSub = googleSub || user.googleSub;
-      if (googlePicture) user.fotoUrl = googlePicture;
-      if (!user.nombres && resolvedNombres) user.nombres = resolvedNombres;
-      if (!user.apellidos && resolvedApellidos) user.apellidos = resolvedApellidos;
-      user.nombreCompleto = user.apellidos
-        ? `${user.apellidos}, ${user.nombres}`
-        : user.nombres || user.email;
-      user.ultimoAccesoAt = nowIso;
-      user.updatedAt = nowIso;
-    }
-
-    webDb.updatedAt = nowIso;
-    await putTenantDoc(tenant, GESTION_WEB_DOC_KEY, webDb, googleEmail, "cemep_patient_google_login");
-
-    const needsProfileCompletion = !user.dni || !user.whatsapp;
-    const token = signToken({ userId: user.id, tenantSlug: tenant.slug, email: user.email });
-    const res = NextResponse.json({
-      ok: true,
-      needsProfileCompletion,
-      message: needsProfileCompletion
-        ? "Ingresaste con Google. Revisá tus datos y completá los campos faltantes en Mi Perfil."
-        : `Sesión iniciada con Google (${googleEmail}).`,
-      ...buildPatientPortalBundle(user, hc, turnosDb),
-    });
-    res.cookies.set(PATIENT_SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 14,
-    });
-    return res;
-  }
-
-  if (action === "patient_request_reset") {
-    const email = String(body.email || "").trim().toLowerCase();
-    const user = webDb.webUsers.find(
-      (u) => u.activo !== false && u.email.toLowerCase() === email
-    );
-    if (!user) {
-      return NextResponse.json(
-        { ok: false, message: "No encontramos una cuenta registrada con ese correo electrónico." },
-        { status: 404 }
-      );
-    }
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    user.resetCode = code;
-    user.resetCodeExpiresAt = new Date(Date.now() + 1000 * 60 * 20).toISOString();
-    user.updatedAt = nowIso;
-    await putTenantDoc(tenant, GESTION_WEB_DOC_KEY, webDb, email, "cemep_patient_request_reset");
-
-    const sent = await trySendEmail({
-      to: user.email,
-      subject: "Código de recuperación de contraseña — CEMEP Portal de Pacientes",
-      html: `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;border-radius:16px;background:#1B335D;color:#ffffff;">
-        <h2 style="margin:0 0 8px;color:#57B7B8;">Recuperación Automática de Contraseña</h2>
-        <p>Hola ${user.nombres}, usá este código de 6 dígitos para crear una nueva contraseña en el Portal de Pacientes de <strong>CEMEP</strong>:</p>
-        <div style="font-size:30px;font-weight:900;letter-spacing:6px;background:#ffffff;color:#1B335D;padding:14px;border-radius:12px;text-align:center;margin:16px 0;">${code}</div>
-        <p style="font-size:12px;opacity:0.85;">Válido por 20 minutos.</p>
-      </div>`,
-    });
-
-    return NextResponse.json({
-      ok: true,
-      emailSent: sent,
-      devCodeHint: sent ? undefined : code,
-      message: sent
-        ? `Te enviamos un código de 6 dígitos a ${user.email}. Ingresalo para definir tu nueva contraseña.`
-        : `Código de recuperación generado (${code}). Ingresalo junto con tu nueva contraseña.`,
-    });
-  }
-
-  if (action === "patient_confirm_reset") {
-    const email = String(body.email || "").trim().toLowerCase();
-    const code = String(body.code || "").trim();
-    const newPassword = String(body.newPassword || "").trim();
-    if (newPassword.length < 4) {
-      return NextResponse.json(
-        { ok: false, message: "La nueva contraseña debe tener al menos 4 caracteres." },
-        { status: 400 }
-      );
-    }
-    const user = webDb.webUsers.find(
-      (u) => u.activo !== false && u.email.toLowerCase() === email
-    );
-    if (
-      !user ||
-      !user.resetCode ||
-      user.resetCode !== code ||
-      !user.resetCodeExpiresAt ||
-      new Date(user.resetCodeExpiresAt).getTime() < Date.now()
-    ) {
-      return NextResponse.json(
-        { ok: false, message: "El código es inválido o ya venció." },
-        { status: 400 }
-      );
-    }
-    user.passwordHash = hashPasswordScrypt(newPassword);
-    user.resetCode = null;
-    user.resetCodeExpiresAt = null;
-    user.updatedAt = nowIso;
-    await putTenantDoc(tenant, GESTION_WEB_DOC_KEY, webDb, email, "cemep_patient_confirm_reset");
-    return NextResponse.json({
-      ok: true,
-      message: "¡Contraseña actualizada! Ya podés ingresar con tu nueva clave.",
-    });
-  }
-
-  if (action === "patient_logout") {
-    const res = NextResponse.json({ ok: true });
-    res.cookies.delete(PATIENT_SESSION_COOKIE);
     return res;
   }
 
@@ -1741,12 +1791,6 @@ export async function handlePublicCemepPost(
       path: "/",
       maxAge: 60 * 60 * 24 * 7,
     });
-    return res;
-  }
-
-  if (action === "prof_logout") {
-    const res = NextResponse.json({ ok: true });
-    res.cookies.delete(PROF_SESSION_COOKIE);
     return res;
   }
 
