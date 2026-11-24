@@ -33,12 +33,17 @@
     auth_session: 'Sesión Activa'
   };
 
+  var minimizedSessionKey = storagePrefix + 'offline_bar_min_v1';
+  var savedMinimized = false;
+  try { savedMinimized = sessionStorage.getItem(minimizedSessionKey) === '1'; } catch (_e) {}
+
   var state = {
     offlineMode: typeof navigator !== 'undefined' && navigator.onLine === false,
     offlineReason: typeof navigator !== 'undefined' && navigator.onLine === false ? 'Sin conexión a internet' : '',
     lastOnlineAt: null,
     lastSnapshotAt: null,
-    minimized: false,
+    consecutiveFailures: 0,
+    minimized: savedMinimized,
     probing: false,
     uiMounted: false
   };
@@ -258,8 +263,25 @@
     if (method === 'GET') {
       var snapKey = resolveSnapshotKeyForGet(urlStr);
       if (snapKey) {
-        var serveFromCache = function (reason, fallbackRes) {
-          markOffline(reason);
+        var serveFromCache = function (reason, fallbackRes, isRealOutage) {
+          var trulyOffline = Boolean(
+            isRealOutage ||
+            (typeof navigator !== 'undefined' && navigator.onLine === false)
+          );
+          if (trulyOffline) {
+            state.consecutiveFailures++;
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+              markOffline(reason);
+            } else if (state.consecutiveFailures >= 2) {
+              markOffline(reason);
+            } else {
+              // Un único timeout/hipo de red con internet activo: verificar antes de mostrar el cartel marrón
+              probeServerConnection(false);
+            }
+          } else {
+            // Timeout aislado de una lectura pesada: no asustar al cajero con cartel offline si el servidor sigue vivo
+            probeServerConnection(false);
+          }
           return idbGet(snapKey).then(function (snap) {
             if (snap && snap.text) {
               return makeJsonResponse(snap.text);
@@ -276,10 +298,11 @@
         };
 
         if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-          return serveFromCache('Sin conexión a internet', null);
+          return serveFromCache('Sin conexión a internet', null, true);
         }
 
-        var timeoutMs = state.offlineMode ? 4500 : 12000;
+        var isHeavySnap = snapKey === 'catalog_all' || snapKey === 'ventas_all' || snapKey === 'clientes_all';
+        var timeoutMs = state.offlineMode ? 6000 : (isHeavySnap ? 30000 : 15000);
         return fetchWithTimeout(chainedFetch, input, init, timeoutMs).then(
           function (res) {
             if (res && res.ok) {
@@ -295,12 +318,13 @@
               return res;
             }
             if (res && res.status >= 500) {
-              return serveFromCache('Servidor no disponible (HTTP ' + res.status + ')', res);
+              return serveFromCache('Servidor no disponible (HTTP ' + res.status + ')', res, true);
             }
             return res;
           },
-          function () {
-            return serveFromCache('Sin respuesta del servidor', null);
+          function (err) {
+            var isAbort = Boolean(err && err.name === 'AbortError');
+            return serveFromCache('Sin respuesta del servidor', null, !isAbort);
           }
         );
       }
@@ -361,7 +385,13 @@
       }
     }
 
-    return chainedFetch(input, init);
+    return chainedFetch(input, init).then(function (res) {
+      // Si el modo offline estaba encendido pero cualquier petición normal al servidor respondió OK, salir automáticamente del cartel offline
+      if (state.offlineMode && res && res.ok && String(urlStr).indexOf('/api/') !== -1) {
+        markOnline();
+      }
+      return res;
+    });
   };
 
   function formatShortTime(ts) {
@@ -400,6 +430,7 @@
     var wasOffline = state.offlineMode;
     state.offlineMode = false;
     state.offlineReason = '';
+    state.consecutiveFailures = 0;
     state.lastOnlineAt = Date.now();
     renderContingencyBar();
     if (wasOffline) {
@@ -422,7 +453,7 @@
     }
     state.probing = true;
     renderContingencyBar();
-    return fetchWithTimeout(chainedFetch, '/sistema/api/db_status.php?_probe=' + Date.now(), { cache: 'no-store' }, 6000)
+    return fetchWithTimeout(chainedFetch, '/sistema/api/db_status.php?_probe=' + Date.now(), { cache: 'no-store' }, 12000)
       .then(function (res) {
         state.probing = false;
         if (res && res.ok) {
@@ -435,12 +466,18 @@
           }
           return true;
         }
-        markOffline('Servidor sin respuesta (HTTP ' + (res ? res.status : '0') + ')');
+        state.consecutiveFailures++;
+        if (manual || state.offlineMode || state.consecutiveFailures >= 2) {
+          markOffline('Servidor sin respuesta (HTTP ' + (res ? res.status : '0') + ')');
+        }
         return false;
       })
       .catch(function () {
         state.probing = false;
-        markOffline('Sin respuesta del servidor');
+        state.consecutiveFailures++;
+        if (manual || state.offlineMode || state.consecutiveFailures >= 2) {
+          markOffline('Sin respuesta del servidor');
+        }
         return false;
       });
   }
@@ -672,6 +709,7 @@
         '</button>';
       bar.querySelector('#btn-ms-cont-expand')?.addEventListener('click', function () {
         state.minimized = false;
+        try { sessionStorage.removeItem(minimizedSessionKey); } catch (_e) {}
         renderContingencyBar();
       });
       return;
@@ -722,6 +760,7 @@
     });
     bar.querySelector('#btn-ms-cont-min')?.addEventListener('click', function () {
       state.minimized = true;
+      try { sessionStorage.setItem(minimizedSessionKey, '1'); } catch (_e) {}
       renderContingencyBar();
     });
   }

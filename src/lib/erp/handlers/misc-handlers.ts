@@ -19,7 +19,23 @@ export async function handleErpDbStatus(
   req: NextRequest,
   tenant: ErpTenantRecord
 ): Promise<NextResponse> {
-  const statusMap = await getTenantDbStatusMap(tenant);
+  const statusMap = { ...(await getTenantDbStatusMap(tenant)) };
+  // El CRM de reportes/tickets es centralizado en el tenant base (MiniSistema):
+  // propagar su revisión real a comercios hijos (Casa Nueva, Paseo Alberdi, etc.)
+  // para que reciban la ventana emergente de finalización de ticket en tiempo real.
+  if (!tenant.is_base) {
+    try {
+      const baseTenant = await ensureBaseMiniSistemaTenant();
+      if (baseTenant) {
+        const baseStatus = await getTenantDbStatusMap(baseTenant);
+        if (baseStatus && baseStatus.crm_reportes_db) {
+          statusMap.crm_reportes_db = baseStatus.crm_reportes_db;
+        }
+      }
+    } catch {
+      // Non-blocking fallback
+    }
+  }
   return NextResponse.json(
     {
       ok: true,

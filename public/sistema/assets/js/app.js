@@ -53709,6 +53709,7 @@ function initApp() {
     crm_reportes_db: null
   };
   let dbStatusPollInFlight = false;
+  let dbStatusConsecutiveFailures = 0;
   let lastDbStatusCheckAt = 0;
   const DB_STATUS_POLL_INTERVAL_MS = 30000;
   const DB_STATUS_FOCUS_COOLDOWN_MS = 8000;
@@ -53731,11 +53732,15 @@ function initApp() {
     try {
       const res = await origFetch(`api/db_status.php?_t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) {
-        if (res.status >= 500 && window.MS_OFFLINE_POS && typeof window.MS_OFFLINE_POS.markOffline === 'function') {
-          window.MS_OFFLINE_POS.markOffline(`Servidor no disponible (HTTP ${res.status})`);
+        if (res.status >= 500) {
+          dbStatusConsecutiveFailures++;
+          if (dbStatusConsecutiveFailures >= 2 && window.MS_OFFLINE_POS && typeof window.MS_OFFLINE_POS.markOffline === 'function') {
+            window.MS_OFFLINE_POS.markOffline(`Servidor no disponible (HTTP ${res.status})`);
+          }
         }
         return;
       }
+      dbStatusConsecutiveFailures = 0;
       if (window.MS_OFFLINE_POS && typeof window.MS_OFFLINE_POS.markOnline === 'function') {
         window.MS_OFFLINE_POS.markOnline();
       }
@@ -53808,7 +53813,7 @@ function initApp() {
         const rev = `${crmDbStat.rev}:${crmDbStat.mtime}:${crmDbStat.size}`;
         if (dbRevisionsKnown.crm_reportes_db !== null && dbRevisionsKnown.crm_reportes_db !== rev) {
           if (typeof window.refreshCrmPendingBadge === 'function') {
-            window.refreshCrmPendingBadge();
+            window.refreshCrmPendingBadge(true);
           }
           if (!document.getElementById('sec-crm')?.hidden && typeof window.initOrRefreshCrmSection === 'function') {
             window.initOrRefreshCrmSection();
@@ -53823,8 +53828,14 @@ function initApp() {
         dbRevisionsKnown.crm_reportes_db = rev;
       }
     } catch {
-      // Ignorar fallos transitorios de red y activar aviso de contingencia si corresponde
-      if (window.MS_OFFLINE_POS && typeof window.MS_OFFLINE_POS.markOffline === 'function') {
+      // Un único fallo transitorio de red/focus no debe disparar el cartel de contingencia offline:
+      // exigir 2 fallos seguidos (o navigator.onLine === false) para evitar falsos positivos en caja.
+      dbStatusConsecutiveFailures++;
+      if (
+        (dbStatusConsecutiveFailures >= 2 || (typeof navigator !== 'undefined' && navigator.onLine === false)) &&
+        window.MS_OFFLINE_POS &&
+        typeof window.MS_OFFLINE_POS.markOffline === 'function'
+      ) {
         window.MS_OFFLINE_POS.markOffline('Sin respuesta del servidor');
       }
     } finally {
@@ -74939,21 +74950,22 @@ function initApp() {
       renderCrmAdminSection();
     };
 
-    window.refreshCrmPendingBadge = function () {
-      if (!STATE.currentUser || !ACTIVE_BRAND?.isBase) return;
-      fetchCrmReportsFromServer(false, false);
+    window.refreshCrmPendingBadge = function (forceRefresh = false) {
+      if (!STATE.currentUser) return;
+      fetchCrmReportsFromServer(false, Boolean(forceRefresh));
     };
 
     // Enlazar eventos y verificar de inmediato si showDashboard() ya había restaurado #sec-reporte-mejoras o #sec-crm (ej: tras F5 o actualización)
+    // También consultar reportes del usuario logueado en comercios hijos (Casa Nueva, Paseo Alberdi, etc.) para disparar la ventana emergente de finalización de ticket.
     bindReporteMejorasAndCrmEvents();
     if (!document.getElementById('sec-reporte-mejoras')?.hidden) {
       window.initOrRefreshReporteMejorasSection();
     } else if (!document.getElementById('sec-crm')?.hidden) {
       window.initOrRefreshCrmSection();
-    } else if (STATE.currentUser && ACTIVE_BRAND?.isBase) {
+    } else if (STATE.currentUser) {
       setTimeout(() => {
         fetchCrmReportsFromServer(false, false);
-      }, 2200);
+      }, 3200);
     }
   })();
 
