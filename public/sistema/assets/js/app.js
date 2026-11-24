@@ -528,7 +528,23 @@ function loadPosSyncOutbox() {
   try {
     const raw = localStorage.getItem(POS_SYNC_OUTBOX_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    // Limpiar trabajos históricos antiguos (< 2026-11-23) generados accidentalmente por el escaneo de ARCA
+    const cleaned = parsed.filter((j) => {
+      if (!j || typeof j !== 'object') return false;
+      const lbl = String(j.label || '');
+      const fIso = String(j.payload?.sale?.fechaIso || j.payload?.comprobante?.fechaIso || '');
+      if ((lbl.startsWith('Venta rescatada ') || lbl.startsWith('ARCA ')) && fIso && fIso < '2026-11-23') {
+        return false;
+      }
+      return true;
+    });
+    if (cleaned.length !== parsed.length) {
+      try {
+        localStorage.setItem(POS_SYNC_OUTBOX_KEY, JSON.stringify(cleaned));
+      } catch {}
+    }
+    return cleaned;
   } catch {
     return [];
   }
@@ -590,10 +606,16 @@ function renderPosSyncOutboxPill(pendingCountOverride = null) {
     document.body.appendChild(pill);
   }
   const queueNow = loadPosSyncOutbox();
-  const firstLabel = queueNow[0]?.label ? ` (${queueNow[0].label})` : '';
-  pill.title = queueNow.map((j) => j.label || j.dedupeKey).join('\n') || 'Click para reintentar sincronización ahora';
+  const firstJob = queueNow[0] || null;
+  const firstLabel = firstJob
+    ? ` (${firstJob.label || firstJob.payload?.action || firstJob.endpoint}${firstJob.lastError ? ` · ${firstJob.lastError}` : ''})`
+    : '';
+  pill.title =
+    queueNow
+      .map((j) => `${j.label || j.dedupeKey}${j.lastError ? ` [${j.lastError}]` : ''}`)
+      .join('\n') || 'Click para reintentar sincronización ahora';
   pill.textContent = _posOutboxFlushing
-    ? `Sincronizando ${count} operación${count === 1 ? '' : 'es'} pendiente${count === 1 ? '' : 's'}...`
+    ? `Sincronizando ${count}${count === 1 ? firstLabel : ' pendientes'}...`
     : `Pendiente de sincronizar: ${count}${count === 1 ? firstLabel : ' operaciones'} (click para reintentar)`;
 }
 
@@ -704,10 +726,12 @@ async function flushPosSyncOutbox(manualTrigger = false) {
         continue;
       }
       job.attempts = Number(job.attempts || 0) + 1;
+      job.lastError = `HTTP ${res.status}`;
       remaining.push(job);
       hitTransientFailure = true;
-    } catch {
+    } catch (err) {
       job.attempts = Number(job.attempts || 0) + 1;
+      job.lastError = err && err.message ? String(err.message).slice(0, 40) : 'Sin conexión';
       remaining.push(job);
       hitTransientFailure = true;
     }
@@ -5863,57 +5887,8 @@ async function loadVentasDatabase(forceReload = false) {
       STATE.cierresCajaCentral = mergedCierres;
     }
 
-    // Rescate automático de comprobantes fiscales locales (cn_erp_arca_comprobantes_v1) que no estén en ventas_db
-    try {
-      const rawAce = localStorage.getItem('cn_erp_arca_comprobantes_v1');
-      if (rawAce && data.comprobantesPorCaja && typeof data.comprobantesPorCaja === 'object') {
-        const parsedAce = JSON.parse(rawAce);
-        const localAceComps = Array.isArray(parsedAce?.comprobantes) ? parsedAce.comprobantes : [];
-        if (localAceComps.length > 0) {
-          const serverNumSet = new Set();
-          ['caja1', 'caja2', 'caja3'].forEach((cid) => {
-            (data.comprobantesPorCaja[cid] || []).forEach((c) => {
-              if (c && c.numeroCompleto) serverNumSet.add(String(c.numeroCompleto));
-            });
-          });
-          const todayIso = getLocalTodayIsoStr();
-          const cutoffMs = Date.now() - 14 * 24 * 60 * 60 * 1000;
-          for (const ac of localAceComps) {
-            if (!ac || !ac.numeroCompleto) continue;
-            if (serverNumSet.has(String(ac.numeroCompleto))) continue;
-            const acIso = String(ac.fechaIso || '').slice(0, 10);
-            const acMs = acIso ? Date.parse(`${acIso}T12:00:00`) : 0;
-            if (acMs && acMs < cutoffMs) continue;
-            const rescueKey = ac.uid || ac.numeroCompleto;
-            backupRescueItem('arca_unsynced', rescueKey, ac);
-            const targetCaja = ac.cajaId || (ac.pv === '0003' ? 'caja2' : ac.pv === '0004' ? 'caja3' : 'caja1');
-            enqueuePosSyncJob(
-              'api/arca_comprobantes.php',
-              {
-                action: 'register_comprobante',
-                usuario: ac.usuario || 'Rescate',
-                comprobante: ac
-              },
-              `arca:${rescueKey}`,
-              `ARCA ${ac.numeroCompleto}`
-            );
-            enqueuePosSyncJob(
-              'api/ventas.php',
-              {
-                action: 'record_pos_sale',
-                sale: {
-                  ...ac,
-                  cajaId: targetCaja,
-                  cerradoEnTurno: Boolean(acIso && acIso < todayIso)
-                }
-              },
-              `sale:${targetCaja}:${ac.numeroCompleto}`,
-              `Venta rescatada ${ac.numeroCompleto}`
-            );
-          }
-        }
-      }
-    } catch {}
+    // Nota: el rescate de cierres pendientes ya corre arriba (STATE.cierresCajaCentral) y el de ventas abiertas en syncTurnosCajasFromServerMap.
+    // No re-encolar historial completo de cn_erp_arca_comprobantes_v1 contra comprobantesPorCaja porque comprobantesPorCaja recorta historial antiguo ya contabilizado.
 
     if (typeof window.saveCajasState === 'function') {
       window.saveCajasState();

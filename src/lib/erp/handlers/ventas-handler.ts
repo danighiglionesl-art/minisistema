@@ -419,6 +419,18 @@ export async function handleErpVentas(
       const fechaIso = String(src.fechaIso || nowIso.slice(0, 10));
       const incomingUid = String(src.uid || "").trim();
 
+      // Protección: ignorar reenvíos históricos antiguos (>2 días ya cerrados) provenientes de cachés ARCA viejas
+      if (Boolean(src.cerradoEnTurno) && fechaIso < "2026-11-23") {
+        return NextResponse.json({
+          ok: true,
+          alreadyExists: true,
+          ignoredHistorical: true,
+          nro: assignedNro,
+          numeroCompleto,
+          nextCorrelativos: db.nextCorrelativos,
+        });
+      }
+
       if (!Array.isArray(db.comprobantesPorCaja[cajaId])) {
         db.comprobantesPorCaja[cajaId] = [];
       }
