@@ -94,42 +94,58 @@
   }
 
   function ensureSections() {
-    var main = document.querySelector('main.app-main') || document.querySelector('main') || document.body;
-    if (!document.getElementById('sec-menu-feriarte')) {
-      var secMenu = document.createElement('section');
+    var erpMain = document.querySelector('.erp-main');
+    if (!erpMain) return null;
+
+    var secMenu = document.getElementById('sec-menu-feriarte');
+    if (secMenu && secMenu.parentNode !== erpMain) {
+      erpMain.appendChild(secMenu);
+    }
+    if (!secMenu) {
+      secMenu = document.createElement('section');
       secMenu.id = 'sec-menu-feriarte';
       secMenu.className = 'erp-section';
       secMenu.hidden = true;
       secMenu.innerHTML =
-        '<div class="module-back-bar">' +
-          '<button type="button" class="btn-back-home" id="fa-back-home">← Volver a Pantalla Principal</button>' +
-          '<span class="module-breadcrumb">Administrador General · <strong>FeriARTE</strong></span>' +
+        '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
+          '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
+            '<button type="button" class="btn-back-home" id="fa-back-home">← Volver a Pantalla Principal</button>' +
+            '<span class="module-breadcrumb">Administrador General · <strong>FeriARTE</strong></span>' +
+          '</div>' +
         '</div>' +
         '<div class="modules-grid" id="fa-submodules-grid" aria-label="Submódulos de FeriARTE"></div>';
-      main.appendChild(secMenu);
+      erpMain.appendChild(secMenu);
       secMenu.querySelector('#fa-back-home').addEventListener('click', closeToHome);
     }
 
-    if (!document.getElementById('sec-feriarte-detail')) {
-      var secDetail = document.createElement('section');
+    var secDetail = document.getElementById('sec-feriarte-detail');
+    if (secDetail && secDetail.parentNode !== erpMain) {
+      erpMain.appendChild(secDetail);
+    }
+    if (!secDetail) {
+      secDetail = document.createElement('section');
       secDetail.id = 'sec-feriarte-detail';
       secDetail.className = 'erp-section';
       secDetail.hidden = true;
       secDetail.innerHTML =
-        '<div class="module-back-bar">' +
-          '<button type="button" class="btn-back-home" id="fa-back-menu">← Volver a FeriARTE</button>' +
-          '<span class="module-breadcrumb" id="fa-detail-breadcrumb">FeriARTE</span>' +
+        '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
+          '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
+            '<button type="button" class="btn-back-home" id="fa-back-menu">← Volver a FeriARTE</button>' +
+            '<span class="module-breadcrumb" id="fa-detail-breadcrumb">FeriARTE</span>' +
+          '</div>' +
         '</div>' +
         '<div id="fa-detail-body" style="padding:1rem 0;"></div>';
-      main.appendChild(secDetail);
+      erpMain.appendChild(secDetail);
       secDetail.querySelector('#fa-back-menu').addEventListener('click', function () {
         openFeriarteView('menu');
       });
     }
+
+    return { menuSec: secMenu, detailSec: secDetail };
   }
 
   function hideAllErpSections() {
-    document.querySelectorAll('section.erp-section').forEach(function (sec) {
+    document.querySelectorAll('.erp-main > .erp-section, section.erp-section').forEach(function (sec) {
       sec.hidden = true;
     });
   }
@@ -138,13 +154,54 @@
     hideAllErpSections();
     var home = document.getElementById('sec-inicio');
     if (home) home.hidden = false;
+    var backBtn = document.getElementById('btn-topbar-back-facturacion');
+    if (backBtn) backBtn.hidden = true;
+    var topbarModInd = document.getElementById('topbar-caja-indicator');
+    if (topbarModInd) topbarModInd.hidden = true;
+  }
+
+  function bindGlobalNavIntegration() {
+    if (window.__MS_FA_NAV_BOUND__) return;
+    window.__MS_FA_NAV_BOUND__ = true;
+
+    document.addEventListener('click', function (ev) {
+      var target = ev.target;
+      if (!target || typeof target.closest !== 'function') return;
+
+      var navEl = target.closest(
+        '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-doncontador-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card'
+      );
+      if (!navEl) return;
+
+      var menuSec = document.getElementById('sec-menu-feriarte');
+      var detailSec = document.getElementById('sec-feriarte-detail');
+      var isFaActive = (menuSec && !menuSec.hidden) || (detailSec && !detailSec.hidden);
+
+      if (navEl.id === 'btn-topbar-back-facturacion' && isFaActive) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (detailSec && !detailSec.hidden) {
+          openFeriarteView('menu');
+        } else {
+          closeToHome();
+        }
+        return;
+      }
+
+      if (menuSec) menuSec.hidden = true;
+      if (detailSec) detailSec.hidden = true;
+    }, true);
   }
 
   async function reloadData() {
     STATE.loading = true;
     try {
       var res = await apiFeriarte('GET');
-      if (res && res.ok) STATE.data = res;
+      if (res && res.ok) {
+        STATE.data = res;
+      } else {
+        STATE.feedback = (res && res.message) || 'No se pudo consultar FeriARTE.';
+      }
     } catch (_e) {
       STATE.feedback = 'No se pudo consultar FeriARTE.';
     } finally {
@@ -187,8 +244,15 @@
     if (bc) bc.innerHTML = 'FeriARTE · <strong>' + esc(meta.label) + '</strong>';
     if (!body) return;
 
-    if (STATE.loading || !STATE.data) {
+    if (STATE.loading) {
       body.innerHTML = '<p style="padding:1rem;">Cargando datos reales de FeriARTE...</p>';
+      return;
+    }
+    if (!STATE.data) {
+      body.innerHTML =
+        '<div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #f5c2c7;color:#842029;font-weight:700;">' +
+          esc(STATE.feedback || 'No se pudieron cargar los datos de FeriARTE. Verificá tu sesión de Administrador General.') +
+        '</div>';
       return;
     }
 
@@ -728,19 +792,39 @@
   }
 
   async function openFeriarteView(viewKey) {
-    ensureSections();
+    var secs = ensureSections();
+    if (!secs) return;
     hideAllErpSections();
     STATE.view = viewKey || 'menu';
     STATE.feedback = '';
 
+    var backTopBtn = document.getElementById('btn-topbar-back-facturacion');
+    if (backTopBtn) {
+      backTopBtn.hidden = false;
+      backTopBtn.textContent = '← Atrás';
+    }
+    var topbarModInd = document.getElementById('topbar-caja-indicator');
+    var meta = SUBMODULES.find(function (s) { return s.key === STATE.view; });
+    if (topbarModInd) {
+      topbarModInd.hidden = false;
+      topbarModInd.textContent =
+        STATE.view === 'menu'
+          ? 'FeriARTE'
+          : 'FeriARTE · ' + (meta ? meta.label : STATE.view);
+    }
+
     if (STATE.view === 'menu') {
       renderSubmodulesMenu();
-      document.getElementById('sec-menu-feriarte').hidden = false;
+      secs.menuSec.hidden = false;
+      secs.detailSec.hidden = true;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       reloadData();
       return;
     }
 
-    document.getElementById('sec-feriarte-detail').hidden = false;
+    secs.menuSec.hidden = true;
+    secs.detailSec.hidden = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     if (!STATE.data) {
       renderDetailView(STATE.view);
       await reloadData();
@@ -749,6 +833,7 @@
   }
 
   function syncFeriarteHomeCard() {
+    bindGlobalNavIntegration();
     var allowed = isGeneralAdmin();
     var grid = document.querySelector('#sec-inicio .modules-grid');
     var existing = document.getElementById('ms-feriarte-home-card');
