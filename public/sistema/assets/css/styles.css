@@ -2390,9 +2390,113 @@ html[data-theme="dark"] #art-alicuota:disabled {
 
 .fact-doc-strip {
   display: grid;
-  grid-template-columns: 62px 120px 1fr;
+  grid-template-columns: 58px minmax(148px, 1.08fr) minmax(130px, 1fr);
   gap: 0.35rem;
   align-items: center;
+}
+
+.fact-doc-cuit-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.fact-doc-cuit-box .form-input {
+  width: 100%;
+  padding-inline-end: 2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.fact-cuit-lupa-btn {
+  position: absolute;
+  inset-inline-end: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(212, 160, 23, 0.45);
+  border-radius: 6px;
+  background: #fef9e7;
+  color: var(--gold-dark);
+  font-size: 0.78rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.fact-cuit-lupa-btn:hover:not(:disabled) {
+  background: var(--gold-main);
+  color: #ffffff;
+}
+
+.fact-cuit-lupa-btn.is-loading {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.btn-ocasional-pos.is-active {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+  border-color: #d97706 !important;
+  color: #92400e !important;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.22);
+}
+
+[data-theme="dark"] .btn-ocasional-pos.is-active {
+  background: rgba(245, 158, 11, 0.24) !important;
+  border-color: #fbbf24 !important;
+  color: #fde68a !important;
+}
+
+.fact-ocasional-panel {
+  margin-block-start: 0.15rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px dashed rgba(217, 119, 6, 0.55);
+  background: #fffbeb;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fact-ocasional-panel[hidden] {
+  display: none !important;
+}
+
+[data-theme="dark"] .fact-ocasional-panel {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+.fact-ocasional-status {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #92400e;
+}
+
+[data-theme="dark"] .fact-ocasional-status {
+  color: #fde68a;
+}
+
+.fact-ocasional-dom-row {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 0.35rem;
+}
+
+@media (max-width: 680px) {
+  .fact-doc-strip {
+    grid-template-columns: 56px 1fr;
+  }
+  .fact-doc-strip #fact-cli-respiva {
+    grid-column: 1 / -1;
+  }
+  .fact-ocasional-dom-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .fact-cli-actions-strip {
@@ -6725,6 +6829,11 @@ html[data-theme="dark"] .pos-ticket-fmt-pill {
   display: flex;
   justify-content: center;
   align-items: flex-start;
+}
+
+.pos-ticket-footer {
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 /* --- FORMATO 1: PAPEL CONTINUO 78mm (CAJA 1 Y CAJA 2) --- */

@@ -1309,7 +1309,7 @@
               </div>
             </div>
 
-            <div class="club-card-actions" style="margin-top:auto; padding-top:0.85rem;">
+            <div class="club-card-actions" style="margin-top:auto; padding-top:0.85rem; display:flex; flex-direction:column; gap:0.5rem;">
               <button
                 type="button"
                 id="btn-club-continue-without"
@@ -1318,6 +1318,17 @@
               >
                 <span>Continuar sin Club Fidel</span>
                 <kbd class="club-skip-kbd">CTRL + C</kbd>
+                <span>→</span>
+              </button>
+              <button
+                type="button"
+                id="btn-club-continue-ocasional"
+                class="btn-secondary club-btn-skip"
+                style="border-color:var(--gold-main); font-weight:800;"
+                title="Cargar CUIT rápido para facturar sin crear el cliente en la base de datos (Cliente Ocasional #2)"
+              >
+                <span>⚡ Cliente Ocasional (Facturar con CUIT sin alta)</span>
+                <kbd class="club-skip-kbd">CÓD. 2</kbd>
                 <span>→</span>
               </button>
             </div>
@@ -1542,27 +1553,43 @@
                     readonly
                     aria-label="Tipo de documento"
                   >
-                  <input
-                    type="text"
-                    id="fact-cli-nrodoc"
-                    name="cliente_nrodoc"
-                    class="form-input fact-control"
-                    value="00.000.000"
-                    autocomplete="off"
-                    autocorrect="off"
-                    autocapitalize="off"
-                    spellcheck="false"
-                    aria-label="Número de documento o CUIT"
-                  >
-                  <input
-                    type="text"
+                  <div class="fact-doc-cuit-box">
+                    <input
+                      type="text"
+                      id="fact-cli-nrodoc"
+                      name="cliente_nrodoc"
+                      class="form-input fact-control"
+                      value="00.000.000"
+                      placeholder="CUIT XX-XXXXXXXX-X"
+                      autocomplete="off"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      spellcheck="false"
+                      aria-label="Número de documento o CUIT"
+                      title="Ingresá el CUIT de 11 dígitos (o DNI) y presioná Enter o 🔍 para tomar los datos de ARCA como Cliente Ocasional sin darlo de alta"
+                    >
+                    <button
+                      type="button"
+                      id="btn-fact-lookup-cuit"
+                      class="fact-cuit-lupa-btn"
+                      title="Consultar CUIT / DNI en Padrón ARCA (Cliente Ocasional)"
+                      aria-label="Consultar CUIT en Padrón ARCA"
+                    >🔍</button>
+                  </div>
+                  <select
                     id="fact-cli-respiva"
                     name="cliente_respiva"
-                    class="form-input fact-control fact-readonly-box"
-                    value="Consumidor Final"
-                    readonly
+                    class="form-select fact-control fact-readonly-box"
+                    disabled
                     aria-label="Condición frente al IVA"
+                    title="Condición frente al IVA (editable en Cliente Ocasional)"
                   >
+                    <option value="Consumidor Final">Consumidor Final</option>
+                    <option value="INSCRIPTO">INSCRIPTO (Fact. A)</option>
+                    <option value="MONOTRIBUTO">MONOTRIBUTO (Fact. A)</option>
+                    <option value="EXENTO">EXENTO (Fact. B)</option>
+                    <option value="NO CATEGORIZADO">NO CATEGORIZADO (Fact. B)</option>
+                  </select>
                 </div>
               </div>
 
@@ -1571,11 +1598,11 @@
                 <div class="fact-cli-actions-strip">
                   <button
                     type="button"
-                    id="btn-fact-new-client"
-                    class="btn-geo-plus"
-                    title="Crear Nuevo Cliente"
-                    aria-label="Crear Nuevo Cliente"
-                  >+ Agregar Cliente</button>
+                    id="btn-fact-cliente-ocasional"
+                    class="btn-geo-plus btn-ocasional-pos"
+                    title="Cliente Ocasional (Cód. 2): cargar CUIT y tomar datos de ARCA para facturar rápido sin crearlo en Clientes"
+                    aria-label="Seleccionar Cliente Ocasional por CUIT"
+                  >⚡ Cliente Ocasional</button>
                   <button
                     type="button"
                     id="btn-fact-reset-cf"
@@ -1583,26 +1610,43 @@
                     title="Volver a Consumidor Final (1)"
                     aria-label="Seleccionar Consumidor Final"
                   >👤 Consumidor Final</button>
+                  <button
+                    type="button"
+                    id="btn-fact-new-client"
+                    class="btn-geo-plus"
+                    title="Crear Nuevo Cliente permanente en la base de datos"
+                    aria-label="Crear Nuevo Cliente"
+                  >+ Agregar Cliente</button>
                 </div>
               </div>
 
-              <div class="fact-field-row" hidden style="display:none;">
-                <label for="fact-cli-calle" class="fact-lbl">Calle</label>
-                <div class="fact-calle-strip">
+              <div id="fact-ocasional-panel" class="fact-ocasional-panel" hidden>
+                <div id="fact-ocasional-status" class="fact-ocasional-status">
+                  ⚡ <strong>Cliente Ocasional (#2)</strong>: escribí el CUIT y presioná <strong>Enter</strong> o <strong>🔍</strong> para traer Razón Social, IVA y Domicilio sin crearlo en Clientes.
+                </div>
+                <div class="fact-ocasional-dom-row">
                   <input
                     type="text"
                     id="fact-cli-calle"
                     name="cliente_calle"
-                    class="form-input fact-control"
-                    value="..."
+                    class="form-input fact-control uppercase-input"
+                    value=""
+                    placeholder="DOMICILIO FISCAL (OPCIONAL)"
+                    aria-label="Domicilio del cliente ocasional"
                   >
-                  <label for="fact-cli-nro" class="fact-lbl-inline">Nro.</label>
                   <input
                     type="text"
+                    id="fact-cli-localidad-ocasional"
+                    class="form-input fact-control uppercase-input"
+                    value=""
+                    placeholder="LOCALIDAD / PROVINCIA"
+                    aria-label="Localidad del cliente ocasional"
+                  >
+                  <input
+                    type="hidden"
                     id="fact-cli-nro"
                     name="cliente_nro"
-                    class="form-input fact-control fact-nro-inp"
-                    value="0"
+                    value=""
                   >
                 </div>
               </div>
@@ -16613,6 +16657,9 @@
       </div>
 
       <footer class="dialog-footer pos-ticket-footer">
+        <button type="button" id="btn-save-pos-ticket-pdf" class="btn-secondary" style="width:auto;">
+          📄 Guardar PDF
+        </button>
         <button type="button" id="btn-print-pos-ticket" class="btn-primary" style="width:auto; min-inline-size:240px;" autofocus>
           🖨️ Imprimir Comprobante (Enter)
         </button>
@@ -19205,6 +19252,7 @@
     </form>
   </dialog>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
   <script src="assets/js/zxing.min.js?v=325" defer></script>
   <script src="assets/js/app.js?v=325" defer></script>
   <script src="assets/js/mi-contador-module.js?v=325" defer></script>

@@ -224,9 +224,22 @@ export function buildCleanTenantSeed(opts: CleanSeedOptions): {
     formaPagoPredeterminada: "CONTADO",
   };
 
+  const clienteOcasional = {
+    ...consumidorFinal,
+    id: 2,
+    codigo: 2,
+    codigoProveedor: 2,
+    nombre: "CLIENTE OCASIONAL",
+    razonSocial: "CLIENTE OCASIONAL",
+    nombreFantasia: "CLIENTE OCASIONAL",
+    tipoDoc: "CUIT",
+    idTipoDoc: 1,
+    nroDoc: "00-00000000-0",
+  };
+
   const clientesDb = {
     updatedAt: nowIso,
-    totalClientes: 1,
+    totalClientes: 2,
     totalProveedores: 0,
     totalMovimientosCtaCte: 0,
     revision: 1,
@@ -235,7 +248,7 @@ export function buildCleanTenantSeed(opts: CleanSeedOptions): {
     catalogs: referenceCatalogs.catalogs,
     tiposDoc: referenceCatalogs.tiposDoc,
     tiposProveedor: referenceCatalogs.tiposProveedor,
-    clientes: [consumidorFinal],
+    clientes: [consumidorFinal, clienteOcasional],
     movimientosCtaCte: [],
     movimientosFidelizacion: [],
     pedidosWeb: [],
