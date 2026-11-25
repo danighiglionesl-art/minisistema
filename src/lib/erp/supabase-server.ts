@@ -476,7 +476,7 @@ export async function getTenantDocGzippedSnapshot(
     });
 
     if (useL2 && row) {
-      await uploadGzipToStorage(sb, tenant.db_schema, docKey, rev, gzBuf);
+      await uploadGzipToStorageBounded(sb, tenant.db_schema, docKey, rev, gzBuf, 3_500);
     }
 
     return { payload: finalPayload, gzBuf, rev, updatedAt };
@@ -591,7 +591,7 @@ export async function getTenantDoc<T = Record<string, unknown>>(
       });
 
       if (useL2 && gzBuf) {
-        await uploadGzipToStorage(sb, tenant.db_schema, docKey, row.rev, gzBuf);
+        await uploadGzipToStorageBounded(sb, tenant.db_schema, docKey, row.rev, gzBuf, 3_500);
       }
 
       return { payload, gzBuf, rev: row.rev, updatedAt: row.updatedAt };
@@ -690,6 +690,7 @@ export async function putTenantDoc(
 /**
  * Actualiza quirúrgicamente uno o varios artículos dentro de catalog_db directamente en Postgres
  * (envía ~1 KB en lugar de los ~8-11 MB completos del catálogo), evitando timeouts en escrituras.
+ * Soporta fullMergedPayload opcional (modo ultra-rápido sin leer los 11 MB de catalog_db antes).
  */
 export async function patchCatalogArticles(
   tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">,
@@ -697,7 +698,7 @@ export async function patchCatalogArticles(
     upserts?: Array<Record<string, unknown>>;
     deleteIds?: Array<number | string>;
     metaPatch?: Record<string, unknown>;
-    fullMergedPayload: unknown;
+    fullMergedPayload?: unknown;
     actor?: string;
     action?: string;
   }
@@ -714,13 +715,19 @@ export async function patchCatalogArticles(
     p_action: action,
   });
 
+  if (error) {
+    throw new Error(`Error guardando catalog_db (${tenant.db_schema}): ${error.message}`);
+  }
+
   if (
-    error ||
     !data ||
     typeof data !== "object" ||
     (data as { not_found?: boolean }).not_found
   ) {
-    return putTenantDoc(tenant, "catalog_db", params.fullMergedPayload, actor, action);
+    if (params.fullMergedPayload !== undefined) {
+      return putTenantDoc(tenant, "catalog_db", params.fullMergedPayload, actor, action);
+    }
+    throw new Error(`No existe catalog_db inicializado en ${tenant.db_schema}`);
   }
 
   const res = data as { rev?: number; updated_at?: string };
@@ -731,18 +738,73 @@ export async function patchCatalogArticles(
 
   const cacheKey = `${tenant.db_schema}:catalog_db`;
   const useL2 = isUsingPlatformStorage(tenant);
-  const gzBuf = useL2
-    ? zlib.gzipSync(Buffer.from(JSON.stringify(params.fullMergedPayload), "utf8"), { level: 4 })
-    : undefined;
-  docMemoryCache.set(cacheKey, {
-    payload: params.fullMergedPayload,
-    gzBuf,
-    rev,
-    updatedAt,
-    checkedAt: Date.now(),
-  });
-  if (useL2 && gzBuf) {
-    await uploadGzipToStorageBounded(sb, tenant.db_schema, "catalog_db", rev, gzBuf);
+
+  if (params.fullMergedPayload !== undefined) {
+    const gzBuf = useL2
+      ? zlib.gzipSync(Buffer.from(JSON.stringify(params.fullMergedPayload), "utf8"), { level: 4 })
+      : undefined;
+    docMemoryCache.set(cacheKey, {
+      payload: params.fullMergedPayload,
+      gzBuf,
+      rev,
+      updatedAt,
+      checkedAt: Date.now(),
+    });
+    if (useL2 && gzBuf) {
+      await uploadGzipToStorageBounded(sb, tenant.db_schema, "catalog_db", rev, gzBuf, 3_500);
+    }
+  } else {
+    // Modo ultra-rápido (sin descarga previa de 11 MB): parchear caché RAM si está caliente, o invalidar
+    const existing = docMemoryCache.get(cacheKey);
+    if (
+      existing &&
+      existing.payload &&
+      typeof existing.payload === "object" &&
+      Array.isArray((existing.payload as Record<string, unknown>).articulos)
+    ) {
+      const cat = existing.payload as Record<string, unknown>;
+      const arts = [...(cat.articulos as Array<Record<string, unknown>>)];
+      const delSet = new Set((params.deleteIds || []).map((x) => String(x)));
+      const upMap = new Map<string, Record<string, unknown>>();
+      for (const u of params.upserts || []) {
+        if (u && u.id !== undefined) upMap.set(String(u.id), u);
+      }
+      const nextArts: Array<Record<string, unknown>> = [];
+      const seen = new Set<string>();
+      for (const a of arts) {
+        const k = String(a?.id ?? "");
+        if (delSet.has(k)) continue;
+        seen.add(k);
+        const up = upMap.get(k);
+        nextArts.push(up ? { ...a, ...up } : a);
+      }
+      for (const [k, u] of upMap.entries()) {
+        if (!seen.has(k) && !delSet.has(k)) nextArts.push(u);
+      }
+      const mergedDoc = {
+        ...cat,
+        ...(params.metaPatch || {}),
+        articulos: nextArts,
+        updatedAt,
+        lastModifiedBy: actor,
+        lastAction: action,
+      };
+      const gzBuf = useL2
+        ? zlib.gzipSync(Buffer.from(JSON.stringify(mergedDoc), "utf8"), { level: 4 })
+        : undefined;
+      docMemoryCache.set(cacheKey, {
+        payload: mergedDoc,
+        gzBuf,
+        rev,
+        updatedAt,
+        checkedAt: Date.now(),
+      });
+      if (useL2 && gzBuf) {
+        await uploadGzipToStorageBounded(sb, tenant.db_schema, "catalog_db", rev, gzBuf, 3_500);
+      }
+    } else {
+      docMemoryCache.delete(cacheKey);
+    }
   }
 
   return { rev, updatedAt };

@@ -394,6 +394,71 @@ export async function handleErpCatalog(
       });
     }
 
+    // Fast-path directo sin descargar 11 MB de catalog_db cuando se guarda un artículo con ID explícito
+    if (postAction === "save_article" || postAction === "") {
+      const artIn = (payload.article || payload.articulo || payload) as AnyObj;
+      const rawCode = String(artIn.c ?? artIn.codigo ?? "").trim();
+      const rawName = String(artIn.n ?? artIn.nombre ?? "")
+        .trim()
+        .toUpperCase();
+      if (!rawCode || !rawName) {
+        return NextResponse.json(
+          { ok: false, message: "Código y Nombre son obligatorios" },
+          { status: 400 }
+        );
+      }
+      const id = Number(artIn.id || 0);
+      if (id > 0) {
+        const code5 = /^\d+$/.test(rawCode) ? rawCode.padStart(5, "0") : rawCode;
+        const directArticle: AnyObj = {
+          ...artIn,
+          id,
+          c: code5,
+          n: rawName,
+          r: Number(artIn.r ?? 3),
+          mk: Number(artIn.mk ?? 0),
+          p: Number(artIn.p ?? 0),
+          pr: Array.isArray(artIn.pr) ? artIn.pr : [],
+          bc: Array.isArray(artIn.bc) ? artIn.bc : [],
+          bl: Number(artIn.bl ?? 0),
+          fr: Number(artIn.fr ?? 0),
+          iv: Number(artIn.iv ?? 5),
+          iva: Number.isFinite(Number(artIn.iva)) ? Number(artIn.iva) : 21,
+          cn: round2(artIn.cn ?? 0),
+          cfn: round2(artIn.cfn ?? 0),
+          cp: Number(artIn.cp ?? 0),
+          ucp: Number(artIn.ucp ?? 0),
+          m1: round2(artIn.m1 ?? 0),
+          m2: round2(artIn.m2 ?? 0),
+          p1n: round2(artIn.p1n ?? 0),
+          p1f: round2(artIn.p1f ?? 0),
+          p2n: round2(artIn.p2n ?? 0),
+          p2f: round2(artIn.p2f ?? 0),
+          sf: round3(artIn.sf ?? 0),
+          sm: round2(artIn.sm ?? 6),
+          cw: artIn.cw !== undefined ? Number(artIn.cw ? 1 : 0) : 1,
+          im: String(artIn.im ?? ""),
+          ims: String(
+            artIn.ims ??
+              (String(artIn.im || "").startsWith("http") ||
+              String(artIn.im || "").startsWith("/")
+                ? "web"
+                : "sis")
+          ),
+        };
+        const saved = await patchCatalogArticles(tenant, {
+          upserts: [directArticle],
+          actor,
+          action: "save_article",
+        });
+        return NextResponse.json({
+          ok: true,
+          rev: saved.rev,
+          article: directArticle,
+        });
+      }
+    }
+
     const [docRes, pendingStockEvents] = await Promise.all([
       getTenantDoc<AnyObj>(tenant, "catalog_db", fallback),
       listPendingPosEvents(tenant, "catalog"),
