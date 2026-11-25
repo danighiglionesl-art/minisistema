@@ -2933,70 +2933,165 @@ async function promptAddNewRubro() {
   syncArticleModalIvaLockUI();
 }
 
-async function promptAddNewMarca() {
-  const raw = window.prompt('Ingresá el nombre de la nueva Marca (se guardará en MAYÚSCULAS):');
-  if (!raw) return;
-  const nombre = raw.trim().toUpperCase();
-  if (!nombre) return;
+function applySelectedMarcaToArticleModal(marcaObj, prevSelectValues = null) {
+  const artRubroSel = document.getElementById('art-rubro');
+  const artMarcaSel = document.getElementById('art-marca');
+  const artAlicSel = document.getElementById('art-alicuota');
+  const artCfgSel = document.getElementById('art-config-precio');
 
-  const prevRubroVal = document.getElementById('art-rubro')?.value || '0';
-  const prevAlicVal = document.getElementById('art-alicuota')?.value || '5';
-  const prevCfgVal = document.getElementById('art-config-precio')?.value || '0';
+  const prevRubroVal = prevSelectValues ? prevSelectValues.rubro : (artRubroSel?.value || '0');
+  const prevAlicVal = prevSelectValues ? prevSelectValues.alicuota : (artAlicSel?.value || '5');
+  const prevCfgVal = prevSelectValues ? prevSelectValues.configPrecio : (artCfgSel?.value || '0');
 
-  let existing = STATE.marcas.find((m) => String(m.nombre || '').trim().toUpperCase() === nombre);
-  if (!existing || Number(existing.bl) === 1) {
-    let newMarcaObj = existing
-      ? Object.assign({}, existing, { bl: 0, fb: null })
-      : {
-          id: STATE.marcas.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0) + 1,
-          nombre,
-          bl: 0
-        };
-    try {
-      const res = await fetch('api/catalog.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'create_marca',
-          nombre
-        })
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.ok && json.marca) {
-          newMarcaObj = json.marca;
-        }
-      }
-    } catch {}
-
-    existing = STATE.marcas.find((m) => Number(m.id) === Number(newMarcaObj.id));
-    if (!existing) {
-      if (!newMarcaObj.codigo) newMarcaObj.codigo = findNextFreeMarcaCode();
-      newMarcaObj.bl = 0;
-      STATE.marcas.push(newMarcaObj);
-      STATE.marcas.sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es-AR'));
-      STATE.marcasMap.set(Number(newMarcaObj.id), newMarcaObj);
-      existing = newMarcaObj;
-    } else {
-      existing.bl = 0;
-      delete existing.fb;
-    }
-  }
-
+  rebuildRubrosAndMarcasMaps();
   saveLocalAbmCatalogOverrides();
   populateMasterSelects();
   updateKpis();
   applyAbmMarcasFilters(STATE.abmMarcasPage || 1);
 
-  const artRubroSel = document.getElementById('art-rubro');
   if (artRubroSel) artRubroSel.value = prevRubroVal;
-  const artMarcaSel = document.getElementById('art-marca');
-  if (artMarcaSel && existing) artMarcaSel.value = String(existing.id);
-  const artAlicSel = document.getElementById('art-alicuota');
+  if (artMarcaSel && marcaObj) artMarcaSel.value = String(marcaObj.id);
   if (artAlicSel) artAlicSel.value = prevAlicVal;
-  const artCfgSel = document.getElementById('art-config-precio');
   if (artCfgSel) artCfgSel.value = prevCfgVal;
   syncArticleModalIvaLockUI();
+}
+
+function renderQuickAbmMarcasTable(rawQuery = '') {
+  const tbody = document.getElementById('quick-abm-marca-tbody');
+  if (!tbody) return;
+
+  const q = String(rawQuery || '').trim().toUpperCase();
+  const list = (Array.isArray(STATE.marcas) ? STATE.marcas : [])
+    .filter((m) => {
+      if (!q) return true;
+      const codeStr = String(m.codigo ?? m.id ?? '').toUpperCase();
+      const nameStr = String(m.nombre || '').toUpperCase();
+      return codeStr.includes(q) || nameStr.includes(q);
+    })
+    .sort((a, b) => {
+      const ba = Number(a.bl) === 1 ? 1 : 0;
+      const bb = Number(b.bl) === 1 ? 1 : 0;
+      if (ba !== bb) return ba - bb;
+      return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es-AR');
+    })
+    .slice(0, 80);
+
+  tbody.textContent = '';
+  if (list.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 4;
+    td.className = 'table-loading-cell';
+    td.textContent = q
+      ? `No se encontró ninguna marca para "${q}". Podés darla de alta arriba y usarla al instante.`
+      : 'No hay marcas cargadas aún. Creá la primera desde el formulario superior.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  list.forEach((m) => {
+    const isBaja = Number(m.bl) === 1;
+    const tr = document.createElement('tr');
+
+    const tdCode = document.createElement('td');
+    tdCode.innerHTML = `<span class="art-code-pill">#${escapeHtml(String(m.codigo ?? m.id))}</span>`;
+    tr.appendChild(tdCode);
+
+    const tdName = document.createElement('td');
+    tdName.innerHTML = `<strong>${escapeHtml(String(m.nombre || '').toUpperCase())}</strong>`;
+    tr.appendChild(tdName);
+
+    const tdEstado = document.createElement('td');
+    tdEstado.innerHTML = isBaja
+      ? '<span class="badge" style="background:rgba(220,38,38,0.12);color:#dc2626;">BAJA</span>'
+      : '<span class="badge badge--gold">ACTIVA</span>';
+    tr.appendChild(tdEstado);
+
+    const tdAct = document.createElement('td');
+    tdAct.style.display = 'flex';
+    tdAct.style.gap = '0.35rem';
+    tdAct.style.flexWrap = 'wrap';
+
+    const btnUse = document.createElement('button');
+    btnUse.type = 'button';
+    btnUse.className = 'btn-primary btn-sm';
+    btnUse.style.width = 'auto';
+    btnUse.textContent = isBaja ? '♻️ Reactivar y Usar' : '✓ Usar';
+    btnUse.addEventListener('click', async () => {
+      const prevVals = {
+        rubro: document.getElementById('art-rubro')?.value || '0',
+        alicuota: document.getElementById('art-alicuota')?.value || '5',
+        configPrecio: document.getElementById('art-config-precio')?.value || '0'
+      };
+      if (isBaja) {
+        m.bl = 0;
+        delete m.fb;
+        try {
+          await fetch('api/catalog.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'save_marca',
+              marca: { id: m.id, codigo: String(m.codigo ?? m.id), nombre: String(m.nombre || '').toUpperCase(), bl: 0, fb: null }
+            })
+          });
+        } catch {}
+      }
+      applySelectedMarcaToArticleModal(m, prevVals);
+      const qDlg = document.getElementById('quick-abm-marca-dialog');
+      if (qDlg && qDlg.open) qDlg.close();
+      if (typeof showToast === 'function') {
+        showToast(`Marca "${String(m.nombre || '').toUpperCase()}" seleccionada en el producto.`, 'success');
+      }
+    });
+    tdAct.appendChild(btnUse);
+
+    const btnEdit = document.createElement('button');
+    btnEdit.type = 'button';
+    btnEdit.className = 'btn-secondary btn-sm';
+    btnEdit.style.width = 'auto';
+    btnEdit.title = 'Editar marca en ABM';
+    btnEdit.textContent = '✏️';
+    btnEdit.addEventListener('click', () => {
+      editMarcaInAbm(m);
+    });
+    tdAct.appendChild(btnEdit);
+
+    tr.appendChild(tdAct);
+    frag.appendChild(tr);
+  });
+
+  tbody.appendChild(frag);
+}
+
+function openQuickAbmMarcaDialog() {
+  const dlg = document.getElementById('quick-abm-marca-dialog');
+  if (!dlg) {
+    return;
+  }
+  const codInp = document.getElementById('quick-abm-marca-codigo');
+  const nomInp = document.getElementById('quick-abm-marca-nombre');
+  const searchInp = document.getElementById('quick-abm-marca-search');
+  const alertEl = document.getElementById('quick-abm-marca-alert');
+
+  if (codInp) codInp.value = findNextFreeMarcaCode();
+  if (nomInp) nomInp.value = '';
+  if (searchInp) searchInp.value = '';
+  if (alertEl) alertEl.hidden = true;
+
+  renderQuickAbmMarcasTable('');
+  if (!dlg.open) {
+    dlg.showModal();
+  }
+  requestAnimationFrame(() => {
+    if (nomInp) nomInp.focus();
+  });
+}
+
+async function promptAddNewMarca() {
+  openQuickAbmMarcaDialog();
 }
 
 function updateKpis() {
@@ -32002,6 +32097,13 @@ function initApp() {
     applyCatalogFilters(STATE.currentPage);
 
     if (saveBtn) saveBtn.disabled = false;
+    if (STATE.returnToArticleDialogAfterAbmMarca && savedMarca && Number(savedMarca.bl) !== 1) {
+      STATE.lastSavedAbmMarcaId = Number(savedMarca.id);
+      const retBtn = document.getElementById('btn-return-to-article-modal');
+      if (retBtn) {
+        retBtn.textContent = `← Volver a la Ficha y Usar "${String(savedMarca.nombre || '').toUpperCase()}"`;
+      }
+    }
     if (okEl) {
       if (wasReactivatedFromBaja) {
         okEl.innerHTML = `<strong>¡Marca reactivada y habilitada!</strong> La marca <strong>#${savedMarca.codigo ?? savedMarca.id} — ${savedMarca.nombre}</strong> se encontraba en baja lógica y quedó nuevamente <strong>ACTIVA</strong> en todos los selectores de artículos.`;
@@ -32011,6 +32113,189 @@ function initApp() {
           : `<strong>¡Nueva Marca dada de alta!</strong> Se registró <strong>#${savedMarca.codigo ?? savedMarca.id} — ${savedMarca.nombre}</strong> y ya está disponible en todos los selectores de artículos.`;
       }
       okEl.hidden = false;
+    }
+  });
+
+  // --- MODAL EMERGENTE ABM DE MARCA DESDE FICHA / DUPLICAR PRODUCTO ---
+  const quickAbmMarcaDlg = document.getElementById('quick-abm-marca-dialog');
+  const closeQuickAbmMarcaDlg = () => {
+    if (quickAbmMarcaDlg && quickAbmMarcaDlg.open) {
+      quickAbmMarcaDlg.close();
+    }
+  };
+  document.getElementById('btn-close-quick-abm-marca')?.addEventListener('click', closeQuickAbmMarcaDlg);
+  document.getElementById('btn-cancel-quick-abm-marca')?.addEventListener('click', closeQuickAbmMarcaDlg);
+  quickAbmMarcaDlg?.addEventListener('click', (e) => {
+    if (e.target === quickAbmMarcaDlg) closeQuickAbmMarcaDlg();
+  });
+
+  document.getElementById('btn-quick-abm-marca-free-code')?.addEventListener('click', () => {
+    const codInp = document.getElementById('quick-abm-marca-codigo');
+    if (codInp) codInp.value = findNextFreeMarcaCode();
+  });
+
+  document.getElementById('quick-abm-marca-search')?.addEventListener('input', (e) => {
+    renderQuickAbmMarcasTable(e.target.value || '');
+  });
+
+  document.getElementById('quick-abm-marca-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertEl = document.getElementById('quick-abm-marca-alert');
+    if (alertEl) alertEl.hidden = true;
+
+    const rawCode = document.getElementById('quick-abm-marca-codigo')?.value.trim().toUpperCase() || '';
+    const nombre = document.getElementById('quick-abm-marca-nombre')?.value.trim().toUpperCase() || '';
+
+    if (!nombre) {
+      if (alertEl) {
+        alertEl.textContent = 'EL NOMBRE DE LA MARCA ES OBLIGATORIO.';
+        alertEl.hidden = false;
+      }
+      document.getElementById('quick-abm-marca-nombre')?.focus();
+      return;
+    }
+
+    const prevVals = {
+      rubro: document.getElementById('art-rubro')?.value || '0',
+      alicuota: document.getElementById('art-alicuota')?.value || '5',
+      configPrecio: document.getElementById('art-config-precio')?.value || '0'
+    };
+
+    const dupName = STATE.marcas.find(
+      (m) => String(m.nombre || '').trim().toUpperCase() === nombre
+    );
+    if (dupName && Number(dupName.bl) !== 1) {
+      applySelectedMarcaToArticleModal(dupName, prevVals);
+      closeQuickAbmMarcaDlg();
+      if (typeof showToast === 'function') {
+        showToast(`La marca "${dupName.nombre}" ya existía y fue seleccionada automáticamente.`, 'info');
+      }
+      return;
+    }
+
+    const effectiveEditId = dupName ? Number(dupName.id) : 0;
+    const finalCode = dupName
+      ? String(dupName.codigo ?? dupName.id)
+      : (rawCode || findNextFreeMarcaCode());
+
+    const dupCode = STATE.marcas.find(
+      (m) => String(m.codigo ?? m.id).trim().toUpperCase() === finalCode && Number(m.id) !== effectiveEditId
+    );
+    if (dupCode) {
+      if (alertEl) {
+        alertEl.textContent = `EL CÓDIGO #${finalCode} YA ESTÁ ASIGNADO A "${dupCode.nombre}". USÁ "⚡ LIBRE".`;
+        alertEl.hidden = false;
+      }
+      document.getElementById('quick-abm-marca-codigo')?.focus();
+      return;
+    }
+
+    const saveBtn = document.getElementById('btn-save-quick-abm-marca');
+    if (saveBtn) saveBtn.disabled = true;
+
+    let savedMarca = {
+      id: effectiveEditId > 0
+        ? effectiveEditId
+        : (STATE.marcas.reduce((mx, x) => Math.max(mx, Number(x.id) || 0), 0) + 1),
+      codigo: finalCode,
+      nombre,
+      bl: 0,
+      fb: null
+    };
+
+    try {
+      const res = await fetch('api/catalog.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_marca',
+          marca: savedMarca
+        })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.ok === false) {
+          if (saveBtn) saveBtn.disabled = false;
+          if (alertEl) {
+            alertEl.textContent = json.message || 'No se pudo guardar la marca.';
+            alertEl.hidden = false;
+          }
+          return;
+        }
+        if (json && json.ok && json.marca) {
+          savedMarca = json.marca;
+        }
+      }
+    } catch {}
+
+    const existingIdx = STATE.marcas.findIndex((m) => Number(m.id) === Number(savedMarca.id));
+    if (existingIdx >= 0) {
+      STATE.marcas[existingIdx] = Object.assign({}, STATE.marcas[existingIdx], savedMarca, { bl: 0 });
+      delete STATE.marcas[existingIdx].fb;
+      savedMarca = STATE.marcas[existingIdx];
+    } else {
+      savedMarca.bl = 0;
+      STATE.marcas.push(savedMarca);
+    }
+
+    applySelectedMarcaToArticleModal(savedMarca, prevVals);
+    if (saveBtn) saveBtn.disabled = false;
+    closeQuickAbmMarcaDlg();
+    if (typeof showToast === 'function') {
+      showToast(
+        dupName
+          ? `Marca "${savedMarca.nombre}" reactivada y seleccionada en el producto.`
+          : `Marca #${savedMarca.codigo ?? savedMarca.id} "${savedMarca.nombre}" creada y seleccionada.`,
+        'success'
+      );
+    }
+  });
+
+  document.getElementById('btn-quick-abm-marca-fullscreen')?.addEventListener('click', () => {
+    const artDlg = document.getElementById('article-dialog');
+    STATE.returnToArticleDialogAfterAbmMarca = Boolean(artDlg && artDlg.open);
+    STATE.lastSavedAbmMarcaId = null;
+    STATE.savedArtSelectsBeforeAbmMarca = {
+      rubro: document.getElementById('art-rubro')?.value || '0',
+      marca: document.getElementById('art-marca')?.value || '0',
+      alicuota: document.getElementById('art-alicuota')?.value || '5',
+      configPrecio: document.getElementById('art-config-precio')?.value || '0'
+    };
+    closeQuickAbmMarcaDlg();
+    if (artDlg && artDlg.open) {
+      artDlg.close();
+    }
+    if (typeof switchSection === 'function') {
+      switchSection('sec-abm-marcas');
+    }
+    const retBar = document.getElementById('abm-marca-return-to-art-bar');
+    const retBtn = document.getElementById('btn-return-to-article-modal');
+    if (retBtn) retBtn.textContent = '← Volver a la Ficha del Producto';
+    if (retBar) retBar.hidden = !STATE.returnToArticleDialogAfterAbmMarca;
+    resetAbmMarcaForm();
+    document.getElementById('abm-marca-nombre')?.focus();
+  });
+
+  document.getElementById('btn-return-to-article-modal')?.addEventListener('click', () => {
+    const retBar = document.getElementById('abm-marca-return-to-art-bar');
+    if (retBar) retBar.hidden = true;
+    const savedMarcaId = STATE.lastSavedAbmMarcaId;
+    const prevVals = STATE.savedArtSelectsBeforeAbmMarca || null;
+    STATE.returnToArticleDialogAfterAbmMarca = false;
+    STATE.lastSavedAbmMarcaId = null;
+
+    if (typeof switchSection === 'function') {
+      switchSection('sec-articulos');
+    }
+    const artDlg = document.getElementById('article-dialog');
+    if (artDlg && !artDlg.open) {
+      artDlg.showModal();
+    }
+    const targetMarca = savedMarcaId
+      ? STATE.marcas.find((m) => Number(m.id) === Number(savedMarcaId))
+      : (prevVals && prevVals.marca ? { id: prevVals.marca } : null);
+    if (prevVals || targetMarca) {
+      applySelectedMarcaToArticleModal(targetMarca, prevVals);
     }
   });
 
@@ -32136,11 +32421,33 @@ function initApp() {
       }
     }
 
+    const artDlgOpen = Boolean(document.getElementById('article-dialog')?.open);
+    const prevArtVals = artDlgOpen
+      ? {
+          rubro: document.getElementById('art-rubro')?.value || '0',
+          marca: document.getElementById('art-marca')?.value || '0',
+          alicuota: document.getElementById('art-alicuota')?.value || '5',
+          configPrecio: document.getElementById('art-config-precio')?.value || '0'
+        }
+      : null;
+
     STATE.lastSavedMarcaId = Number(savedMarca.id);
     rebuildRubrosAndMarcasMaps();
     saveLocalAbmCatalogOverrides();
     populateMasterSelects();
     updateKpis();
+
+    if (prevArtVals) {
+      const rSel = document.getElementById('art-rubro');
+      const mSel = document.getElementById('art-marca');
+      const aSel = document.getElementById('art-alicuota');
+      const cSel = document.getElementById('art-config-precio');
+      if (rSel) rSel.value = prevArtVals.rubro;
+      if (mSel) mSel.value = prevArtVals.marca;
+      if (aSel) aSel.value = prevArtVals.alicuota;
+      if (cSel) cSel.value = prevArtVals.configPrecio;
+      syncArticleModalIvaLockUI();
+    }
 
     const topCodInp = document.getElementById('abm-marca-codigo');
     if (topCodInp && (!topCodInp.value.trim() || topCodInp.value.trim().toUpperCase() === finalCode)) {
@@ -32148,6 +32455,10 @@ function initApp() {
     }
 
     applyAbmMarcasFilters(STATE.abmMarcasPage || 1);
+    const qDlg = document.getElementById('quick-abm-marca-dialog');
+    if (qDlg && qDlg.open) {
+      renderQuickAbmMarcasTable(document.getElementById('quick-abm-marca-search')?.value || '');
+    }
     applyCatalogFilters(STATE.currentPage);
     setTimeout(() => {
       if (STATE.lastSavedMarcaId === Number(savedMarca.id)) {
@@ -76425,6 +76736,207 @@ function initApp() {
       const el = document.getElementById(id);
       if (el) upgradeSelect(el);
     });
+  })();
+
+  // =========================================================================
+  // NORMALIZACIÓN GLOBAL DE INPUTS:
+  // 1) MAYÚSCULAS AUTOMÁTICAS EN TODOS LOS CAMPOS DE TEXTO EDITABLES (salvo
+  //    contraseñas, emails, URLs, usuarios de acceso y claves técnicas).
+  // 2) BORRADO AUTOMÁTICO DE EJEMPLOS (placeholders y valores de ejemplo/cero)
+  //    AL ENFOCAR CUALQUIER CAMPO, CON RESTAURACIÓN SI QUEDA VACÍO AL SALIR.
+  // =========================================================================
+  (function installGlobalInputEnhancements() {
+    if (window.__MS_GLOBAL_INPUT_ENHANCEMENTS_INSTALLED__) return;
+    window.__MS_GLOBAL_INPUT_ENHANCEMENTS_INSTALLED__ = true;
+
+    const NON_TEXT_INPUT_TYPES = new Set([
+      'password',
+      'email',
+      'url',
+      'number',
+      'date',
+      'time',
+      'datetime-local',
+      'month',
+      'week',
+      'color',
+      'file',
+      'hidden',
+      'checkbox',
+      'radio',
+      'range',
+      'tel',
+      'submit',
+      'button',
+      'reset'
+    ]);
+
+    const CASE_SENSITIVE_FIELD_RX =
+      /(^|[-_\s])(username|login|pass|password|clave|pwd|email|mail|correo|url|link|webhook|token|secret|apikey|sid|twilio|usuario[-_]?web|slug|dominio|domain|host|raw[-_]?text)([-_\s]|$)/i;
+
+    function isEditableInputOrTextarea(el) {
+      if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return false;
+      if (el.readOnly || el.disabled) return false;
+      if (el.tagName === 'INPUT') {
+        const t = String(el.type || 'text').toLowerCase();
+        if (['hidden', 'checkbox', 'radio', 'submit', 'button', 'reset', 'file', 'color', 'range'].includes(t)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function shouldAutoUppercaseField(el) {
+      if (!isEditableInputOrTextarea(el)) return false;
+      if (
+        el.dataset.preserveCase === 'true' ||
+        el.dataset.lowercase === 'true' ||
+        el.classList.contains('preserve-case-input')
+      ) {
+        return false;
+      }
+      if (el.tagName === 'INPUT') {
+        const t = String(el.type || 'text').toLowerCase();
+        if (NON_TEXT_INPUT_TYPES.has(t)) return false;
+      }
+      const key = `${el.id || ''} ${el.name || ''}`;
+      if (CASE_SENSITIVE_FIELD_RX.test(key)) return false;
+      return true;
+    }
+
+    function applyUppercasePreservingCaret(el) {
+      if (!shouldAutoUppercaseField(el)) return;
+      if (!el.classList.contains('auto-upper-field')) {
+        el.classList.add('auto-upper-field');
+      }
+      const val = String(el.value ?? '');
+      const upper = val.toUpperCase();
+      if (val !== upper) {
+        const start = el.selectionStart;
+        const end = el.selectionEnd;
+        el.value = upper;
+        if (typeof start === 'number' && typeof end === 'number') {
+          try {
+            el.setSelectionRange(start, end);
+          } catch {}
+        }
+      }
+    }
+
+    // Marcar visualmente todos los campos editables ya presentes en el DOM
+    document.querySelectorAll('input, textarea').forEach((el) => {
+      if (shouldAutoUppercaseField(el)) {
+        el.classList.add('auto-upper-field');
+      }
+    });
+
+    document.addEventListener(
+      'input',
+      (e) => {
+        if (e.isComposing) return;
+        const el = e.target;
+        if (shouldAutoUppercaseField(el)) {
+          applyUppercasePreservingCaret(el);
+        }
+      },
+      true
+    );
+
+    document.addEventListener(
+      'compositionend',
+      (e) => {
+        const el = e.target;
+        if (shouldAutoUppercaseField(el)) {
+          applyUppercasePreservingCaret(el);
+        }
+      },
+      true
+    );
+
+    document.addEventListener(
+      'change',
+      (e) => {
+        const el = e.target;
+        if (shouldAutoUppercaseField(el)) {
+          applyUppercasePreservingCaret(el);
+        }
+      },
+      true
+    );
+
+    // Borrado automático de ejemplos (placeholders + valores ejemplo/cero) al enfocar
+    document.addEventListener(
+      'focusin',
+      (e) => {
+        const el = e.target;
+        if (!isEditableInputOrTextarea(el)) return;
+
+        if (shouldAutoUppercaseField(el)) {
+          el.classList.add('auto-upper-field');
+        }
+
+        // 1) Ocultar/borrar placeholder de ejemplo al enfocar (respaldado además por CSS)
+        if (el.hasAttribute('placeholder') && el.placeholder !== '') {
+          el.dataset.msSavedPlaceholder = el.placeholder;
+          el.placeholder = '';
+        }
+
+        // 2) Borrar automáticamente valores literales de ejemplo ("Ej: ...", "...", "00.000.000") o ceros por defecto ("0", "0.00", "0,00")
+        if (el.tagName === 'INPUT') {
+          const curVal = String(el.value ?? '');
+          const isNumericZeroField =
+            String(el.type || '').toLowerCase() === 'number' ||
+            el.classList.contains('price-input') ||
+            el.inputMode === 'decimal' ||
+            /^(?:0|0[.,]00)$/.test(curVal.trim());
+
+          if (/^\s*ej(?:emplo)?[:.\s]/i.test(curVal)) {
+            el.value = '';
+          } else if (/^\s*(?:\.{3}|00\.000\.000)\s*$/.test(curVal)) {
+            el.dataset.msRestoreDefaultVal = curVal;
+            el.value = '';
+          } else if (isNumericZeroField && /^\s*0(?:[.,]0+)?\s*$/.test(curVal)) {
+            el.dataset.msRestoreZeroVal = curVal;
+            el.value = '';
+          }
+        }
+      },
+      true
+    );
+
+    document.addEventListener(
+      'focusout',
+      (e) => {
+        const el = e.target;
+        if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;
+
+        if (shouldAutoUppercaseField(el)) {
+          applyUppercasePreservingCaret(el);
+        }
+
+        if (el.dataset.msSavedPlaceholder !== undefined) {
+          if (el.placeholder === '') {
+            el.placeholder = el.dataset.msSavedPlaceholder;
+          }
+          delete el.dataset.msSavedPlaceholder;
+        }
+
+        if (el.dataset.msRestoreZeroVal !== undefined) {
+          if (String(el.value ?? '').trim() === '') {
+            el.value = el.dataset.msRestoreZeroVal;
+          }
+          delete el.dataset.msRestoreZeroVal;
+        }
+
+        if (el.dataset.msRestoreDefaultVal !== undefined) {
+          if (String(el.value ?? '').trim() === '') {
+            el.value = el.dataset.msRestoreDefaultVal;
+          }
+          delete el.dataset.msRestoreDefaultVal;
+        }
+      },
+      true
+    );
   })();
 
   // PWA Install button

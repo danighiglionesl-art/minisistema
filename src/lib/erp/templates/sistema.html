@@ -4356,6 +4356,15 @@
           </div>
         </div>
 
+        <div id="abm-marca-return-to-art-bar" class="config-precios-bar" style="justify-content:space-between; margin-block-end:1rem;" hidden>
+          <span id="abm-marca-return-to-art-text" style="font-size:0.88rem; color:var(--gold-dark); font-weight:700;">
+            🏷️ Abriste ABM de Marca desde la Ficha / Duplicación de Producto. Al finalizar, volvé sin perder los datos cargados.
+          </span>
+          <button type="button" id="btn-return-to-article-modal" class="btn-primary btn-sm" style="width:auto;">
+            ← Volver a la Ficha del Producto
+          </button>
+        </div>
+
         <div class="kpi-strip">
           <div class="kpi-box kpi-box--gold">
             <span class="kpi-label">Marcas Activas</span>
@@ -13520,7 +13529,7 @@
                     type="text"
                     id="art-nombre"
                     name="nombre"
-                    class="form-input"
+                    class="form-input uppercase-input"
                     placeholder="Ej: TERMA AMARGO SERRANO CERO X 1.35 LT"
                     required
                   >
@@ -13540,8 +13549,18 @@
                   <label for="art-marca" class="form-label">Marca</label>
                   <div class="geo-select-group">
                     <select id="art-marca" class="form-select"></select>
-                    <button type="button" id="btn-add-marca-art" class="btn-geo-plus" title="Dar de alta una nueva marca">+</button>
+                    <button
+                      type="button"
+                      id="btn-add-marca-art"
+                      class="btn-geo-plus btn-abm-marca-trigger"
+                      title="Abrir ABM de Marca para dar de alta, buscar o reactivar una marca sin perder esta ficha"
+                    >
+                      🏷️ ABM
+                    </button>
                   </div>
+                  <span class="field-hint">
+                    ¿No existe la marca? Abrí <strong>🏷️ ABM</strong> para crearla y seleccionarla al instante.
+                  </span>
                 </div>
 
                 <div class="form-group">
@@ -18907,6 +18926,99 @@
         </button>
       </footer>
     </form>
+  </dialog>
+
+  <!-- MODAL EMERGENTE ABM DE MARCA DESDE FICHA / DUPLICAR PRODUCTO -->
+  <dialog id="quick-abm-marca-dialog" class="erp-dialog" closedby="any" aria-labelledby="quick-abm-marca-dialog-title" style="max-inline-size:680px; width:96vw;">
+    <div class="dialog-form">
+      <header class="dialog-header">
+        <div class="dialog-title-wrap" style="flex-direction:column; align-items:flex-start; gap:0.25rem;">
+          <span class="badge badge--gold">ABM DE MARCA</span>
+          <h2 id="quick-abm-marca-dialog-title" style="margin:0; font-size:1.08rem;">Alta, Búsqueda y Selección de Marca</h2>
+        </div>
+        <button type="button" id="btn-close-quick-abm-marca" class="btn-icon-close" aria-label="Cerrar ABM de Marca">✕</button>
+      </header>
+
+      <div class="dialog-body">
+        <form id="quick-abm-marca-form" class="erp-fieldset" style="margin-block-end:1rem;" novalidate>
+          <legend class="erp-legend">Dar de Alta Nueva Marca (se selecciona automáticamente en el producto)</legend>
+          <div class="form-row form-row--code-name" style="align-items:end;">
+            <div class="form-group" style="margin-block-end:0;">
+              <label for="quick-abm-marca-codigo" class="form-label">
+                Código<span class="required-mark">*</span>
+              </label>
+              <div class="code-field-row">
+                <input
+                  type="text"
+                  id="quick-abm-marca-codigo"
+                  class="form-input code-mono-input uppercase-input"
+                  placeholder="EJ: 2600"
+                  autocomplete="off"
+                  required
+                >
+                <button type="button" id="btn-quick-abm-marca-free-code" class="btn-secondary" title="Asignar próximo código libre">
+                  ⚡ Libre
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-block-end:0;">
+              <label for="quick-abm-marca-nombre" class="form-label">
+                Nombre de la Marca<span class="required-mark">*</span>
+              </label>
+              <div class="code-field-row">
+                <input
+                  type="text"
+                  id="quick-abm-marca-nombre"
+                  class="form-input uppercase-input"
+                  placeholder="EJ: LA SERENÍSIMA / ARCOR / COCA-COLA..."
+                  autocomplete="off"
+                  required
+                >
+                <button type="submit" id="btn-save-quick-abm-marca" class="btn-primary" style="width:auto; white-space:nowrap;">
+                  💾 Guardar y Usar
+                </button>
+              </div>
+            </div>
+          </div>
+          <div id="quick-abm-marca-alert" class="form-alert" role="alert" hidden style="margin-block-start:0.75rem; margin-block-end:0;"></div>
+        </form>
+
+        <div class="form-group" style="margin-block-end:0.75rem;">
+          <label for="quick-abm-marca-search" class="form-label">Buscar en el Padrón de Marcas Existentes</label>
+          <input
+            type="search"
+            id="quick-abm-marca-search"
+            class="form-input uppercase-input"
+            placeholder="EJ: ARCOR, MAROLIO, LA SERENÍSIMA..."
+            autocomplete="off"
+          >
+        </div>
+
+        <div tabindex="0" role="region" aria-label="Listado rápido de marcas" class="table-wrapper" style="max-block-size: min(300px, 40vh);">
+          <table class="catalog-table">
+            <thead>
+              <tr>
+                <th scope="col" style="width:90px;">Código</th>
+                <th scope="col">Marca</th>
+                <th scope="col" style="width:95px;">Estado</th>
+                <th scope="col" style="width:170px;">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="quick-abm-marca-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <footer class="dialog-footer" style="justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+        <button type="button" id="btn-quick-abm-marca-fullscreen" class="btn-secondary" style="width:auto;">
+          ↗ Ir a Pantalla Completa ABM Marca
+        </button>
+        <button type="button" id="btn-cancel-quick-abm-marca" class="btn-secondary" style="width:auto;">
+          Cerrar
+        </button>
+      </footer>
+    </div>
   </dialog>
 
   <!-- MODAL EMERGENTE PARA MODIFICAR RUBRO -->

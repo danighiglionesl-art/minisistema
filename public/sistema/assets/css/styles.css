@@ -2184,6 +2184,19 @@ html[data-theme="dark"] #art-alicuota:disabled {
   border-color: var(--gold-main);
 }
 
+.btn-abm-marca-trigger {
+  min-width: auto;
+  padding: 0 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+  gap: 0.25rem;
+}
+
+.auto-upper-field {
+  text-transform: uppercase;
+}
+
 .phone-intl-group {
   display: flex;
   align-items: stretch;
@@ -10763,9 +10776,17 @@ body.is-col-resizing-active * {
   border-color: var(--gold-dark, #b78b1e) !important;
 }
 
-/* Auto-ocultar ejemplos / placeholders al enfocar cualquier campo de entrada */
+/* Auto-ocultar ejemplos / placeholders al enfocar cualquier campo de entrada (Claro y Oscuro) */
 input:focus::placeholder,
-textarea:focus::placeholder {
+textarea:focus::placeholder,
+input:focus::-webkit-input-placeholder,
+textarea:focus::-webkit-input-placeholder,
+input:focus::-moz-placeholder,
+textarea:focus::-moz-placeholder,
+html[data-theme="dark"] input:focus::placeholder,
+html[data-theme="dark"] textarea:focus::placeholder,
+html[data-theme="dark"] .form-input:focus::placeholder,
+html[data-theme="dark"] .fact-code-entry-input:focus::placeholder {
   color: transparent !important;
   opacity: 0 !important;
 }
