@@ -42098,6 +42098,7 @@ function initApp() {
         // Ignorar números pegados a letras de gramajes/códigos (ej. "55GR", "48X100GR", "2.25L", "A4")
         if (/[A-ZÁÉÍÓÚÑ]/i.test(prevCh) || /[A-ZÁÉÍÓÚÑ]/i.test(nextCh)) continue;
 
+        const hasCurrency = /^\$/.test(match[0].trim());
         const rawNum = match[1].replace(/^\$?\s*/, '').trim();
         const isPercent = match[2] === '%';
         const val = parseNumAr(rawNum);
@@ -42109,17 +42110,47 @@ function initApp() {
           index: match.index,
           endIndex: endIdx,
           isPercent,
+          hasCurrency,
           hasDecimals: /[.,]\d{1,4}$/.test(rawNum)
         });
       }
       return out;
     };
 
-    // Verifica si los tokens a la derecha de subIdx son columnas fiscales admisibles (IVA%, Percepción, Total c/IVA, 0.00)
+    // Detecta un código de proveedor al final de la línea (entero plano de 3-8 dígitos sin $ ni decimales)
+    // ubicado a la derecha de columnas monetarias explícitas (ej: "... $211658 700% 0.00 $8466 1170")
+    const isTrailingCodeToken = (tokens, tokIdx, refSubIdx = -1, refSubVal = 0) => {
+      if (!Array.isArray(tokens) || tokIdx !== tokens.length - 1 || tokIdx <= 0) return false;
+      const tk = tokens[tokIdx];
+      if (!tk || tk.hasCurrency || tk.hasDecimals || tk.isPercent) return false;
+      if (!/^\d{3,8}$/.test(tk.numStr)) return false;
+
+      if (refSubIdx >= 0 && tokens[refSubIdx]) {
+        const subTk = tokens[refSubIdx];
+        if (!subTk.hasCurrency && !subTk.hasDecimals) return false;
+        if (!subTk.hasCurrency && refSubVal > 0) {
+          const ratio = tk.val / Math.max(1, refSubVal);
+          if (ratio >= 1.08 && ratio <= 1.35) return false;
+        }
+        return true;
+      }
+
+      return tokens.slice(0, tokIdx).some((t) => !t.isPercent && (t.hasCurrency || (t.hasDecimals && t.val > 0)));
+    };
+
+    const extractTrailingSupplierCode = (tokens, subIdx, subVal) => {
+      if (subIdx < tokens.length - 1 && isTrailingCodeToken(tokens, tokens.length - 1, subIdx, subVal)) {
+        return tokens[tokens.length - 1].numStr;
+      }
+      return '';
+    };
+
+    // Verifica si los tokens a la derecha de subIdx son columnas fiscales admisibles (IVA%, Percepción, Total c/IVA, 0.00, o Cód. Prov. al final)
     const areTrailingAfterSubPlausible = (tokens, subIdx, subVal) => {
       for (let k = subIdx + 1; k < tokens.length; k++) {
         const tk = tokens[k];
         if (tk.isPercent || tk.val === 0) continue;
+        if (isTrailingCodeToken(tokens, k, subIdx, subVal)) continue;
         if (tk.val > 0 && tk.val <= 30) continue; // Ej: alícuota IVA 21.00 / 10.50 / 27.00
         const ratio = tk.val / Math.max(1, subVal);
         if (ratio >= 1.08 && ratio <= 1.35) continue; // Total con IVA / percepciones
@@ -42129,7 +42160,7 @@ function initApp() {
       return true;
     };
 
-    const matchTrailingPriceTokens = (restAfterQty, candidateQty, candidateCode) => {
+    const matchTrailingPriceTokens = (restAfterQty, candidateQty, candidateCode, { altLeadCodeRaw = '' } = {}) => {
       const alphaEndIdx = findLastAlphaEndIndex(restAfterQty);
       const allRestTokens = extractNumericTokens(restAfterQty);
       const trailing = allRestTokens.filter((t) => t.index >= alphaEndIdx);
@@ -42172,8 +42203,13 @@ function initApp() {
                     ? pIdx - 1
                     : pIdx;
               const rawDescSlice = restAfterQty.slice(0, trailing[cutTokenIdx].index);
-              const { desc: descCandidate, code: resolvedCode } = extractMidLineCodeAndDesc(rawDescSlice, candidateCode);
+              let { desc: descCandidate, code: resolvedCode } = extractMidLineCodeAndDesc(rawDescSlice, candidateCode);
               if (!/[A-ZÁÉÍÓÚÑ]/i.test(descCandidate)) continue;
+
+              const trailingCode = extractTrailingSupplierCode(trailing, subIdx, subTok.val);
+              if (!forceNoCode && trailingCode && (!resolvedCode || /^\d{1,2}$/.test(resolvedCode))) {
+                resolvedCode = trailingCode;
+              }
 
               // Penalizar enteros sueltos de descripción frente a importes con decimales
               let score = ev.priority * 100 + ev.relErr * 50;
@@ -42231,21 +42267,229 @@ function initApp() {
           }
         }
         if (best) return best;
+
+        // 1.B) Recuperación OCR de comas/puntos perdidos + Cód. Proveedor al final
+        // Resuelve renglones donde OCR perdió separadores decimales (ej: "400 24 CREMA LS ... $211658 700% 0.00 $8466 1170"
+        // -> Cant = 4,00, P.Unit = $2.116,58, Subtotal = $8.466,32, Cód. Prov = 1170) validando matemáticamente P × Q = Subtotal.
+        const getOcrAmountCandidates = (tok) => {
+          const list = [{ val: tok.val, scaled: false }];
+          if (
+            !tok.hasDecimals &&
+            !tok.isPercent &&
+            /^\d{4,8}$/.test(tok.numStr) &&
+            tok.val >= 1000 &&
+            (tok.hasCurrency || tok.val >= 10000)
+          ) {
+            list.push({ val: round2(tok.val / 100), scaled: true });
+          }
+          return list;
+        };
+
+        const qtyCandidates = [{ qty: candidateQty, consumesLeadCode: false, penalty: 0, isRecovered: false }];
+        if (
+          candidateQty >= 100 &&
+          candidateQty <= 50000 &&
+          Math.abs(candidateQty - Math.round(candidateQty)) < 0.001 &&
+          Math.round(candidateQty) % 100 === 0
+        ) {
+          qtyCandidates.push({
+            qty: Math.round(candidateQty) / 100,
+            consumesLeadCode: false,
+            penalty: 12,
+            isRecovered: true
+          });
+        }
+        const cleanAltLead = String(altLeadCodeRaw || '').trim();
+        if (/^\d{1,5}$/.test(cleanAltLead)) {
+          const leadNum = Number(cleanAltLead);
+          if (leadNum >= 100 && leadNum % 100 === 0 && leadNum / 100 >= 1 && leadNum / 100 <= 500) {
+            qtyCandidates.push({
+              qty: leadNum / 100,
+              consumesLeadCode: true,
+              penalty: 18,
+              isRecovered: true
+            });
+          } else if (leadNum >= 1 && leadNum <= 500 && cleanAltLead.length <= 3 && !/^0\d+/.test(cleanAltLead)) {
+            qtyCandidates.push({
+              qty: leadNum,
+              consumesLeadCode: true,
+              penalty: 24,
+              isRecovered: true
+            });
+          }
+        }
+
+        const hasLineOcrCommaDrop =
+          trailing.some((t) => t.isPercent && !t.hasDecimals && t.val >= 100 && t.val < 10000 && t.val % 100 === 0) ||
+          (candidateQty >= 100 && Math.abs(candidateQty - Math.round(candidateQty)) < 0.001 && Math.round(candidateQty) % 100 === 0) ||
+          (/^\d{3,5}$/.test(cleanAltLead) && Number(cleanAltLead) >= 100 && Number(cleanAltLead) % 100 === 0);
+
+        let bestOcr = null;
+        for (let pIdx = 0; pIdx < trailing.length - 1; pIdx++) {
+          const pTok = trailing[pIdx];
+          if (pTok.isPercent || !(pTok.val > 0)) continue;
+          const pCands = getOcrAmountCandidates(pTok);
+
+          for (let subIdx = pIdx + 1; subIdx < trailing.length; subIdx++) {
+            const subTok = trailing[subIdx];
+            if (subTok.isPercent || !(subTok.val > 0)) continue;
+            const subCands = getOcrAmountCandidates(subTok);
+
+            const bonifCands = [{ val: 0, tokIdx: -1, scaled: false }];
+            for (let bIdx = pIdx + 1; bIdx < subIdx; bIdx++) {
+              const midTok = trailing[bIdx];
+              if (midTok.val > 0 && midTok.val < 100) {
+                bonifCands.push({ val: midTok.val, tokIdx: bIdx, scaled: false });
+              } else if (
+                midTok.isPercent &&
+                !midTok.hasDecimals &&
+                midTok.val >= 100 &&
+                midTok.val < 10000 &&
+                midTok.val % 100 === 0
+              ) {
+                bonifCands.push({ val: midTok.val / 100, tokIdx: bIdx, scaled: true });
+              }
+            }
+
+            for (const pCand of pCands) {
+              for (const subCand of subCands) {
+                if ((pCand.scaled || subCand.scaled) && !(pTok.hasCurrency || subTok.hasCurrency || pTok.hasDecimals || subTok.hasDecimals)) {
+                  continue;
+                }
+                if ((pCand.scaled || subCand.scaled) && (pCand.val < 10 || subCand.val < 10)) continue;
+                if (!areTrailingAfterSubPlausible(trailing, subIdx, subCand.val)) continue;
+
+                // Construir lista de cantidades a probar, incluyendo inferencia exacta Q = Sub / P cuando ambos llevan '$'
+                const localQtyCands = [...qtyCandidates];
+                const allowInferredQty =
+                  pTok.hasCurrency &&
+                  subTok.hasCurrency &&
+                  pCand.val >= 10 &&
+                  subCand.val >= pCand.val * 0.95 &&
+                  // Evitar dividir un subtotal de 6+ dígitos sin escalar (ej. $787368) por un precio ya escalado ÷100 (infla Q ×100)
+                  !(pCand.scaled && !subCand.scaled && !subTok.hasDecimals && subTok.numStr.length >= 6);
+                if (allowInferredQty) {
+                  const ratioQ = subCand.val / pCand.val;
+                  const roundedQ = Math.round(ratioQ);
+                  if (
+                    roundedQ >= 1 &&
+                    roundedQ <= 500 &&
+                    Math.abs(roundedQ * pCand.val - subCand.val) <= Math.max(1.0, subCand.val * 0.003) &&
+                    !localQtyCands.some((qc) => Math.abs(qc.qty - roundedQ) < 0.001)
+                  ) {
+                    const matchesLeadDiv100 = Boolean(cleanAltLead && Number(cleanAltLead) === roundedQ * 100);
+                    localQtyCands.push({
+                      qty: roundedQ,
+                      consumesLeadCode: matchesLeadDiv100,
+                      penalty: matchesLeadDiv100 ? 16 : 32,
+                      isRecovered: true
+                    });
+                  }
+                }
+
+                for (const qtyCand of localQtyCands) {
+                  for (const bCand of bonifCands) {
+                    if (!pCand.scaled && !subCand.scaled && !qtyCand.isRecovered && !bCand.scaled) continue;
+                    const ev = evalPxQPair(qtyCand.qty, pCand.val, subCand.val, bCand.val);
+                    if (!ev) continue;
+
+                    const cutTokenIdx =
+                      pIdx > 0 && trailing[pIdx - 1].isPercent ? pIdx - 1 : pIdx;
+                    const rawDescSlice = restAfterQty.slice(0, trailing[cutTokenIdx].index);
+                    const baseCode = qtyCand.consumesLeadCode ? '' : candidateCode;
+                    let { desc: descCandidate, code: resolvedCode } = extractMidLineCodeAndDesc(rawDescSlice, baseCode);
+                    if (!/[A-ZÁÉÍÓÚÑ]/i.test(descCandidate)) continue;
+
+                    const trailingCode = extractTrailingSupplierCode(trailing, subIdx, subCand.val);
+                    if (!forceNoCode && trailingCode && (!resolvedCode || /^\d{1,2}$/.test(resolvedCode))) {
+                      resolvedCode = trailingCode;
+                    }
+
+                    let score = ev.priority * 100 + ev.relErr * 50 + qtyCand.penalty;
+                    if (!pTok.hasCurrency) score += 15;
+                    if (!subTok.hasCurrency) score += 15;
+                    if (pCand.scaled) score += 6;
+                    if (subCand.scaled) score += 6;
+                    // Si el renglón muestra pérdida sistemática de comas OCR (ej. 400=4,00 y 700%=7,00%),
+                    // preferir escalar ambos importes '$' sin decimales ($211658 y $846632 -> $2.116,58 y $8.466,32)
+                    if (hasLineOcrCommaDrop && pCand.scaled && subCand.scaled && pTok.hasCurrency && subTok.hasCurrency) {
+                      score -= 22;
+                    }
+                    if (trailingCode) score -= 10;
+                    score -= pIdx * 0.5;
+
+                    const finalUnitPrice =
+                      ev.mode === 'net_bonif'
+                        ? round2(subCand.val / qtyCand.qty)
+                        : ev.exactUnit !== null
+                          ? ev.exactUnit
+                          : round2(pCand.val);
+
+                    const finalSubVal =
+                      !subTok.hasDecimals &&
+                      !subCand.scaled &&
+                      ev.mode === 'net_direct' &&
+                      Math.abs(qtyCand.qty * finalUnitPrice - subCand.val) < 1.0
+                        ? round2(qtyCand.qty * finalUnitPrice)
+                        : round2(subCand.val);
+
+                    if (!bestOcr || score < bestOcr.score) {
+                      bestOcr = {
+                        score,
+                        codProveedor: resolvedCode,
+                        descripcionFactura: descCandidate,
+                        cantidad: round2(qtyCand.qty),
+                        precioUnitario: finalUnitPrice,
+                        bonifPct: ev.bonifUsed,
+                        subtotalFactura: finalSubVal,
+                        hasExplicitSubtotalCol: true,
+                        pxqVerified: true
+                      };
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        if (bestOcr) return bestOcr;
       }
 
       // 2) Sin coincidencia exacta P×Q (ej. factura de 1 sola columna de precio o dígito mal leído por OCR):
       const nonPctTrailing = trailing.filter((t) => !t.isPercent);
       const prefixBeforeFirst =
         nonPctTrailing.length > 0 ? restAfterQty.slice(0, nonPctTrailing[0].index).trim() : '';
-      const workingTrailing =
+      let workingTrailing =
         nonPctTrailing.length >= 2 && /\bX$/i.test(prefixBeforeFirst)
           ? nonPctTrailing.slice(1)
           : nonPctTrailing;
 
-      if (workingTrailing.length >= 2) {
-        const pTok = workingTrailing[workingTrailing.length - 2];
-        const subTok = workingTrailing[workingTrailing.length - 1];
-        const descStr = cleanDescText(restAfterQty.slice(0, pTok.index));
+      // Si el último token es un código de proveedor plano (sin $ ni decimales) detrás de montos monetarios, jamás tomarlo como precio
+      let fallbackTrailingCode = '';
+      if (workingTrailing.length >= 2 && isTrailingCodeToken(workingTrailing, workingTrailing.length - 1)) {
+        fallbackTrailingCode = workingTrailing[workingTrailing.length - 1].numStr;
+        workingTrailing = workingTrailing.slice(0, -1);
+      }
+
+      // Si hay montos explícitos con '$', priorizarlos sobre ceros intermedios (ej. "$211658 700% 0.00 $8466")
+      const currencyWorking = workingTrailing.filter((t) => t.hasCurrency && t.val > 0);
+      const effectiveWorking = currencyWorking.length >= 1 ? currencyWorking : workingTrailing;
+      const firstMonetaryIdx =
+        effectiveWorking.length > 0
+          ? effectiveWorking[0].index
+          : workingTrailing.length > 0
+            ? workingTrailing[0].index
+            : restAfterQty.length;
+      const resolvedFallbackCode =
+        !forceNoCode && (!candidateCode || /^\d{1,2}$/.test(candidateCode)) && fallbackTrailingCode
+          ? fallbackTrailingCode
+          : candidateCode;
+
+      if (effectiveWorking.length >= 2) {
+        const pTok = effectiveWorking[effectiveWorking.length - 2];
+        const subTok = effectiveWorking[effectiveWorking.length - 1];
+        const descSliceIdx = Math.min(firstMonetaryIdx, pTok.index);
+        const descStr = cleanDescText(restAfterQty.slice(0, descSliceIdx));
         if (/[A-ZÁÉÍÓÚÑ]/i.test(descStr) && pTok.val > 0 && subTok.val >= pTok.val * 0.85) {
           let resolvedQty = round2(candidateQty);
           let resolvedUnit = round2(pTok.val);
@@ -42271,7 +42515,7 @@ function initApp() {
             resolvedVerified = true;
           }
           return {
-            codProveedor: candidateCode,
+            codProveedor: resolvedFallbackCode,
             descripcionFactura: descStr,
             cantidad: resolvedQty,
             precioUnitario: resolvedUnit,
@@ -42283,12 +42527,13 @@ function initApp() {
         }
       }
 
-      if (workingTrailing.length >= 1) {
-        const pTok = workingTrailing[workingTrailing.length - 1];
-        const descStr = cleanDescText(restAfterQty.slice(0, pTok.index));
+      if (effectiveWorking.length >= 1) {
+        const pTok = effectiveWorking[effectiveWorking.length - 1];
+        const descSliceIdx = Math.min(firstMonetaryIdx, pTok.index);
+        const descStr = cleanDescText(restAfterQty.slice(0, descSliceIdx));
         if (/[A-ZÁÉÍÓÚÑ]/i.test(descStr) && pTok.val > 0) {
           return {
-            codProveedor: candidateCode,
+            codProveedor: resolvedFallbackCode,
             descripcionFactura: descStr,
             cantidad: round2(candidateQty),
             precioUnitario: round2(pTok.val),
@@ -42435,7 +42680,9 @@ function initApp() {
       const restAfterQty = layoutAMatch[3].trim();
 
       if (isFinite(candidateQty) && candidateQty > 0 && candidateQty <= 50000) {
-        const resA = matchTrailingPriceTokens(restAfterQty, candidateQty, candidateCode);
+        const resA = matchTrailingPriceTokens(restAfterQty, candidateQty, candidateCode, {
+          altLeadCodeRaw: layoutAMatch[1]
+        });
         if (resA) {
           if (resA.pxqVerified) return resA;
           fallbackResA = resA;
