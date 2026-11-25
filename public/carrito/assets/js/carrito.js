@@ -711,7 +711,7 @@
         .filter((a) => a.bl !== 1);
 
       state.allArticulos = mappedActive;
-      const onlyInStockStore = data.carritoWebStockMode === 'solo_con_stock';
+      const onlyInStockStore = data.carritoWebStockMode !== 'todos_sin_stock';
       state.carritoWebStockMode = onlyInStockStore ? 'solo_con_stock' : 'todos_sin_stock';
       state.articulos = mappedActive.filter((a) => a.cw === 1 && (!onlyInStockStore || a.sf > 0));
 

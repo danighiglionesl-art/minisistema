@@ -172,6 +172,12 @@ export async function handleErpCatalog(
 
     const db = applyPendingStockDeltas(rawDb, pendingStockEvents, false);
 
+    const carritoWebStockMode =
+      db.carritoWebStockMode === "todos_sin_stock"
+        ? "todos_sin_stock"
+        : "solo_con_stock";
+    const onlyInStock = carritoWebStockMode === "solo_con_stock";
+
     const arts = Array.isArray(db.articulos) ? db.articulos : [];
     const storeArts = arts
       .filter((a: AnyObj) => {
@@ -179,7 +185,9 @@ export async function handleErpCatalog(
         const bl = Number(a.bl ?? 0);
         const cw =
           a.cw === 0 || a.cw === false || a.cw === "0" ? 0 : 1;
-        return bl !== 1 && cw === 1 && Number(a.id) !== 4407;
+        if (bl === 1 || cw !== 1 || Number(a.id) === 4407) return false;
+        if (onlyInStock && round3(a.sf ?? 0) <= 0) return false;
+        return true;
       })
       .map((a: AnyObj) => ({
         id: Number(a.id || 0),
@@ -202,6 +210,8 @@ export async function handleErpCatalog(
     const storePayload = {
       ok: true,
       updatedAt: db.updatedAt || new Date().toISOString(),
+      carritoWebStockMode,
+      fidelizacionCatalogConfig: db.fidelizacionCatalogConfig || null,
       totalArticulos: storeArts.length,
       rubros: Array.isArray(db.rubros) ? db.rubros : [],
       marcas: Array.isArray(db.marcas) ? db.marcas : [],
@@ -933,7 +943,19 @@ export async function handleErpCatalog(
       );
     }
 
+    if (postAction === "set_carrito_web_stock_mode") {
+      const nextMode =
+        payload.mode === "todos_sin_stock" ? "todos_sin_stock" : "solo_con_stock";
+      db.carritoWebStockMode = nextMode;
+      return saveMetaKeysAndReply(
+        "set_carrito_web_stock_mode",
+        { carritoWebStockMode: nextMode },
+        { carritoWebStockMode: nextMode }
+      );
+    }
+
     if (postAction === "bulk_set_carrito_web") {
+      const allActive = Boolean(payload.allActive);
       const ids = new Set(
         (Array.isArray(payload.ids) ? payload.ids : []).map((x: unknown) =>
           Number(x)
@@ -942,14 +964,34 @@ export async function handleErpCatalog(
       const val = payload.cw ? 1 : 0;
       const modifiedArts: AnyObj[] = [];
       for (const art of db.articulos) {
-        if (ids.has(Number(art.id))) {
+        if (!art || typeof art !== "object") continue;
+        const aid = Number(art.id || 0);
+        const isTarget = allActive
+          ? Number(art.bl ?? 0) !== 1 &&
+            (val === 0 || (aid !== 4407 && Number(art.r ?? 0) !== 3))
+          : ids.has(aid);
+        if (isTarget && Number(art.cw ?? 1) !== val) {
           art.cw = val;
           modifiedArts.push(art);
         }
       }
+      if (modifiedArts.length === 0) {
+        return NextResponse.json({
+          ok: true,
+          updated: 0,
+          totalCarritoWeb: db.articulos.filter(
+            (a: AnyObj) => !a.bl && Number(a.cw ?? 1) === 1
+          ).length,
+        });
+      }
+      if (modifiedArts.length > 500) {
+        return saveAndReply("bulk_set_carrito_web", {
+          updated: modifiedArts.length,
+        });
+      }
       return saveArticlesAndReply(
         "bulk_set_carrito_web",
-        { updated: ids.size },
+        { updated: modifiedArts.length },
         { upserts: modifiedArts }
       );
     }

@@ -2243,7 +2243,7 @@ async function loadCatalogDatabase(forceReload = false) {
   STATE.fpSupplierConfigs =
     data.fpSupplierConfigs && typeof data.fpSupplierConfigs === 'object' ? data.fpSupplierConfigs : {};
   STATE.carritoWebStockMode =
-    data.carritoWebStockMode === 'solo_con_stock' ? 'solo_con_stock' : 'todos_sin_stock';
+    data.carritoWebStockMode === 'todos_sin_stock' ? 'todos_sin_stock' : 'solo_con_stock';
   if (data.fidelizacionCatalogConfig && typeof data.fidelizacionCatalogConfig === 'object') {
     if (Number(data.fidelizacionCatalogConfig.factorCanje) > 0) {
       STATE.fidelizacionConfig.factorCanje = Number(data.fidelizacionCatalogConfig.factorCanje);
@@ -8295,6 +8295,7 @@ async function bulkSetCarritoWebForFiltered(cwVal) {
   if (applyToAllActive) {
     STATE.articulos.forEach((a) => {
       if (Number(a.bl) !== 1) {
+        if (cwVal === 1 && (Number(a.id) === 4407 || Number(a.r) === 3)) return;
         a.cw = cwVal;
       }
     });
@@ -8313,7 +8314,7 @@ async function bulkSetCarritoWebForFiltered(cwVal) {
   if (btnUnpub) btnUnpub.disabled = true;
 
   try {
-    await fetch('api/catalog.php', {
+    const res = await fetch('api/catalog.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(
@@ -8330,7 +8331,13 @@ async function bulkSetCarritoWebForFiltered(cwVal) {
             }
       )
     });
-  } catch {}
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || !json.ok) {
+      window.alert((json && json.message) || 'No se pudo guardar la actualización masiva de Carrito Web en el servidor.');
+    }
+  } catch {
+    window.alert('Error de conexión al guardar la actualización masiva de Carrito Web.');
+  }
 
   if (btnPub) btnPub.disabled = false;
   if (btnUnpub) btnUnpub.disabled = false;
@@ -8341,7 +8348,7 @@ async function bulkSetCarritoWebForFiltered(cwVal) {
 }
 
 async function toggleCarritoWebStockPubMode() {
-  const currMode = STATE.carritoWebStockMode === 'solo_con_stock' ? 'solo_con_stock' : 'todos_sin_stock';
+  const currMode = STATE.carritoWebStockMode === 'todos_sin_stock' ? 'todos_sin_stock' : 'solo_con_stock';
   const nextMode = currMode === 'solo_con_stock' ? 'todos_sin_stock' : 'solo_con_stock';
   STATE.carritoWebStockMode = nextMode;
 
@@ -8349,7 +8356,7 @@ async function toggleCarritoWebStockPubMode() {
   if (btnMode) btnMode.disabled = true;
 
   try {
-    await fetch('api/catalog.php', {
+    const res = await fetch('api/catalog.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -8357,7 +8364,15 @@ async function toggleCarritoWebStockPubMode() {
         mode: nextMode
       })
     });
-  } catch {}
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || !json.ok) {
+      STATE.carritoWebStockMode = currMode;
+      window.alert((json && json.message) || 'No se pudo cambiar el modo de publicación por stock en el servidor.');
+    }
+  } catch {
+    STATE.carritoWebStockMode = currMode;
+    window.alert('Error de conexión al cambiar el modo de publicación por stock.');
+  }
 
   if (btnMode) btnMode.disabled = false;
 
