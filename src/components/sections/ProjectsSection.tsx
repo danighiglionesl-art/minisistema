@@ -44,6 +44,13 @@ const COMPLETED_PROJECTS_CAROUSEL: CompletedProjectItem[] = [
     image: "/projects/paseo-alberdi.jpg",
   },
   {
+    id: "feriarte",
+    name: "FeriARTE",
+    displayUrl: "www.feriarte.com.ar",
+    href: "https://www.feriarte.com.ar/",
+    image: "/projects/feriarte.png",
+  },
+  {
     id: "club-fidel",
     name: "Club Fidel",
     displayUrl: "www.clubfidel.com.ar",
