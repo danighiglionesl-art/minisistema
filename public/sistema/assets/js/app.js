@@ -41042,6 +41042,7 @@ function initApp() {
     const frag = document.createDocumentFragment();
     visibleRows.forEach((row, idx) => {
       const tr = document.createElement('tr');
+      const art = row.matchedArt;
       const sanityAlerts = getInvoiceRowSanityAlerts({
         qty: row.cantidad,
         price: row.precioUnitario,
@@ -41067,8 +41068,6 @@ function initApp() {
       } else if (row.hasPxqAlert) {
         tr.style.background = 'rgba(220, 38, 38, 0.07)';
       }
-
-      const art = row.matchedArt;
 
       // COLUMNA 1: Cód. Proveedor y Descripción en Factura
       const tdProv = document.createElement('td');
