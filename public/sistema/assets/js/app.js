@@ -40804,9 +40804,181 @@ function initApp() {
     renderFpInvoiceTableAndAlerts();
   }
 
-  function renderFpInvoiceTableAndAlerts() {
+  /**
+   * Preserva la posición exacta de scroll (página + .table-wrapper / ancestros) y ancla el renglón editado
+   * al re-renderizar las tablas de Factura Proveedor / Solo Stock.
+   * Evita que en celular (iOS/Android) o escritorio la vista salte al primer producto (#1) al corregir,
+   * vincular o eliminar un artículo, y mantiene el foco si el usuario tocó directamente otra casilla.
+   */
+  const INVOICE_TABLE_TAP_TRACKER = new WeakMap();
+
+  function ensureInvoiceTableTapTracker(tbody) {
+    if (!tbody || tbody.dataset.invoiceTapTracked === '1') return;
+    tbody.dataset.invoiceTapTracked = '1';
+    const recordTap = (ev) => {
+      const target = ev.target && ev.target.closest ? ev.target.closest('[data-fp-field]') : null;
+      const tr = ev.target && ev.target.closest ? ev.target.closest('tr[data-row-id]') : null;
+      if (target && tr) {
+        INVOICE_TABLE_TAP_TRACKER.set(tbody, {
+          rowId: tr.dataset.rowId || '',
+          field: target.dataset.fpField || '',
+          ts: Date.now()
+        });
+      }
+    };
+    tbody.addEventListener('pointerdown', recordTap, { passive: true, capture: true });
+    tbody.addEventListener('touchstart', recordTap, { passive: true, capture: true });
+  }
+
+  function captureInvoiceTableScrollAnchor(tbody, opts = {}) {
+    if (!tbody) return null;
+    ensureInvoiceTableTapTracker(tbody);
+
+    const scrollers = [];
+    let el = tbody.parentElement;
+    while (el && el !== document.documentElement && el !== document.body) {
+      if (el.scrollTop > 0 || el.scrollLeft > 0 || el.scrollHeight > el.clientHeight + 2) {
+        scrollers.push({ el, top: el.scrollTop, left: el.scrollLeft });
+      }
+      el = el.parentElement;
+    }
+    const winX = window.scrollX || window.pageXOffset || 0;
+    const winY = window.scrollY || window.pageYOffset || 0;
+
+    const escapeId = (val) =>
+      typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(String(val))
+        : String(val).replace(/["\\]/g, '\\$&');
+
+    let anchorRowId = opts && opts.anchorRowId != null ? String(opts.anchorRowId) : '';
+    let anchorTr = anchorRowId ? tbody.querySelector(`tr[data-row-id="${escapeId(anchorRowId)}"]`) : null;
+
+    if (!anchorTr && document.activeElement && tbody.contains(document.activeElement)) {
+      const focusedTr = document.activeElement.closest('tr[data-row-id]');
+      if (focusedTr) {
+        anchorTr = focusedTr;
+        anchorRowId = focusedTr.dataset.rowId || '';
+      }
+    }
+
+    const wrapper = tbody.closest('.table-wrapper');
+    const viewBounds = wrapper
+      ? wrapper.getBoundingClientRect()
+      : { top: 0, bottom: window.innerHeight };
+
+    if (!anchorTr) {
+      const rowsEls = tbody.querySelectorAll('tr[data-row-id]');
+      for (const rEl of rowsEls) {
+        const rect = rEl.getBoundingClientRect();
+        if (rect.bottom > viewBounds.top + 8 && rect.top < viewBounds.bottom) {
+          anchorTr = rEl;
+          anchorRowId = rEl.dataset.rowId || '';
+          break;
+        }
+      }
+    }
+
+    let fallbackRowId = opts && opts.fallbackRowId != null ? String(opts.fallbackRowId) : '';
+    if (!fallbackRowId && anchorTr) {
+      const nextTr = anchorTr.nextElementSibling && anchorTr.nextElementSibling.matches('tr[data-row-id]')
+        ? anchorTr.nextElementSibling
+        : null;
+      const prevTr = anchorTr.previousElementSibling && anchorTr.previousElementSibling.matches('tr[data-row-id]')
+        ? anchorTr.previousElementSibling
+        : null;
+      fallbackRowId = (nextTr || prevTr)?.dataset?.rowId || '';
+    }
+
+    const anchorTopBefore = anchorTr ? anchorTr.getBoundingClientRect().top : null;
+    const primaryScroller =
+      scrollers.find((s) => s.el === wrapper && s.el.scrollHeight > s.el.clientHeight + 2) ||
+      scrollers.find((s) => s.el.scrollHeight > s.el.clientHeight + 2) ||
+      null;
+
+    // Si el usuario acaba de tocar otra casilla dentro de la tabla (disparando blur/change en la anterior), recordar destino
+    const lastTap = INVOICE_TABLE_TAP_TRACKER.get(tbody);
+    const pendingTapFocus =
+      lastTap && Date.now() - lastTap.ts <= 380 && lastTap.rowId && lastTap.field
+        ? { rowId: lastTap.rowId, field: lastTap.field }
+        : null;
+
+    return {
+      scrollers,
+      primaryScrollerEl: primaryScroller ? primaryScroller.el : null,
+      winX,
+      winY,
+      anchorRowId,
+      fallbackRowId,
+      anchorTopBefore,
+      pendingTapFocus,
+      skipRestore: Boolean(opts && opts.resetScroll)
+    };
+  }
+
+  function restoreInvoiceTableScrollAnchor(tbody, snap) {
+    if (!tbody || !snap || snap.skipRestore) return;
+
+    const escapeId = (val) =>
+      typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(String(val))
+        : String(val).replace(/["\\]/g, '\\$&');
+
+    const applyRestore = (allowFocus = false) => {
+      snap.scrollers.forEach((s) => {
+        if (s.el && document.contains(s.el)) {
+          s.el.scrollTop = s.top;
+          s.el.scrollLeft = s.left;
+        }
+      });
+      if (snap.winY > 0 || snap.winX > 0) {
+        window.scrollTo(snap.winX, snap.winY);
+      }
+
+      const targetId = snap.anchorRowId || snap.fallbackRowId;
+      if (targetId && snap.anchorTopBefore !== null) {
+        let newTr = tbody.querySelector(`tr[data-row-id="${escapeId(targetId)}"]`);
+        if (!newTr && snap.fallbackRowId && snap.fallbackRowId !== targetId) {
+          newTr = tbody.querySelector(`tr[data-row-id="${escapeId(snap.fallbackRowId)}"]`);
+        }
+        if (newTr) {
+          const deltaY = newTr.getBoundingClientRect().top - snap.anchorTopBefore;
+          if (Math.abs(deltaY) > 1.5) {
+            const scEl = snap.primaryScrollerEl;
+            if (scEl && document.contains(scEl) && scEl.scrollHeight > scEl.clientHeight + 2) {
+              scEl.scrollTop += deltaY;
+            } else {
+              window.scrollBy(0, deltaY);
+            }
+          }
+        }
+      }
+
+      if (allowFocus && snap.pendingTapFocus) {
+        const { rowId, field } = snap.pendingTapFocus;
+        const nextInp = tbody.querySelector(
+          `tr[data-row-id="${escapeId(rowId)}"] [data-fp-field="${escapeId(field)}"]`
+        );
+        if (nextInp && typeof nextInp.focus === 'function' && document.activeElement !== nextInp) {
+          try {
+            nextInp.focus({ preventScroll: true });
+          } catch {
+            nextInp.focus();
+          }
+        }
+      }
+    };
+
+    applyRestore(true);
+    requestAnimationFrame(() => {
+      applyRestore(false);
+      setTimeout(() => applyRestore(false), 75);
+    });
+  }
+
+  function renderFpInvoiceTableAndAlerts(renderOpts = {}) {
     const tbody = document.getElementById('fp-items-tbody');
     if (!tbody) return;
+    const scrollSnap = captureInvoiceTableScrollAnchor(tbody, renderOpts);
 
     const totalItems = FP_STATE.rows.length;
     let matchedCount = 0;
@@ -41025,7 +41197,6 @@ function initApp() {
       }
     }
 
-    tbody.textContent = '';
     if (visibleRows.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
@@ -41035,13 +41206,14 @@ function initApp() {
         ? 'Seleccioná un proveedor y subí una Factura o Remito (PDF / JPG), o hacé clic en <strong>"🧪 Simular Lectura IA de Factura Completa"</strong> para comenzar.'
         : 'No hay renglones que coincidan con el filtro seleccionado.';
       tr.appendChild(td);
-      tbody.appendChild(tr);
+      tbody.replaceChildren(tr);
       return;
     }
 
     const frag = document.createDocumentFragment();
     visibleRows.forEach((row, idx) => {
       const tr = document.createElement('tr');
+      tr.dataset.rowId = String(row.rowId);
       const art = row.matchedArt;
       const sanityAlerts = getInvoiceRowSanityAlerts({
         qty: row.cantidad,
@@ -41086,7 +41258,7 @@ function initApp() {
       chkInc.style.accentColor = 'var(--gold-dark)';
       chkInc.addEventListener('change', () => {
         row.included = chkInc.checked;
-        renderFpInvoiceTableAndAlerts();
+        renderFpInvoiceTableAndAlerts({ anchorRowId: row.rowId });
       });
       topLine.appendChild(chkInc);
 
@@ -41101,6 +41273,7 @@ function initApp() {
 
       const inpCodProv = document.createElement('input');
       inpCodProv.type = 'text';
+      inpCodProv.dataset.fpField = 'codProv';
       inpCodProv.className = 'form-input form-input--compact code-mono-input uppercase-input';
       inpCodProv.style.maxWidth = '125px';
       inpCodProv.placeholder = 'SIN CÓD. PROV.';
@@ -41118,7 +41291,7 @@ function initApp() {
           row.matchSource = 'none';
         }
         recalculateFpRow(row);
-        renderFpInvoiceTableAndAlerts();
+        renderFpInvoiceTableAndAlerts({ anchorRowId: row.rowId });
       });
       topLine.appendChild(inpCodProv);
       provStack.appendChild(topLine);
@@ -41226,6 +41399,7 @@ function initApp() {
 
       const inpSysCode = document.createElement('input');
       inpSysCode.type = 'text';
+      inpSysCode.dataset.fpField = 'sysCode';
       inpSysCode.className = 'form-input form-input--compact code-mono-input uppercase-input';
       inpSysCode.style.width = '120px';
       inpSysCode.placeholder = 'Cód. Sist (00112)';
@@ -41248,7 +41422,7 @@ function initApp() {
           row.unlinkedCodProv = false;
           if (row.codProveedor) row.saveCodProvLink = true;
           recalculateFpRow(row);
-          renderFpInvoiceTableAndAlerts();
+          renderFpInvoiceTableAndAlerts({ anchorRowId: row.rowId });
           if (typeof showToast === 'function') {
             if (alreadySame) {
               showToast(`Este renglón ya está vinculado a #${found.c} · ${found.n}. Escribí otro código o usá "🔎 Padrón" para cambiarlo.`);
@@ -41339,6 +41513,7 @@ function initApp() {
       const fpAllowFrac = art ? doesArticleAllowFraction(art) : false;
       const qtyInput = document.createElement('input');
       qtyInput.type = 'number';
+      qtyInput.dataset.fpField = 'qty';
       qtyInput.step = fpAllowFrac ? '0.01' : '1';
       qtyInput.min = fpAllowFrac ? '0.01' : '1';
       qtyInput.className = 'form-input form-input--compact';
@@ -41358,7 +41533,7 @@ function initApp() {
         row.rawParsedQty = row.cantidad;
         row.manualQtyEdited = true;
         recalculateFpRow(row);
-        renderFpInvoiceTableAndAlerts();
+        renderFpInvoiceTableAndAlerts({ anchorRowId: row.rowId });
       });
       stStack.appendChild(qtyInput);
 
@@ -41381,8 +41556,8 @@ function initApp() {
       }
 
       if (Array.isArray(row.sanityAlerts) && row.sanityAlerts.length > 0) {
-        qtyInput.style.borderColor = '#dc2626';
-        qtyInput.style.background = '#fef2f2';
+        qtyInput.style.borderColor = '#ef4444';
+        qtyInput.style.background = 'rgba(220, 38, 38, 0.16)';
         const sanityBadge = document.createElement('span');
         sanityBadge.style.display = 'inline-block';
         sanityBadge.style.marginTop = '0.2rem';
@@ -41416,6 +41591,7 @@ function initApp() {
 
       const priceInp = document.createElement('input');
       priceInp.type = 'number';
+      priceInp.dataset.fpField = 'price';
       priceInp.step = '0.01';
       priceInp.min = '0';
       priceInp.className = 'form-input form-input--compact';
@@ -41426,7 +41602,7 @@ function initApp() {
         row.manualPriceEdited = true;
         row.pxqAutoFixed = false;
         recalculateFpRow(row);
-        renderFpInvoiceTableAndAlerts();
+        renderFpInvoiceTableAndAlerts({ anchorRowId: row.rowId });
       });
       priceInputWrap.appendChild(priceInp);
       costoStack.appendChild(priceInputWrap);
@@ -41471,7 +41647,7 @@ function initApp() {
             row.manualPriceEdited = false;
             row.pxqDismissed = false;
             recalculateFpRow(row);
-            renderFpInvoiceTableAndAlerts();
+            renderFpInvoiceTableAndAlerts({ anchorRowId: row.rowId });
           });
           pxqBtnRow.appendChild(btnFixRowPxq);
         }
@@ -41484,7 +41660,7 @@ function initApp() {
         btnDismissPxq.addEventListener('click', () => {
           row.pxqDismissed = true;
           recalculateFpRow(row);
-          renderFpInvoiceTableAndAlerts();
+          renderFpInvoiceTableAndAlerts({ anchorRowId: row.rowId });
         });
         pxqBtnRow.appendChild(btnDismissPxq);
         pxqAlertBox.appendChild(pxqBtnRow);
@@ -41565,7 +41741,7 @@ function initApp() {
           row.manualPriceDecision = true;
           row.priceDecisionConfirmed = true;
           row.priceDecision = keepChk.checked ? 'mantener' : (row.hasPriceAlert ? 'bajar' : 'actualizar');
-          renderFpInvoiceTableAndAlerts();
+          renderFpInvoiceTableAndAlerts({ anchorRowId: row.rowId });
         });
         const keepSpan = document.createElement('span');
         keepSpan.textContent = 'Mantener precio Actual';
@@ -41630,8 +41806,13 @@ function initApp() {
       btnDelRow.setAttribute('aria-label', `Eliminar ítem #${orderPos}`);
       btnDelRow.textContent = '🗑️';
       btnDelRow.addEventListener('click', () => {
+        const curIdx = visibleRows.findIndex((x) => x.rowId === row.rowId);
+        const neighbor = visibleRows[curIdx + 1] || visibleRows[curIdx - 1] || null;
         FP_STATE.rows = FP_STATE.rows.filter((x) => x.rowId !== row.rowId);
-        renderFpInvoiceTableAndAlerts();
+        renderFpInvoiceTableAndAlerts({
+          anchorRowId: row.rowId,
+          fallbackRowId: neighbor ? neighbor.rowId : ''
+        });
       });
       tdTrash.appendChild(btnDelRow);
       tr.appendChild(tdTrash);
@@ -41639,7 +41820,8 @@ function initApp() {
       frag.appendChild(tr);
     });
 
-    tbody.appendChild(frag);
+    tbody.replaceChildren(frag);
+    restoreInvoiceTableScrollAnchor(tbody, scrollSnap);
   }
 
   function openFpSystemCodeSearchModal(rowId, initialQuery = '') {
@@ -41793,14 +41975,14 @@ function initApp() {
       btnPick.textContent = `✓ Usar #${art.c}`;
       btnPick.addEventListener('click', () => {
         const targetRow = FP_STATE.rows.find((r) => r.rowId === FP_STATE.activeSearchRowId);
+        document.getElementById('fp-sys-search-dialog')?.close();
         if (targetRow) {
           targetRow.matchedArtId = art.id;
           targetRow.manualSysCode = art.c;
           targetRow.matchSource = 'manual_cod_sistema';
           recalculateFpRow(targetRow);
-          renderFpInvoiceTableAndAlerts();
+          renderFpInvoiceTableAndAlerts({ anchorRowId: targetRow.rowId });
         }
-        document.getElementById('fp-sys-search-dialog')?.close();
       });
 
       const btnEditArt = document.createElement('button');
@@ -45443,9 +45625,10 @@ function initApp() {
     return demo;
   }
 
-  function renderFpsInvoiceTableAndAlerts() {
+  function renderFpsInvoiceTableAndAlerts(renderOpts = {}) {
     const tbody = document.getElementById('fps-items-tbody');
     if (!tbody) return;
+    const scrollSnap = captureInvoiceTableScrollAnchor(tbody, renderOpts);
 
     const totalItems = FPS_STATE.rows.length;
     let readyCount = 0;
@@ -45550,7 +45733,6 @@ function initApp() {
       }
     }
 
-    tbody.textContent = '';
     if (visibleRows.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
@@ -45561,7 +45743,7 @@ function initApp() {
           ? 'Seleccioná un proveedor y subí una Factura o Remito (PDF / JPG), o hacé clic en <strong>"🧪 Simular Lectura de Factura (Solo Stock)"</strong> para comenzar.'
           : 'No hay renglones que coincidan con el filtro seleccionado.';
       tr.appendChild(td);
-      tbody.appendChild(tr);
+      tbody.replaceChildren(tr);
       return;
     }
 
@@ -45570,6 +45752,7 @@ function initApp() {
 
     visibleRows.forEach((row, idx) => {
       const tr = document.createElement('tr');
+      tr.dataset.rowId = String(row.rowId);
       const art = row.matchedArt;
       const fpsSanityAlerts = getInvoiceRowSanityAlerts({
         qty: row.cantidad,
@@ -45604,7 +45787,7 @@ function initApp() {
       chkInc.style.accentColor = 'var(--gold-dark)';
       chkInc.addEventListener('change', () => {
         row.included = chkInc.checked;
-        renderFpsInvoiceTableAndAlerts();
+        renderFpsInvoiceTableAndAlerts({ anchorRowId: row.rowId });
       });
       topLine.appendChild(chkInc);
 
@@ -45619,6 +45802,7 @@ function initApp() {
 
       const inpCodProv = document.createElement('input');
       inpCodProv.type = 'text';
+      inpCodProv.dataset.fpField = 'codProv';
       inpCodProv.className =
         'form-input form-input--compact code-mono-input uppercase-input fps-cod-prov-inp' +
         (!row.codProveedor ? ' fps-cod-input--missing' : '');
@@ -45644,7 +45828,7 @@ function initApp() {
           }
         }
         recalculateFpsRow(row);
-        renderFpsInvoiceTableAndAlerts();
+        renderFpsInvoiceTableAndAlerts({ anchorRowId: row.rowId });
         if (openModalIfUnlinked && !row.isReady) {
           openFpsAssignProvCodeModal(row.rowId);
         }
@@ -45819,6 +46003,7 @@ function initApp() {
       const fpsAllowFrac = art ? doesArticleAllowFraction(art) : false;
       const qtyInp = document.createElement('input');
       qtyInp.type = 'number';
+      qtyInp.dataset.fpField = 'qty';
       qtyInp.step = fpsAllowFrac ? '0.01' : '1';
       qtyInp.min = fpsAllowFrac ? '0.01' : '1';
       qtyInp.className = 'form-input form-input--compact';
@@ -45836,7 +46021,7 @@ function initApp() {
           ? Math.max(0.01, round2(qtyInp.value))
           : Math.max(1, Math.round(Number(qtyInp.value) || 1));
         recalculateFpsRow(row);
-        renderFpsInvoiceTableAndAlerts();
+        renderFpsInvoiceTableAndAlerts({ anchorRowId: row.rowId });
       });
       stStack.appendChild(qtyInp);
 
@@ -45859,8 +46044,8 @@ function initApp() {
       }
 
       if (Array.isArray(row.sanityAlerts) && row.sanityAlerts.length > 0) {
-        qtyInp.style.borderColor = '#dc2626';
-        qtyInp.style.background = '#fef2f2';
+        qtyInp.style.borderColor = '#ef4444';
+        qtyInp.style.background = 'rgba(220, 38, 38, 0.16)';
         const sanityBadge = document.createElement('span');
         sanityBadge.style.display = 'inline-block';
         sanityBadge.style.marginTop = '0.2rem';
@@ -45946,8 +46131,13 @@ function initApp() {
       btnDel.style.marginTop = '0.2rem';
       btnDel.textContent = '✕ Quitar fila';
       btnDel.addEventListener('click', () => {
+        const curIdx = visibleRows.findIndex((x) => x.rowId === row.rowId);
+        const neighbor = visibleRows[curIdx + 1] || visibleRows[curIdx - 1] || null;
         FPS_STATE.rows = FPS_STATE.rows.filter((x) => x.rowId !== row.rowId);
-        renderFpsInvoiceTableAndAlerts();
+        renderFpsInvoiceTableAndAlerts({
+          anchorRowId: row.rowId,
+          fallbackRowId: neighbor ? neighbor.rowId : ''
+        });
       });
       actStack.appendChild(btnDel);
 
@@ -45957,7 +46147,8 @@ function initApp() {
       frag.appendChild(tr);
     });
 
-    tbody.appendChild(frag);
+    tbody.replaceChildren(frag);
+    restoreInvoiceTableScrollAnchor(tbody, scrollSnap);
   }
 
   function extractCleanSearchWordsFromInvoiceDesc(desc) {
