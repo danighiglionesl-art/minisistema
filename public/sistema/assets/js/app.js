@@ -49792,14 +49792,11 @@ function initApp() {
           </div>
         </td>
         <td class="actions-col">
-          <div style="display:flex; gap:0.35rem; justify-content:flex-end; flex-wrap:wrap;">
-            <button type="button" class="btn-gold btn-sm sn-btn-zero-one" data-art-id="${aid}" title="Poner el stock de este artículo en 0 inmediatamente">
-              ✓ A 0
-            </button>
-            <button type="button" class="btn-primary btn-sm sn-btn-save-one" data-art-id="${aid}" title="Guardar el Nuevo Stock ingresado en esta fila">
+          <div style="display:inline-flex; gap:0.4rem; align-items:center; justify-content:flex-end; flex-wrap:nowrap;">
+            <button type="button" class="btn-primary btn-sm sn-btn-save-one" data-art-id="${aid}" style="width:auto; white-space:nowrap;" title="Guardar el Nuevo Stock ingresado en esta fila">
               💾 Guardar
             </button>
-            <button type="button" class="btn-secondary btn-sm sn-btn-edit-art" data-art-id="${aid}" title="Abrir ficha completa del artículo">
+            <button type="button" class="btn-secondary btn-sm sn-btn-edit-art" data-art-id="${aid}" style="width:auto;" title="Abrir ficha completa del artículo">
               ✏️
             </button>
           </div>
