@@ -23554,6 +23554,192 @@ function initApp() {
     printWin.document.close();
   }
 
+  async function ensureHtml2PdfLibrary() {
+    if (typeof window.html2pdf === 'function') return true;
+    try {
+      await Promise.race([
+        new Promise((resolve, reject) => {
+          const existing = document.querySelector('script[src*="html2pdf.bundle"]');
+          if (existing) {
+            if (typeof window.html2pdf === 'function') {
+              resolve();
+              return;
+            }
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', reject, { once: true });
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+          script.onload = () => resolve();
+          script.onerror = reject;
+          document.head.appendChild(script);
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('html2pdf timeout')), 12000))
+      ]);
+    } catch (_err) {
+      return false;
+    }
+    return typeof window.html2pdf === 'function';
+  }
+
+  async function saveActivePosTicketPdf() {
+    if (!activeTicketSaleRecord) return;
+    const btnPdf = document.getElementById('btn-save-pos-ticket-pdf');
+    if (btnPdf?.disabled) return;
+
+    const fmt = document.querySelector('input[name="pos_ticket_format"]:checked')?.value || '78mm';
+    const isA4 = fmt === 'a4';
+    const tipoClean = String(activeTicketSaleRecord.tipo || 'Comprobante')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'Comprobante';
+    const letraClean = String(activeTicketSaleRecord.letra || '').replace(/[^a-zA-Z0-9]/g, '');
+    const pvClean = String(activeTicketSaleRecord.pv || '0000').replace(/[^0-9]/g, '').padStart(4, '0');
+    const nroClean = String(activeTicketSaleRecord.nro || '0').replace(/[^0-9]/g, '').padStart(8, '0');
+    const fileName = `${tipoClean}${letraClean ? `_${letraClean}` : ''}_${pvClean}-${nroClean}${isA4 ? '' : '_78mm'}.pdf`;
+
+    const prevLabel = btnPdf ? btnPdf.textContent : '';
+    if (btnPdf) {
+      btnPdf.disabled = true;
+      btnPdf.textContent = '⏳ Generando PDF...';
+    }
+
+    let tempContainer = null;
+    try {
+      const ready = await ensureHtml2PdfLibrary();
+      if (!ready) {
+        if (typeof showToast === 'function') {
+          showToast('Sin acceso al generador PDF directo. Se abre vista de impresión para Guardar como PDF.', 'warning');
+        }
+        printActivePosTicket();
+        return;
+      }
+
+      tempContainer = document.createElement('div');
+      tempContainer.style.position = 'fixed';
+      tempContainer.style.left = '-10000px';
+      tempContainer.style.top = '0';
+      tempContainer.style.background = '#ffffff';
+      tempContainer.style.zIndex = '-1';
+      tempContainer.innerHTML = isA4
+        ? buildInvoiceA4Html(activeTicketSaleRecord)
+        : buildTicket78mmHtml(activeTicketSaleRecord);
+
+      const sheetEl = tempContainer.querySelector(isA4 ? '.invoice-a4-sheet' : '.ticket-78mm-sheet');
+      if (isA4) {
+        tempContainer.style.width = '794px';
+        tempContainer.style.minWidth = '794px';
+        if (sheetEl) {
+          sheetEl.style.width = '794px';
+          sheetEl.style.minWidth = '794px';
+          sheetEl.style.maxWidth = 'none';
+          sheetEl.style.boxShadow = 'none';
+          sheetEl.style.margin = '0';
+        }
+      } else {
+        tempContainer.style.width = '295px';
+        tempContainer.style.minWidth = '295px';
+        if (sheetEl) {
+          sheetEl.querySelector('.t78-cutter-feed')?.remove();
+          sheetEl.style.width = '295px';
+          sheetEl.style.minWidth = '295px';
+          sheetEl.style.maxWidth = 'none';
+          sheetEl.style.boxShadow = 'none';
+          sheetEl.style.margin = '0';
+        }
+      }
+
+      const imgs = Array.from(tempContainer.querySelectorAll('img'));
+      imgs.forEach((img) => {
+        const src = img.getAttribute('src') || '';
+        if (/^https?:\/\//i.test(src)) {
+          img.crossOrigin = 'anonymous';
+        }
+      });
+
+      document.body.appendChild(tempContainer);
+
+      if (imgs.length > 0) {
+        await Promise.race([
+          Promise.all(
+            imgs.map(
+              (img) =>
+                new Promise((resolve) => {
+                  const done = () => resolve();
+                  if (img.complete) {
+                    if (typeof img.decode === 'function') {
+                      img.decode().then(done).catch(done);
+                    } else {
+                      done();
+                    }
+                  } else {
+                    img.addEventListener('load', done, { once: true });
+                    img.addEventListener('error', done, { once: true });
+                  }
+                })
+            )
+          ),
+          new Promise((resolve) => setTimeout(resolve, 3000))
+        ]);
+      }
+
+      const targetEl = sheetEl || tempContainer;
+      let opt;
+      if (isA4) {
+        opt = {
+          margin: [0, 0, 0, 0],
+          filename: fileName,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            width: 794,
+            windowWidth: 1024
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+      } else {
+        const rect = targetEl.getBoundingClientRect();
+        const heightMm = Math.max(80, Math.ceil((rect.height * 25.4) / 96) + 6);
+        opt = {
+          margin: [2, 1, 2, 1],
+          filename: fileName,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            width: 295,
+            windowWidth: 400
+          },
+          jsPDF: { unit: 'mm', format: [80, heightMm], orientation: 'portrait' }
+        };
+      }
+
+      await window.html2pdf().set(opt).from(targetEl).save();
+      if (typeof showToast === 'function') {
+        showToast(`✅ PDF guardado (${fileName}).`);
+      }
+    } catch (err) {
+      console.warn('Error generando PDF directo, fallback a impresión:', err);
+      printActivePosTicket();
+    } finally {
+      if (tempContainer && tempContainer.parentNode) {
+        tempContainer.parentNode.removeChild(tempContainer);
+      }
+      if (btnPdf) {
+        btnPdf.disabled = false;
+        btnPdf.textContent = prevLabel || '📄 Guardar PDF';
+      }
+    }
+  }
+
   function closePosTicketAndContinue() {
     const dlg = document.getElementById('pos-ticket-dialog');
     const shouldAdvance = ticketShouldAdvanceToNextSale;
@@ -24440,6 +24626,10 @@ function initApp() {
       }
       renderPosTicketPreview();
     });
+  });
+
+  document.getElementById('btn-save-pos-ticket-pdf')?.addEventListener('click', () => {
+    saveActivePosTicketPdf();
   });
 
   document.getElementById('btn-print-pos-ticket')?.addEventListener('click', () => {
@@ -29196,10 +29386,28 @@ function initApp() {
         })
       });
       if (!resSave.ok) {
-        let errMsg = 'No se pudo guardar el artículo porque presenta un código duplicado.';
+        let errMsg =
+          resSave.status === 504
+            ? 'El servidor tardó demasiado en responder (HTTP 504). Volvé a tocar "Guardar Artículo" en unos segundos.'
+            : `No se pudo guardar el artículo (error del servidor HTTP ${resSave.status}).`;
         try {
-          const errJson = await resSave.json();
-          if (errJson && errJson.message) errMsg = errJson.message;
+          const errText = await resSave.text();
+          if (errText) {
+            try {
+              const errJson = JSON.parse(errText);
+              if (errJson && (errJson.message || errJson.error)) {
+                errMsg = errJson.message || errJson.error;
+              }
+            } catch {
+              if (
+                resSave.status !== 504 &&
+                errText.length < 220 &&
+                !errText.trim().startsWith('<')
+              ) {
+                errMsg = `${errMsg} ${errText.trim()}`;
+              }
+            }
+          }
         } catch {}
         alertEl.textContent = `⚠️ ${errMsg}`;
         alertEl.hidden = false;
@@ -57269,22 +57477,30 @@ function initApp() {
     sessionStorage.setItem(DISMISSED_VERSION_SESSION_KEY, CLIENT_APP_VERSION);
   } catch {}
 
-  function extractErpVersionNumber(ver) {
-    const m = String(ver || '').match(/v(\d+(?:\.\d+)?)/i);
-    return m ? parseFloat(m[1]) : 0;
+  function parseErpVersionParts(ver) {
+    const m = String(ver || '').match(/v(\d+)(?:\.(\d+))?/i);
+    if (!m) return null;
+    return [parseInt(m[1], 10) || 0, parseInt(m[2] || '0', 10) || 0];
+  }
+
+  function compareErpNumericVersions(verA, verB) {
+    const a = parseErpVersionParts(verA);
+    const b = parseErpVersionParts(verB);
+    if (!a || !b) return 0;
+    if (a[0] !== b[0]) return a[0] - b[0];
+    return a[1] - b[1];
   }
 
   function isVersionAlreadyAcknowledged(ver) {
     if (!ver) return true;
     if (ver === CLIENT_APP_VERSION) return true;
-    const clientNum = extractErpVersionNumber(CLIENT_APP_VERSION);
-    const targetNum = extractErpVersionNumber(ver);
-    if (clientNum > 0 && targetNum > 0 && targetNum <= clientNum) return true;
+    // Solo ignorar versiones numéricamente MENORES (evita avisos de downgrade);
+    // si major.minor coinciden pero cambia el SHA de deploy (-abc1234 -> -def5678), SÍ es una nueva versión real.
+    if (compareErpNumericVersions(ver, CLIENT_APP_VERSION) < 0) return true;
     try {
       const ackVer = localStorage.getItem(ACK_VERSION_STORAGE_KEY);
       if (ackVer === ver) return true;
-      const ackNum = extractErpVersionNumber(ackVer);
-      if (ackNum > 0 && targetNum > 0 && targetNum <= ackNum) return true;
+      if (ackVer && compareErpNumericVersions(ver, ackVer) < 0) return true;
       if (sessionStorage.getItem(DISMISSED_VERSION_SESSION_KEY) === ver) return true;
     } catch {}
     return false;

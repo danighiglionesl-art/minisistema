@@ -1,5 +1,5 @@
-const CACHE_NAME = 'minisistema-erp-v325.8';
-const SHELL_CACHE_NAME = 'minisistema-shell-v325.8';
+const CACHE_NAME = 'minisistema-erp-v325.14';
+const SHELL_CACHE_NAME = 'minisistema-shell-v325.14';
 const ACTIVE_CACHES = [CACHE_NAME, SHELL_CACHE_NAME];
 const ASSETS_TO_CACHE = [];
 
