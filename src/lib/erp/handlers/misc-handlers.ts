@@ -1,7 +1,10 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getErpAppVersion } from "../erp-version";
-import { lookupExternalArgentinePersonByDni } from "../external-dni-lookup";
+import {
+  lookupArgentineTaxpayerByCuitOrDni,
+  lookupExternalArgentinePersonByDni,
+} from "../external-dni-lookup";
 import { jsonResponseMaybeGzip } from "../json-response";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
@@ -810,46 +813,153 @@ export async function handleErpPadronArca(
     .clientes_db as AnyObj;
   const { payload: cliDb } = await getTenantDoc<AnyObj>(tenant, "clientes_db", fallback);
   const existing = (cliDb.clientes || []).find((c: AnyObj) => {
+    const cod = String(c.codigo ?? c.id ?? "").trim();
+    if (cod === "1" || cod === "2" || cod === "3") {
+      const cleanExisting = String(c.nroDoc || "").replace(/\D/g, "");
+      if (!cleanExisting || /^0+$/.test(cleanExisting)) return false;
+    }
     const cd = String(c.nroDoc || "").replace(/\D/g, "");
-    return cd && (cd === doc || cd.includes(doc));
+    if (!cd || /^0+$/.test(cd)) return false;
+    return cd === doc || (doc.length >= 7 && cd.length === 11 && cd.slice(2, 10) === doc.padStart(8, "0"));
   });
 
   if (existing) {
+    const rawCuit = String(existing.nroDoc || doc);
+    const digitsExisting = rawCuit.replace(/\D/g, "");
+    const formattedExisting =
+      digitsExisting.length === 11
+        ? `${digitsExisting.slice(0, 2)}-${digitsExisting.slice(2, 10)}-${digitsExisting.slice(10)}`
+        : rawCuit;
+    const razon = String(existing.razonSocial || existing.nombre || "").toUpperCase();
+    const respIva = String(existing.respIva || existing.condicionIva || "CONSUMIDOR FINAL").toUpperCase();
+    const calle = String(existing.calleFiscal || existing.calle || "").toUpperCase();
+    const numero = String(existing.numeroFiscal || existing.numero || "S/N").toUpperCase();
+    const domicilio = `${calle} ${numero !== "S/N" ? numero : ""}`.trim();
+    const localidad = String(existing.localidadFiscal || existing.localidad || tenant.branding.localidad || "").toUpperCase();
+    const provincia = String(existing.provinciaFiscal || existing.provincia || tenant.branding.provincia || "").toUpperCase();
+    const cp = String(existing.cpFiscal || existing.cp || tenant.branding.cp || "");
+
     return NextResponse.json({
       ok: true,
+      valid: true,
       source: "local_erp",
+      sourceLabel: "Padrón Local del Comercio",
+      cuit: digitsExisting || doc,
+      formattedCuit: formattedExisting,
+      razonSocial: razon,
+      nombre: String(existing.nombre || razon).toUpperCase(),
+      respIva,
+      condicionIva: respIva,
+      idRespIva: Number(existing.idRespIva || 1),
+      calle,
+      numero,
+      domicilio,
+      localidad,
+      provincia,
+      cp,
+      nroIibb: String(existing.nroIibb || formattedExisting),
       contribuyente: {
-        cuit: existing.nroDoc,
-        razonSocial: existing.razonSocial || existing.nombre,
-        nombre: existing.nombre,
-        condicionIva: existing.condicionIva || "CONSUMIDOR FINAL",
-        idRespIva: existing.idRespIva || 1,
-        domicilio: `${existing.calle || ""} ${existing.numero || ""}`.trim(),
-        localidad: existing.localidad || tenant.branding.localidad,
-        provincia: existing.provincia || tenant.branding.provincia,
-        cp: existing.cp || tenant.branding.cp,
+        cuit: formattedExisting,
+        razonSocial: razon,
+        nombre: String(existing.nombre || razon).toUpperCase(),
+        condicionIva: respIva,
+        idRespIva: Number(existing.idRespIva || 1),
+        domicilio,
+        localidad,
+        provincia,
+        cp,
       },
     });
   }
 
-  // Respaldo externo (CUITOnline / BCRA Oficial / Motores de búsqueda públicos)
+  // Respaldo externo unificado (Personas Físicas y Jurídicas 30/33/34: CUITOnline Detalle+Search + BCRA Oficial + Buscadores)
   try {
-    const ext = await lookupExternalArgentinePersonByDni(doc);
+    const ext = await lookupArgentineTaxpayerByCuitOrDni(doc);
     if (ext && ext.razonSocial) {
+      const normGeo = (v: unknown) =>
+        String(v || "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toUpperCase()
+          .trim();
+
+      const locsByProv = (cliDb?.catalogs?.localidadesPorProvincia || {}) as Record<
+        string,
+        Array<{ nombre?: string; cp?: string }>
+      >;
+      let provincia = String(ext.provincia || "").trim().toUpperCase();
+      let localidad = String(ext.localidad || "").trim().toUpperCase();
+      let cp = String(ext.cp || "").trim().toUpperCase();
+
+      if (provincia) {
+        const provKey = Object.keys(locsByProv).find(
+          (k) => normGeo(k) === normGeo(provincia)
+        );
+        if (provKey) {
+          provincia = provKey;
+          const list = locsByProv[provKey] || [];
+          if (localidad) {
+            const locHit = list.find((x) => normGeo(x?.nombre) === normGeo(localidad));
+            if (locHit) {
+              localidad = String(locHit.nombre || localidad).toUpperCase();
+              if (!cp && locHit.cp) cp = String(locHit.cp).trim().toUpperCase();
+            }
+          } else if (list.length === 1) {
+            localidad = String(list[0].nombre || "").toUpperCase();
+            if (!cp && list[0].cp) cp = String(list[0].cp).trim().toUpperCase();
+          }
+        }
+      } else if (localidad) {
+        for (const [pKey, list] of Object.entries(locsByProv)) {
+          const locHit = (list || []).find((x) => normGeo(x?.nombre) === normGeo(localidad));
+          if (locHit) {
+            provincia = pKey;
+            localidad = String(locHit.nombre || localidad).toUpperCase();
+            if (!cp && locHit.cp) cp = String(locHit.cp).trim().toUpperCase();
+            break;
+          }
+        }
+      }
+
+      const piso = String((ext as AnyObj).piso || "").trim().toUpperCase();
+      const dpto = String((ext as AnyObj).dpto || "").trim().toUpperCase();
+
       return NextResponse.json({
         ok: true,
+        valid: true,
         source: ext.source,
         sourceLabel: ext.sourceLabel,
+        cuit: ext.cuit,
+        formattedCuit: ext.formattedCuit,
+        razonSocial: ext.razonSocial,
+        nombre: ext.nombre,
+        respIva: ext.respIva,
+        condicionIva: ext.respIva,
+        idRespIva: ext.idRespIva,
+        calle: ext.calle,
+        numero: ext.numero,
+        piso,
+        dpto,
+        domicilio: ext.domicilio,
+        localidad,
+        provincia,
+        cp,
+        nroIibb: ext.formattedCuit,
+        jurisdiccionIibb: provincia,
         contribuyente: {
-          cuit: ext.formattedCuit || ext.cuit,
+          cuit: ext.formattedCuit,
           razonSocial: ext.razonSocial,
-          nombre: ext.nombreCompleto || ext.razonSocial,
-          condicionIva: "CONSUMIDOR FINAL",
-          idRespIva: 1,
-          domicilio: ext.domicilio || "",
-          localidad: ext.localidad || tenant.branding.localidad,
-          provincia: ext.provincia || tenant.branding.provincia,
-          cp: tenant.branding.cp,
+          nombre: ext.nombre,
+          condicionIva: ext.respIva,
+          idRespIva: ext.idRespIva,
+          calle: ext.calle,
+          numero: ext.numero,
+          piso,
+          dpto,
+          domicilio: ext.domicilio,
+          localidad,
+          provincia,
+          cp,
         },
       });
     }

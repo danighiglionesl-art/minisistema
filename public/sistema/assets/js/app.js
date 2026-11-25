@@ -6071,8 +6071,12 @@ function updateGeoCascade(prefix, desiredPais, desiredProvincia, desiredLocalida
 
   const provincias = STATE.clientesCatalogs.provincias || ['CÓRDOBA'];
   populateSelectOptions(provSel, provincias);
-  const targetProv = (desiredProvincia || 'CÓRDOBA').toUpperCase();
-  if (targetProv && !Array.from(provSel.options).some((o) => o.value === targetProv)) {
+  const rawProv = (desiredProvincia || 'CÓRDOBA').toUpperCase();
+  const matchedProvOpt = Array.from(provSel.options).find(
+    (o) => normalizeStr(o.value) === normalizeStr(rawProv)
+  );
+  const targetProv = matchedProvOpt ? matchedProvOpt.value : rawProv;
+  if (targetProv && !matchedProvOpt) {
     const opt = document.createElement('option');
     opt.value = targetProv;
     opt.textContent = targetProv;
@@ -6087,13 +6091,19 @@ function populateLocalidadesForProvinceSelect(locSel, cpInp, provinciaName, desi
   if (!locSel) return;
   const provKey = String(provinciaName || 'CÓRDOBA').toUpperCase();
   const locsMap = STATE.clientesCatalogs.localidadesPorProvincia || {};
-  const list = Array.isArray(locsMap[provKey]) ? [...locsMap[provKey]] : [];
+  const matchedProvKey =
+    Object.keys(locsMap).find((k) => normalizeStr(k) === normalizeStr(provKey)) || provKey;
+  const list = Array.isArray(locsMap[matchedProvKey]) ? [...locsMap[matchedProvKey]] : [];
 
   locSel.textContent = '';
-  const targetLoc = String(desiredLocalidad || '').trim().toUpperCase();
+  const rawLoc = String(desiredLocalidad || '').trim().toUpperCase();
+  const existingLocObj = rawLoc
+    ? list.find((x) => normalizeStr(x.nombre) === normalizeStr(rawLoc))
+    : null;
+  const targetLoc = existingLocObj ? existingLocObj.nombre : rawLoc;
 
   // Ensure desiredLocalidad exists in list if provided
-  if (targetLoc && !list.some((x) => x.nombre === targetLoc)) {
+  if (targetLoc && !existingLocObj) {
     list.unshift({ nombre: targetLoc, cp: String(desiredCp || '').trim().toUpperCase() });
   }
 
@@ -6297,8 +6307,12 @@ function updateGeoCascadeFiscal(desiredPais, desiredProvincia, desiredLocalidad,
   paisSel.value = targetPais;
 
   populateSelectOptions(provSel, STATE.clientesCatalogs.provincias || ['CÓRDOBA']);
-  const targetProv = (desiredProvincia || 'CÓRDOBA').toUpperCase();
-  if (targetProv && !Array.from(provSel.options).some((o) => o.value === targetProv)) {
+  const rawProv = (desiredProvincia || 'CÓRDOBA').toUpperCase();
+  const matchedProvOpt = Array.from(provSel.options).find(
+    (o) => normalizeStr(o.value) === normalizeStr(rawProv)
+  );
+  const targetProv = matchedProvOpt ? matchedProvOpt.value : rawProv;
+  if (targetProv && !matchedProvOpt) {
     const opt = document.createElement('option');
     opt.value = targetProv;
     opt.textContent = targetProv;
@@ -14153,13 +14167,53 @@ function initApp() {
     return val;
   }
 
+  function normalizePosRespIvaOption(rawVal) {
+    const u = String(rawVal || '').trim().toUpperCase();
+    if (!u || u === 'CONSUMIDOR FINAL' || u === 'CF') return 'Consumidor Final';
+    if (u.includes('MONOTRIBUTO') || u === 'MO') return 'MONOTRIBUTO';
+    if (u.includes('NO INSCRIPTO') || u === 'NI') return 'NO CATEGORIZADO';
+    if (u.includes('NO CATEGORIZADO') || u === 'NC') return 'NO CATEGORIZADO';
+    if (u.includes('NO ALCANZADO') || u === 'NR') return 'EXENTO';
+    if (u.includes('EXENTO') || u === 'RE') return 'EXENTO';
+    if (u.includes('INSCRIPTO') || u === 'RI') return 'INSCRIPTO';
+    return 'Consumidor Final';
+  }
+
+  function setFactCliRespIvaValue(rawVal, allowEdit = false) {
+    const el = document.getElementById('fact-cli-respiva');
+    if (!el) return;
+    const normalized = normalizePosRespIvaOption(rawVal);
+    if (el.tagName === 'SELECT') {
+      const hasOpt = Array.from(el.options).some((o) => o.value === normalized);
+      if (!hasOpt) {
+        const opt = document.createElement('option');
+        opt.value = normalized;
+        opt.textContent = normalized;
+        el.appendChild(opt);
+      }
+      el.value = normalized;
+      el.disabled = !allowEdit;
+    } else {
+      el.value = normalized;
+      el.readOnly = !allowEdit;
+    }
+    el.classList.toggle('fact-readonly-box', !allowEdit);
+  }
+
+  function doesRespIvaEmitFacturaA(rawRespIva) {
+    const u = String(rawRespIva || '').trim().toUpperCase();
+    if (!u) return false;
+    if (u.includes('NO INSCRIPTO') || u.includes('NO CATEGORIZADO')) return false;
+    return u.includes('INSCRIPTO') || u.includes('MONOTRIBUTO');
+  }
+
   function updateFactLetraAndNumber() {
     const pv = document.getElementById('pos-select-pv')?.value || '0004';
     const tipoComp = document.getElementById('pos-tipo-comp')?.value || 'Factura';
     const respIva = (document.getElementById('fact-cli-respiva')?.value || 'Consumidor Final').toUpperCase();
 
     const isInternalPv = pv === '0099' || pv === '0100' || pv === '0101' || tipoComp === 'Comprobante Interno';
-    const isRespInsc = respIva.includes('INSCRIPTO') && !respIva.includes('NO INSCRIPTO');
+    const isRespInsc = doesRespIvaEmitFacturaA(respIva);
     const letra = isRespInsc ? 'A' : 'B';
     let subCode = 'Cód. ARCA 006';
 
@@ -14221,10 +14275,11 @@ function initApp() {
   }
 
   function getActiveFactClientObj() {
+    if (STATE.factIsOccasionalClient) return null;
     const byId = STATE.clientes.find((c) => Number(c.id) === Number(STATE.factSelectedClientId));
     if (byId) return byId;
     const rawCode = String(document.getElementById('fact-cli-codigo')?.value || '').trim();
-    if (rawCode && rawCode !== '1') {
+    if (rawCode && rawCode !== '1' && rawCode !== '2') {
       return STATE.clientes.find((c) => String(c.codigo) === rawCode) || null;
     }
     return null;
@@ -14341,16 +14396,295 @@ function initApp() {
     }
   });
 
+  function setOccasionalStatusMsg(htmlOrText, tone = 'info', asHtml = false) {
+    const stEl = document.getElementById('fact-ocasional-status');
+    if (!stEl) return;
+    if (asHtml) stEl.innerHTML = htmlOrText;
+    else stEl.textContent = htmlOrText;
+    if (tone === 'success') stEl.style.color = 'var(--success)';
+    else if (tone === 'danger') stEl.style.color = 'var(--danger)';
+    else stEl.style.color = '';
+  }
+
+  function activateOccasionalClientMode(opts = {}) {
+    const initialDocRaw = String(opts.initialDoc || '').trim();
+    const initialDigits = initialDocRaw.replace(/\D/g, '');
+    const initialName = String(opts.initialName || '').trim().toUpperCase();
+    const focusField = opts.focusField || 'doc';
+    const autoLookup = opts.autoLookup !== false;
+
+    STATE.factIsOccasionalClient = true;
+    STATE.factSelectedClientId = 2;
+    STATE.factOccasionalMeta = { localidad: '', provincia: '', cp: '' };
+
+    const codeInp = document.getElementById('fact-cli-codigo');
+    const nameInp = document.getElementById('pos-cliente-input');
+    const tipoDocInp = document.getElementById('fact-cli-tipodoc');
+    const nroDocInp = document.getElementById('fact-cli-nrodoc');
+    const calleInp = document.getElementById('fact-cli-calle');
+    const locInp = document.getElementById('fact-cli-localidad-ocasional');
+    const nroCalleInp = document.getElementById('fact-cli-nro');
+    const ocasionalPanel = document.getElementById('fact-ocasional-panel');
+    const btnOcasional = document.getElementById('btn-fact-cliente-ocasional');
+    const cliDrop = document.getElementById('fact-cli-dropdown');
+
+    if (codeInp) codeInp.value = '2';
+    if (nameInp) {
+      nameInp.value = initialName || '';
+      nameInp.placeholder = 'RAZÓN SOCIAL / NOMBRE CLIENTE OCASIONAL...';
+    }
+    if (tipoDocInp) {
+      tipoDocInp.value = initialDigits.length >= 7 && initialDigits.length <= 8 ? 'DNI' : 'CUIT';
+    }
+    if (nroDocInp) {
+      nroDocInp.classList.remove('is-invalid');
+      nroDocInp.dataset.lastPosLookupDigits = '';
+      nroDocInp.value = initialDigits.length === 11 ? formatCuitString(initialDigits) : (initialDigits || '');
+    }
+    setFactCliRespIvaValue(opts.initialRespIva || 'Consumidor Final', true);
+
+    if (calleInp) calleInp.value = '';
+    if (locInp) locInp.value = '';
+    if (nroCalleInp) nroCalleInp.value = '';
+    if (ocasionalPanel) ocasionalPanel.hidden = false;
+    if (btnOcasional) btnOcasional.classList.add('is-active');
+    if (cliDrop) cliDrop.hidden = true;
+
+    setOccasionalStatusMsg(
+      '⚡ <strong>Cliente Ocasional (#2)</strong>: ingresá el CUIT (11 dígitos) o DNI y presioná <strong>Enter</strong> o <strong>🔍</strong> para tomar Razón Social, Condición IVA y Domicilio sin crearlo en Clientes.',
+      'info',
+      true
+    );
+
+    const listaSel = document.getElementById('fact-lista-precio');
+    if (listaSel) {
+      const prevList = listaSel.value;
+      listaSel.value = 'MINORISTA';
+      listaSel.disabled = true;
+      if (prevList !== 'MINORISTA' || STATE.factItems.length > 0) {
+        STATE.factItems.forEach((it) => {
+          if (it.isGeneric || it.isService || it.itemType === 'service' || isGenericArticleCode(it.codigo)) return;
+          const art = STATE.articulos.find((a) => a.id === it.artId);
+          if (art) it.precioFinal = getArticleUnitPriceForActiveList(art);
+        });
+      }
+    }
+
+    syncFactFormaPagoControl(null, true);
+
+    const chkFid = document.getElementById('pos-fid-acreditar-chk');
+    if (chkFid) chkFid.checked = false;
+
+    updateFactLetraAndNumber();
+    renderFactItemsAndTotals();
+    if (typeof updatePosFidelizacionPreview === 'function') {
+      updatePosFidelizacionPreview();
+    }
+
+    if (autoLookup && initialDigits.length >= 7 && !/^0+$/.test(initialDigits)) {
+      lookupPosOccasionalCuit(initialDigits, { focusItemsOnSuccess: true });
+      return;
+    }
+
+    if (focusField === 'doc' && nroDocInp) {
+      nroDocInp.focus();
+      nroDocInp.select();
+    } else if (focusField === 'name' && nameInp) {
+      nameInp.focus();
+      nameInp.select();
+    } else if (focusField === 'items') {
+      focusFirstCodeInput();
+    }
+  }
+
+  async function lookupPosOccasionalCuit(rawValInput, opts = {}) {
+    const nroDocInp = document.getElementById('fact-cli-nrodoc');
+    const tipoDocInp = document.getElementById('fact-cli-tipodoc');
+    const nameInp = document.getElementById('pos-cliente-input');
+    const calleInp = document.getElementById('fact-cli-calle');
+    const locInp = document.getElementById('fact-cli-localidad-ocasional');
+    const btnLupa = document.getElementById('btn-fact-lookup-cuit');
+
+    const rawStr = String(rawValInput !== undefined ? rawValInput : (nroDocInp?.value || '')).trim();
+    const digits = rawStr.replace(/\D/g, '');
+
+    if (!digits || /^0+$/.test(digits) || digits.length < 7) {
+      if (!STATE.factIsOccasionalClient) {
+        activateOccasionalClientMode({ focusField: 'doc', autoLookup: false });
+      } else {
+        setOccasionalStatusMsg('⚠️ Ingresá un CUIT válido de 11 dígitos (ej: 30-50279317-5) o un DNI de 7/8 dígitos para consultar en ARCA.', 'danger');
+        nroDocInp?.focus();
+      }
+      return;
+    }
+
+    // Si el cajero NO estaba en modo Cliente Ocasional y el CUIT/DNI ya pertenece a un cliente registrado, seleccionarlo directamente
+    if (!STATE.factIsOccasionalClient && !opts.forceOccasional) {
+      const existingCli = STATE.clientes.find((c) => {
+        if (isSystemConfigClient(c)) return false;
+        const cd = String(c.nroDoc || '').replace(/\D/g, '');
+        if (!cd || /^0+$/.test(cd)) return false;
+        return cd === digits || (digits.length >= 7 && digits.length <= 8 && cd.length === 11 && cd.slice(2, 10) === digits.padStart(8, '0'));
+      });
+      if (existingCli) {
+        selectClientForInvoice(existingCli);
+        return;
+      }
+    }
+
+    // Asegurar modo Cliente Ocasional (#2) sin guardar en clientes_db
+    if (!STATE.factIsOccasionalClient) {
+      activateOccasionalClientMode({ initialDoc: digits, focusField: 'none', autoLookup: false });
+    }
+
+    const isCuit11 = digits.length === 11;
+    if (isCuit11 && !validateCuitMod11(digits)) {
+      nroDocInp?.classList.add('is-invalid');
+      setOccasionalStatusMsg('⛔ CUIT inválido: el dígito verificador no coincide con Módulo 11 de ARCA / AFIP.', 'danger');
+      nroDocInp?.focus();
+      return;
+    }
+
+    nroDocInp?.classList.remove('is-invalid');
+    const formatted = isCuit11 ? formatCuitString(digits) : digits;
+    if (nroDocInp) {
+      nroDocInp.value = formatted;
+      nroDocInp.dataset.lastPosLookupDigits = digits;
+    }
+    if (tipoDocInp) {
+      tipoDocInp.value = isCuit11 ? 'CUIT' : 'DNI';
+    }
+
+    if (btnLupa) {
+      btnLupa.disabled = true;
+      btnLupa.classList.add('is-loading');
+    }
+    setOccasionalStatusMsg(`⏳ Consultando ${isCuit11 ? 'CUIT' : 'DNI'} ${formatted} en Padrón ARCA...`, 'info');
+
+    let data = null;
+    try {
+      const res = await fetch(`api/padron_arca.php?cuit=${encodeURIComponent(digits)}&_t=${Date.now()}`, {
+        cache: 'no-store'
+      });
+      if (res.ok) {
+        data = await res.json();
+      }
+    } catch {}
+
+    if (btnLupa) {
+      btnLupa.disabled = false;
+      btnLupa.classList.remove('is-loading');
+    }
+
+    // Descartar si el usuario ya cambió el documento mientras respondía el servidor
+    const currentDigitsNow = String(nroDocInp?.value || '').replace(/\D/g, '');
+    if (currentDigitsNow && currentDigitsNow !== digits) {
+      return;
+    }
+
+    const contrib = (data && data.contribuyente) || {};
+    const razon = String(data?.razonSocial || contrib.razonSocial || data?.nombre || contrib.nombre || '').trim().toUpperCase();
+
+    if (razon) {
+      const resolvedCuit = String(data?.formattedCuit || contrib.cuit || formatted).trim();
+      const resolvedDigits = resolvedCuit.replace(/\D/g, '');
+      if (nroDocInp && resolvedDigits.length === 11) {
+        nroDocInp.value = formatCuitString(resolvedDigits);
+        nroDocInp.dataset.lastPosLookupDigits = resolvedDigits;
+        if (tipoDocInp) tipoDocInp.value = 'CUIT';
+      }
+
+      const rawRespIva =
+        data?.respIva ||
+        data?.condicionIva ||
+        contrib.condicionIva ||
+        (/^(30|33|34)/.test(resolvedDigits || digits) ? 'INSCRIPTO' : 'Consumidor Final');
+      setFactCliRespIvaValue(rawRespIva, true);
+
+      if (nameInp) nameInp.value = razon;
+
+      const calleStr = String(data?.domicilio || [data?.calle, data?.numero && data?.numero !== 'S/N' ? data.numero : ''].filter(Boolean).join(' ') || contrib.domicilio || '').trim().toUpperCase();
+      const locStr = String(data?.localidad || contrib.localidad || '').trim().toUpperCase();
+      const provStr = String(data?.provincia || contrib.provincia || '').trim().toUpperCase();
+      const locDisplay = [locStr, provStr].filter(Boolean).join(', ');
+
+      if (calleInp && calleStr && calleStr !== 'S/D') calleInp.value = calleStr;
+      if (locInp && locDisplay) locInp.value = locDisplay;
+      STATE.factOccasionalMeta = {
+        localidad: locStr,
+        provincia: provStr,
+        cp: String(data?.cp || contrib.cp || '')
+      };
+
+      updateFactLetraAndNumber();
+      const letraNow = document.getElementById('fact-letra-box')?.textContent || 'B';
+      const normIvaLabel = normalizePosRespIvaOption(rawRespIva);
+      setOccasionalStatusMsg(
+        `✓ ARCA: ${razon} · IVA: ${normIvaLabel} → Factura "${letraNow}"${locDisplay ? ` · ${locDisplay}` : ''} (Cliente Ocasional · sin alta en Clientes)`,
+        'success'
+      );
+
+      const alertEl = document.getElementById('fact-alert-msg');
+      if (alertEl) alertEl.hidden = true;
+
+      if (opts.focusItemsOnSuccess) {
+        focusFirstCodeInput();
+      }
+      return;
+    }
+
+    // Si no hubo coincidencia en padrón público, dejar listo para tipear Razón Social rápido
+    if (isCuit11 && /^(30|33|34)/.test(digits)) {
+      setFactCliRespIvaValue('INSCRIPTO', true);
+    }
+    updateFactLetraAndNumber();
+    setOccasionalStatusMsg(
+      `✓ ${isCuit11 ? 'CUIT' : 'DNI'} ${formatted} válido. Escribí la Razón Social / Nombre y verificá la condición IVA para facturar sin crear el cliente.`,
+      'info'
+    );
+    if (nameInp && !nameInp.value.trim()) {
+      nameInp.focus();
+    } else if (opts.focusItemsOnSuccess) {
+      focusFirstCodeInput();
+    }
+  }
+
   function selectClientForInvoice(cli) {
     if (!cli) return;
+    const isOccasionalRecord =
+      String(cli.codigo ?? '') === '2' ||
+      String(cli.nombre || '').trim().toUpperCase() === 'CLIENTE OCASIONAL';
+    if (isOccasionalRecord) {
+      activateOccasionalClientMode({ focusField: 'doc', autoLookup: false });
+      return;
+    }
+
+    STATE.factIsOccasionalClient = false;
+    STATE.factOccasionalMeta = null;
     STATE.factSelectedClientId = cli.id;
+
+    const ocasionalPanel = document.getElementById('fact-ocasional-panel');
+    if (ocasionalPanel) ocasionalPanel.hidden = true;
+    document.getElementById('btn-fact-cliente-ocasional')?.classList.remove('is-active');
+
+    const nameInp = document.getElementById('pos-cliente-input');
+    if (nameInp) nameInp.placeholder = 'BUSCAR CLIENTE POR NOMBRE O CUIT...';
+
+    const nroDocInp = document.getElementById('fact-cli-nrodoc');
+    if (nroDocInp) {
+      nroDocInp.classList.remove('is-invalid');
+      nroDocInp.dataset.lastPosLookupDigits = '';
+    }
+
     document.getElementById('fact-cli-codigo').value = String(cli.codigo ?? 1);
     document.getElementById('pos-cliente-input').value = String(cli.nombre || 'CONSUMIDOR FINAL').toUpperCase();
     document.getElementById('fact-cli-tipodoc').value = String(cli.tipoDoc || 'OTRO').toUpperCase();
     document.getElementById('fact-cli-nrodoc').value = String(cli.nroDoc || '00.000.000');
-    document.getElementById('fact-cli-respiva').value = String(cli.respIva || 'Consumidor Final');
+    setFactCliRespIvaValue(cli.respIva || 'Consumidor Final', false);
     document.getElementById('fact-cli-calle').value = String(cli.calle || '...');
     document.getElementById('fact-cli-nro').value = String(cli.numero || '0');
+    const locOcInp = document.getElementById('fact-cli-localidad-ocasional');
+    if (locOcInp) locOcInp.value = '';
 
     const genericRule = getGenericSystemClientRule(cli);
     const listaSel = document.getElementById('fact-lista-precio');
@@ -21265,19 +21599,37 @@ function initApp() {
       if (event.key === 'Enter') {
         event.preventDefault();
         if (event.isComposing || event.keyCode === 229) return;
-        const found = resolveFactClientByCodeOrQr(factCliCodeInp.value);
+        const trimmedCode = String(factCliCodeInp.value || '').trim();
+        if (trimmedCode === '2') {
+          activateOccasionalClientMode({ focusField: 'doc', autoLookup: false });
+          return;
+        }
+        const found = resolveFactClientByCodeOrQr(trimmedCode);
         if (found) {
           selectClientForInvoice(found);
+        } else if (trimmedCode.replace(/\D/g, '').length === 11) {
+          activateOccasionalClientMode({ initialDoc: trimmedCode, autoLookup: true });
         }
       }
     });
     factCliCodeInp.addEventListener('blur', () => {
-      const found = resolveFactClientByCodeOrQr(factCliCodeInp.value);
+      const trimmedCode = String(factCliCodeInp.value || '').trim();
+      if (trimmedCode === '2') {
+        if (!STATE.factIsOccasionalClient) {
+          activateOccasionalClientMode({ focusField: 'none', autoLookup: false });
+        }
+        return;
+      }
+      const found = resolveFactClientByCodeOrQr(trimmedCode);
       if (found) {
         selectClientForInvoice(found);
-      } else if (!String(factCliCodeInp.value || '').trim()) {
-        const activeCli = getActiveFactClientObj();
-        factCliCodeInp.value = String(activeCli?.codigo ?? 1);
+      } else if (!trimmedCode) {
+        if (STATE.factIsOccasionalClient) {
+          factCliCodeInp.value = '2';
+        } else {
+          const activeCli = getActiveFactClientObj();
+          factCliCodeInp.value = String(activeCli?.codigo ?? 1);
+        }
       }
     });
   }
@@ -21287,6 +21639,12 @@ function initApp() {
     let factCliSugIndex = -1;
 
     const renderFactClientSuggestions = (rawVal) => {
+      if (STATE.factIsOccasionalClient) {
+        factCliDropdown.hidden = true;
+        factCliSugMatches = [];
+        factCliSugIndex = -1;
+        return;
+      }
       const q = normalizeStr(rawVal);
       if (!q || q === 'CONSUMIDOR FINAL') {
         factCliDropdown.hidden = true;
@@ -21300,15 +21658,19 @@ function initApp() {
           ? findClientsMatchingDniOrName(rawVal)
           : STATE.clientes
               .filter((c) => {
+                if (String(c.codigo) === '2' && String(c.nombre || '').toUpperCase() === 'CLIENTE OCASIONAL') return false;
                 const aliasStr = Array.isArray(c.aliasCodigos) ? c.aliasCodigos.join(' ') : '';
                 return normalizeStr(`${c.codigo} ${aliasStr} ${c.nombre} ${c.razonSocial || ''} ${c.nroDoc || ''}`).includes(q);
               })
               .slice(0, 25);
 
+      const rawDigitsSearch = String(rawVal || '').replace(/\D/g, '');
+      const canOfferOccasionalCuit = rawDigitsSearch.length >= 7 && !/^0+$/.test(rawDigitsSearch);
+
       factCliSugMatches = matches;
       factCliSugIndex = matches.length > 0 ? 0 : -1;
 
-      if (matches.length === 0) {
+      if (matches.length === 0 && !canOfferOccasionalCuit) {
         factCliDropdown.hidden = true;
         return;
       }
@@ -21342,6 +21704,28 @@ function initApp() {
 
       const listEl = document.createElement('div');
       listEl.className = 'fact-sug-modal-list';
+
+      if (canOfferOccasionalCuit) {
+        const occBtn = document.createElement('button');
+        occBtn.type = 'button';
+        occBtn.className = 'fact-sug-item' + (matches.length === 0 ? ' is-highlighted' : '');
+        occBtn.style.background = '#fffbeb';
+        occBtn.style.borderBottom = '1.5px solid rgba(217,119,6,0.35)';
+        const fmtDocSearch = rawDigitsSearch.length === 11 ? formatCuitString(rawDigitsSearch) : rawDigitsSearch;
+        occBtn.innerHTML = `
+          <div style="display:flex;align-items:center;gap:0.55rem;">
+            <span class="art-code-pill" style="background:#fef3c7;color:#92400e;border-color:#f59e0b;">⚡ #2</span>
+            <strong>Facturar como Cliente Ocasional (${escapeHtml(fmtDocSearch)})</strong>
+          </div>
+          <div style="font-size:0.76rem;font-weight:700;color:#b45309;">Consultar ARCA sin dar de alta en Clientes →</div>
+        `;
+        occBtn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          factCliDropdown.hidden = true;
+          activateOccasionalClientMode({ initialDoc: rawDigitsSearch, autoLookup: true });
+        });
+        listEl.appendChild(occBtn);
+      }
 
       matches.forEach((cli, idx) => {
         const btn = document.createElement('button');
@@ -21437,6 +21821,11 @@ function initApp() {
       if (event.key === 'Enter') {
         if (event.isComposing || event.keyCode === 229) return;
         const rawVal = factCliNameInp.value.trim();
+        if (STATE.factIsOccasionalClient) {
+          event.preventDefault();
+          focusFirstCodeInput();
+          return;
+        }
         const upper = rawVal.toUpperCase();
         if (upper.includes('CCN') || upper.includes('CPA') || upper.includes('FIDEL') || upper.includes('CACHITA') || upper.includes('PASEO')) {
           event.preventDefault();
@@ -21454,6 +21843,13 @@ function initApp() {
           selectClientForInvoice(chosen);
           return;
         }
+        const rawDigitsEnter = rawVal.replace(/\D/g, '');
+        if (rawDigitsEnter.length >= 7 && !/^0+$/.test(rawDigitsEnter)) {
+          event.preventDefault();
+          factCliDropdown.hidden = true;
+          activateOccasionalClientMode({ initialDoc: rawDigitsEnter, autoLookup: true });
+          return;
+        }
       }
     });
 
@@ -21461,8 +21857,12 @@ function initApp() {
       setTimeout(() => {
         factCliDropdown.hidden = true;
         if (!String(factCliNameInp.value || '').trim()) {
-          const activeCli = getActiveFactClientObj();
-          factCliNameInp.value = String(activeCli?.nombre || 'CONSUMIDOR FINAL').toUpperCase();
+          if (STATE.factIsOccasionalClient) {
+            factCliNameInp.value = 'CLIENTE OCASIONAL';
+          } else {
+            const activeCli = getActiveFactClientObj();
+            factCliNameInp.value = String(activeCli?.nombre || 'CONSUMIDOR FINAL').toUpperCase();
+          }
         }
       }, 160);
     });
@@ -21475,6 +21875,88 @@ function initApp() {
       }
     });
   }
+
+  // Controles de Cliente Ocasional y consulta directa de CUIT en cabecera POS (estilo Oliver Informática)
+  const factCliNroDocInp = document.getElementById('fact-cli-nrodoc');
+  const factCliRespIvaSel = document.getElementById('fact-cli-respiva');
+  if (factCliNroDocInp) {
+    factCliNroDocInp.addEventListener('focus', () => {
+      const clean = String(factCliNroDocInp.value || '').replace(/\D/g, '');
+      if (!clean || /^0+$/.test(clean)) {
+        factCliNroDocInp.value = '';
+      } else {
+        factCliNroDocInp.select();
+      }
+    });
+    factCliNroDocInp.addEventListener('input', () => {
+      const digits = String(factCliNroDocInp.value || '').replace(/\D/g, '');
+      if (digits.length < 11) {
+        factCliNroDocInp.dataset.lastPosLookupDigits = '';
+        factCliNroDocInp.classList.remove('is-invalid');
+      }
+      if (digits.length === 11 && !/^0+$/.test(digits)) {
+        if (validateCuitMod11(digits)) {
+          if (factCliNroDocInp.dataset.lastPosLookupDigits !== digits) {
+            lookupPosOccasionalCuit(digits, { focusItemsOnSuccess: false });
+          }
+        } else {
+          factCliNroDocInp.classList.add('is-invalid');
+          if (STATE.factIsOccasionalClient) {
+            setOccasionalStatusMsg('⛔ CUIT inválido: el dígito verificador no coincide con Módulo 11 de ARCA.', 'danger');
+          }
+        }
+      }
+    });
+    factCliNroDocInp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.isComposing || e.keyCode === 229) return;
+        lookupPosOccasionalCuit(factCliNroDocInp.value, { focusItemsOnSuccess: true });
+      }
+    });
+    factCliNroDocInp.addEventListener('blur', () => {
+      const clean = String(factCliNroDocInp.value || '').replace(/\D/g, '');
+      if (!clean && !STATE.factIsOccasionalClient) {
+        const activeCli = getActiveFactClientObj();
+        factCliNroDocInp.value = String(activeCli?.nroDoc || '00.000.000');
+      }
+    });
+  }
+
+  document.getElementById('btn-fact-lookup-cuit')?.addEventListener('click', () => {
+    lookupPosOccasionalCuit(factCliNroDocInp?.value || '', { focusItemsOnSuccess: true });
+  });
+
+  factCliRespIvaSel?.addEventListener('change', () => {
+    updateFactLetraAndNumber();
+    if (STATE.factIsOccasionalClient) {
+      const letraNow = document.getElementById('fact-letra-box')?.textContent || 'B';
+      const razonNow = document.getElementById('pos-cliente-input')?.value.trim() || 'CLIENTE OCASIONAL';
+      setOccasionalStatusMsg(
+        `⚡ Cliente Ocasional: ${razonNow} · IVA: ${factCliRespIvaSel.value} → Comprobante Clase "${letraNow}" (sin alta en Clientes)`,
+        'info'
+      );
+    }
+  });
+
+  document.getElementById('btn-fact-cliente-ocasional')?.addEventListener('click', () => {
+    const currentDocDigits = String(factCliNroDocInp?.value || '').replace(/\D/g, '');
+    const preloadDoc = currentDocDigits && !/^0+$/.test(currentDocDigits) ? currentDocDigits : '';
+    activateOccasionalClientMode({ initialDoc: preloadDoc, focusField: 'doc', autoLookup: Boolean(preloadDoc) });
+  });
+
+  document.getElementById('btn-club-continue-ocasional')?.addEventListener('click', () => {
+    const typedClubDoc = String(document.getElementById('club-previo-dni-input')?.value || '').trim();
+    const digits = typedClubDoc.replace(/\D/g, '');
+    proceedFromClubToCajaPos(null);
+    setTimeout(() => {
+      activateOccasionalClientMode({
+        initialDoc: digits.length >= 7 ? digits : '',
+        focusField: 'doc',
+        autoLookup: digits.length >= 7
+      });
+    }, 80);
+  });
 
   document.getElementById('btn-fact-new-client')?.addEventListener('click', () => {
     openClientModal(null);
@@ -21938,7 +22420,7 @@ function initApp() {
     const cfg = CAJAS_CONFIG[cajaId];
     if (!cfg) return;
     const respIva = (document.getElementById('fact-cli-respiva')?.value || 'Consumidor Final').toUpperCase();
-    const isRespInsc = respIva.includes('INSCRIPTO') && !respIva.includes('NO INSCRIPTO');
+    const isRespInsc = doesRespIvaEmitFacturaA(respIva);
     const letra = isRespInsc ? 'A' : 'B';
     const tipoComp = document.getElementById('pos-tipo-comp')?.value || 'Factura';
     const tipoFiscal = (!tipoComp || tipoComp === 'Comprobante Interno') ? 'Factura' : tipoComp;
@@ -22178,6 +22660,28 @@ function initApp() {
       }
       focusFirstCodeInput();
       return;
+    }
+
+    // Validar CUIT obligatorio de 11 dígitos cuando se emite Comprobante Clase A (Inscripto / Monotributo)
+    const checkRespIvaPre = document.getElementById('fact-cli-respiva')?.value || 'Consumidor Final';
+    const checkPvPre = document.getElementById('pos-select-pv')?.value || cfg.pvFiscal;
+    const checkIsFiscalPre = checkPvPre !== cfg.pvInterno && document.getElementById('pos-tipo-comp')?.value !== 'Comprobante Interno';
+    if (checkIsFiscalPre && doesRespIvaEmitFacturaA(checkRespIvaPre)) {
+      const checkDocDigits = String(document.getElementById('fact-cli-nrodoc')?.value || '').replace(/\D/g, '');
+      if (checkDocDigits.length !== 11 || /^0+$/.test(checkDocDigits) || !validateCuitMod11(checkDocDigits)) {
+        if (alertEl) {
+          alertEl.textContent = '⚠️ Para emitir Factura Electrónica "A" ingresá un CUIT válido de 11 dígitos en el campo Doc./CUIT.';
+          alertEl.hidden = false;
+        }
+        document.getElementById('fact-cli-nrodoc')?.focus();
+        return;
+      }
+    }
+    if (STATE.factIsOccasionalClient) {
+      const occNameVal = String(document.getElementById('pos-cliente-input')?.value || '').trim();
+      if (!occNameVal) {
+        document.getElementById('pos-cliente-input').value = 'CLIENTE OCASIONAL';
+      }
     }
 
     const dlg = document.getElementById('pos-payment-dialog');
@@ -23446,8 +23950,7 @@ function initApp() {
         if (pvSel) pvSel.value = pv;
 
         const respIvaRaw = document.getElementById('fact-cli-respiva')?.value || 'Consumidor Final';
-        const respIvaUpper = respIvaRaw.toUpperCase();
-        const isRespInscEmit = respIvaUpper.includes('INSCRIPTO') && !respIvaUpper.includes('NO INSCRIPTO');
+        const isRespInscEmit = doesRespIvaEmitFacturaA(respIvaRaw);
         const letra = isRespInscEmit ? 'A' : 'B';
 
         const rawTipoComp = document.getElementById('pos-tipo-comp')?.value || 'Factura';
@@ -23456,14 +23959,21 @@ function initApp() {
           : 'Comprobante Interno';
         const tipo = `${tipoBase} ${letra}`;
 
-        const cliente = document.getElementById('pos-cliente-input')?.value.trim().toUpperCase() || 'CONSUMIDOR FINAL';
+        const isOccasionalSale = Boolean(
+          STATE.factIsOccasionalClient ||
+          String(document.getElementById('fact-cli-codigo')?.value || '').trim() === '2'
+        );
+        const cliente =
+          document.getElementById('pos-cliente-input')?.value.trim().toUpperCase() ||
+          (isOccasionalSale ? 'CLIENTE OCASIONAL' : 'CONSUMIDOR FINAL');
         const selectedCliIdSnapshot = STATE.factSelectedClientId;
         const rawCliCodInput = String(document.getElementById('fact-cli-codigo')?.value || '').trim();
-        const selectedCliObj =
-          STATE.clientes.find((c) => Number(c.id) === Number(selectedCliIdSnapshot)) ||
-          (rawCliCodInput && rawCliCodInput !== '1'
-            ? STATE.clientes.find((c) => String(c.codigo) === rawCliCodInput)
-            : null);
+        const selectedCliObj = isOccasionalSale
+          ? null
+          : (STATE.clientes.find((c) => Number(c.id) === Number(selectedCliIdSnapshot)) ||
+            (rawCliCodInput && rawCliCodInput !== '1' && rawCliCodInput !== '2'
+              ? STATE.clientes.find((c) => String(c.codigo) === rawCliCodInput)
+              : null));
 
         // Construir resumen de Pago y línea de pie de Caja Diaria
         const cajaNum = getCajaDiariaNumber(cajaId);
@@ -23594,14 +24104,24 @@ function initApp() {
         const dtoImp = round2(subTotalBruto * (dtoPje / 100));
 
         const cliDoc = document.getElementById('fact-cli-nrodoc')?.value.trim() || selectedCliObj?.nroDoc || '00.000.000';
-        const cliCalle = selectedCliObj?.calle || document.getElementById('fact-cli-calle')?.value.trim() || '';
-        const cliNro = selectedCliObj?.numero || document.getElementById('fact-cli-nro')?.value.trim() || '';
+        const cliCalle = isOccasionalSale
+          ? (document.getElementById('fact-cli-calle')?.value.trim().toUpperCase() || '')
+          : (selectedCliObj?.calle || document.getElementById('fact-cli-calle')?.value.trim() || '');
+        const cliNro = isOccasionalSale
+          ? ''
+          : (selectedCliObj?.numero || document.getElementById('fact-cli-nro')?.value.trim() || '');
         const cliDomicilio = cliCalle && cliCalle !== '...'
-          ? `${cliCalle}${cliNro ? ` NRO ${cliNro}` : ''}`
-          : 'CONSUMIDOR FINAL';
-        const cliLocalidad = selectedCliObj?.localidad
-          ? `${selectedCliObj.localidad}(${selectedCliObj.provincia || 'Córdoba'})`
-          : 'ALCIRA GIGENA(Córdoba)';
+          ? `${cliCalle}${cliNro && cliNro !== '0' && cliNro !== 'S/N' ? ` NRO ${cliNro}` : ''}`
+          : (isOccasionalSale ? 'S/D' : 'CONSUMIDOR FINAL');
+        const occLocTxt = document.getElementById('fact-cli-localidad-ocasional')?.value.trim().toUpperCase() || '';
+        const cliLocalidad = isOccasionalSale
+          ? (occLocTxt ||
+            (STATE.factOccasionalMeta?.localidad
+              ? `${STATE.factOccasionalMeta.localidad}(${STATE.factOccasionalMeta.provincia || 'Córdoba'})`
+              : `${ACTIVE_BRAND.defaultLocalidad || 'RÍO CUARTO'}(Córdoba)`))
+          : (selectedCliObj?.localidad
+            ? `${selectedCliObj.localidad}(${selectedCliObj.provincia || 'Córdoba'})`
+            : `${ACTIVE_BRAND.defaultLocalidad || 'ALCIRA GIGENA'}(Córdoba)`);
 
         const emitPendingArca =
           isFiscal &&
@@ -29199,7 +29719,11 @@ function initApp() {
         cache: 'no-store'
       });
       if (res.ok) {
-        data = await res.json();
+        const rawJson = await res.json();
+        data =
+          rawJson && !rawJson.razonSocial && rawJson.contribuyente && typeof rawJson.contribuyente === 'object'
+            ? { ...rawJson, ...rawJson.contribuyente }
+            : rawJson;
       }
     } catch {}
 
@@ -29375,7 +29899,10 @@ function initApp() {
       }
 
       if (statusEl) {
-        const locParts = [data.localidad, data.provincia].filter(Boolean);
+        const addrLabel = cleanCalle
+          ? `${cleanCalle}${cleanNumero && cleanNumero !== 'S/N' ? ` ${cleanNumero}` : ''}`
+          : '';
+        const locParts = [addrLabel, data.localidad, data.provincia].filter(Boolean);
         const locSuffix = locParts.length ? ` · ${locParts.join(', ')}` : '';
         statusEl.textContent = `✓ Constancia ARCA cargada: ${cleanRazon}${data.respIva ? ` · IVA: ${data.respIva}` : ''}${locSuffix}`;
         statusEl.style.color = 'var(--success)';

@@ -476,6 +476,341 @@ async function queryPublicSearchEnginesByCuits(
   return results.find(Boolean) || null;
 }
 
+export interface ExternalTaxpayerResult {
+  cuit: string;
+  formattedCuit: string;
+  razonSocial: string;
+  nombre: string;
+  respIva:
+    | "INSCRIPTO"
+    | "MONOTRIBUTO"
+    | "EXENTO"
+    | "CONSUMIDOR FINAL"
+    | "IVA NO ALCANZADO"
+    | "NO INSCRIPTO";
+  idRespIva: number;
+  calle: string;
+  numero: string;
+  piso?: string;
+  dpto?: string;
+  domicilio: string;
+  localidad: string;
+  provincia: string;
+  cp: string;
+  tipoPersona: "FISICA" | "JURIDICA";
+  source: "cuitonline" | "bcra_oficial" | "buscador_publico";
+  sourceLabel: string;
+}
+
+const taxpayerCache = new Map<
+  string,
+  { exp: number; data: ExternalTaxpayerResult | null }
+>();
+
+function isValidTaxpayerEntityName(name: string): boolean {
+  const clean = String(name || "").trim();
+  if (clean.length < 3 || clean.length > 140) return false;
+  if (INVALID_NAME_RE.test(clean)) return false;
+  return /^[A-ZÁÉÍÓÚÑÜa-záéíóúñü0-9\s.,'&()/\-°º]+$/u.test(clean);
+}
+
+function inferRespIvaFromTextAndCuit(
+  cuit11: string,
+  razonSocial: string,
+  rawHtmlOrSnippet = ""
+): { respIva: ExternalTaxpayerResult["respIva"]; idRespIva: number } {
+  const text = String(rawHtmlOrSnippet || "");
+  const upperName = String(razonSocial || "").toUpperCase();
+
+  if (
+    /IVA\s*:\s*Exento|Sujeto\s+Exento|IVA\s+Exento/i.test(text) ||
+    (/\b(?:ASOCIACION|ASOC\.|FUNDACION|BIBLIOTECA|MUNICIPALIDAD|COMUNA|MINISTERIO|GOBIERNO|OBISPADO|PARROQUIA|IGLESIA|UNIVERSIDAD|ESCUELA|COLEGIO|MUTUAL|SINDICATO|BOMBEROS)\b/i.test(
+      upperName
+    ) &&
+      !/\b(?:S\.?A\.?|S\.?R\.?L\.?|S\.?A\.?S\.?)\b/i.test(upperName))
+  ) {
+    return { respIva: "EXENTO", idRespIva: 5 };
+  }
+
+  if (
+    /Monotributo\s*:\s*[A-Z0-9]|Responsable\s+Monotributo|Categor[ií]a\s+Monotributo|Adherido\s+al\s+Monotributo/i.test(
+      text
+    )
+  ) {
+    return { respIva: "MONOTRIBUTO", idRespIva: 2 };
+  }
+
+  if (
+    /IVA\s*:\s*(?:Responsable\s+)?Inscripto|IVA\s+Responsable\s+Inscripto/i.test(
+      text
+    )
+  ) {
+    return { respIva: "INSCRIPTO", idRespIva: 4 };
+  }
+
+  // Personas jurídicas comerciales (prefijos 30, 33, 34: S.A., S.R.L., S.A.S., Cooperativas, etc.)
+  if (/^(30|33|34)/.test(cuit11)) {
+    return { respIva: "INSCRIPTO", idRespIva: 4 };
+  }
+
+  return { respIva: "CONSUMIDOR FINAL", idRespIva: 1 };
+}
+
+function splitStreetAndNumber(rawAddress: string): {
+  calle: string;
+  numero: string;
+  domicilio: string;
+} {
+  const clean = String(rawAddress || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+  if (!clean) return { calle: "", numero: "", domicilio: "" };
+  const m = clean.match(/^(.+?)\s+(\d{1,6})\b(.*)$/);
+  if (m) {
+    const rest = m[3] ? ` ${m[3].trim()}` : "";
+    return {
+      calle: `${m[1].trim()}${rest}`,
+      numero: m[2],
+      domicilio: clean,
+    };
+  }
+  return { calle: clean, numero: "S/N", domicilio: clean };
+}
+
+async function queryCuitOnlineTaxpayer(
+  candidateCuits: string[]
+): Promise<ExternalTaxpayerResult | null> {
+  const detailResults = await Promise.all(
+    candidateCuits.slice(0, 2).map(async (cuit) => {
+      const [detHit, searchHit] = await Promise.all([
+        queryCuitOnlineDetailForCuit(cuit).catch(() => null),
+        queryCuitOnlineSearchForCuit(cuit).catch(() => null),
+      ]);
+      const upperRazon = detHit?.razonSocial || searchHit?.razonSocial || "";
+      if (!upperRazon) return null;
+
+      const addr = parseArgentineStreetAddress(detHit?.domicilioRaw || "");
+      const { respIva, idRespIva } = mapIvaTextToErp(
+        searchHit?.ivaRaw || "",
+        searchHit?.monoRaw || "",
+        cuit
+      );
+      const tipoPersona: "FISICA" | "JURIDICA" =
+        detHit?.tipoPersona === "JURIDICA" || searchHit?.tipoPersona === "JURIDICA"
+          ? "JURIDICA"
+          : detHit?.tipoPersona === "FISICA" || searchHit?.tipoPersona === "FISICA"
+            ? "FISICA"
+            : /^(30|33|34)/.test(cuit)
+              ? "JURIDICA"
+              : "FISICA";
+
+      return {
+        cuit,
+        formattedCuit: formatCuit(cuit),
+        razonSocial: upperRazon,
+        nombre: upperRazon,
+        respIva,
+        idRespIva,
+        calle: addr.calle,
+        numero: addr.calle ? addr.numero || "S/N" : "",
+        piso: addr.piso,
+        dpto: addr.dpto,
+        domicilio: detHit?.domicilioRaw ? detHit.domicilioRaw.toUpperCase() : "",
+        localidad: detHit?.localidad || "",
+        provincia: detHit?.provincia || "",
+        cp: addr.cp,
+        tipoPersona,
+        source: "cuitonline" as const,
+        sourceLabel: "Constancia Padrón ARCA (CUITOnline)",
+      };
+    })
+  );
+
+  return detailResults.find(Boolean) || null;
+}
+
+async function queryBcraTaxpayer(
+  candidateCuits: string[]
+): Promise<ExternalTaxpayerResult | null> {
+  const attempts = candidateCuits.slice(0, 3).flatMap((cuit) => [
+    { cuit, url: `https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/${cuit}` },
+    {
+      cuit,
+      url: `https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/Historicas/${cuit}`,
+    },
+  ]);
+
+  const responses = await Promise.all(
+    attempts.map(async ({ cuit, url }) => {
+      const res = await fetchWithTimeout(url, 3800, true);
+      if (!res.ok || !res.text) return null;
+      try {
+        const json = JSON.parse(res.text) as {
+          results?: { denominacion?: string };
+        };
+        const rawName = String(json?.results?.denominacion || "").trim();
+        if (!isValidTaxpayerEntityName(rawName)) return null;
+        const upperRazon = rawName.toUpperCase();
+        const { respIva, idRespIva } = inferRespIvaFromTextAndCuit(
+          cuit,
+          upperRazon,
+          ""
+        );
+        return {
+          cuit,
+          formattedCuit: formatCuit(cuit),
+          razonSocial: upperRazon,
+          nombre: upperRazon,
+          respIva,
+          idRespIva,
+          calle: "",
+          numero: "",
+          domicilio: "",
+          localidad: "",
+          provincia: "",
+          cp: "",
+          tipoPersona: /^(30|33|34)/.test(cuit)
+            ? ("JURIDICA" as const)
+            : ("FISICA" as const),
+          source: "bcra_oficial" as const,
+          sourceLabel: "Padrón Oficial BCRA / ARCA",
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return responses.find(Boolean) || null;
+}
+
+async function querySearchEnginesTaxpayer(
+  candidateCuits: string[]
+): Promise<ExternalTaxpayerResult | null> {
+  const queries = candidateCuits.slice(0, 2).flatMap((cuit) => [
+    { cuit, url: `https://www.bing.com/search?q=${cuit}+cuitonline` },
+    { cuit, url: `https://ar.search.yahoo.com/search?p=${cuit}+cuitonline` },
+  ]);
+
+  const results = await Promise.all(
+    queries.map(async ({ cuit, url }) => {
+      const res = await fetchWithTimeout(url, 4500, false);
+      if (!res.ok || !res.text) return null;
+      const fmt = formatCuit(cuit);
+      const qFmt = fmt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+      const cleaned = res.text
+        .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, "\n")
+        .replace(/<\/?(?:b|strong|em|i|mark|wbr)\b[^>]*>/gi, "")
+        .replace(/<[^>]+>/g, "\n");
+
+      const lines = cleaned
+        .split(/\r?\n+/)
+        .map((l) => decodeHtmlEntities(l))
+        .filter((l) => l.includes(fmt) || l.includes(cuit));
+
+      const fullSnippet = lines.join(" · ");
+
+      for (const line of lines) {
+        const reTitle = new RegExp(
+          `^(.+?)\\s*\\(\\s*${qFmt}\\s*\\)(?:\\s*,\\s*([^(\\-·•…]+?)(?:\\s*\\(([^)\\-·•…]+)\\s*\\)?)?)?(?:\\s*-\\s*Cuit\\s*Online|\\s*\\.\\.\\.|\\s*…|$)`,
+          "i"
+        );
+        const mT = line.match(reTitle);
+        if (mT) {
+          const cand = mT[1].replace(/^[›|·•\-\s]+|[›|·•\-\s]+$/g, "").trim();
+          if (isValidTaxpayerEntityName(cand)) {
+            const upperRazon = cand.toUpperCase();
+            const { respIva, idRespIva } = inferRespIvaFromTextAndCuit(
+              cuit,
+              upperRazon,
+              fullSnippet
+            );
+            return {
+              cuit,
+              formattedCuit: fmt,
+              razonSocial: upperRazon,
+              nombre: upperRazon,
+              respIva,
+              idRespIva,
+              calle: "",
+              numero: "",
+              domicilio: "",
+              localidad: mT[2] ? mT[2].replace(/[ ,.\-…]+$/g, "").toUpperCase() : "",
+              provincia: mT[3] ? mT[3].replace(/[ ,.\-…]+$/g, "").toUpperCase() : "",
+              cp: "",
+              tipoPersona: /^(30|33|34)/.test(cuit)
+                ? ("JURIDICA" as const)
+                : ("FISICA" as const),
+              source: "buscador_publico" as const,
+              sourceLabel: "Constancia Pública ARCA",
+            };
+          }
+        }
+      }
+      return null;
+    })
+  );
+
+  return results.find(Boolean) || null;
+}
+
+/**
+ * Consulta unificada de Contribuyente (Persona Física o Jurídica 30/33/34) por CUIT o DNI
+ * para facturación rápida a "Cliente Ocasional" y alta de fichas en el ERP.
+ */
+export async function lookupArgentineTaxpayerByCuitOrDni(
+  cuitOrDniRaw: string
+): Promise<ExternalTaxpayerResult | null> {
+  const digits = String(cuitOrDniRaw || "").replace(/\D/g, "");
+  if (digits.length < 7) return null;
+
+  let candidateCuits: string[] = [];
+  if (digits.length === 11) {
+    candidateCuits = [digits];
+  } else {
+    candidateCuits = computeCandidateCuitsForDni(digits);
+  }
+  if (candidateCuits.length === 0) return null;
+
+  const cacheKey = `tax:${digits}`;
+  const cached = taxpayerCache.get(cacheKey);
+  if (cached && cached.exp > Date.now()) {
+    return cached.data;
+  }
+
+  const [cuitOnlineHit, bcraHit] = await Promise.all([
+    queryCuitOnlineTaxpayer(candidateCuits),
+    queryBcraTaxpayer(candidateCuits),
+  ]);
+
+  let resolved: ExternalTaxpayerResult | null = cuitOnlineHit || bcraHit;
+  // Si BCRA respondió primero pero CUITOnline trajo localidad/domicilio, enriquecer
+  if (cuitOnlineHit && bcraHit) {
+    resolved = {
+      ...bcraHit,
+      ...cuitOnlineHit,
+      localidad: cuitOnlineHit.localidad || bcraHit.localidad,
+      provincia: cuitOnlineHit.provincia || bcraHit.provincia,
+      domicilio: cuitOnlineHit.domicilio || bcraHit.domicilio,
+      calle: cuitOnlineHit.calle || bcraHit.calle,
+      numero: cuitOnlineHit.numero || bcraHit.numero,
+    };
+  }
+
+  if (!resolved) {
+    resolved = await querySearchEnginesTaxpayer(candidateCuits);
+  }
+
+  taxpayerCache.set(cacheKey, {
+    exp: Date.now() + (resolved ? CACHE_TTL_MS : 1000 * 60 * 5),
+    data: resolved,
+  });
+
+  return resolved;
+}
+
 /**
  * Consulta externa unificada por DNI o CUIT argentino:
  * Corre en paralelo CUITOnline + BCRA Oficial, y si ninguno responde (ej. IP cloud),
@@ -526,4 +861,449 @@ export async function lookupExternalArgentinePersonByDni(
   });
 
   return resolved;
+}
+
+// ============================================================================
+// MOTOR DE BÚSQUEDA COMPLETO DE CUIT (PERSONAS FÍSICAS Y JURÍDICAS)
+// Extrae Razón Social, Condición frente al IVA, Domicilio Fiscal (Calle, Altura,
+// Piso, Depto), Localidad, Provincia y C.P. desde fuentes públicas + BCRA.
+// ============================================================================
+
+export interface ExternalCuitTaxpayerResult {
+  cuit: string;
+  formattedCuit: string;
+  razonSocial: string;
+  tipoPersona: "JURIDICA" | "FISICA" | "";
+  respIva: string;
+  idRespIva: number;
+  calle: string;
+  numero: string;
+  piso: string;
+  dpto: string;
+  domicilio: string;
+  localidad: string;
+  provincia: string;
+  cp: string;
+  nroIibb: string;
+  jurisdiccionIibb: string;
+  source: string;
+  sourceLabel: string;
+}
+
+const cuitLookupCache = new Map<
+  string,
+  { exp: number; data: ExternalCuitTaxpayerResult | null }
+>();
+
+export function validateCuitMod11(cuitRaw: string): boolean {
+  const c = String(cuitRaw || "").replace(/\D/g, "");
+  if (c.length !== 11 || /^0+$/.test(c)) return false;
+  const mult = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += Number(c[i]) * mult[i];
+  }
+  const mod = sum % 11;
+  let dv = 11 - mod;
+  if (dv === 11) dv = 0;
+  if (dv === 10) dv = 9;
+  return dv === Number(c[10]);
+}
+
+function isValidTaxpayerName(name: string): boolean {
+  const clean = String(name || "").trim();
+  if (clean.length < 3 || clean.length > 140) return false;
+  if (INVALID_NAME_RE.test(clean)) return false;
+  // Rechazar cadenas ofuscadas sin vocales o con demasiadas consonantes seguidas
+  const letters = clean.replace(/[^A-ZÁÉÍÓÚÑÜa-záéíóúñü]/g, "");
+  if (letters.length < 3) return false;
+  const vowels = letters.match(/[AEIOUÁÉÍÓÚÜaeiouáéíóúü]/g) || [];
+  if (vowels.length === 0) return false;
+  if (/[BCDFGHJKLMNPQRSTVWXYZ]{6,}/i.test(clean)) return false;
+  return /^[A-ZÁÉÍÓÚÑÜa-záéíóúñü0-9\s.,&'"()\/-]+$/u.test(clean);
+}
+
+function normalizeProvinceName(raw: string): string {
+  const clean = String(raw || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "";
+  if (
+    clean === "CABA" ||
+    clean === "CAPITAL FEDERAL" ||
+    clean === "CIUDAD AUTONOMA DE BUENOS AIRES" ||
+    clean === "CIUDAD DE BUENOS AIRES" ||
+    clean === "AUTONOMA DE BUENOS AIRES"
+  ) {
+    return "CIUDAD AUTÓNOMA DE BUENOS AIRES";
+  }
+  const map: Record<string, string> = {
+    "BUENOS AIRES": "BUENOS AIRES",
+    "PROVINCIA DE BUENOS AIRES": "BUENOS AIRES",
+    "BS AS": "BUENOS AIRES",
+    "PCIA BS AS": "BUENOS AIRES",
+    CORDOBA: "CÓRDOBA",
+    "SANTA FE": "SANTA FE",
+    "ENTRE RIOS": "ENTRE RÍOS",
+    "LA PAMPA": "LA PAMPA",
+    "SANTIAGO DEL ESTERO": "SANTIAGO DEL ESTERO",
+    CHACO: "CHACO",
+    SALTA: "SALTA",
+    TUCUMAN: "TUCUMÁN",
+    "SAN LUIS": "SAN LUIS",
+    CORRIENTES: "CORRIENTES",
+    MISIONES: "MISIONES",
+    MENDOZA: "MENDOZA",
+    "SAN JUAN": "SAN JUAN",
+    "LA RIOJA": "LA RIOJA",
+    CATAMARCA: "CATAMARCA",
+    JUJUY: "JUJUY",
+    FORMOSA: "FORMOSA",
+    NEUQUEN: "NEUQUÉN",
+    "RIO NEGRO": "RÍO NEGRO",
+    CHUBUT: "CHUBUT",
+    "SANTA CRUZ": "SANTA CRUZ",
+    "TIERRA DEL FUEGO": "TIERRA DEL FUEGO",
+  };
+  return map[clean] || String(raw || "").trim().toUpperCase();
+}
+
+export function parseArgentineStreetAddress(rawDom: string): {
+  calle: string;
+  numero: string;
+  piso: string;
+  dpto: string;
+  cp: string;
+} {
+  let work = String(rawDom || "").replace(/\s+/g, " ").trim();
+  if (!work) return { calle: "", numero: "", piso: "", dpto: "", cp: "" };
+
+  let cp = "";
+  const mCp = work.match(/\b(?:C\.?P\.?|CP)\s*:?\s*([A-Z]?\d{4}[A-Z]{0,3})\b/i);
+  if (mCp) {
+    cp = mCp[1].replace(/\D/g, "").slice(0, 4);
+    work = work.replace(mCp[0], " ").trim();
+  }
+
+  let piso = "";
+  const mPiso = work.match(/\b(?:PISO|P\.?)\s*:?\s*([0-9A-Z]{1,4})\b/i);
+  if (mPiso) {
+    piso = mPiso[1].toUpperCase();
+    work = work.replace(mPiso[0], " ").trim();
+  }
+
+  let dpto = "";
+  const mDpto = work.match(/\b(?:DPTO|DEPTO|DTO|OFICINA|OF\.?|LOCAL|LOC\.?|D\.?)\s*:?\s*([0-9A-Z]{1,6})\b/i);
+  if (mDpto) {
+    dpto = mDpto[1].toUpperCase();
+    work = work.replace(mDpto[0], " ").trim();
+  }
+
+  work = work.replace(/[,\-\s]+$/g, "").replace(/\s+/g, " ").trim();
+
+  let calle = work.toUpperCase();
+  let numero = "S/N";
+
+  // Patrón típico argentino: "ARROYO 894", "AV. SANTA FE 1234", "25 DE MAYO 450", "SAN MARTIN S/N"
+  const mNumEnd = work.match(/^(.+?)\s+(?:N[°º.]?\s*)?(\d{1,6}|S\/N)$/i);
+  if (mNumEnd) {
+    calle = mNumEnd[1].replace(/[,\-\s]+$/g, "").trim().toUpperCase();
+    numero = mNumEnd[2].toUpperCase();
+  } else {
+    const mNumMid = work.match(/^(.+?)\s+(\d{1,6})\b(.*)$/);
+    if (mNumMid && mNumMid[1].trim().length >= 2) {
+      calle = mNumMid[1].replace(/[,\-\s]+$/g, "").trim().toUpperCase();
+      numero = mNumMid[2];
+    }
+  }
+
+  return { calle, numero, piso, dpto, cp };
+}
+
+function mapIvaTextToErp(ivaRaw: string, monoRaw: string, cuit11: string): {
+  respIva: ExternalTaxpayerResult["respIva"];
+  idRespIva: number;
+} {
+  const iva = String(ivaRaw || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+  const mono = String(monoRaw || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+
+  if (mono && !/\b(NO|BAJA|INACTIVO)\b/.test(mono)) {
+    return { respIva: "MONOTRIBUTO", idRespIva: 2 };
+  }
+  if (iva) {
+    if (/EXENTO/.test(iva)) return { respIva: "EXENTO", idRespIva: 5 };
+    if (/NO\s+ALCANZADO/.test(iva)) return { respIva: "IVA NO ALCANZADO", idRespIva: 3 };
+    if (/NO\s+INSCRIPTO/.test(iva)) return { respIva: "NO INSCRIPTO", idRespIva: 7 };
+    if (/MONOTRIB/.test(iva)) return { respIva: "MONOTRIBUTO", idRespIva: 2 };
+    if (/INSCRIPTO/.test(iva)) return { respIva: "INSCRIPTO", idRespIva: 4 };
+    if (/CONSUMIDOR\s+FINAL/.test(iva)) return { respIva: "CONSUMIDOR FINAL", idRespIva: 1 };
+  }
+  // Sociedades (30/33/34) por defecto suelen ser Responsable Inscripto
+  if (/^(30|33|34)/.test(cuit11)) {
+    return { respIva: "INSCRIPTO", idRespIva: 4 };
+  }
+  return { respIva: "CONSUMIDOR FINAL", idRespIva: 1 };
+}
+
+async function queryCuitOnlineDetailForCuit(cuit11: string): Promise<{
+  razonSocial: string;
+  tipoPersona: "JURIDICA" | "FISICA" | "";
+  domicilioRaw: string;
+  localidad: string;
+  provincia: string;
+} | null> {
+  const det = await fetchWithTimeout(
+    `https://www.cuitonline.com/detalle/${cuit11}/`,
+    4800,
+    false
+  );
+  if (!det.ok || !det.text) return null;
+  const html = det.text;
+
+  let razonSocial = "";
+  let tipoPersona: "JURIDICA" | "FISICA" | "" = "";
+  let domicilioRaw = "";
+  let localidad = "";
+  let provincia = "";
+
+  // 1) Parsear <title>: "TALENTUM STRATEGIC PARTNERS S.A. (30-70832641-7), C.A.B.A. - Cuit Online"
+  //    o "BIANCHI MARIA ESTHER (27-05457050-9), Alcira Gigena (Córdoba) - Cuit Online"
+  const mTitle = html.match(
+    /<title>\s*(.+?)\s*\(\d{2}-\d{8}-\d\)(?:\s*,\s*([^<(]+?)(?:\s*\(([^)]+)\))?)?\s*-\s*Cuit\s*Online/i
+  );
+  if (mTitle) {
+    const cand = decodeHtmlEntities(mTitle[1]);
+    if (isValidTaxpayerName(cand)) razonSocial = cand.toUpperCase();
+    const locOrProv = mTitle[2] ? decodeHtmlEntities(mTitle[2]).trim() : "";
+    const parenProv = mTitle[3] ? decodeHtmlEntities(mTitle[3]).trim() : "";
+    if (parenProv) {
+      localidad = locOrProv.toUpperCase();
+      provincia = normalizeProvinceName(parenProv);
+    } else if (locOrProv) {
+      const normP = normalizeProvinceName(locOrProv);
+      if (normP === "CIUDAD AUTÓNOMA DE BUENOS AIRES") {
+        provincia = normP;
+        localidad = normP;
+      } else {
+        localidad = locOrProv.toUpperCase();
+      }
+    }
+  }
+
+  // 2) Parsear <meta name="description" content="TALENTUM STRATEGIC PARTNERS SA · CUIT: 30708326417 · Persona Jurídica · arroyo 894 · Localidad: Ciudad Autónoma de Buenos Aires" />
+  const mDesc =
+    html.match(/<meta[^>]+name="description"[^>]+content="([^"]*)"/i) ||
+    html.match(/<meta[^>]+content="([^"]*)"[^>]+name="description"/i);
+  if (mDesc && mDesc[1]) {
+    const desc = decodeHtmlEntities(mDesc[1]);
+    const parts = desc
+      .split(/\s*(?:·|\u00b7|\|)\s*/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    parts.forEach((seg, idx) => {
+      if (idx === 0 && !razonSocial && isValidTaxpayerName(seg)) {
+        razonSocial = seg.toUpperCase();
+        return;
+      }
+      if (/^CUIT\s*:/i.test(seg)) return;
+      if (/Persona\s+Jur[íi]dica/i.test(seg)) {
+        tipoPersona = "JURIDICA";
+        return;
+      }
+      if (/Persona\s+F[íi]sica/i.test(seg)) {
+        tipoPersona = "FISICA";
+        return;
+      }
+      const mLoc = seg.match(/^Localidad\s*:\s*(.+)$/i);
+      if (mLoc) {
+        const locVal = mLoc[1].trim();
+        const normProv = normalizeProvinceName(locVal);
+        if (normProv === "CIUDAD AUTÓNOMA DE BUENOS AIRES") {
+          provincia = normProv;
+          localidad = normProv;
+        } else {
+          localidad = locVal.toUpperCase();
+        }
+        return;
+      }
+      const mProv = seg.match(/^Provincia\s*:\s*(.+)$/i);
+      if (mProv) {
+        provincia = normalizeProvinceName(mProv[1]);
+        return;
+      }
+      // Segmento de dirección fiscal (ej: "arroyo 894", "av. san martin 450", "bv. roca 1200 piso 2")
+      if (
+        idx > 0 &&
+        !domicilioRaw &&
+        !/^(Actividad|Ganancias|IVA|Monotributo|Empleador|Constancia|Ver\s)/i.test(seg) &&
+        seg.length >= 3 &&
+        seg.length <= 120
+      ) {
+        domicilioRaw = seg;
+      }
+    });
+  }
+
+  if (!razonSocial) return null;
+  return { razonSocial, tipoPersona, domicilioRaw, localidad, provincia };
+}
+
+async function queryCuitOnlineSearchForCuit(cuit11: string): Promise<{
+  razonSocial: string;
+  tipoPersona: "JURIDICA" | "FISICA" | "";
+  ivaRaw: string;
+  monoRaw: string;
+} | null> {
+  const res = await fetchWithTimeout(
+    `https://www.cuitonline.com/search.php?q=${encodeURIComponent(cuit11)}`,
+    4800,
+    false
+  );
+  if (!res.ok || !res.text) return null;
+  const html = res.text;
+  const fmt = formatCuit(cuit11);
+  const idx = html.indexOf(fmt);
+  if (idx < 0) return null;
+
+  const block = html.slice(Math.max(0, idx - 300), idx + 1500);
+
+  let razonSocial = "";
+  const mConstTitle = block.match(/title="Constancia de Inscripci[óo]n de ([^"]+)"/i);
+  if (mConstTitle && mConstTitle[1]) {
+    const cand = decodeHtmlEntities(mConstTitle[1]);
+    if (isValidTaxpayerName(cand)) razonSocial = cand.toUpperCase();
+  }
+
+  const plainBlock = decodeHtmlEntities(block.replace(/<[^>]+>/g, "\n"));
+  let tipoPersona: "JURIDICA" | "FISICA" | "" = "";
+  if (/Persona\s+Jur[íi]dica/i.test(plainBlock)) tipoPersona = "JURIDICA";
+  else if (/Persona\s+F[íi]sica/i.test(plainBlock)) tipoPersona = "FISICA";
+
+  const mIva = plainBlock.match(/IVA\s*:\s*([^\n]+)/i);
+  const mMono = plainBlock.match(/Monotributo[^\n]*/i);
+
+  return {
+    razonSocial,
+    tipoPersona,
+    ivaRaw: mIva ? mIva[1].trim() : "",
+    monoRaw: mMono ? mMono[0].trim() : "",
+  };
+}
+
+async function queryBcraForCuit(cuit11: string): Promise<string> {
+  const urls = [
+    `https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/${cuit11}`,
+    `https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/Historicas/${cuit11}`,
+  ];
+  const resList = await Promise.all(
+    urls.map(async (url) => {
+      const r = await fetchWithTimeout(url, 4000, true);
+      if (!r.ok || !r.text) return "";
+      try {
+        const json = JSON.parse(r.text) as { results?: { denominacion?: string } };
+        const name = String(json?.results?.denominacion || "").trim();
+        return isValidTaxpayerName(name) ? name.toUpperCase() : "";
+      } catch {
+        return "";
+      }
+    })
+  );
+  return resList.find(Boolean) || "";
+}
+
+/**
+ * Consulta externa unificada de CUIT (Personas Físicas y Jurídicas: 20/23/24/27/30/33/34).
+ * Combina en paralelo CUITOnline Detalle (Razón Social + Domicilio + Localidad + Provincia),
+ * CUITOnline Búsqueda (Condición frente al IVA / Monotributo) y BCRA Oficial (Razón Social oficial).
+ */
+export async function lookupExternalArgentineCuit(
+  cuitRaw: string
+): Promise<ExternalCuitTaxpayerResult | null> {
+  const cuit11 = String(cuitRaw || "").replace(/\D/g, "");
+  if (cuit11.length !== 11 || !validateCuitMod11(cuit11)) return null;
+
+  const cacheKey = `cuit:${cuit11}`;
+  const cached = cuitLookupCache.get(cacheKey);
+  if (cached && cached.exp > Date.now()) {
+    return cached.data;
+  }
+
+  const [detHit, searchHit, bcraName] = await Promise.all([
+    queryCuitOnlineDetailForCuit(cuit11).catch(() => null),
+    queryCuitOnlineSearchForCuit(cuit11).catch(() => null),
+    queryBcraForCuit(cuit11).catch(() => ""),
+  ]);
+
+  const razonSocial =
+    detHit?.razonSocial || searchHit?.razonSocial || bcraName || "";
+
+  if (!razonSocial) {
+    cuitLookupCache.set(cacheKey, {
+      exp: Date.now() + 1000 * 60 * 2,
+      data: null,
+    });
+    return null;
+  }
+
+  const tipoPersona: "JURIDICA" | "FISICA" | "" =
+    detHit?.tipoPersona ||
+    searchHit?.tipoPersona ||
+    (/^(30|33|34)/.test(cuit11) ? "JURIDICA" : "FISICA");
+
+  const { respIva, idRespIva } = mapIvaTextToErp(
+    searchHit?.ivaRaw || "",
+    searchHit?.monoRaw || "",
+    cuit11
+  );
+
+  const addr = parseArgentineStreetAddress(detHit?.domicilioRaw || "");
+  const formattedCuit = formatCuit(cuit11);
+  const provincia = detHit?.provincia || "";
+  const localidad = detHit?.localidad || "";
+
+  const sourceParts: string[] = [];
+  if (detHit) sourceParts.push("Padrón ARCA / CUITOnline");
+  else if (searchHit) sourceParts.push("Constancia ARCA");
+  if (bcraName && !detHit) sourceParts.push("BCRA Oficial");
+
+  const result: ExternalCuitTaxpayerResult = {
+    cuit: cuit11,
+    formattedCuit,
+    razonSocial: razonSocial.toUpperCase(),
+    tipoPersona,
+    respIva,
+    idRespIva,
+    calle: addr.calle,
+    numero: addr.calle ? addr.numero || "S/N" : "",
+    piso: addr.piso,
+    dpto: addr.dpto,
+    domicilio: detHit?.domicilioRaw ? detHit.domicilioRaw.toUpperCase() : "",
+    localidad,
+    provincia,
+    cp: addr.cp,
+    nroIibb: formattedCuit,
+    jurisdiccionIibb: provincia,
+    source: detHit || searchHit ? "padron_arca_publico" : "bcra_oficial",
+    sourceLabel: sourceParts.join(" + ") || "Padrón Público ARCA",
+  };
+
+  cuitLookupCache.set(cacheKey, {
+    exp: Date.now() + CACHE_TTL_MS,
+    data: result,
+  });
+
+  return result;
 }
