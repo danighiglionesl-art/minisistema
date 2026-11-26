@@ -8131,10 +8131,6 @@
                 📦 <strong>Modo Solo Stock activo:</strong> cargá únicamente los artículos y cantidades compradas (Enter en Cantidad vuelve directo al buscador). Los costos y precios actuales de venta se mantienen sin cambios.
               </div>
 
-              <div id="fcr-renglon-indicator" style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.6rem; padding:0.42rem 0.7rem; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.8rem; color:var(--silver-bright);">
-                <span>📝 Sin renglones cargados aún · <strong>Próximo renglón a cargar: #1</strong></span>
-              </div>
-
               <div id="fcr-add-art-wrap" class="fcr-prov-search-wrap" style="margin-bottom:0.75rem;">
                 <label for="fcr-add-art-search" style="display:block; margin-bottom:0.35rem; font-size:0.84rem; color:var(--silver-bright);">🔍 Buscar Producto por <strong>Código de Proveedor</strong>, código interno, EAN o nombre</label>
                 <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
@@ -8184,6 +8180,9 @@
             <div id="fcr-alert" class="form-alert" hidden></div>
 
             <div class="fcr-actions-bar">
+              <div id="fcr-renglon-indicator" style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; flex-wrap:wrap; flex:1 1 240px; min-height:44px; padding:0.42rem 0.75rem; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.8rem; color:var(--silver-bright); margin-right:auto; box-sizing:border-box;">
+                <span>📝 Sin renglones cargados aún · <strong>Próximo renglón a cargar: #1</strong></span>
+              </div>
               <button type="button" id="btn-fcr-reset" class="btn-secondary fcr-cmd-btn">
                 Limpiar formulario
               </button>
