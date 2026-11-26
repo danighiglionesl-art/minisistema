@@ -187,6 +187,7 @@ export function renderErpHtmlResponse(params: {
   const carritoPath = subpathMode ? `/${tenant.slug}/carrito` : "/carrito";
   const verificadorPath = subpathMode ? `/${tenant.slug}/verificador` : "/verificador";
   const turnosPath = subpathMode ? `/${tenant.slug}/turnos` : "/turnos";
+  const laboratorioPath = subpathMode ? `/${tenant.slug}/laboratorio` : "/laboratorio";
   const cemepPath = subpathMode ? `/${tenant.slug}/cemep` : "/cemep";
   const inmobiliariaPath = subpathMode ? `/${tenant.slug}/inmobiliaria` : "/inmobiliaria";
   const asistenciaPath = subpathMode ? `/${tenant.slug}/asistencia` : "/asistencia";
@@ -228,6 +229,7 @@ export function renderErpHtmlResponse(params: {
     carritoUrl: `${siteOrigin}${carritoPath}`,
     verificadorUrl: `${siteOrigin}${verificadorPath}`,
     turnosUrl: `${siteOrigin}${turnosPath}`,
+    laboratorioUrl: `${siteOrigin}${laboratorioPath}`,
     cemepUrl: `${siteOrigin}${cemepPath}`,
     inmobiliariaUrl: `${siteOrigin}${inmobiliariaPath}`,
     asistenciaUrl: `${siteOrigin}${asistenciaPath}`,
@@ -419,6 +421,10 @@ export function renderErpHtmlResponse(params: {
       extraScripts.push(`/sistema/assets/js/minisistemas-medida-module.js?v=${assetVer}`);
       extraScripts.push(`/sistema/assets/js/appcadi-module.js?v=${assetVer}`);
       extraScripts.push(`/sistema/assets/js/campo-directo-module.js?v=${assetVer}`);
+      extraScripts.push(`/sistema/assets/js/club-fidel-module.js?v=${assetVer}`);
+    }
+    if (hasMod("club_fidel") || hasMod("clubfidel")) {
+      extraScripts.push(`/sistema/assets/js/club-fidel-module.js?v=${assetVer}`);
     }
     if (hasMod("campo_directo") || hasMod("campodirecto")) {
       extraScripts.push(`/sistema/assets/js/campo-directo-module.js?v=${assetVer}`);
@@ -447,6 +453,14 @@ export function renderErpHtmlResponse(params: {
     if (hasMod("consultorios")) {
       extraScripts.push(`/sistema/assets/js/gestion-consultorios-module.js?v=${assetVer}`);
     }
+    if (
+      hasMod("consultorios") ||
+      hasMod("gestion_consultorios") ||
+      hasMod("turnos") ||
+      hasMod("laboratorio")
+    ) {
+      extraScripts.push(`/sistema/assets/js/laboratorio-module.js?v=${assetVer}`);
+    }
     if (hasMod("gestion_web")) {
       extraScripts.push(`/sistema/assets/js/gestion-web-module.js?v=${assetVer}`);
     }
@@ -458,6 +472,12 @@ export function renderErpHtmlResponse(params: {
     }
     if (hasMod("servicios")) {
       extraScripts.push(`/sistema/assets/js/servicios-module.js?v=${assetVer}`);
+    }
+    if (hasMod("academias") || hasMod("gestion_academias")) {
+      extraScripts.push(`/sistema/assets/js/academias-module.js?v=${assetVer}`);
+    }
+    if (hasMod("articulos") || hasMod("proveedores")) {
+      extraScripts.push(`/sistema/assets/js/actualizacion-masiva-module.js?v=${assetVer}`);
     }
 
     const scriptsBlock = extraScripts

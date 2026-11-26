@@ -80,6 +80,7 @@ export const config = {
     "/cv/:path*",
     "/asistencia/:path*",
     "/turnos/:path*",
+    "/laboratorio/:path*",
     "/cemep/:path*",
     "/inmobiliaria/:path*",
   ],

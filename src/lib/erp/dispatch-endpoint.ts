@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { handleErpAcademias } from "@/lib/erp/handlers/academias-handler";
 import { handleErpAsistencia } from "@/lib/erp/handlers/asistencia-handler";
 import { handleErpAuth } from "@/lib/erp/handlers/auth-handler";
 import { handleErpCatalog } from "@/lib/erp/handlers/catalog-handler";
 import { handleErpClientes } from "@/lib/erp/handlers/clientes-handler";
+import { handleErpClubFidel } from "@/lib/erp/handlers/club-fidel-handler";
 import { handleErpConsultorios } from "@/lib/erp/handlers/consultorios-handler";
 import { handleErpCurriculum } from "@/lib/erp/handlers/cv-handler";
 import { handleErpDonContador } from "@/lib/erp/handlers/don-contador-handler";
 import { handleErpFeriarte } from "@/lib/erp/handlers/feriarte-handler";
 import { handleErpInmobiliaria } from "@/lib/erp/handlers/inmobiliaria-handler";
+import { handleErpLaboratorio } from "@/lib/erp/handlers/laboratorio-handler";
+import { handleErpMateMatica } from "@/lib/erp/handlers/mate-matica-handler";
 import { handleErpReikiOnline } from "@/lib/erp/handlers/reiki-online-handler";
 import { handleErpBibliotecaRoncedo } from "@/lib/erp/handlers/biblioteca-roncedo-handler";
+import { handleErpAppCadi } from "@/lib/erp/handlers/appcadi-handler";
 import {
   handleErpArcaComprobantes,
   handleErpBanners,
@@ -104,6 +109,10 @@ export async function dispatchErpEndpoint(
       case "gestion_web":
         res = await handleErpConsultorios(req, tenant);
         break;
+      case "laboratorio":
+      case "laboratorio_bioquimico":
+        res = await handleErpLaboratorio(req, tenant);
+        break;
       case "inmobiliaria":
         res = await handleErpInmobiliaria(req, tenant);
         break;
@@ -114,6 +123,10 @@ export async function dispatchErpEndpoint(
       case "servicios":
       case "gestion_servicios":
         res = await handleErpServicios(req, tenant);
+        break;
+      case "academias":
+      case "gestion_academias":
+        res = await handleErpAcademias(req, tenant);
         break;
       case "feriarte":
         res = await handleErpFeriarte(req, tenant);
@@ -130,6 +143,20 @@ export async function dispatchErpEndpoint(
       case "bibliotecaroncedo":
       case "roncedo":
         res = await handleErpBibliotecaRoncedo(req, tenant);
+        break;
+      case "mate_matica":
+      case "matematica":
+      case "minisistemas_medida":
+        res = await handleErpMateMatica(req, tenant);
+        break;
+      case "appcadi":
+      case "app_cadi":
+      case "cadi":
+        res = await handleErpAppCadi(req, tenant);
+        break;
+      case "club_fidel":
+      case "clubfidel":
+        res = await handleErpClubFidel(req, tenant);
         break;
       default:
         res = NextResponse.json(

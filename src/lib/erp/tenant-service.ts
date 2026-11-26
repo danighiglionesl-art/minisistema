@@ -27,8 +27,10 @@ const RESERVED_SLUGS = new Set([
   "cv",
   "asistencia",
   "turnos",
+  "laboratorio",
   "cemep",
   "inmobiliaria",
+  "academias",
   "admin",
   "api",
   "privacidad",
@@ -939,6 +941,9 @@ export async function getPlatformSecretsMap(): Promise<Record<string, string>> {
       process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ||
       process.env.GA_MEASUREMENT_ID ||
       "",
+    clubfidel_api_url:
+      process.env.CLUBFIDEL_API_URL || "https://www.clubfidel.com.ar",
+    clubfidel_admin_secret: process.env.CLUBFIDEL_ADMIN_SECRET || "",
   };
   if (Array.isArray(data)) {
     for (const row of data) {
@@ -968,6 +973,8 @@ export async function savePlatformSecretsMap(
     "afip_cert_pem",
     "afip_key_pem",
     "ga_measurement_id",
+    "clubfidel_api_url",
+    "clubfidel_admin_secret",
   ];
   const rows = [];
   for (const key of allowedKeys) {

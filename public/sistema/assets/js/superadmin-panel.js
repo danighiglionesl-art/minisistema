@@ -561,6 +561,17 @@
             '</div>' +
             '<h3>CRM · Reporte de Mejoras</h3>' +
           '</article>' +
+          '<article class="module-card" role="button" tabindex="0" data-sa-open-view="minisistemas_medida">' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>' +
+                '<line x1="8" y1="21" x2="16" y2="21"></line>' +
+                '<line x1="12" y1="17" x2="12" y2="21"></line>' +
+                '<path d="M9 10l2 2 4-4"></path>' +
+              '</svg>' +
+            '</div>' +
+            '<h3>MiniSistemas a Medida</h3>' +
+          '</article>' +
         '</div>';
 
       erpMain.appendChild(menuSec);
@@ -628,6 +639,19 @@
 
   async function openSuperAdminView(viewKey) {
     if (viewKey === 'pricing') viewKey = 'new';
+    if (viewKey === 'minisistemas_medida') {
+      var menuSecMm = document.getElementById('sec-menu-superadmin');
+      var detailSecMm = document.getElementById('sec-superadmin-detail');
+      if (menuSecMm) menuSecMm.hidden = true;
+      if (detailSecMm) detailSecMm.hidden = true;
+      if (typeof window.__MS_MINISISTEMAS_MEDIDA_OPEN__ === 'function') {
+        window.__MS_MINISISTEMAS_MEDIDA_OPEN__('menu');
+      } else {
+        var mmCard = document.getElementById('ms-minisistemas-medida-home-card');
+        if (mmCard) mmCard.click();
+      }
+      return;
+    }
     if (viewKey === 'crm') {
       var menuSec0 = document.getElementById('sec-menu-superadmin');
       var detailSec0 = document.getElementById('sec-superadmin-detail');
@@ -1556,6 +1580,7 @@
         var allChecked = totCnt > 0 && selCnt === totCnt;
         var someChecked = selCnt > 0;
         var isExpanded = Boolean(STATE_SA.expandedModules[m.key]);
+        var isFreePriceMod = m.key === 'minisistema_medida';
         var modDisplayPrice = someChecked ? bInfo.selectedBaseSum : bInfo.catalogSum;
         var modDisc = bInfo.discountPct;
 
@@ -1573,19 +1598,25 @@
                   '<span data-tree-count="' + esc(m.key) + '">' + selCnt + '/' + totCnt + '</span>' +
                 '</button>' +
                 '<strong style="cursor:pointer;" data-tree-toggle="' + esc(m.key) + '">' + esc(m.name) + '</strong>' +
-                (someChecked && selCnt < totCnt
-                  ? '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#0f766e;font-weight:700;">(Parcial: suma ' + selCnt + ' submód.)</span>'
-                  : '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#64748b;">(Σ ' + totCnt + ' submód.)</span>') +
+                (isFreePriceMod
+                  ? '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#0f766e;font-weight:800;">(Precio libre al tildar)</span>'
+                  : someChecked && selCnt < totCnt
+                    ? '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#0f766e;font-weight:700;">(Parcial: suma ' + selCnt + ' submód.)</span>'
+                    : '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#64748b;">(Σ ' + totCnt + ' submód.)</span>') +
               '</div>' +
             '</td>' +
             '<td style="padding:0.5rem;width:145px;">' +
-              '<input type="number" min="0" step="500" class="ms-sa-input" data-cfg-mod-price="' + esc(m.key) + '" value="' + esc(modDisplayPrice) + '" title="Suma automática de sus submódulos (si editás este total se reparte entre sus submódulos)">' +
+              '<input type="number" min="0" step="' + (isFreePriceMod ? '1' : '500') + '" class="ms-sa-input" data-cfg-mod-price="' + esc(m.key) + '" ' +
+                (isFreePriceMod && !someChecked
+                  ? 'disabled value="" placeholder="Tildar p/ colocar $" style="opacity:0.65;background:#f1f5f9;"'
+                  : 'value="' + esc(isFreePriceMod && modDisplayPrice === 0 ? '' : modDisplayPrice) + '" placeholder="' + (isFreePriceMod ? 'Precio libre ($)' : '0') + '"' + (isFreePriceMod ? ' style="border:2px solid #56D7A1;background:#ecfdf5;font-weight:800;"' : '')) +
+                ' title="' + (isFreePriceMod ? 'Precio libre de colocación al tildar Minisistema a medida' : 'Suma automática de sus submódulos (si editás este total se reparte entre sus submódulos)') + '">' +
             '</td>' +
             '<td style="padding:0.5rem;width:105px;">' +
               '<input type="number" min="0" max="100" class="ms-sa-input" data-q-mod-disc="' + esc(m.key) + '" value="' + esc(modDisc) + '">' +
             '</td>' +
             '<td data-net-mod-cell="' + esc(m.key) + '" style="padding:0.5rem;font-weight:800;text-align:right;">' +
-              (someChecked ? (bInfo.netSelected > 0 ? fmtArs.format(bInfo.netSelected) : 'Sin cargo') : '—') +
+              (someChecked ? (bInfo.netSelected > 0 ? fmtArs.format(bInfo.netSelected) : (isFreePriceMod ? '$ 0 (libre)' : 'Sin cargo')) : '—') +
             '</td>' +
           '</tr>';
 
@@ -1614,7 +1645,13 @@
                   '<label style="cursor:pointer;" data-sub-lbl="' + esc(s.key) + '">' + esc(s.name) + '</label>' +
                 '</td>' +
                 '<td style="padding:0.32rem 0.5rem;width:145px;">' +
-                  '<input type="number" min="0" step="250" class="ms-sa-input" style="padding:0.28rem 0.45rem;font-size:0.79rem;" data-cfg-sub-price="' + esc(s.key) + '" data-parent-mod="' + esc(m.key) + '" value="' + esc(sPrice) + '">' +
+                  '<input type="number" min="0" step="' + (isFreePriceMod ? '1' : '250') + '" class="ms-sa-input" style="padding:0.28rem 0.45rem;font-size:0.79rem;' +
+                    (isFreePriceMod && !sChecked ? 'opacity:0.65;background:#f1f5f9;' : isFreePriceMod ? 'border:2px solid #56D7A1;background:#ecfdf5;font-weight:800;' : '') +
+                  '" data-cfg-sub-price="' + esc(s.key) + '" data-parent-mod="' + esc(m.key) + '" ' +
+                    (isFreePriceMod && !sChecked
+                      ? 'disabled value="" placeholder="Tildar p/ colocar $"'
+                      : 'value="' + esc(isFreePriceMod && sPrice === 0 ? '' : sPrice) + '" placeholder="' + (isFreePriceMod ? 'Precio libre ($)' : '0') + '"') +
+                  '>' +
                 '</td>' +
                 '<td style="padding:0.36rem 0.5rem;text-align:center;color:#94a3b8;font-size:0.74rem;">' +
                   (modDisc > 0 ? '-' + modDisc + '%' : '—') +
@@ -3116,8 +3153,13 @@
         if (cntSpan) cntSpan.textContent = b.selectedSubsCount + '/' + b.totalSubsCount;
 
         var pNote = bodyEl.querySelector('[data-tree-partial-note="' + b.key + '"]');
+        var isFreeMod = b.key === 'minisistema_medida';
         if (pNote) {
-          if (b.selectedSubsCount > 0 && b.selectedSubsCount < b.totalSubsCount) {
+          if (isFreeMod) {
+            pNote.style.color = '#0f766e';
+            pNote.style.fontWeight = '800';
+            pNote.textContent = b.selectedSubsCount > 0 ? '(Precio libre habilitado)' : '(Precio libre al tildar)';
+          } else if (b.selectedSubsCount > 0 && b.selectedSubsCount < b.totalSubsCount) {
             pNote.style.color = '#0f766e';
             pNote.style.fontWeight = '700';
             pNote.textContent = '(Parcial: suma ' + b.selectedSubsCount + ' submód.)';
@@ -3129,8 +3171,22 @@
         }
 
         var modPriceInp = bodyEl.querySelector('[data-cfg-mod-price="' + b.key + '"]');
-        if (modPriceInp && document.activeElement !== modPriceInp) {
-          modPriceInp.value = String(b.selectedSubsCount > 0 ? b.selectedBaseSum : b.catalogSum);
+        if (modPriceInp) {
+          if (isFreeMod) {
+            var enabledFree = b.selectedSubsCount > 0;
+            modPriceInp.disabled = !enabledFree;
+            modPriceInp.style.opacity = enabledFree ? '1' : '0.65';
+            modPriceInp.style.background = enabledFree ? '#ecfdf5' : '#f1f5f9';
+            modPriceInp.style.border = enabledFree ? '2px solid #56D7A1' : '';
+            modPriceInp.style.fontWeight = enabledFree ? '800' : '';
+            modPriceInp.placeholder = enabledFree ? 'Precio libre ($)' : 'Tildar p/ colocar $';
+            if (document.activeElement !== modPriceInp) {
+              var valNum = enabledFree ? b.selectedBaseSum : b.catalogSum;
+              modPriceInp.value = !enabledFree || valNum === 0 ? '' : String(valNum);
+            }
+          } else if (document.activeElement !== modPriceInp) {
+            modPriceInp.value = String(b.selectedSubsCount > 0 ? b.selectedBaseSum : b.catalogSum);
+          }
         }
 
         var netModCell = bodyEl.querySelector('[data-net-mod-cell="' + b.key + '"]');
@@ -3139,7 +3195,9 @@
             b.selectedSubsCount > 0
               ? b.netSelected > 0
                 ? fmtArs.format(b.netSelected)
-                : 'Sin cargo'
+                : isFreeMod
+                  ? '$ 0 (libre)'
+                  : 'Sin cargo'
               : '—';
         }
 
@@ -3152,9 +3210,27 @@
           var sChecked = Boolean(STATE_SA.selectedSubmodules[s.key]);
           var sPrice = Math.max(0, Math.round(Number(STATE_SA.submodulePrices[s.key] || 0)));
           var sNet = Math.round(sPrice * (1 - b.discountPct / 100));
+          var sInpEl = bodyEl.querySelector('[data-cfg-sub-price="' + s.key + '"]');
+          if (sInpEl && isFreeMod) {
+            sInpEl.disabled = !sChecked;
+            sInpEl.style.opacity = sChecked ? '1' : '0.65';
+            sInpEl.style.background = sChecked ? '#ecfdf5' : '#f1f5f9';
+            sInpEl.style.border = sChecked ? '2px solid #56D7A1' : '';
+            sInpEl.style.fontWeight = sChecked ? '800' : '';
+            sInpEl.placeholder = sChecked ? 'Precio libre ($)' : 'Tildar p/ colocar $';
+            if (document.activeElement !== sInpEl) {
+              sInpEl.value = !sChecked || sPrice === 0 ? '' : String(sPrice);
+            }
+          }
           var sNetCell = bodyEl.querySelector('[data-net-sub-cell="' + s.key + '"]');
           if (sNetCell) {
-            sNetCell.textContent = sChecked ? (sNet > 0 ? fmtArs.format(sNet) : 'Sin cargo') : '—';
+            sNetCell.textContent = sChecked
+              ? sNet > 0
+                ? fmtArs.format(sNet)
+                : isFreeMod
+                  ? '$ 0 (libre)'
+                  : 'Sin cargo'
+              : '—';
           }
         });
       });
@@ -3259,6 +3335,14 @@
           if (sChk) sChk.checked = nextVal;
         });
         syncIndeterminateAndDomTotals();
+        if (mKey === 'minisistema_medida' && nextVal) {
+          var freeInp = bodyEl.querySelector('[data-cfg-mod-price="minisistema_medida"]');
+          if (freeInp) {
+            freeInp.disabled = false;
+            freeInp.focus();
+            try { freeInp.select(); } catch (_e) {}
+          }
+        }
       });
     });
 
@@ -3266,8 +3350,17 @@
     bodyEl.querySelectorAll('[data-tree-sub-chk]').forEach(function (sChk) {
       sChk.addEventListener('change', function () {
         var sKey = sChk.getAttribute('data-tree-sub-chk');
-        STATE_SA.selectedSubmodules[sKey] = Boolean(sChk.checked);
+        var nextVal = Boolean(sChk.checked);
+        STATE_SA.selectedSubmodules[sKey] = nextVal;
         syncIndeterminateAndDomTotals();
+        if (sKey === 'minisistema_medida' && nextVal) {
+          var freeSubInp = bodyEl.querySelector('[data-cfg-sub-price="minisistema_medida"]') || bodyEl.querySelector('[data-cfg-mod-price="minisistema_medida"]');
+          if (freeSubInp) {
+            freeSubInp.disabled = false;
+            freeSubInp.focus();
+            try { freeSubInp.select(); } catch (_e) {}
+          }
+        }
       });
     });
 
@@ -3310,9 +3403,9 @@
       inp.addEventListener('change', handler);
     });
 
-    // Edición de precio del módulo padre -> reparte proporcionalmente entre sus submódulos
+    // Edición de precio del módulo padre -> reparte proporcionalmente entre sus submódulos (o actualiza precio libre en tiempo real)
     bodyEl.querySelectorAll('[data-cfg-mod-price]').forEach(function (inp) {
-      inp.addEventListener('change', function () {
+      var handleModPrice = function () {
         var mKey = inp.getAttribute('data-cfg-mod-price');
         var mod = mods.find(function (x) { return x.key === mKey; });
         if (!mod) return;
@@ -3337,10 +3430,12 @@
           }
           STATE_SA.submodulePrices[s.key] = v;
           var sInp = bodyEl.querySelector('[data-cfg-sub-price="' + s.key + '"]');
-          if (sInp) sInp.value = String(v);
+          if (sInp && document.activeElement !== sInp) sInp.value = String(v);
         });
         syncIndeterminateAndDomTotals();
-      });
+      };
+      inp.addEventListener('input', handleModPrice);
+      inp.addEventListener('change', handleModPrice);
     });
 
     bodyEl.querySelectorAll('[data-q-mod-disc]').forEach(function (inp) {
@@ -4076,7 +4171,7 @@
         if (!target || typeof target.closest !== 'function') return;
 
         var homeBtn = target.closest(
-          '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card'
+          '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-megasistemas-home-card, #ms-minisistemas-medida-home-card, #ms-appcadi-home-card, #ms-campodirecto-home-card, #ms-clubfidel-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card'
         );
         if (homeBtn) {
           var menuSec = document.getElementById('sec-menu-superadmin');

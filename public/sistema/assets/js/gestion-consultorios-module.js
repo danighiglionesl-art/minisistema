@@ -10,6 +10,7 @@
 
   window.__MS_GESTION_CONSULTORIOS_OWNS_TURNOS__ = true;
   window.__MS_GESTION_CONSULTORIOS_OWNS_GESTION_WEB__ = true;
+  window.__MS_GESTION_CONSULTORIOS_OWNS_LABORATORIO__ = true;
 
   var ESTUDIO_TIPOS = [
     'Laboratorio',
@@ -81,7 +82,8 @@
       brandMods.indexOf('turnos') === -1 &&
       brandMods.indexOf('gestion_consultorios') === -1 &&
       brandMods.indexOf('historia_clinica') === -1 &&
-      brandMods.indexOf('gestion_web') === -1
+      brandMods.indexOf('gestion_web') === -1 &&
+      brandMods.indexOf('laboratorio') === -1
     ) {
       return false;
     }
@@ -96,9 +98,11 @@
         s === 'turnos' ||
         s === 'historia_clinica' ||
         s === 'gestion_web' ||
+        s === 'laboratorio' ||
         s.indexOf('turnos:') === 0 ||
         s.indexOf('historia_clinica:') === 0 ||
-        s.indexOf('gestion_web:') === 0
+        s.indexOf('gestion_web:') === 0 ||
+        s.indexOf('laboratorio:') === 0
       );
     });
   }
@@ -222,6 +226,12 @@
             '</div>' +
             '<h3>Gestión Web</h3>' +
           '</article>' +
+          '<article class="module-card" id="ms-gc-open-laboratorio" role="button" tabindex="0" style="cursor:pointer;">' +
+            '<div class="module-icon" aria-hidden="true">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6"></path><path d="M10 3v6.5L5.2 17.6A2 2 0 0 0 6.9 20.6h10.2a2 2 0 0 0 1.7-3L14 9.5V3"></path><path d="M7.5 14h9"></path></svg>' +
+            '</div>' +
+            '<h3>Laboratorio</h3>' +
+          '</article>' +
         '</div>';
 
       erpMain.appendChild(menuSec);
@@ -239,6 +249,11 @@
           window.__MS_OPEN_GESTION_WEB__('menu');
         }
       };
+      var openLabFn = function () {
+        if (typeof window.__MS_OPEN_LABORATORIO__ === 'function') {
+          window.__MS_OPEN_LABORATORIO__('menu');
+        }
+      };
       var bindCardActivation = function (el, fn) {
         if (!el) return;
         el.addEventListener('click', fn);
@@ -252,6 +267,7 @@
       bindCardActivation(menuSec.querySelector('#ms-gc-open-turnero'), openTurneroFn);
       bindCardActivation(menuSec.querySelector('#ms-gc-open-hc'), openHcFn);
       bindCardActivation(menuSec.querySelector('#ms-gc-jump-web'), jumpWebFn);
+      bindCardActivation(menuSec.querySelector('#ms-gc-open-laboratorio'), openLabFn);
     }
 
     if (!hcSec) {

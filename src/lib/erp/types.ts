@@ -322,6 +322,13 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "historia_clinica:evoluciones",
   "historia_clinica:estudios",
   "historia_clinica:recetas",
+  "laboratorio",
+  "laboratorio:ordenes",
+  "laboratorio:resultados",
+  "laboratorio:qr",
+  "laboratorio:nomenclador",
+  "laboratorio:obras_sociales",
+  "laboratorio:firma",
   "gestion_web",
   "gestion_web:usuarios",
   "gestion_web:editor",
@@ -692,6 +699,13 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "historia_clinica:evoluciones",
       "historia_clinica:estudios",
       "historia_clinica:recetas",
+      "laboratorio",
+      "laboratorio:ordenes",
+      "laboratorio:resultados",
+      "laboratorio:qr",
+      "laboratorio:nomenclador",
+      "laboratorio:obras_sociales",
+      "laboratorio:firma",
     ],
     submodules: [
       { key: "turnos:profesionales", name: "ABM Profesionales", defaultMonthlyArs: 2000 },
@@ -707,6 +721,12 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       { key: "historia_clinica:evoluciones", name: "Historia Clínica · Evoluciones SOAP", defaultMonthlyArs: 2500 },
       { key: "historia_clinica:estudios", name: "Historia Clínica · Estudios Adjuntos", defaultMonthlyArs: 1500 },
       { key: "historia_clinica:recetas", name: "Historia Clínica · Recetas Digitales", defaultMonthlyArs: 2000 },
+      { key: "laboratorio:ordenes", name: "Laboratorio · Pedidos Médicos y Protocolos", defaultMonthlyArs: 2500 },
+      { key: "laboratorio:resultados", name: "Laboratorio · Carga, Validación y Reporte PDF", defaultMonthlyArs: 2500 },
+      { key: "laboratorio:qr", name: "Laboratorio · Tarjetas QR Pre-impresas y Portal Resultados", defaultMonthlyArs: 2000 },
+      { key: "laboratorio:nomenclador", name: "Laboratorio · Nomenclador Bioquímico Nacional y ABM", defaultMonthlyArs: 2000 },
+      { key: "laboratorio:obras_sociales", name: "Laboratorio · Listas de Costos por Obra Social", defaultMonthlyArs: 2000 },
+      { key: "laboratorio:firma", name: "Laboratorio · Firma Digital del Bioquímico", defaultMonthlyArs: 1000 },
     ],
   },
   {
@@ -947,6 +967,9 @@ export function expandCommercialToErpModules(
           if (matchedSubs.some((s) => s.key.startsWith("turnos:"))) {
             out.add("turnos");
           }
+          if (matchedSubs.some((s) => s.key.startsWith("laboratorio:"))) {
+            out.add("laboratorio");
+          }
         }
         for (const s of matchedSubs) {
           out.add(s.key);
@@ -970,6 +993,9 @@ export function expandCommercialToErpModules(
         out.add("gestion_consultorios");
         if (childMatches.some((s) => s.key.startsWith("historia_clinica:"))) {
           out.add("historia_clinica");
+        }
+        if (childMatches.some((s) => s.key.startsWith("laboratorio:"))) {
+          out.add("laboratorio");
         }
       }
       for (const s of childMatches) {
