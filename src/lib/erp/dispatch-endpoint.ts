@@ -8,9 +8,7 @@ import { handleErpCurriculum } from "@/lib/erp/handlers/cv-handler";
 import { handleErpDonContador } from "@/lib/erp/handlers/don-contador-handler";
 import { handleErpFeriarte } from "@/lib/erp/handlers/feriarte-handler";
 import { handleErpInmobiliaria } from "@/lib/erp/handlers/inmobiliaria-handler";
-import { handleErpMateMatica } from "@/lib/erp/handlers/mate-matica-handler";
 import { handleErpReikiOnline } from "@/lib/erp/handlers/reiki-online-handler";
-import { handleErpBibliotecaRoncedo } from "@/lib/erp/handlers/biblioteca-roncedo-handler";
 import {
   handleErpArcaComprobantes,
   handleErpBanners,
@@ -126,11 +124,6 @@ export async function dispatchErpEndpoint(
       case "reiki_online":
       case "reikionline":
         res = await handleErpReikiOnline(req, tenant);
-        break;
-      case "biblioteca_roncedo":
-      case "bibliotecaroncedo":
-      case "roncedo":
-        res = await handleErpBibliotecaRoncedo(req, tenant);
         break;
       default:
         res = NextResponse.json(
