@@ -244,6 +244,22 @@ const ALL_SYSTEM_MODULES = [
       { key: 'servicios:informes', label: 'Informes de Servicios', selector: '#sec-menu-servicios [data-srv-sub="informes"]', sections: [] }
     ]
   },
+  {
+    key: 'academias',
+    label: 'Gestión de Academias',
+    sections: ['sec-menu-academias', 'sec-academias-workspace'],
+    submodules: [
+      { key: 'academias:panel', label: 'Tablero y Resumen General', selector: '#sec-menu-academias [data-ac-sub="panel"]', sections: [] },
+      { key: 'academias:inscripciones', label: 'Inscripciones y Base General', selector: '#sec-menu-academias [data-ac-sub="inscripciones"]', sections: [] },
+      { key: 'academias:cursos', label: 'Cursos, Comisiones y Horarios', selector: '#sec-menu-academias [data-ac-sub="cursos"]', sections: [] },
+      { key: 'academias:asistencias', label: 'Planilla de Asistencias', selector: '#sec-menu-academias [data-ac-sub="asistencias"]', sections: [] },
+      { key: 'academias:cuotas', label: 'Control de Cuotas y Cobranzas', selector: '#sec-menu-academias [data-ac-sub="cuotas"]', sections: [] },
+      { key: 'academias:aula_virtual', label: 'Aula Virtual y Clases Online', selector: '#sec-menu-academias [data-ac-sub="aula_virtual"]', sections: [] },
+      { key: 'academias:docentes', label: 'Docentes y Liquidaciones', selector: '#sec-menu-academias [data-ac-sub="docentes"]', sections: [] },
+      { key: 'academias:certificados', label: 'Certificados y Diplomas', selector: '#sec-menu-academias [data-ac-sub="certificados"]', sections: [] },
+      { key: 'academias:config', label: 'Configuración, Opcionales y Portal', selector: '#sec-menu-academias [data-ac-sub="config"]', sections: [] }
+    ]
+  },
   { key: 'perfil', label: 'Perfil de Usuario', sections: ['sec-perfil-usuario'], submodules: [] },
   {
     key: 'ayuda',
@@ -50689,7 +50705,7 @@ function initApp() {
       SN_STATE.draftStockById[Number(a.id)] = cleanTarget;
     });
     renderStockNegativoTable();
-    showStockNegativoFeedback(`✍️ Se pre-cargó el valor ${cleanTarget} en ${rowsToApply.length} artículo${rowsToApply.length === 1 ? '' : 's'}. Presioná "Guardar Todos los Nuevos Stocks" para confirmar.`);
+    showStockNegativoFeedback(`✍️ Se pre-cargó el valor ${cleanTarget} en ${rowsToApply.length} artículo${rowsToApply.length === 1 ? '' : 's'}. Presioná "Guardar Todos los Stocks de la Lista" para confirmar.`);
   });
 
   document.getElementById('btn-sn-fix-all-zero')?.addEventListener('click', async () => {
