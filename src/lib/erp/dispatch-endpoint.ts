@@ -3,16 +3,13 @@ import { handleErpAsistencia } from "@/lib/erp/handlers/asistencia-handler";
 import { handleErpAuth } from "@/lib/erp/handlers/auth-handler";
 import { handleErpCatalog } from "@/lib/erp/handlers/catalog-handler";
 import { handleErpClientes } from "@/lib/erp/handlers/clientes-handler";
-import { handleErpClubFidel } from "@/lib/erp/handlers/club-fidel-handler";
 import { handleErpConsultorios } from "@/lib/erp/handlers/consultorios-handler";
 import { handleErpCurriculum } from "@/lib/erp/handlers/cv-handler";
 import { handleErpDonContador } from "@/lib/erp/handlers/don-contador-handler";
 import { handleErpFeriarte } from "@/lib/erp/handlers/feriarte-handler";
 import { handleErpInmobiliaria } from "@/lib/erp/handlers/inmobiliaria-handler";
-import { handleErpMateMatica } from "@/lib/erp/handlers/mate-matica-handler";
 import { handleErpReikiOnline } from "@/lib/erp/handlers/reiki-online-handler";
 import { handleErpBibliotecaRoncedo } from "@/lib/erp/handlers/biblioteca-roncedo-handler";
-import { handleErpAppCadi } from "@/lib/erp/handlers/appcadi-handler";
 import {
   handleErpArcaComprobantes,
   handleErpBanners,
@@ -133,16 +130,6 @@ export async function dispatchErpEndpoint(
       case "bibliotecaroncedo":
       case "roncedo":
         res = await handleErpBibliotecaRoncedo(req, tenant);
-        break;
-      case "mate_matica":
-      case "matematica":
-      case "minisistemas_medida":
-        res = await handleErpMateMatica(req, tenant);
-        break;
-      case "appcadi":
-      case "app_cadi":
-      case "cadi":
-        res = await handleErpAppCadi(req, tenant);
         break;
       default:
         res = NextResponse.json(
