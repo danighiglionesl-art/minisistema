@@ -413,6 +413,11 @@ export function renderErpHtmlResponse(params: {
       extraScripts.push(`/sistema/assets/js/superadmin-panel.js?v=${assetVer}`);
       extraScripts.push(`/sistema/assets/js/feriarte-module.js?v=${assetVer}`);
       extraScripts.push(`/sistema/assets/js/don-contador-module.js?v=${assetVer}`);
+      extraScripts.push(`/sistema/assets/js/reiki-online-module.js?v=${assetVer}`);
+      extraScripts.push(`/sistema/assets/js/biblioteca-roncedo-module.js?v=${assetVer}`);
+    }
+    if (hasMod("biblioteca_roncedo") || hasMod("roncedo")) {
+      extraScripts.push(`/sistema/assets/js/biblioteca-roncedo-module.js?v=${assetVer}`);
     }
     if (hasMod("cv") || hasMod("personal")) {
       extraScripts.push(`/sistema/assets/js/cv-module.js?v=${assetVer}`);
