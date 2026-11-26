@@ -21,6 +21,10 @@
 # Misc
 .DS_Store
 *.pem
+*.key
+*.crt
+*.csr
+/arca-certs
 
 # Debug
 npm-debug.log*

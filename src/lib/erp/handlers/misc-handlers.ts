@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getErpAppVersion } from "../erp-version";
+import { lookupOfficialArcaByCuitOrDni } from "../arca-padron-client";
 import {
   lookupArgentineTaxpayerByCuitOrDni,
   lookupExternalArgentinePersonByDni,
@@ -872,9 +873,12 @@ export async function handleErpPadronArca(
     });
   }
 
-  // Respaldo externo unificado (Personas Físicas y Jurídicas 30/33/34: CUITOnline Detalle+Search + BCRA Oficial + Buscadores)
+  // Nivel 1: Consulta oficial directa a ARCA (WSAA + Constancia A5 + Padrón A13)
+  // Nivel 2 (respaldo automático si ARCA está en mantenimiento): BCRA Oficial + CUITOnline + Buscadores
   try {
-    const ext = await lookupArgentineTaxpayerByCuitOrDni(doc);
+    const ext =
+      (await lookupOfficialArcaByCuitOrDni(doc).catch(() => null)) ||
+      (await lookupArgentineTaxpayerByCuitOrDni(doc));
     if (ext && ext.razonSocial) {
       const normGeo = (v: unknown) =>
         String(v || "")

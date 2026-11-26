@@ -498,7 +498,7 @@ export interface ExternalTaxpayerResult {
   provincia: string;
   cp: string;
   tipoPersona: "FISICA" | "JURIDICA";
-  source: "cuitonline" | "bcra_oficial" | "buscador_publico";
+  source: "arca_oficial" | "cuitonline" | "bcra_oficial" | "buscador_publico";
   sourceLabel: string;
 }
 
