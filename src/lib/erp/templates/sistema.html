@@ -1593,8 +1593,7 @@
                 </div>
               </div>
 
-              <div class="fact-field-row">
-                <span class="fact-lbl" aria-hidden="true"></span>
+              <div class="fact-field-row fact-field-row--actions">
                 <div class="fact-cli-actions-strip">
                   <button
                     type="button"
@@ -1620,36 +1619,9 @@
                 </div>
               </div>
 
-              <div id="fact-ocasional-panel" class="fact-ocasional-panel" hidden>
-                <div id="fact-ocasional-status" class="fact-ocasional-status">
-                  ⚡ <strong>Cliente Ocasional (#2)</strong>: escribí el CUIT y presioná <strong>Enter</strong> o <strong>🔍</strong> para traer Razón Social, IVA y Domicilio sin crearlo en Clientes.
-                </div>
-                <div class="fact-ocasional-dom-row">
-                  <input
-                    type="text"
-                    id="fact-cli-calle"
-                    name="cliente_calle"
-                    class="form-input fact-control uppercase-input"
-                    value=""
-                    placeholder="DOMICILIO FISCAL (OPCIONAL)"
-                    aria-label="Domicilio del cliente ocasional"
-                  >
-                  <input
-                    type="text"
-                    id="fact-cli-localidad-ocasional"
-                    class="form-input fact-control uppercase-input"
-                    value=""
-                    placeholder="LOCALIDAD / PROVINCIA"
-                    aria-label="Localidad del cliente ocasional"
-                  >
-                  <input
-                    type="hidden"
-                    id="fact-cli-nro"
-                    name="cliente_nro"
-                    value=""
-                  >
-                </div>
-              </div>
+              <input type="hidden" id="fact-cli-calle" name="cliente_calle" value="">
+              <input type="hidden" id="fact-cli-localidad-ocasional" value="">
+              <input type="hidden" id="fact-cli-nro" name="cliente_nro" value="">
             </fieldset>
 
             <!-- Bloque Letra Fiscal (B / A / X) -->
@@ -4198,6 +4170,16 @@
             </div>
             <h3>Stock Negativo</h3>
           </article>
+
+          <article class="module-card" role="button" tabindex="0" data-open-section="sec-menu-actualizacion-masiva">
+            <div class="module-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                <polyline points="17 6 23 6 23 12"></polyline>
+              </svg>
+            </div>
+            <h3>Actualización Masiva</h3>
+          </article>
         </div>
       </section>
 
@@ -5826,6 +5808,521 @@
               <tbody id="sn-tbody">
                 <tr>
                   <td colspan="8" class="table-loading-cell">Cargando listado de artículos con stock negativo...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           SECCIÓN A.6.3: SUBMENÚ ACTUALIZACIÓN MASIVA DE PRECIOS
+           ================================================================ -->
+      <section id="sec-menu-actualizacion-masiva" class="erp-section" hidden>
+        <div class="module-back-bar">
+          <button type="button" class="btn-back-home" data-open-section="sec-menu-articulos">
+            ← Volver a Artículos, Stock y Precios
+          </button>
+          <span class="module-breadcrumb">
+            Artículos, Stock y Precios · <strong>Actualización Masiva</strong>
+          </span>
+        </div>
+
+        <div class="modules-grid" aria-label="Submódulos de Actualización Masiva de Precios">
+          <article class="module-card" role="button" tabindex="0" data-open-section="sec-act-masiva-lista">
+            <div class="module-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <line x1="10" y1="9" x2="8" y2="9"></line>
+              </svg>
+            </div>
+            <h3>Por Lista de Precios (PDF / Excel)</h3>
+          </article>
+
+          <article class="module-card" role="button" tabindex="0" data-open-section="sec-act-masiva-porcentaje">
+            <div class="module-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="5" x2="5" y2="19"></line>
+                <circle cx="6.5" cy="6.5" r="2.5"></circle>
+                <circle cx="17.5" cy="17.5" r="2.5"></circle>
+              </svg>
+            </div>
+            <h3>Por Porcentaje y Secciones</h3>
+          </article>
+
+          <article class="module-card" role="button" tabindex="0" data-open-section="sec-act-masiva-productos">
+            <div class="module-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="3" y1="15" x2="21" y2="15"></line>
+                <line x1="9" y1="3" x2="9" y2="21"></line>
+              </svg>
+            </div>
+            <h3>Producto por Producto</h3>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           SUBMÓDULO 1: ACTUALIZACIÓN MASIVA POR LISTA DE PRECIOS (PDF / EXCEL / CSV)
+           ================================================================ -->
+      <section id="sec-act-masiva-lista" class="erp-section" hidden>
+        <div class="module-back-bar">
+          <button type="button" class="btn-back-home" data-open-section="sec-menu-actualizacion-masiva">
+            ← Volver a Actualización Masiva
+          </button>
+          <span class="module-breadcrumb">
+            Actualización Masiva · <strong>Por Lista de Precios (PDF / Excel / CSV)</strong>
+          </span>
+          <div style="margin-inline-start:auto; display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" id="btn-aml-undo-last" class="btn-secondary btn-sm" style="width:auto;" hidden>
+              ↩️ Deshacer Último Lote
+            </button>
+            <button type="button" class="btn-secondary btn-sm" style="width:auto;" data-open-section="sec-precios-gondola">
+              🏷️ Ver Precios en Góndola
+            </button>
+          </div>
+        </div>
+
+        <div class="erp-fieldset" style="margin-block-end:1rem;">
+          <legend class="erp-legend">1. Proveedor, Archivo de Lista de Precios y Condiciones</legend>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:0.85rem; align-items:end;">
+            <div>
+              <label for="aml-proveedor-select" class="form-label">Proveedor de la Lista</label>
+              <select id="aml-proveedor-select" class="form-select">
+                <option value="0">Todos los proveedores (cruce general)</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="aml-modo-iva" class="form-label">Los precios de la lista son</label>
+              <select id="aml-modo-iva" class="form-select">
+                <option value="neto" selected>Precios Netos (sin IVA)</option>
+                <option value="final">Precios Finales (con IVA incluido)</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="aml-bonif-pct" class="form-label">Descuento / Bonif. Proveedor (%)</label>
+              <input type="number" id="aml-bonif-pct" class="form-input code-mono-input" step="0.01" min="-50" max="90" value="0" placeholder="EJ: 0, 5, 10">
+            </div>
+
+            <div>
+              <label for="aml-redondeo" class="form-label">Redondeo Venta Minorista/May.</label>
+              <select id="aml-redondeo" class="form-select">
+                <option value="0" selected>Sin redondeo (centavos exactos)</option>
+                <option value="1">Redondear a $1 (entero)</option>
+                <option value="10">Redondear a múltiplo de $10</option>
+                <option value="50">Redondear a múltiplo de $50</option>
+                <option value="100">Redondear a múltiplo de $100</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin-block-start:0.85rem;">
+            <label class="checkbox-pill">
+              <input type="checkbox" id="aml-dividir-uxb">
+              <span>El precio de la lista es por Bulto (dividir por columna U × B)</span>
+            </label>
+            <label class="checkbox-pill">
+              <input type="checkbox" id="aml-no-bajar-precios">
+              <span>Mantener precio actual si la lista trae un costo menor</span>
+            </label>
+            <label class="checkbox-pill">
+              <input type="checkbox" id="aml-solo-con-cambios" checked>
+              <span>Seleccionar solo artículos con variación de precio</span>
+            </label>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1.25fr 1fr; gap:1rem; margin-block-start:1rem; align-items:stretch;">
+            <div id="aml-dropzone" class="fp-dropzone" style="min-height:118px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:1rem; text-align:center; border:2px dashed rgba(212,160,23,0.55); border-radius:12px;">
+              <input type="file" id="aml-file-input" accept=".pdf,.xlsx,.xls,.csv,.txt,image/*" hidden>
+              <div style="font-size:1.45rem;">📄📊</div>
+              <strong id="aml-file-title" style="font-size:0.92rem; margin-top:0.25rem;">Subir Lista de Precios del Proveedor (PDF multipágina, Excel, CSV o TXT)</strong>
+              <span id="aml-file-sub" class="field-hint" style="margin-top:0.2rem;">Soporta listas completas de 10+ páginas (ej. Borselli / ARCOR: Rubro · Segmento · Código · Descripción · U×B · Precio)</span>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:0.45rem;">
+              <label for="aml-paste-input" class="form-label" style="margin:0;">O pegá las filas directo desde Excel / PDF / WhatsApp:</label>
+              <textarea id="aml-paste-input" class="form-input" rows="3" style="flex:1; font-size:0.8rem;" placeholder="EJ: DIV.HARINAS  GALLETITAS  13608  HOGAREÑA SESAMO x167gr  36  1348,77"></textarea>
+              <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                <button type="button" id="btn-aml-parse-paste" class="btn-secondary btn-sm" style="width:auto;">
+                  🔍 Analizar Texto Pegado
+                </button>
+                <button type="button" id="btn-aml-clear" class="btn-secondary btn-sm" style="width:auto;">
+                  🧹 Limpiar
+                </button>
+              </div>
+            </div>
+          </div>
+          <div id="aml-feedback" class="field-hint" style="margin-top:0.65rem; font-weight:700;" hidden></div>
+        </div>
+
+        <div class="kpi-strip" id="aml-kpi-strip" style="margin-block-end:1rem;">
+          <div class="kpi-box">
+            <span class="kpi-label">Renglones Leídos</span>
+            <strong id="aml-kpi-total" class="kpi-value">0</strong>
+            <span id="aml-kpi-pages" class="kpi-sub">Subí un archivo para analizar</span>
+          </div>
+          <div class="kpi-box kpi-box--gold">
+            <span class="kpi-label">Vinculados al Padrón</span>
+            <strong id="aml-kpi-matched" class="kpi-value">0</strong>
+            <span id="aml-kpi-unmatched" class="kpi-sub">0 sin vincular</span>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">Suben / Bajan</span>
+            <strong id="aml-kpi-up-down" class="kpi-value">0 / 0</strong>
+            <span id="aml-kpi-avg-var" class="kpi-sub">Variación prom.: 0,0%</span>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">Listos para Aplicar</span>
+            <strong id="aml-kpi-selected" class="kpi-value">0</strong>
+            <span class="kpi-sub">Recalcula Minorista, Mayorista y Góndola</span>
+          </div>
+        </div>
+
+        <div class="erp-fieldset">
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:0.75rem; flex-wrap:wrap; margin-block-end:0.85rem;">
+            <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:end; flex:1;">
+              <div style="min-width:190px; flex:1;">
+                <label for="aml-filter-q" class="form-label">Buscar en la Lista</label>
+                <input type="search" id="aml-filter-q" class="form-input uppercase-input" placeholder="EJ: 13608, HOGAREÑA, MOGUL...">
+              </div>
+              <div style="min-width:175px;">
+                <label for="aml-filter-rubro-lista" class="form-label">Rubro / Sección de la Lista</label>
+                <select id="aml-filter-rubro-lista" class="form-select">
+                  <option value="">Todas las secciones</option>
+                </select>
+              </div>
+              <div style="min-width:170px;">
+                <label for="aml-filter-estado" class="form-label">Mostrar</label>
+                <select id="aml-filter-estado" class="form-select">
+                  <option value="matched" selected>Solo vinculados al padrón</option>
+                  <option value="all">Todos (incl. sin vincular)</option>
+                  <option value="unmatched">Solo sin vincular</option>
+                  <option value="changed">Solo con cambio de precio</option>
+                  <option value="lowered">Solo los que bajan</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+              <button type="button" id="btn-aml-select-all" class="btn-secondary btn-sm" style="width:auto;">☑️ Todos</button>
+              <button type="button" id="btn-aml-select-none" class="btn-secondary btn-sm" style="width:auto;">⬜ Ninguno</button>
+              <button type="button" id="btn-aml-apply" class="btn-primary" style="width:auto; white-space:nowrap; font-weight:800;" disabled>
+                💾 Aplicar Actualización Masiva
+              </button>
+            </div>
+          </div>
+
+          <div tabindex="0" role="region" aria-label="Vista previa de actualización masiva por lista de precios" class="table-wrapper" style="max-block-size:62vh;">
+            <table class="catalog-table" id="aml-table">
+              <thead>
+                <tr>
+                  <th scope="col" style="width:38px; text-align:center;">
+                    <input type="checkbox" id="aml-check-header" title="Seleccionar visibles">
+                  </th>
+                  <th scope="col">Cód. Prov. / Sección Lista</th>
+                  <th scope="col">Producto en Lista → Artículo del Padrón</th>
+                  <th scope="col" class="num-col">Costo Actual</th>
+                  <th scope="col" class="num-col" style="min-width:130px;">Nuevo Costo</th>
+                  <th scope="col" class="num-col">Var. %</th>
+                  <th scope="col" class="num-col">Minorista Actual → Nuevo</th>
+                  <th scope="col" class="num-col">Mayorista Actual → Nuevo</th>
+                </tr>
+              </thead>
+              <tbody id="aml-tbody">
+                <tr>
+                  <td colspan="8" class="table-loading-cell">Subí una Lista de Precios en PDF, Excel, CSV o pegá el texto arriba para cruzar los artículos automáticamente.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           SUBMÓDULO 2: ACTUALIZACIÓN MASIVA POR PORCENTAJE Y SECCIONES
+           ================================================================ -->
+      <section id="sec-act-masiva-porcentaje" class="erp-section" hidden>
+        <div class="module-back-bar">
+          <button type="button" class="btn-back-home" data-open-section="sec-menu-actualizacion-masiva">
+            ← Volver a Actualización Masiva
+          </button>
+          <span class="module-breadcrumb">
+            Actualización Masiva · <strong>Por Porcentaje y Secciones (Proveedor / Rubro / Marca)</strong>
+          </span>
+          <div style="margin-inline-start:auto; display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" id="btn-amp-undo-last" class="btn-secondary btn-sm" style="width:auto;" hidden>
+              ↩️ Deshacer Último Lote
+            </button>
+            <button type="button" class="btn-secondary btn-sm" style="width:auto;" data-open-section="sec-precios-gondola">
+              🏷️ Ver Precios en Góndola
+            </button>
+          </div>
+        </div>
+
+        <!-- MODO A: AUMENTO DIRECTO POR PORCENTAJE -->
+        <div class="erp-fieldset" style="margin-block-end:1rem;">
+          <legend class="erp-legend">A. Aumento / Descuento Directo por Proveedor, Rubro, Marca o Texto</legend>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(185px, 1fr)); gap:0.75rem; align-items:end;">
+            <div>
+              <label for="amp-proveedor-select" class="form-label">Proveedor</label>
+              <select id="amp-proveedor-select" class="form-select">
+                <option value="0">Todos los proveedores</option>
+              </select>
+            </div>
+            <div>
+              <label for="amp-rubro-select" class="form-label">Rubro</label>
+              <select id="amp-rubro-select" class="form-select">
+                <option value="0">Todos los rubros</option>
+              </select>
+            </div>
+            <div>
+              <label for="amp-marca-select" class="form-label">Marca</label>
+              <select id="amp-marca-select" class="form-select">
+                <option value="0">Todas las marcas</option>
+              </select>
+            </div>
+            <div>
+              <label for="amp-config-select" class="form-label">Configuración de Precios</label>
+              <select id="amp-config-select" class="form-select">
+                <option value="0">Todas las configuraciones</option>
+              </select>
+            </div>
+            <div>
+              <label for="amp-keyword-input" class="form-label">Palabra clave (opcional)</label>
+              <input type="text" id="amp-keyword-input" class="form-input uppercase-input" placeholder="EJ: ALFAJOR, TOSTADA, MOGUL">
+            </div>
+          </div>
+
+          <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:end; margin-block-start:0.85rem;">
+            <div style="width:155px;">
+              <label for="amp-pct-input" class="form-label">Porcentaje (%)</label>
+              <input type="number" id="amp-pct-input" class="form-input code-mono-input" step="0.1" value="0" placeholder="EJ: 7 o -5" style="font-weight:800; text-align:center;">
+            </div>
+            <div style="min-width:220px;">
+              <label for="amp-base-select" class="form-label">Aplicar porcentaje sobre</label>
+              <select id="amp-base-select" class="form-select">
+                <option value="costo" selected>Costo (recalcula Minorista y Mayorista)</option>
+                <option value="venta_ambas">Solo Precios de Venta (Minorista y Mayorista)</option>
+                <option value="venta_min">Solo Lista Minorista</option>
+                <option value="venta_may">Solo Lista Mayorista</option>
+              </select>
+            </div>
+            <div style="min-width:195px;">
+              <label for="amp-redondeo" class="form-label">Redondeo Venta</label>
+              <select id="amp-redondeo" class="form-select">
+                <option value="0" selected>Sin redondeo (centavos exactos)</option>
+                <option value="1">Redondear a $1 (entero)</option>
+                <option value="10">Redondear a múltiplo de $10</option>
+                <option value="50">Redondear a múltiplo de $50</option>
+                <option value="100">Redondear a múltiplo de $100</option>
+              </select>
+            </div>
+            <button type="button" id="btn-amp-preview" class="btn-gold" style="width:auto; white-space:nowrap; font-weight:800;">
+              👁️ Simular Aumento
+            </button>
+            <button type="button" id="btn-amp-add-rule" class="btn-secondary" style="width:auto; white-space:nowrap;">
+              ➕ Agregar a Planilla Multi-Sección
+            </button>
+          </div>
+        </div>
+
+        <!-- MODO B: PLANILLA DE VARIACIONES POR SECCIÓN (PDF BORSELLI / ARCOR) -->
+        <div class="erp-fieldset" style="margin-block-end:1rem; border:1.5px solid rgba(212,160,23,0.45); background:rgba(212,160,23,0.04);">
+          <legend class="erp-legend">B. Importar Planilla de Variaciones por Sección (PDF / Excel / Texto — estilo Borselli / ARCOR)</legend>
+          <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-block-end:0.75rem;">
+            <div style="display:flex; gap:0.55rem; flex-wrap:wrap; align-items:center;">
+              <input type="file" id="amp-var-file-input" accept=".pdf,.xlsx,.xls,.csv,.txt,image/*" hidden>
+              <button type="button" id="btn-amp-upload-var-pdf" class="btn-secondary" style="width:auto; white-space:nowrap;">
+                📄 Subir PDF / Excel de Variaciones (%)
+              </button>
+              <button type="button" id="btn-amp-toggle-paste" class="btn-secondary btn-sm" style="width:auto;">
+                📋 Pegar Texto de Variaciones
+              </button>
+              <button type="button" id="btn-amp-clear-rules" class="btn-secondary btn-sm" style="width:auto;">
+                🧹 Limpiar Reglas
+              </button>
+            </div>
+            <button type="button" id="btn-amp-simulate-rules" class="btn-gold" style="width:auto; white-space:nowrap; font-weight:800;" hidden>
+              ⚡ Simular Todas las Secciones Activas
+            </button>
+          </div>
+
+          <div id="amp-var-paste-box" style="margin-block-end:0.75rem;" hidden>
+            <textarea id="amp-var-paste-input" class="form-input" rows="4" placeholder="EJ:&#10;CHOCOLATES ARCOR J.V. 6% ALFAJORES 6%&#10;DIV.HARINAS 9% COOKIES 10%&#10;DIV.HARINAS BAGLEY 7% TOSTADAS 18%"></textarea>
+            <div style="margin-top:0.4rem; display:flex; justify-content:flex-end;">
+              <button type="button" id="btn-amp-parse-var-paste" class="btn-primary btn-sm" style="width:auto;">🔍 Leer Secciones y %</button>
+            </div>
+          </div>
+
+          <div id="amp-rules-wrap" hidden>
+            <div tabindex="0" role="region" aria-label="Reglas de variación por sección" class="table-wrapper" style="max-block-size:280px;">
+              <table class="catalog-table" id="amp-rules-table">
+                <thead>
+                  <tr>
+                    <th scope="col" style="width:36px; text-align:center;">✔</th>
+                    <th scope="col">Rubro / División (Proveedor)</th>
+                    <th scope="col">Segmento / Palabra Clave</th>
+                    <th scope="col">Rubro del Padrón (opcional)</th>
+                    <th scope="col" class="num-col" style="width:110px;">Var. %</th>
+                    <th scope="col" class="num-col" style="width:110px;">Artículos</th>
+                    <th scope="col" style="width:50px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="amp-rules-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="amp-feedback" class="field-hint" style="margin-top:0.55rem; font-weight:700;" hidden></div>
+        </div>
+
+        <!-- VISTA PREVIA DE ARTÍCULOS AFECTADOS -->
+        <div class="erp-fieldset">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem; margin-block-end:0.75rem;">
+            <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
+              <strong id="amp-preview-title" style="font-size:0.95rem;">Vista Previa de Artículos a Actualizar</strong>
+              <span id="amp-preview-counter" class="badge badge--gold">0 artículos</span>
+              <input type="search" id="amp-preview-filter-q" class="form-input uppercase-input" style="width:220px; padding:0.35rem 0.6rem;" placeholder="Filtrar vista previa...">
+            </div>
+            <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+              <button type="button" id="btn-amp-select-all" class="btn-secondary btn-sm" style="width:auto;">☑️ Todos</button>
+              <button type="button" id="btn-amp-select-none" class="btn-secondary btn-sm" style="width:auto;">⬜ Ninguno</button>
+              <button type="button" id="btn-amp-apply" class="btn-primary" style="width:auto; white-space:nowrap; font-weight:800;" disabled>
+                💾 Aplicar Actualización por Porcentaje
+              </button>
+            </div>
+          </div>
+
+          <div tabindex="0" role="region" aria-label="Vista previa de actualización por porcentaje" class="table-wrapper" style="max-block-size:56vh;">
+            <table class="catalog-table" id="amp-preview-table">
+              <thead>
+                <tr>
+                  <th scope="col" style="width:38px; text-align:center;">
+                    <input type="checkbox" id="amp-check-header" title="Seleccionar visibles">
+                  </th>
+                  <th scope="col">Artículo</th>
+                  <th scope="col">Rubro / Marca / Regla</th>
+                  <th scope="col" class="num-col">Var. %</th>
+                  <th scope="col" class="num-col">Costo Actual → Nuevo</th>
+                  <th scope="col" class="num-col">Minorista Actual → Nuevo</th>
+                  <th scope="col" class="num-col">Mayorista Actual → Nuevo</th>
+                </tr>
+              </thead>
+              <tbody id="amp-preview-tbody">
+                <tr>
+                  <td colspan="7" class="table-loading-cell">Elegí los filtros y un porcentaje arriba (o subí un PDF de variaciones por sección) y presioná "Simular".</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           SUBMÓDULO 3: ACTUALIZACIÓN PRODUCTO POR PRODUCTO (GRILLA RÁPIDA)
+           ================================================================ -->
+      <section id="sec-act-masiva-productos" class="erp-section" hidden>
+        <div class="module-back-bar">
+          <button type="button" class="btn-back-home" data-open-section="sec-menu-actualizacion-masiva">
+            ← Volver a Actualización Masiva
+          </button>
+          <span class="module-breadcrumb">
+            Actualización Masiva · <strong>Producto por Producto (Grilla Rápida)</strong>
+          </span>
+          <div style="margin-inline-start:auto; display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" id="btn-amg-undo-last" class="btn-secondary btn-sm" style="width:auto;" hidden>
+              ↩️ Deshacer Último Lote
+            </button>
+            <button type="button" class="btn-secondary btn-sm" style="width:auto;" data-open-section="sec-precios-gondola">
+              🏷️ Ver Precios en Góndola
+            </button>
+          </div>
+        </div>
+
+        <div class="erp-fieldset" style="margin-block-end:1rem;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(185px, 1fr)); gap:0.75rem; align-items:end;">
+            <div>
+              <label for="amg-search-input" class="form-label">Buscar Artículo (Cód. / EAN / Nombre / Cód. Prov.)</label>
+              <input type="search" id="amg-search-input" class="form-input uppercase-input" placeholder="EJ: 00192, 13608, HOGAREÑA...">
+            </div>
+            <div>
+              <label for="amg-proveedor-select" class="form-label">Proveedor</label>
+              <select id="amg-proveedor-select" class="form-select">
+                <option value="0">Todos los proveedores</option>
+              </select>
+            </div>
+            <div>
+              <label for="amg-rubro-select" class="form-label">Rubro</label>
+              <select id="amg-rubro-select" class="form-select">
+                <option value="0">Todos los rubros</option>
+              </select>
+            </div>
+            <div>
+              <label for="amg-marca-select" class="form-label">Marca</label>
+              <select id="amg-marca-select" class="form-select">
+                <option value="0">Todas las marcas</option>
+              </select>
+            </div>
+            <div>
+              <label for="amg-redondeo" class="form-label">Redondeo Venta</label>
+              <select id="amg-redondeo" class="form-select">
+                <option value="0" selected>Sin redondeo</option>
+                <option value="1">Entero ($1)</option>
+                <option value="10">Múltiplo de $10</option>
+                <option value="50">Múltiplo de $50</option>
+                <option value="100">Múltiplo de $100</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="erp-fieldset">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem; margin-block-end:0.75rem;">
+            <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
+              <span id="amg-status-badge" class="badge badge--gold">0 modificados</span>
+              <span id="amg-count-info" class="field-hint" style="margin:0;">Mostrando 0 artículos</span>
+              <label class="checkbox-pill" style="margin:0;">
+                <input type="checkbox" id="amg-solo-modificados">
+                <span>Ver solo modificados</span>
+              </label>
+            </div>
+            <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+              <button type="button" id="btn-amg-prev" class="btn-page" disabled>← Anterior</button>
+              <span id="amg-page-ind" class="page-indicator">Página 1</span>
+              <button type="button" id="btn-amg-next" class="btn-page" disabled>Siguiente →</button>
+              <button type="button" id="btn-amg-discard" class="btn-secondary btn-sm" style="width:auto;" disabled>
+                🧹 Descartar Cambios
+              </button>
+              <button type="button" id="btn-amg-save-all" class="btn-primary" style="width:auto; white-space:nowrap; font-weight:800;" disabled>
+                💾 Guardar Cambios Modificados
+              </button>
+            </div>
+          </div>
+          <div id="amg-feedback" class="field-hint" style="margin-bottom:0.65rem; font-weight:700;" hidden></div>
+
+          <div tabindex="0" role="region" aria-label="Grilla rápida de actualización producto por producto" class="table-wrapper" style="max-block-size:62vh;">
+            <table class="catalog-table" id="amg-table">
+              <thead>
+                <tr>
+                  <th scope="col">Artículo (Cód. / Cód. Prov.)</th>
+                  <th scope="col">Rubro / Marca</th>
+                  <th scope="col" class="num-col" style="min-width:128px;">Costo Neto ($)</th>
+                  <th scope="col" class="num-col" style="min-width:128px;">Costo Final ($)</th>
+                  <th scope="col" class="num-col" style="min-width:96px;">% Rápido</th>
+                  <th scope="col" class="num-col">P. Minorista ($)</th>
+                  <th scope="col" class="num-col">P. Mayorista ($)</th>
+                  <th scope="col" style="width:52px;"></th>
+                </tr>
+              </thead>
+              <tbody id="amg-tbody">
+                <tr>
+                  <td colspan="8" class="table-loading-cell">Cargando padrón de artículos...</td>
                 </tr>
               </tbody>
             </table>

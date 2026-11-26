@@ -59,7 +59,7 @@ const ALL_SYSTEM_MODULES = [
   {
     key: 'articulos',
     label: 'Artículos, Stock y Precios',
-    sections: ['sec-menu-articulos', 'sec-articulos', 'sec-config-precios', 'sec-abm-marcas', 'sec-abm-rubros', 'sec-menu-factura-proveedor', 'sec-factura-proveedor-stock', 'sec-factura-proveedor', 'sec-factura-carga-rapida', 'sec-control-stock', 'sec-stock-negativo', 'sec-precios-gondola', 'sec-menu-ofertas', 'sec-ofertas-abm', 'sec-pedidos-proveedores', 'sec-stock-valorizado'],
+    sections: ['sec-menu-articulos', 'sec-articulos', 'sec-config-precios', 'sec-abm-marcas', 'sec-abm-rubros', 'sec-menu-factura-proveedor', 'sec-factura-proveedor-stock', 'sec-factura-proveedor', 'sec-factura-carga-rapida', 'sec-control-stock', 'sec-stock-negativo', 'sec-menu-actualizacion-masiva', 'sec-act-masiva-lista', 'sec-act-masiva-porcentaje', 'sec-act-masiva-productos', 'sec-precios-gondola', 'sec-menu-ofertas', 'sec-ofertas-abm', 'sec-pedidos-proveedores', 'sec-stock-valorizado'],
     submodules: [
       { key: 'articulos:listado', label: 'Artículos, Precios y Stock', selector: '#sec-menu-articulos [data-open-section="sec-articulos"]', sections: ['sec-articulos'] },
       { key: 'articulos:nuevo', label: 'Nuevo Artículo', selector: '#card-new-article', sections: [] },
@@ -71,6 +71,7 @@ const ALL_SYSTEM_MODULES = [
       { key: 'articulos:carga_rapida', label: 'Factura carga rápida', selector: '#sec-menu-articulos [data-open-section="sec-factura-carga-rapida"]', sections: ['sec-factura-carga-rapida'] },
       { key: 'articulos:control_stock', label: 'Control de Stock', selector: '#sec-menu-articulos [data-open-section="sec-control-stock"]', sections: ['sec-control-stock'] },
       { key: 'articulos:stock_negativo', label: 'Stock Negativo', selector: '#sec-menu-articulos [data-open-section="sec-stock-negativo"]', sections: ['sec-stock-negativo'] },
+      { key: 'articulos:actualizacion_masiva', label: 'Actualización Masiva', selector: '#sec-menu-articulos [data-open-section="sec-menu-actualizacion-masiva"]', sections: ['sec-menu-actualizacion-masiva', 'sec-act-masiva-lista', 'sec-act-masiva-porcentaje', 'sec-act-masiva-productos'] },
       { key: 'articulos:precios_gondola', label: 'Precios en Góndola', selector: '#sec-menu-articulos [data-open-section="sec-precios-gondola"]', sections: ['sec-precios-gondola'] },
       { key: 'articulos:ofertas', label: 'Administración de Ofertas', selector: '#sec-menu-articulos [data-open-section="sec-menu-ofertas"]', sections: ['sec-menu-ofertas', 'sec-ofertas-abm'] },
       { key: 'articulos:pedidos', label: 'Pedidos a Proveedores', selector: '#sec-menu-articulos [data-open-section="sec-pedidos-proveedores"]', sections: ['sec-pedidos-proveedores'] }
@@ -198,6 +199,19 @@ const ALL_SYSTEM_MODULES = [
       { key: 'turnos:gestion_turnos', label: 'Gestión de Turnos', selector: '#sec-menu-turnos [data-turnos-sub="gestion_turnos"]', sections: [] },
       { key: 'turnos:pagos_split', label: 'Pagos Online y Split MP', selector: '#sec-menu-turnos [data-turnos-sub="pagos_split"]', sections: [] },
       { key: 'turnos:portal', label: 'Portal Público /turnos', selector: '#sec-menu-turnos [data-turnos-sub="portal"]', sections: [] }
+    ]
+  },
+  {
+    key: 'laboratorio',
+    label: 'Laboratorio Bioquímico',
+    sections: ['sec-menu-laboratorio', 'sec-laboratorio-workspace'],
+    submodules: [
+      { key: 'laboratorio:ordenes', label: 'Pedidos Médicos y Protocolos', selector: '#sec-menu-laboratorio [data-lab-sub="ordenes"]', sections: [] },
+      { key: 'laboratorio:resultados', label: 'Carga, Validación y Reporte PDF', selector: '#sec-menu-laboratorio [data-lab-sub="resultados"]', sections: [] },
+      { key: 'laboratorio:qr', label: 'Tarjetas QR para Pacientes', selector: '#sec-menu-laboratorio [data-lab-sub="qr"]', sections: [] },
+      { key: 'laboratorio:nomenclador', label: 'ABM Prestaciones y Nomenclador', selector: '#sec-menu-laboratorio [data-lab-sub="nomenclador"]', sections: [] },
+      { key: 'laboratorio:obras_sociales', label: 'Valores por Obra Social', selector: '#sec-menu-laboratorio [data-lab-sub="obras_sociales"]', sections: [] },
+      { key: 'laboratorio:firma', label: 'Firma Digital y Membrete', selector: '#sec-menu-laboratorio [data-lab-sub="firma"]', sections: [] }
     ]
   },
   {
@@ -12461,6 +12475,10 @@ const SECTION_TOPBAR_META = {
   'sec-factura-proveedor': { title: 'Factura Proveedor · Actualiza Stock y Precios', back: 'sec-menu-factura-proveedor' },
   'sec-control-stock': { title: 'Control de Stock', back: 'sec-menu-articulos' },
   'sec-stock-negativo': { title: '📉 Stock Negativo', back: 'sec-menu-articulos' },
+  'sec-menu-actualizacion-masiva': { title: 'Actualización Masiva', back: 'sec-menu-articulos' },
+  'sec-act-masiva-lista': { title: 'Actualización Masiva · Lista de Precios', back: 'sec-menu-actualizacion-masiva' },
+  'sec-act-masiva-porcentaje': { title: 'Actualización Masiva · Porcentaje y Secciones', back: 'sec-menu-actualizacion-masiva' },
+  'sec-act-masiva-productos': { title: 'Actualización Masiva · Producto por Producto', back: 'sec-menu-actualizacion-masiva' },
   'sec-precios-gondola': { title: 'Precios en Góndola', back: 'sec-menu-articulos' },
   'sec-menu-ofertas': { title: 'Administración de Ofertas', back: 'sec-menu-articulos' },
   'sec-ofertas-abm': { title: 'Administración de Ofertas', back: 'sec-menu-ofertas' },
@@ -13234,6 +13252,10 @@ function initApp() {
       targetId === 'sec-factura-proveedor' ||
       targetId === 'sec-control-stock' ||
       targetId === 'sec-stock-negativo' ||
+      targetId === 'sec-menu-actualizacion-masiva' ||
+      targetId === 'sec-act-masiva-lista' ||
+      targetId === 'sec-act-masiva-porcentaje' ||
+      targetId === 'sec-act-masiva-productos' ||
       targetId === 'sec-precios-gondola' ||
       targetId === 'sec-menu-ofertas' ||
       targetId === 'sec-ofertas-abm'
@@ -13255,6 +13277,14 @@ function initApp() {
           window.initOrRefreshControlStockSection();
         } else if (targetId === 'sec-stock-negativo' && typeof window.initOrRefreshStockNegativoSection === 'function') {
           window.initOrRefreshStockNegativoSection();
+        } else if (
+          (targetId === 'sec-menu-actualizacion-masiva' ||
+            targetId === 'sec-act-masiva-lista' ||
+            targetId === 'sec-act-masiva-porcentaje' ||
+            targetId === 'sec-act-masiva-productos') &&
+          typeof window.initOrRefreshActualizacionMasivaSection === 'function'
+        ) {
+          window.initOrRefreshActualizacionMasivaSection(targetId);
         } else if (targetId === 'sec-precios-gondola' && typeof window.initOrRefreshPreciosGondolaSection === 'function') {
           window.initOrRefreshPreciosGondolaSection();
         } else if (
@@ -14468,13 +14498,10 @@ function initApp() {
   });
 
   function setOccasionalStatusMsg(htmlOrText, tone = 'info', asHtml = false) {
-    const stEl = document.getElementById('fact-ocasional-status');
-    if (!stEl) return;
-    if (asHtml) stEl.innerHTML = htmlOrText;
-    else stEl.textContent = htmlOrText;
-    if (tone === 'success') stEl.style.color = 'var(--success)';
-    else if (tone === 'danger') stEl.style.color = 'var(--danger)';
-    else stEl.style.color = '';
+    const plain = String(htmlOrText || '').replace(/<[^>]+>/g, '').trim();
+    if (tone === 'danger' && plain && typeof showToast === 'function') {
+      showToast(plain);
+    }
   }
 
   function activateOccasionalClientMode(opts = {}) {
@@ -14517,7 +14544,7 @@ function initApp() {
     if (calleInp) calleInp.value = '';
     if (locInp) locInp.value = '';
     if (nroCalleInp) nroCalleInp.value = '';
-    if (ocasionalPanel) ocasionalPanel.hidden = false;
+    if (ocasionalPanel) ocasionalPanel.hidden = true;
     if (btnOcasional) btnOcasional.classList.add('is-active');
     if (cliDrop) cliDrop.hidden = true;
 
@@ -77268,6 +77295,9 @@ function initApp() {
       'filter-proveedor',
       'sv-filter-proveedor',
       'sn-filter-proveedor',
+      'aml-proveedor-select',
+      'amp-proveedor-select',
+      'amg-proveedor-select',
       'pg-filter-proveedor',
       'cw-art-proveedor',
       'est-rank-proveedor',
@@ -77810,4 +77840,27 @@ function initApp() {
 document.addEventListener('DOMContentLoaded', initApp);
 
 window.__MS_GET_ACTIVE_USER__ = function() { return STATE.currentUser; };
+
+window.__ERP_AM_BRIDGE__ = {
+  getState: () => STATE,
+  round2: (v) => round2(v),
+  formatArs: (v) => formatArs(v),
+  escapeHtml: (s) => escapeHtml(s),
+  normalizeStr: (s) => normalizeStr(s),
+  todayFormatted: () => todayFormatted(),
+  resolveArticleEffectiveIva: (art) => resolveArticleEffectiveIva(art),
+  registerGondolaPriceUpdate: (art, oldSnap, origen) => registerGondolaPriceUpdate(art, oldSnap, origen),
+  saveLocalGondolaQueue: () => saveLocalGondolaQueue(),
+  saveLocalFacturaProveedorArticleOverrides: (arts) => saveLocalFacturaProveedorArticleOverrides(arts),
+  saveLocalFidelizacionStore: () => saveLocalFidelizacionStore(),
+  updateGondolaMenuBadges: () => updateGondolaMenuBadges(),
+  updateKpis: () => updateKpis(),
+  applyCatalogFilters: (page) => applyCatalogFilters(page),
+  loadCatalogDatabase: (force) => loadCatalogDatabase(force),
+  loadClientesDatabase: (force) => loadClientesDatabase(force),
+  showBrandConfirmDialog: (msg, opts) => showBrandConfirmDialog(msg, opts),
+  showToast: (msg, type) => (typeof showToast === 'function' ? showToast(msg, type) : undefined),
+  openArticleModal: (art, opts) => openArticleModal(art, opts),
+  normalizeGondolaQueueMap: (q) => normalizeGondolaQueueMap(q)
+};
 
