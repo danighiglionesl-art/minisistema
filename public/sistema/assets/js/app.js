@@ -67537,21 +67537,30 @@ function initApp() {
       const trimmed = String(raw || '').trim().toUpperCase();
       if (!trimmed) return '';
       if (trimmed === 'S/N' || trimmed === 'SN') return 'S/N';
-      const cleaned = trimmed.replace(/[^\d-]/g, '');
+      const cleaned = trimmed.replace(/\//g, '-').replace(/[^\d-]/g, '');
       if (cleaned.includes('-')) {
         const parts = cleaned.split('-');
         const p1 = (parts[0] || '').replace(/\D/g, '').slice(0, 4);
         const p2 = parts.slice(1).join('').replace(/\D/g, '').slice(0, 8);
-        if (p1 && p2) {
-          return `${p1.padStart(4, '0')}-${p2.padStart(8, '0')}`;
+        if (p2) {
+          return `${(p1 || '0').padStart(4, '0')}-${p2.padStart(8, '0')}`;
         }
-        return cleaned;
+        if (p1) {
+          return `${p1.padStart(4, '0')}-00000000`;
+        }
+        return '';
       }
       const digits = cleaned.replace(/\D/g, '');
+      if (!digits || /^0+$/.test(digits)) return '';
       if (digits.length === 12) {
         return `${digits.slice(0, 4)}-${digits.slice(4, 12)}`;
       }
-      return digits;
+      if (digits.length > 8) {
+        const pv = digits.slice(0, digits.length - 8).slice(-4);
+        const nro = digits.slice(-8);
+        return `${pv.padStart(4, '0')}-${nro.padStart(8, '0')}`;
+      }
+      return `0000-${digits.padStart(8, '0')}`;
     }
 
     function buildProveedoresDirectoryForFcr() {
@@ -68819,6 +68828,12 @@ function initApp() {
       if (!provItem) {
         if (searchWrap) searchWrap.hidden = false;
         if (selBox) selBox.hidden = true;
+        const tipoSelReset = document.getElementById('fcr-tipo-comp');
+        if (tipoSelReset) tipoSelReset.value = 'FACTURA A';
+        const fechaInpReset = document.getElementById('fcr-fecha');
+        if (fechaInpReset && !FCR_STATE.editingMov) {
+          fechaInpReset.value = getLocalTodayIso();
+        }
         updateFcrSavedModoIvaBadgeUI('final', false);
         loadFcrSupplierArticles(null);
         return;
@@ -69666,7 +69681,7 @@ function initApp() {
     const FCR_LEGACY_DRAFTS_KEY = 'cn_erp_fcr_drafts_v1';
     const FCR_LEGACY_AUTOSAVE_KEY = 'cn_erp_fcr_active_autosave_v1';
 
-    function resetFacturaCargaRapidaForm(keepFecha = true, clearAutoSave = true) {
+    function resetFacturaCargaRapidaForm(keepFecha = false, clearAutoSave = true) {
       const wasEditing = Boolean(FCR_STATE.editingMov);
       FCR_STATE.editingMov = null;
       FCR_STATE.activeDraftId = null;
@@ -70252,7 +70267,11 @@ function initApp() {
 
     window.initOrRefreshFacturaCargaRapidaSection = function initOrRefreshFacturaCargaRapidaSection() {
       const fechaInp = document.getElementById('fcr-fecha');
-      if (fechaInp && !fechaInp.value) {
+      const tipoSel = document.getElementById('fcr-tipo-comp');
+      if (!FCR_STATE.selectedProv && !FCR_STATE.editingMov) {
+        if (fechaInp) fechaInp.value = getLocalTodayIso();
+        if (tipoSel) tipoSel.value = 'FACTURA A';
+      } else if (fechaInp && !fechaInp.value) {
         fechaInp.value = getLocalTodayIso();
       }
       const provDrop = document.getElementById('fcr-prov-dropdown');
@@ -70537,6 +70556,7 @@ function initApp() {
         const padded = autoPadFacturaNumber(rawTrim);
         if (padded && padded !== 'S/N' && padded !== '0000-00000000') {
           nroInp.value = padded;
+          autoSaveActiveFcrSession();
         }
       });
     }
@@ -70546,6 +70566,9 @@ function initApp() {
       autoSaveActiveFcrSession();
     });
     document.getElementById('fcr-tipo-comp')?.addEventListener('change', () => {
+      if (FCR_STATE.selectedProv) {
+        persistFcrSupplierModoIvaPreference(FCR_STATE.selectedProv, getSelectedFcrModoIva());
+      }
       updateFcrProjectedBalance();
       autoSaveActiveFcrSession();
     });
@@ -71101,7 +71124,8 @@ function initApp() {
           });
         }
 
-        resetFacturaCargaRapidaForm(true, true);
+        persistFcrSupplierModoIvaPreference(selProv, getSelectedFcrModoIva());
+        resetFacturaCargaRapidaForm(false, true);
         renderFcrHistorialTable();
 
         const stockMsgPart =
