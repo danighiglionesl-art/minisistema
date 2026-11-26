@@ -29376,15 +29376,42 @@ function initApp() {
     saveBtn.disabled = true;
     saveBtn.textContent = 'Guardando...';
 
-    try {
-      const resSave = await fetch('api/catalog.php', {
+    const showArticleSaveError = (errMsg) => {
+      alertEl.textContent = `⚠️ ${errMsg}`;
+      alertEl.hidden = false;
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Guardar Artículo';
+      if (typeof playFactAlertBeep === 'function') playFactAlertBeep();
+      window.alert(`⛔ ${errMsg}`);
+    };
+
+    const payloadBody = JSON.stringify({
+      action: 'save_article',
+      article: newArtObj
+    });
+
+    const postSaveArticleOnce = () =>
+      fetch('api/catalog.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'save_article',
-          article: newArtObj
-        })
+        body: payloadBody
       });
+
+    try {
+      let resSave;
+      try {
+        resSave = await postSaveArticleOnce();
+        if (resSave.status === 502 || resSave.status === 503 || resSave.status === 504) {
+          saveBtn.textContent = '⏳ Reintentando...';
+          await new Promise((r) => setTimeout(r, 650));
+          resSave = await postSaveArticleOnce();
+        }
+      } catch (_firstNetErr) {
+        saveBtn.textContent = '⏳ Reintentando...';
+        await new Promise((r) => setTimeout(r, 650));
+        resSave = await postSaveArticleOnce();
+      }
+
       if (!resSave.ok) {
         let errMsg =
           resSave.status === 504
@@ -29409,21 +29436,31 @@ function initApp() {
             }
           }
         } catch {}
-        alertEl.textContent = `⚠️ ${errMsg}`;
-        alertEl.hidden = false;
-        saveBtn.disabled = false;
-        saveBtn.textContent = '💾 Guardar Artículo';
-        if (typeof playFactAlertBeep === 'function') playFactAlertBeep();
-        window.alert(`⛔ ${errMsg}`);
+        showArticleSaveError(errMsg);
         return;
       }
-      const jsonSave = await resSave.json();
+
+      const jsonSave = await resSave.json().catch(() => null);
+      if (jsonSave && jsonSave.ok === false) {
+        showArticleSaveError(jsonSave.message || jsonSave.error || 'No se pudo guardar el artículo en el servidor.');
+        return;
+      }
+      if (jsonSave && jsonSave.article && typeof jsonSave.article === 'object') {
+        if (typeof jsonSave.article.im === 'string') newArtObj.im = jsonSave.article.im;
+        if (typeof jsonSave.article.ims === 'string') newArtObj.ims = jsonSave.article.ims;
+      }
       if (jsonSave && jsonSave.gondolaQueue) {
         STATE.gondolaQueue = normalizeGondolaQueueMap(jsonSave.gondolaQueue);
         saveLocalGondolaQueue();
         updateGondolaMenuBadges();
       }
-    } catch {}
+    } catch (netErr) {
+      const detail = netErr && netErr.message ? ` (${netErr.message})` : '';
+      showArticleSaveError(
+        `No se pudo conectar con el servidor para guardar el artículo${detail}. Verificá la conexión y volvé a intentar.`
+      );
+      return;
+    }
 
     const idx = STATE.articulos.findIndex((a) => a.id === newArtObj.id);
     if (idx >= 0) {

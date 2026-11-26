@@ -190,6 +190,45 @@ function round3(n: unknown): number {
   return Number.isFinite(num) ? Math.round(num * 1000) / 1000 : 0;
 }
 
+async function offloadInlineArticleImage(
+  tenant: ErpTenantRecord,
+  imRaw: unknown,
+  imsRaw?: unknown
+): Promise<{ im: string; ims: string }> {
+  const imStr = String(imRaw ?? "").trim();
+  const m = imStr.match(/^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/i);
+  if (m) {
+    try {
+      const mimeType = m[1].toLowerCase();
+      const ext = mimeType.includes("png")
+        ? "png"
+        : mimeType.includes("webp")
+          ? "webp"
+          : "jpg";
+      const fileKey = `prod_${Date.now()}_${Math.random()
+        .toString(36)
+        .slice(2, 7)}.${ext}`;
+      await putTenantMediaInDb(tenant, {
+        media_key: fileKey,
+        category: "products",
+        mime_type: mimeType,
+        data_b64: m[2],
+      });
+      const publicUrl = `/sistema/assets/products/${fileKey}?tenant=${encodeURIComponent(
+        tenant.slug
+      )}`;
+      return { im: publicUrl, ims: "web" };
+    } catch {
+      // Si falla la subida a media DB, conservar valor original sin bloquear el guardado
+    }
+  }
+  const resolvedIms = String(
+    imsRaw ??
+      (imStr.startsWith("http") || imStr.startsWith("/") ? "web" : "sis")
+  );
+  return { im: imStr, ims: resolvedIms };
+}
+
 export async function handleErpCatalog(
   req: NextRequest,
   tenant: ErpTenantRecord
@@ -576,6 +615,11 @@ export async function handleErpCatalog(
       const id = Number(artIn.id || 0);
       if (id > 0) {
         const code5 = /^\d+$/.test(rawCode) ? rawCode.padStart(5, "0") : rawCode;
+        const resolvedImg = await offloadInlineArticleImage(
+          tenant,
+          artIn.im ?? "",
+          artIn.ims
+        );
         const directArticle: AnyObj = {
           ...artIn,
           id,
@@ -603,14 +647,8 @@ export async function handleErpCatalog(
           sf: round3(artIn.sf ?? 0),
           sm: round2(artIn.sm ?? 6),
           cw: artIn.cw !== undefined ? Number(artIn.cw ? 1 : 0) : 1,
-          im: String(artIn.im ?? ""),
-          ims: String(
-            artIn.ims ??
-              (String(artIn.im || "").startsWith("http") ||
-              String(artIn.im || "").startsWith("/")
-                ? "web"
-                : "sis")
-          ),
+          im: resolvedImg.im,
+          ims: resolvedImg.ims,
         };
         const saved = await upsertCatalogDeltas(tenant, {
           upserts: [directArticle],
@@ -897,6 +935,11 @@ export async function handleErpCatalog(
       }
 
       const prev = idx >= 0 ? db.articulos[idx] : {};
+      const resolvedSlowImg = await offloadInlineArticleImage(
+        tenant,
+        artIn.im ?? prev.im ?? "",
+        artIn.ims ?? prev.ims
+      );
       const merged: AnyObj = {
         ...prev,
         ...artIn,
@@ -927,8 +970,8 @@ export async function handleErpCatalog(
         sf: round3(artIn.sf ?? prev.sf ?? 0),
         sm: round2(artIn.sm ?? prev.sm ?? 6),
         cw: artIn.cw !== undefined ? Number(artIn.cw ? 1 : 0) : Number(prev.cw ?? 1),
-        im: String(artIn.im ?? prev.im ?? ""),
-        ims: String(artIn.ims ?? prev.ims ?? (String(artIn.im || "").startsWith("http") || String(artIn.im || "").startsWith("/") ? "web" : "sis")),
+        im: resolvedSlowImg.im,
+        ims: resolvedSlowImg.ims,
       };
 
       if (idx >= 0) {
