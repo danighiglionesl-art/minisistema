@@ -52,7 +52,7 @@ const ALL_SYSTEM_MODULES = [
       { key: 'facturacion:retiro', label: 'Retiro de Caja', selector: '#card-sub-caja-retiro', sections: ['sec-caja-retiro'] },
       { key: 'facturacion:cierre', label: 'Cierre de Caja', selector: '#card-sub-caja-cierre', sections: [] },
       { key: 'facturacion:movil', label: 'Facturador Móvil', selector: '#card-sub-caja-facturador-movil', sections: ['sec-caja-facturador-movil'] },
-      { key: 'facturacion:comprobantes', label: 'Comprobantes Emitidos', selector: '#sec-menu-facturacion [data-open-section="sec-comprobantes-emitidos"], #card-sub-caja-comprobantes-emitidos', sections: ['sec-comprobantes-emitidos'] },
+      { key: 'facturacion:comprobantes', label: 'Comprobantes Emitidos', selector: '#sec-menu-facturacion [data-open-section="sec-comprobantes-emitidos"]', sections: ['sec-comprobantes-emitidos'] },
       { key: 'facturacion:admin_arca', label: 'Administración Comprobantes ARCA', selector: '#sec-menu-facturacion [data-open-section="sec-admin-comprobantes"]', sections: ['sec-admin-comprobantes'] }
     ]
   },
