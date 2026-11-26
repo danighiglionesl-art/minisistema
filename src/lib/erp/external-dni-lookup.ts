@@ -990,14 +990,16 @@ export function parseArgentineStreetAddress(rawDom: string): {
   }
 
   let piso = "";
-  const mPiso = work.match(/\b(?:PISO|P\.?)\s*:?\s*([0-9A-Z]{1,4})\b/i);
+  const mPiso = work.match(/\b(?:PISO\s*:?\s*|P\.\s*:\s*|P\.\s*)(\d{1,3}|PB|SS|EP)\b/i);
   if (mPiso) {
     piso = mPiso[1].toUpperCase();
     work = work.replace(mPiso[0], " ").trim();
   }
 
   let dpto = "";
-  const mDpto = work.match(/\b(?:DPTO|DEPTO|DTO|OFICINA|OF\.?|LOCAL|LOC\.?|D\.?)\s*:?\s*([0-9A-Z]{1,6})\b/i);
+  const mDpto = work.match(
+    /\b(?:DPTO\.?|DEPTO\.?|DTO\.?|OFICINA|OF\.?|LOCAL|LOC\.)\s*:?\s*([0-9A-Z]{1,6})\b/i
+  );
   if (mDpto) {
     dpto = mDpto[1].toUpperCase();
     work = work.replace(mDpto[0], " ").trim();
