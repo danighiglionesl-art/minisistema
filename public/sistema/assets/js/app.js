@@ -143,6 +143,19 @@ const ALL_SYSTEM_MODULES = [
       { key: 'fidelizacion:canjes', label: 'Canjes Efectuados', selector: '#sec-menu-fidelizacion .module-card[data-open-section="sec-fid-canjes"]', sections: ['sec-fid-canjes'] }
     ]
   },
+  {
+    key: 'club_fidel',
+    label: 'Club Fidel',
+    sections: ['sec-menu-clubfidel', 'sec-clubfidel-detail'],
+    submodules: [
+      { key: 'club_fidel:panel', label: 'Panel Comercio y Socios Club Fidel', selector: '', sections: [] },
+      { key: 'club_fidel:emision_pos', label: 'Integración Cajas / Facturación ERP y QR Socio', selector: '', sections: [] },
+      { key: 'club_fidel:programa_campanas', label: 'Motor de Reglas, Multiplicadores y Campañas', selector: '', sections: [] },
+      { key: 'club_fidel:catalogo_ordenes', label: 'Catálogo de Premios y Retiro con QR Único', selector: '', sections: [] },
+      { key: 'club_fidel:puntos_respaldo', label: 'Cuenta de Puntos Comprados y Recarga Automática', selector: '', sections: [] },
+      { key: 'club_fidel:red_abierta', label: 'Participación en Redes Abiertas y Compensación', selector: '', sections: [] }
+    ]
+  },
   { key: 'whatsapp', label: 'WhatsApp Oficial (Minorista y Mayorista)', sections: ['sec-whatsapp-cloud'], submodules: [] },
   {
     key: 'estadisticas',
@@ -3836,6 +3849,32 @@ function getSelectedIvaFraction() {
   return pct / 100;
 }
 
+function isCasaNuevaTenantContext() {
+  const slug = String(ACTIVE_BRAND?.slug || window.__ERP_TENANT_BOOT__?.slug || '').trim().toLowerCase();
+  if (slug) return slug === 'casanueva' || slug === 'casa-nueva';
+  return Boolean(ACTIVE_BRAND?.isCasaNueva);
+}
+
+function getDefaultNewArticlePriceConfig() {
+  const cfgs = Array.isArray(STATE.configuracionesPrecios) ? STATE.configuracionesPrecios : [];
+  if (!cfgs.length) return null;
+  if (isCasaNuevaTenantContext()) {
+    const norm = (s) =>
+      String(s || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toUpperCase();
+    const almacenExact = cfgs.find((c) => norm(c?.nombre) === 'ALMACEN');
+    if (almacenExact) return almacenExact;
+    const almacenById = cfgs.find((c) => Number(c?.id) === 3 && norm(c?.nombre).includes('ALMACEN'));
+    if (almacenById) return almacenById;
+    const almacenPartial = cfgs.find((c) => norm(c?.nombre).includes('ALMACEN'));
+    if (almacenPartial) return almacenPartial;
+  }
+  return cfgs[0] || null;
+}
+
 function openArticleModal(art = null, options = {}) {
   const isDuplicate = Boolean(options.isDuplicate && art);
   const dialog = document.getElementById('article-dialog');
@@ -3982,7 +4021,8 @@ function openArticleModal(art = null, options = {}) {
   });
 
   // Prices: en duplicación se duplica toda la configuración de IVA, costos, márgenes y precios
-  const defaultFirstCfg = STATE.configuracionesPrecios?.[0] || null;
+  // En CasaNuevaERP, al crear un artículo nuevo desde cero, la configuración por defecto es "ALMACEN" (CRM-0012).
+  const defaultFirstCfg = getDefaultNewArticlePriceConfig();
   const defaultFirstCfgId = defaultFirstCfg ? String(defaultFirstCfg.id) : '3';
   const defaultMinMargin = defaultFirstCfg ? String(defaultFirstCfg.margenMinorista) : '49';
   const defaultMayMargin = defaultFirstCfg ? String(defaultFirstCfg.margenMayorista) : '18';
@@ -28797,8 +28837,9 @@ function initApp() {
 
   // Price Configuration selection -> Apply associated IVA (locked) + Minorista & Mayorista margins
   function getFirstAvailablePriceConfigId() {
-    if (Array.isArray(STATE.configuracionesPrecios) && STATE.configuracionesPrecios.length > 0) {
-      return Number(STATE.configuracionesPrecios[0].id) || 0;
+    const defCfg = getDefaultNewArticlePriceConfig();
+    if (defCfg && Number(defCfg.id) > 0) {
+      return Number(defCfg.id);
     }
     const firstValidOpt = Array.from(selConfigPrecio.options).find(opt => Number(opt.value) > 0);
     return firstValidOpt ? Number(firstValidOpt.value) : 0;
