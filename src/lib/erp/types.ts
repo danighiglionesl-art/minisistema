@@ -282,6 +282,13 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "fidelizacion:config",
   "fidelizacion:config_notif",
   "fidelizacion:canjes",
+  "club_fidel",
+  "club_fidel:panel",
+  "club_fidel:emision_pos",
+  "club_fidel:programa_campanas",
+  "club_fidel:catalogo_ordenes",
+  "club_fidel:puntos_respaldo",
+  "club_fidel:red_abierta",
   "whatsapp",
   "estadisticas",
   "estadisticas:dashboard",
@@ -346,6 +353,16 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "servicios:agenda",
   "servicios:abonos",
   "servicios:informes",
+  "academias",
+  "academias:panel",
+  "academias:inscripciones",
+  "academias:cursos",
+  "academias:asistencias",
+  "academias:cuotas",
+  "academias:aula_virtual",
+  "academias:docentes",
+  "academias:certificados",
+  "academias:config",
   "perfil",
   "atajos",
   "manual_usuario",
@@ -353,6 +370,14 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
   "ayuda:atajos",
   "ayuda:manual_usuario",
   "ayuda:reporte_mejoras",
+  "minisistema_medida",
+  "campo_directo",
+  "campo_directo:cotizaciones",
+  "campo_directo:catalogo",
+  "campo_directo:fabricas",
+  "campo_directo:productores",
+  "campo_directo:pagos",
+  "campo_directo:config",
 ];
 
 export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
@@ -478,7 +503,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   },
   {
     key: "fondos",
-    name: "Fondos",
+    name: "Caja y Bancos",
     description: "Caja Central, Tesorería, Recibo de Pago, Orden de Pago, cuentas bancarias, conciliación de cierres y stock valorizado.",
     defaultMonthlyArs: 14000,
     erpModuleKeys: [
@@ -543,6 +568,30 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       { key: "fidelizacion:config", name: "Reglas de Puntos y Factor Canje", defaultMonthlyArs: 2000 },
       { key: "fidelizacion:config_notif", name: "Notificaciones WhatsApp y Email", defaultMonthlyArs: 2000 },
       { key: "fidelizacion:canjes", name: "Entrega de Canjes Efectuados", defaultMonthlyArs: 2000 },
+    ],
+  },
+  {
+    key: "club_fidel",
+    name: "Club Fidel",
+    description:
+      "Plataforma PWA de fidelización comercial (www.clubfidel.com.ar): modalidad cerrada, abierta e híbrida en redes multicomercio, tarjeta digital QR, motor de campañas y promociones, catálogo de beneficios con retiro QR único, cuenta de puntos respaldados e integración directa con Cajas y Facturación ERP.",
+    defaultMonthlyArs: 24000,
+    erpModuleKeys: [
+      "club_fidel",
+      "club_fidel:panel",
+      "club_fidel:emision_pos",
+      "club_fidel:programa_campanas",
+      "club_fidel:catalogo_ordenes",
+      "club_fidel:puntos_respaldo",
+      "club_fidel:red_abierta",
+    ],
+    submodules: [
+      { key: "club_fidel:panel", name: "Panel Comercio y Socios Club Fidel", defaultMonthlyArs: 4000 },
+      { key: "club_fidel:emision_pos", name: "Integración Cajas / Facturación ERP y QR Socio", defaultMonthlyArs: 5000 },
+      { key: "club_fidel:programa_campanas", name: "Motor de Reglas, Multiplicadores y Campañas", defaultMonthlyArs: 4000 },
+      { key: "club_fidel:catalogo_ordenes", name: "Catálogo de Premios y Retiro con QR Único", defaultMonthlyArs: 4000 },
+      { key: "club_fidel:puntos_respaldo", name: "Cuenta de Puntos Comprados y Recarga Automática", defaultMonthlyArs: 3500 },
+      { key: "club_fidel:red_abierta", name: "Participación en Redes Abiertas y Compensación", defaultMonthlyArs: 3500 },
     ],
   },
   {
@@ -762,6 +811,36 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     ],
   },
   {
+    key: "academias",
+    name: "Gestión de Academias",
+    description:
+      "Módulo integral para academias, escuelas de danza, capacitaciones, escuelas de negocios y cursos: inscripción con envío automático a Base General, Asistencias y Control de Cuotas, cobranzas presenciales/online, Aula Virtual con Google Classroom, clases online multiusuario (Daily.co), docentes/liquidaciones y certificados PDF con código verificador.",
+    defaultMonthlyArs: 24000,
+    erpModuleKeys: [
+      "academias",
+      "academias:panel",
+      "academias:inscripciones",
+      "academias:cursos",
+      "academias:asistencias",
+      "academias:cuotas",
+      "academias:aula_virtual",
+      "academias:docentes",
+      "academias:certificados",
+      "academias:config",
+    ],
+    submodules: [
+      { key: "academias:panel", name: "Tablero y Resumen General", defaultMonthlyArs: 2500 },
+      { key: "academias:inscripciones", name: "Inscripciones y Base General", defaultMonthlyArs: 3000 },
+      { key: "academias:cursos", name: "Cursos, Comisiones y Horarios", defaultMonthlyArs: 2500 },
+      { key: "academias:asistencias", name: "Planilla de Asistencias", defaultMonthlyArs: 2500 },
+      { key: "academias:cuotas", name: "Control de Cuotas y Cobranzas", defaultMonthlyArs: 3500 },
+      { key: "academias:aula_virtual", name: "Aula Virtual, Classroom y Clases Online (Daily.co)", defaultMonthlyArs: 3500 },
+      { key: "academias:docentes", name: "Docentes y Liquidaciones", defaultMonthlyArs: 2500 },
+      { key: "academias:certificados", name: "Certificados y Diplomas Automatizados", defaultMonthlyArs: 2500 },
+      { key: "academias:config", name: "Configuración, Opcionales y Portal Web", defaultMonthlyArs: 1500 },
+    ],
+  },
+  {
     key: "manual_usuario",
     name: "Ayuda",
     description: "Guía interactiva paso a paso por rol, asistente con Inteligencia Artificial, registro de actualizaciones y exportación PDF.",
@@ -771,6 +850,16 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       { key: "ayuda:atajos", name: "Atajos Rápidos de Teclado", defaultMonthlyArs: 0 },
       { key: "ayuda:manual_usuario", name: "Manual Interactivo e IA", defaultMonthlyArs: 0 },
       { key: "ayuda:reporte_mejoras", name: "Reporte de Mejoras y Soporte CRM", defaultMonthlyArs: 0 },
+    ],
+  },
+  {
+    key: "minisistema_medida",
+    name: "Minisistema a medida",
+    description: "Desarrollo y gestión de MiniSistema personalizado a medida con precio de colocación libre al tildarlo.",
+    defaultMonthlyArs: 0,
+    erpModuleKeys: ["minisistema_medida"],
+    submodules: [
+      { key: "minisistema_medida", name: "Minisistema a medida (Precio libre)", defaultMonthlyArs: 0 },
     ],
   },
 ];
@@ -891,6 +980,16 @@ export function expandCommercialToErpModules(
         out.add(sub);
       }
     }
+  }
+
+  if (keySet.has("campo_directo") || keySet.has("campodirecto")) {
+    out.add("campo_directo");
+    out.add("campo_directo:cotizaciones");
+    out.add("campo_directo:catalogo");
+    out.add("campo_directo:fabricas");
+    out.add("campo_directo:productores");
+    out.add("campo_directo:pagos");
+    out.add("campo_directo:config");
   }
 
   for (const raw of rawCleaned) {

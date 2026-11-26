@@ -106,7 +106,7 @@ const ALL_SYSTEM_MODULES = [
   },
   {
     key: 'fondos',
-    label: 'Fondos (Recepción de Cajas, Movimientos de Caja, Recibo de Pago, Orden de Pago, Cuentas Bancarias y Stock Valorizado)',
+    label: 'Caja y Bancos (Recepción de Cajas, Movimientos de Caja, Recibo de Pago, Orden de Pago, Cuentas Bancarias y Stock Valorizado)',
     sections: ['sec-menu-fondos', 'sec-caja-central', 'sec-caja-tesoreria', 'sec-fondos-orden-pago', 'sec-caja-recibo-pago', 'sec-cuentas-bancarias', 'sec-stock-valorizado'],
     submodules: [
       { key: 'fondos:caja_central', label: 'Recepción de Cajas', selector: '#sec-menu-fondos [data-open-section="sec-caja-central"]', sections: ['sec-caja-central'] },
@@ -1095,7 +1095,7 @@ const CAJAS_CONFIG = {
   },
   caja_central: {
     id: 'caja_central',
-    nombre: 'Caja Central (Fondos)',
+    nombre: 'Caja Central (Caja y Bancos)',
     pvFiscal: '0004',
     pvInterno: '0101',
     isCajaCentral: true,
@@ -12443,7 +12443,7 @@ const SECTION_TOPBAR_META = {
   'sec-caja-facturador-movil': { title: null, back: 'sec-submenu-caja' },
   'sec-club-previo': { title: null, back: 'sec-submenu-caja' },
   'sec-caja-pos': { title: null, back: 'sec-submenu-caja' },
-  'sec-menu-fondos': { title: 'Fondos', back: 'sec-inicio' },
+  'sec-menu-fondos': { title: 'Caja y Bancos', back: 'sec-inicio' },
   'sec-caja-central': { title: '🏢 Recepción de Cajas', back: 'sec-menu-fondos' },
   'sec-caja-tesoreria': { title: '💵 Movimientos de Caja', back: 'sec-menu-fondos' },
   'sec-fondos-orden-pago': { title: '📤 Orden de Pago (Caja Central)', back: 'sec-menu-fondos' },
@@ -18187,14 +18187,14 @@ function initApp() {
     const backBtnRecibo = document.querySelector('#sec-caja-recibo-pago .btn-back-home');
     if (backBtnRecibo) {
       backBtnRecibo.setAttribute('data-open-section', isFromFondos ? 'sec-menu-fondos' : 'sec-submenu-caja');
-      backBtnRecibo.textContent = isFromFondos ? '← Volver a Fondos' : '← Volver a Caja';
+      backBtnRecibo.textContent = isFromFondos ? '← Volver a Caja y Bancos' : '← Volver a Caja';
     }
     const breadCaja = document.getElementById('recibo-caja-breadcrumb-caja');
-    if (breadCaja) breadCaja.textContent = isFromFondos ? 'Fondos · Caja Central' : cfg.nombre;
+    if (breadCaja) breadCaja.textContent = isFromFondos ? 'Caja y Bancos · Caja Central' : cfg.nombre;
     const headingEl = document.getElementById('recibo-caja-heading');
     if (headingEl) {
       headingEl.textContent = isFromFondos
-        ? 'Caja Central (Fondos) · Recibo de Pago (Cobro a Caja Central)'
+        ? 'Caja Central (Caja y Bancos) · Recibo de Pago (Cobro a Caja Central)'
         : `${cfg.nombre} · Recibo de Pago (Cobro de Cuenta Corriente)`;
     }
     const userBadge = document.getElementById('recibo-caja-user-badge');
@@ -19286,7 +19286,7 @@ function initApp() {
   function updateTransferenciaSummaryBox(summaryEl, cuenta, amount) {
     if (!summaryEl) return;
     if (!cuenta) {
-      summaryEl.innerHTML = `🏦 Transferencia de <strong>$ ${formatArs(amount)}</strong>. Podés administrar las cuentas en <strong>Fondos → Bancos</strong>.`;
+      summaryEl.innerHTML = `🏦 Transferencia de <strong>$ ${formatArs(amount)}</strong>. Podés administrar las cuentas en <strong>Caja y Bancos → Bancos</strong>.`;
       return;
     }
     const banco = escapeHtml(cuenta.banco || 'BANCO');
@@ -28113,27 +28113,27 @@ function initApp() {
       action: () => openCajaSubmenu('caja3')
     },
     {
-      title: 'Fondos (Caja Central, Caja y Cuentas Bancarias)',
+      title: 'Caja y Bancos (Caja Central, Caja y Cuentas Bancarias)',
       category: 'Módulo Principal',
-      keywords: 'fondos tesoreria caja central caja movimientos recibos control de caja cuentas bancarias bancos billeteras virtuales echeq conciliacion',
+      keywords: 'caja y bancos fondos tesoreria caja central caja movimientos recibos control de caja cuentas bancarias bancos billeteras virtuales echeq conciliacion',
       action: () => switchSection('sec-menu-fondos')
     },
     {
       title: 'Recepción de Cajas',
-      category: 'Fondos',
-      keywords: 'recepcion de cajas caja central cierres de caja planillas editar confirmar recepcion arqueo auditoria recaudacion fondos',
+      category: 'Caja y Bancos',
+      keywords: 'recepcion de cajas caja central cierres de caja planillas editar confirmar recepcion arqueo auditoria recaudacion caja y bancos fondos',
       action: () => switchSection('sec-caja-central')
     },
     {
       title: 'Caja (Movimientos de Caja, Recibos de Pago y Control de Caja)',
-      category: 'Fondos',
-      keywords: 'caja submodulo caja movimientos de caja recibos de pago clientes proveedores retiros personales depositos cuentas bancarias control de caja billetes',
+      category: 'Caja y Bancos',
+      keywords: 'caja submodulo caja movimientos de caja recibos de pago clientes proveedores retiros personales depositos cuentas bancarias control de caja billetes caja y bancos',
       action: () => switchSection('sec-caja-tesoreria')
     },
     {
       title: 'Control de Caja (Conteo de Billetes en Submódulo Caja)',
-      category: 'Fondos · Caja',
-      keywords: 'control de caja conteo de billetes arqueo de caja 20000 10000 2000 1000 500 200 100 fondos',
+      category: 'Caja y Bancos · Caja',
+      keywords: 'control de caja conteo de billetes arqueo de caja 20000 10000 2000 1000 500 200 100 caja y bancos fondos',
       action: () => {
         switchSection('sec-caja-tesoreria');
         setTimeout(() => {
@@ -28143,8 +28143,8 @@ function initApp() {
     },
     {
       title: 'Cuentas Bancarias y Billeteras Virtuales (ABM, Cuenta Corriente, Conciliación y E-Cheq)',
-      category: 'Fondos',
-      keywords: 'cuentas bancarias billeteras virtuales abm banco cbu alias mercado pago sipago payway bancor nacion cuenta corriente bancaria',
+      category: 'Caja y Bancos',
+      keywords: 'cuentas bancarias billeteras virtuales abm banco cbu alias mercado pago sipago payway bancor nacion cuenta corriente bancaria caja y bancos',
       action: () => {
         switchSection('sec-cuentas-bancarias');
         if (typeof window.switchFondosSubTab === 'function') window.switchFondosSubTab('abm');
@@ -28152,8 +28152,8 @@ function initApp() {
     },
     {
       title: 'Cuenta Corriente de Entidad Bancaria / Billetera',
-      category: 'Fondos · Cuentas Bancarias',
-      keywords: 'cuenta corriente bancaria extracto movimientos banco depositos transferencias pagos proveedores',
+      category: 'Caja y Bancos · Cuentas Bancarias',
+      keywords: 'cuenta corriente bancaria extracto movimientos banco depositos transferencias pagos proveedores caja y bancos',
       action: () => {
         switchSection('sec-cuentas-bancarias');
         if (typeof window.switchFondosSubTab === 'function') window.switchFondosSubTab('ctacte');
@@ -28161,8 +28161,8 @@ function initApp() {
     },
     {
       title: 'Conciliación de Saldos Bancarios',
-      category: 'Fondos · Cuentas Bancarias',
-      keywords: 'conciliar saldos conciliacion bancaria extracto home banking diferencias partidas pendientes',
+      category: 'Caja y Bancos · Cuentas Bancarias',
+      keywords: 'conciliar saldos conciliacion bancaria extracto home banking diferencias partidas pendientes caja y bancos',
       action: () => {
         switchSection('sec-cuentas-bancarias');
         if (typeof window.switchFondosSubTab === 'function') window.switchFondosSubTab('conciliacion');
@@ -28170,8 +28170,8 @@ function initApp() {
     },
     {
       title: 'Emitir E-Cheq y Administración de Cartera de Cheques',
-      category: 'Fondos · Cuentas Bancarias',
-      keywords: 'emitir echeq cheques electronicos coelsa diferido al dia debitar banco pago proveedor',
+      category: 'Caja y Bancos · Cuentas Bancarias',
+      keywords: 'emitir echeq cheques electronicos coelsa diferido al dia debitar banco pago proveedor caja y bancos',
       action: () => {
         switchSection('sec-cuentas-bancarias');
         if (typeof window.switchFondosSubTab === 'function') window.switchFondosSubTab('echeq');
@@ -28179,8 +28179,8 @@ function initApp() {
     },
     {
       title: 'Stock Valorizado (Precio Final Compra, Minorista y Mayorista)',
-      category: 'Fondos',
-      keywords: 'stock valorizado inventario positivo capital mercaderia precio final de compra minorista mayorista fondos valuacion',
+      category: 'Caja y Bancos',
+      keywords: 'stock valorizado inventario positivo capital mercaderia precio final de compra minorista mayorista caja y bancos fondos valuacion',
       action: () => switchSection('sec-stock-valorizado')
     },
     {
@@ -72542,7 +72542,7 @@ function initApp() {
         id: 'UPD-CAJA-RECIBOS-1260',
         fecha: '16/11/2026',
         moduloKey: 'fondos',
-        moduloLabel: 'Facturación / Cajas y Fondos (Caja Central)',
+        moduloLabel: 'Facturación / Cajas y Caja y Bancos (Caja Central)',
         titulo: 'Nuevo ítem "(+) Recibos de Pago" en Movimiento de Caja y exclusión de Ventas en Cuenta Corriente del Efectivo',
         descripcion:
           'En la Ecuación del Cierre de Caja y en Recepción de Cajas (Caja Central) se desglosan por separado "(+) Facturas y Comp. Int. A+B Efectivo" y "(+) Recibos de Pago" (cobranzas en efectivo sobre Cuentas Corrientes). Las Ventas en Cuenta Corriente no se contabilizan como movimiento de efectivo y se informan al pie como "(i) Ventas en Cuenta Corriente del Turno (No es movimiento de efectivo)".',
@@ -73352,7 +73352,7 @@ function initApp() {
               'Filtrar por clientes con saldo deudor o buscar un cliente específico.',
               'Hacer clic en el cliente para ver todos sus comprobantes, abrir la factura detallada en formato A4 o emitir un Recibo de Pago.'
             ],
-            keyRules: 'Cada vez que se emite un Recibo de Pago en Caja o en Fondos, el saldo de la Cuenta Corriente se descuenta en el acto.',
+            keyRules: 'Cada vez que se emite un Recibo de Pago en Caja o en Caja y Bancos, el saldo de la Cuenta Corriente se descuenta en el acto.',
             sampleBadge: 'ESTADO DE CUENTA Y SALDOS',
             sampleTitle: 'Cuentas Corrientes y Resumen A4',
             kpi1: ['Debe (Ventas)', 'Facturas Cta. Cte.'],
@@ -73387,7 +73387,7 @@ function initApp() {
               'Completar Razón Social, CUIT (con consulta en ARCA 🔍), rubro comercial, teléfono del viajante y condiciones de pago.',
               'Usar el filtro "Clientes que son Proveedores" para ver las cuentas corrientes unificadas.'
             ],
-            keyRules: 'Las facturas de compra incrementan el saldo acreedor del proveedor y se cancelan mediante Órdenes de Pago en el módulo Fondos.',
+            keyRules: 'Las facturas de compra incrementan el saldo acreedor del proveedor y se cancelan mediante Órdenes de Pago en el módulo Caja y Bancos.',
             sampleBadge: 'GESTIÓN DE PROVEEDORES',
             sampleTitle: 'Padrón de Proveedores y Cuentas Duales',
             kpi1: ['Alta con ARCA', 'Lupa CUIT 🔍'],
@@ -73396,7 +73396,7 @@ function initApp() {
             sampleRows: [
               ['① Ficha de Proveedor y Viajante', 'CUIT, teléfono y días de visita', 'Activo'],
               ['② Cuenta Corriente Unificada', 'Compensa ventas y compras', 'Automático'],
-              ['③ Acceso directo a Pedidos y Facturas', 'Integrado con Stock y Fondos', 'En línea']
+              ['③ Acceso directo a Pedidos y Facturas', 'Integrado con Stock y Caja y Bancos', 'En línea']
             ],
             sampleCallout: 'Unifica en una sola cuenta a los clientes que también son proveedores',
             sampleBtn: '🚚 Abrir Padrón de Proveedores'
@@ -73405,7 +73405,7 @@ function initApp() {
       },
       {
         key: 'fondos',
-        title: '5. Fondos (Recepción de Cajas, Movimientos de Caja, Órdenes de Pago, Bancos y Stock Valorizado)',
+        title: '5. Caja y Bancos (Recepción de Cajas, Movimientos de Caja, Órdenes de Pago, Bancos y Stock Valorizado)',
         icon: '🏦',
         summary:
           'Tesorería central del ERP: auditoría y recepción de cierres de Caja 1, 2 y 3 con ecuación completa (incluyendo (+) Recibos de Pago), libro de Caja Central, Órdenes de Pago a proveedores y gastos mensuales, Cuentas Bancarias / E-Cheq y Stock Valorizado.',
@@ -73418,7 +73418,7 @@ function initApp() {
             description:
               'Permite al responsable de Caja Central auditar cada planilla de cierre enviada desde Caja 1, Caja 2 y Caja 3, verificar la Ecuación de Cierre con el ítem "(+) Recibos de Pago" y el informativo de "Ventas en Cuenta Corriente", volver a contar los billetes recibidos y confirmar el ingreso de fondos.',
             steps: [
-              'Ingresar a "Fondos -> Recepción de Cajas".',
+              'Ingresar a "Caja y Bancos -> Recepción de Cajas".',
               'Hacer clic en "📋 Planilla" o "👁️ Ver Arqueo del Cajero" para auditar la Ecuación de Cierre de Caja: (+) Apertura + (+) Facturas Efectivo + (+) Recibos de Pago − (-) Notas de Crédito − (-) Retiros − (-) Cambio Caja = (=) Esperado a Traspasar a Central.',
               'Hacer clic en "💵 Recontar / Editar" (o "✅ Confirmar Cierre") para verificar los billetes físicamente entregados por el cajero.',
               'Confirmar la recepción definitiva: el efectivo se acredita automáticamente en Movimientos de Caja y los lotes electrónicos/transferencias en sus Cuentas Bancarias / Billeteras.'
@@ -73446,7 +73446,7 @@ function initApp() {
             description:
               'Registra todos los ingresos y egresos de efectivo de la Caja Central (recepciones de cajas diarias, depósitos bancarios, retiros personales, pagos en efectivo) y permite realizar el arqueo de billetes de Tesorería.',
             steps: [
-              'Ingresar a "Fondos -> Movimientos de Caja".',
+              'Ingresar a "Caja y Bancos -> Movimientos de Caja".',
               'Consultar el saldo actual en efectivo de Caja Central y el historial detallado de ingresos y egresos.',
               'Pulsar "💵 Control de Caja" para realizar el conteo físico de billetes de $ 20.000 a $ 100 en Tesorería.'
             ],
@@ -73471,7 +73471,7 @@ function initApp() {
             description:
               'Permite emitir Órdenes de Pago para cancelar facturas de proveedores o registrar Gastos Operativos (luz, alquiler, sueldos, impuestos, mantenimiento) imputados a un Mes Calendario específico para el cálculo de la Ganancia Neta.',
             steps: [
-              'Ingresar a "Fondos -> Orden de Pago".',
+              'Ingresar a "Caja y Bancos -> Orden de Pago".',
               'Elegir si el pago corresponde a "Compra de Mercadería (Proveedor)" o a "Gasto Operativo".',
               'Si es un Gasto, seleccionar el Tipo de Gasto y el Mes Calendario de Imputación (independientemente de la fecha de pago).',
               'Seleccionar cómo se abona (Efectivo de Caja Central, Transferencia Bancaria o emisión de E-Cheq) y confirmar la Orden de Pago.'
@@ -73497,7 +73497,7 @@ function initApp() {
             description:
               'Administra en 4 solapas todas las cuentas bancarias y billeteras virtuales (Mercado Pago, SiPago, PayWay, Bancos), sus extractos de movimientos, la conciliación de saldos contra Home Banking y la emisión/seguimiento de E-Cheqs.',
             steps: [
-              'Ingresar a "Fondos -> Cuentas Bancarias".',
+              'Ingresar a "Caja y Bancos -> Cuentas Bancarias".',
               'En la solapa "1. ABM Entidades", dar de alta o editar bancos y billeteras virtuales con su CBU y Alias.',
               'En "2. Cuenta Corriente Bancaria", consultar todos los créditos (cierres de lote QR/Tarjetas, transferencias) y débitos.',
               'En "3. Conciliación de Saldos", comparar el saldo contable con el saldo real bancario; y en "4. Emitir E-Cheq", administrar los cheques electrónicos emitidos.'
@@ -73523,7 +73523,7 @@ function initApp() {
             description:
               'Calcula en tiempo real el valor monetario total de todo el inventario positivo del supermercado valuado a Precio Final de Compra, a Lista Minorista y a Lista Mayorista.',
             steps: [
-              'Ingresar a "Fondos -> Stock Valorizado".',
+              'Ingresar a "Caja y Bancos -> Stock Valorizado".',
               'Filtrar por Rubro, Proveedor o Marca para analizar el capital inmovilizado en cada sector.',
               'Consultar los KPIs superiores con el Total de Unidades en Stock Positivo, Valor a Costo Final, Valor a Lista Minorista y Ganancia Potencial.'
             ],
