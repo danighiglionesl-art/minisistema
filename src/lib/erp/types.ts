@@ -383,7 +383,7 @@ export const ALL_ERP_MODULE_KEYS: string[] = [
 export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   {
     key: "facturacion",
-    name: "Facturación Electrónica ARCA",
+    name: "Facturación Electrónica",
     description: "Cajas 1, 2 y 3, Facturador A4, Recibos, Apertura/Retiro/Cierre de turno, POS Móvil y WSFEv1 ARCA.",
     defaultMonthlyArs: 22000,
     erpModuleKeys: [

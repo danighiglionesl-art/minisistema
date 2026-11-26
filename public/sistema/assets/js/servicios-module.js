@@ -64,7 +64,7 @@
     var factBc = document.querySelector('#sec-menu-facturacion .module-breadcrumb strong');
     if (factBc) {
       factBc.textContent =
-        mode === 'servicios' ? 'Facturación de Servicios (ARCA)' : 'Facturación Electrónica ARCA';
+        mode === 'servicios' ? 'Facturación de Servicios' : 'Facturación Electrónica';
     }
   }
   window.__MS_APPLY_ACTIVIDAD_MODE__ = applyActividadModeUi;

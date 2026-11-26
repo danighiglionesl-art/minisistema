@@ -40,7 +40,7 @@ const erpClubFidelBadgeSvg = (size = 18) =>
 const ALL_SYSTEM_MODULES = [
   {
     key: 'facturacion',
-    label: 'Facturación Electrónica ARCA (Cajas)',
+    label: 'Facturación Electrónica (Cajas)',
     sections: ['sec-menu-facturacion', 'sec-submenu-caja', 'sec-caja-recibo-pago', 'sec-caja-apertura', 'sec-caja-retiro', 'sec-caja-facturador-movil', 'sec-club-previo', 'sec-caja-pos', 'sec-comprobantes-emitidos', 'sec-admin-comprobantes'],
     submodules: [
       { key: 'facturacion:caja1', label: 'Caja 1', selector: '#sec-menu-facturacion [data-open-caja="caja1"]', sections: [] },
@@ -12435,7 +12435,7 @@ function printFidelizacionCanjeTicket(mov) {
 }
 
 const SECTION_TOPBAR_META = {
-  'sec-menu-facturacion': { title: 'Facturación Electrónica ARCA', back: 'sec-inicio' },
+  'sec-menu-facturacion': { title: 'Facturación Electrónica', back: 'sec-inicio' },
   'sec-submenu-caja': { title: null, back: 'sec-menu-facturacion' },
   'sec-caja-recibo-pago': { title: null, back: 'sec-submenu-caja' },
   'sec-caja-apertura': { title: null, back: 'sec-submenu-caja' },
@@ -28196,7 +28196,7 @@ function initApp() {
       action: () => switchSection('sec-admin-comprobantes')
     },
     {
-      title: 'Facturación Electrónica ARCA',
+      title: 'Facturación Electrónica',
       category: 'Módulo Principal',
       keywords: 'facturacion electronica arca afip cae comprobantes factura a b c',
       action: () => switchSection('sec-menu-facturacion')
@@ -34979,7 +34979,7 @@ function initApp() {
       modulo: 'FACTURACIÓN Y CAJAS'
     },
     'nav:sec-menu-facturacion': {
-      nombre: 'ABRIR SUBMENÚ DE FACTURACIÓN ELECTRÓNICA ARCA',
+      nombre: 'ABRIR SUBMENÚ DE FACTURACIÓN ELECTRÓNICA',
       modulo: 'FACTURACIÓN Y CAJAS'
     },
     'pos:emitir': {
@@ -72570,7 +72570,7 @@ function initApp() {
         id: 'UPD-ALERTA-BARCODE-BUSCAR-DUPLICAR',
         fecha: '16/11/2026',
         moduloKey: 'facturacion',
-        moduloLabel: 'Facturación Electrónica ARCA · Facturador POS',
+        moduloLabel: 'Facturación Electrónica · Facturador POS',
         titulo: 'Búsqueda y Duplicación directa desde la Alerta de Código de Barras No Encontrado',
         descripcion:
           'Cuando se escanea en Caja un código de barras que no figura en el catálogo, la ventana de Alerta de Facturación ahora ofrece tres acciones directas sin salir del proceso: Buscar Producto Existente, Duplicar Producto Existente (precargando el código escaneado) o Dar de Alta Artículo con ese código.',
@@ -72741,7 +72741,7 @@ function initApp() {
     const MANUAL_MODULES_CATALOG = [
       {
         key: 'facturacion',
-        title: '1. Facturación Electrónica ARCA y Cajas (Caja 1, Caja 2 y Caja 3)',
+        title: '1. Facturación Electrónica y Cajas (Caja 1, Caja 2 y Caja 3)',
         icon: '🧾',
         summary:
           'Gestión integral de Puntos de Venta Fiscales ARCA (0002, 0003 y 0004) e Internos (0099, 0100 y 0101), Apertura de Caja, Facturador POS, Recibos de Pago, Retiros, Cierre de Caja con ecuación auditable, Facturador Móvil y Administración de CAE.',
@@ -72755,7 +72755,7 @@ function initApp() {
             description:
               'Cada Caja física opera con su propio Punto de Venta Fiscal ARCA y su Punto de Venta Interno independiente para no pisar correlativos ni mezclar recaudaciones: Caja 1 (PV 0002 y 0099), Caja 2 (PV 0003 y 0100) y Caja 3 (PV 0004 y 0101).',
             steps: [
-              'Ingresar desde Pantalla Principal a "Facturación Electrónica ARCA" o presionar CTRL + 1 (Caja 1), CTRL + 2 (Caja 2) o CTRL + 3 (Caja 3).',
+              'Ingresar desde Pantalla Principal a "Facturación Electrónica" o presionar CTRL + 1 (Caja 1), CTRL + 2 (Caja 2) o CTRL + 3 (Caja 3).',
               'Verificar el cartel indicador en cada tarjeta de Caja que informa qué cajero tiene la Apertura de Caja activa en ese turno.',
               'Al ingresar a la Caja elegida, seleccionar el submódulo deseado: Apertura de Caja, Facturador, Recibo de Pago, Retiro de Caja o Cierre de Caja.'
             ],
