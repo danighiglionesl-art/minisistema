@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonResponseMaybeGzip } from "../json-response";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
-import { getTenantDoc, putTenantDoc } from "../supabase-server";
+import {
+  getTenantDoc,
+  listCatalogDeltas,
+  putTenantDoc,
+  upsertCatalogDeltas,
+} from "../supabase-server";
 import type { ErpTenantRecord } from "../types";
+import {
+  applyCatalogDeltas,
+  CATALOG_META_DELTA_ID,
+} from "./catalog-handler";
 
 type AnyObj = Record<string, any>;
 
@@ -438,9 +447,6 @@ function recomputeEntityCtaCteStats(db: AnyObj, cId: number) {
 }
 
 async function syncProveedoresToCatalog(tenant: ErpTenantRecord, clientes: AnyObj[], actor: string) {
-  const catFallback = buildCleanTenantSeed({ businessName: tenant.business_name }).docs
-    .catalog_db as AnyObj;
-  const { payload: catDb } = await getTenantDoc<AnyObj>(tenant, "catalog_db", catFallback);
   const list: AnyObj[] = [];
   for (const ent of clientes) {
     if (!ent.esProveedor || ent.bajaLogica) continue;
@@ -456,9 +462,11 @@ async function syncProveedoresToCatalog(tenant: ErpTenantRecord, clientes: AnyOb
     });
   }
   list.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), "es"));
-  catDb.proveedores = list;
-  catDb.updatedAt = new Date().toISOString();
-  await putTenantDoc(tenant, "catalog_db", catDb, actor, "sync_proveedores");
+  await upsertCatalogDeltas(tenant, {
+    upserts: [{ id: CATALOG_META_DELTA_ID, proveedores: list }],
+    actor,
+    action: "sync_proveedores",
+  });
 }
 
 async function deductCatalogStockForCanje(
@@ -470,11 +478,15 @@ async function deductCatalogStockForCanje(
   if (!itemsToDeduct.length) return [];
   const catFallback = buildCleanTenantSeed({ businessName: tenant.business_name }).docs
     .catalog_db as AnyObj;
-  const { payload: catDb } = await getTenantDoc<AnyObj>(tenant, "catalog_db", catFallback);
+  const [{ payload: rawCatDb }, deltas] = await Promise.all([
+    getTenantDoc<AnyObj>(tenant, "catalog_db", catFallback),
+    listCatalogDeltas(tenant),
+  ]);
+  const catDb = applyCatalogDeltas(rawCatDb, deltas);
   if (!catDb || !Array.isArray(catDb.articulos)) return [];
 
   const updatedArticles: AnyObj[] = [];
-  let changed = false;
+  const modifiedDeltaArts: AnyObj[] = [];
   for (const item of itemsToDeduct) {
     const tArtId = Number(item.artId || 0);
     const tCode = toUpperUtf8(item.artCodigo);
@@ -490,6 +502,7 @@ async function deductCatalogStockForCanje(
         const newSf = round2(prevSf - tQty);
         aRef.sf = newSf;
         aRef.sc = round2(newSf - Number(aRef.si || 0));
+        modifiedDeltaArts.push({ id: aId, sf: aRef.sf, sc: aRef.sc });
         updatedArticles.push({
           id: aId,
           c: aCode,
@@ -498,14 +511,16 @@ async function deductCatalogStockForCanje(
           sf: newSf,
           descontado: tQty,
         });
-        changed = true;
         break;
       }
     }
   }
-  if (changed) {
-    catDb.updatedAt = new Date().toISOString();
-    await putTenantDoc(tenant, "catalog_db", catDb, actor, tag);
+  if (modifiedDeltaArts.length > 0) {
+    await upsertCatalogDeltas(tenant, {
+      upserts: modifiedDeltaArts,
+      actor,
+      action: tag,
+    });
   }
   return updatedArticles;
 }

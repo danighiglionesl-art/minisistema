@@ -9,7 +9,6 @@ import {
   listPendingPosEvents,
   markCatalogDeltasCompacted,
   markPosEventsCompacted,
-  patchTenantDocKeys,
   putTenantDoc,
   putTenantMediaInDb,
   upsertCatalogDeltas,
@@ -17,6 +16,9 @@ import {
   type ErpPosEventRecord,
 } from "../supabase-server";
 import type { ErpTenantRecord } from "../types";
+
+export const CATALOG_META_DELTA_ID = -1;
+export const CATALOG_FP_SUPPLIER_CONFIGS_DELTA_ID = -2;
 
 const storeGzipCache = new Map<
   string,
@@ -29,21 +31,46 @@ const fullCatalogGzipCache = new Map<
 
 type AnyObj = Record<string, any>;
 
-function applyCatalogDeltas(
+export function applyCatalogDeltas(
   db: AnyObj,
   deltas: ErpCatalogDeltaRecord[]
 ): AnyObj {
-  if (!deltas.length || !Array.isArray(db.articulos)) return db;
+  if (!deltas.length) return db;
   const delIds = new Set<number>();
   const upMap = new Map<number, Record<string, any>>();
+  const metaPatch: Record<string, any> = {};
+  const fpSupplierPatch: Record<string, any> = {};
+  let hasMetaPatch = false;
+  let hasFpSupplierPatch = false;
   let latestDelta: ErpCatalogDeltaRecord | null = null;
 
   for (const d of deltas) {
     const aid = Number(d?.art_id || 0);
-    if (aid <= 0) continue;
+    if (!Number.isFinite(aid) || aid === 0) continue;
     if (!latestDelta || Number(d.rev || 0) >= Number(latestDelta.rev || 0)) {
       latestDelta = d;
     }
+    if (aid === CATALOG_META_DELTA_ID) {
+      if (!d.deleted && d.article && typeof d.article === "object") {
+        for (const [k, v] of Object.entries(d.article)) {
+          if (k === "id") continue;
+          metaPatch[k] = v;
+          hasMetaPatch = true;
+        }
+      }
+      continue;
+    }
+    if (aid === CATALOG_FP_SUPPLIER_CONFIGS_DELTA_ID) {
+      if (!d.deleted && d.article && typeof d.article === "object") {
+        for (const [k, v] of Object.entries(d.article)) {
+          if (k === "id") continue;
+          fpSupplierPatch[k] = v;
+          hasFpSupplierPatch = true;
+        }
+      }
+      continue;
+    }
+    if (aid < 0) continue;
     if (d.deleted) {
       delIds.add(aid);
       upMap.delete(aid);
@@ -54,35 +81,49 @@ function applyCatalogDeltas(
     }
   }
 
-  if (delIds.size === 0 && upMap.size === 0) return db;
-
-  const seen = new Set<number>();
-  const nextArts: AnyObj[] = [];
-  for (const a of db.articulos) {
-    const aid = Number(a?.id || 0);
-    if (delIds.has(aid)) continue;
-    seen.add(aid);
-    const patch = upMap.get(aid);
-    nextArts.push(patch ? { ...a, ...patch } : a);
+  if (delIds.size === 0 && upMap.size === 0 && !hasMetaPatch && !hasFpSupplierPatch) {
+    return db;
   }
-  for (const [aid, patch] of upMap.entries()) {
-    if (!seen.has(aid) && !delIds.has(aid)) {
-      nextArts.push(patch);
+
+  const out: AnyObj = { ...db };
+  if (hasMetaPatch) {
+    Object.assign(out, metaPatch);
+  }
+  if (hasFpSupplierPatch) {
+    const baseFp =
+      out.fpSupplierConfigs && typeof out.fpSupplierConfigs === "object"
+        ? out.fpSupplierConfigs
+        : {};
+    out.fpSupplierConfigs = { ...baseFp, ...fpSupplierPatch };
+  }
+
+  if ((delIds.size > 0 || upMap.size > 0) && Array.isArray(db.articulos)) {
+    const seen = new Set<number>();
+    const nextArts: AnyObj[] = [];
+    for (const a of db.articulos) {
+      const aid = Number(a?.id || 0);
+      if (delIds.has(aid)) continue;
+      seen.add(aid);
+      const patch = upMap.get(aid);
+      nextArts.push(patch ? { ...a, ...patch } : a);
     }
+    for (const [aid, patch] of upMap.entries()) {
+      if (!seen.has(aid) && !delIds.has(aid)) {
+        nextArts.push(patch);
+      }
+    }
+    out.articulos = nextArts;
+    out.totalArticulos = nextArts.length;
+    out.totalActivos = nextArts.filter((a: AnyObj) => !a.bl).length;
+    out.totalCarritoWeb = nextArts.filter(
+      (a: AnyObj) => !a.bl && Number(a.cw ?? 1) === 1
+    ).length;
   }
 
-  return {
-    ...db,
-    articulos: nextArts,
-    totalArticulos: nextArts.length,
-    totalActivos: nextArts.filter((a: AnyObj) => !a.bl).length,
-    totalCarritoWeb: nextArts.filter(
-      (a: AnyObj) => !a.bl && Number(a.cw ?? 1) === 1
-    ).length,
-    updatedAt: latestDelta?.updated_at || db.updatedAt,
-    lastModifiedBy: latestDelta?.updated_by || db.lastModifiedBy,
-    lastAction: latestDelta?.last_action || db.lastAction,
-  };
+  out.updatedAt = latestDelta?.updated_at || out.updatedAt;
+  out.lastModifiedBy = latestDelta?.updated_by || out.lastModifiedBy;
+  out.lastAction = latestDelta?.last_action || out.lastAction;
+  return out;
 }
 
 function applyPendingStockDeltas(
@@ -634,6 +675,65 @@ export async function handleErpCatalog(
       }
     }
 
+    // Fast-paths O(1) de metadatos: cero lectura y cero escritura del blob catalog_db (11.6 MB)
+    if (postAction === "save_fp_supplier_config") {
+      const provId = String(payload.proveedorId || payload.id || "").trim();
+      const cfg = payload.config || payload;
+      if (provId) {
+        const saved = await upsertCatalogDeltas(tenant, {
+          upserts: [{ id: CATALOG_FP_SUPPLIER_CONFIGS_DELTA_ID, [provId]: cfg }],
+          actor,
+          action: "save_fp_supplier_config",
+        });
+        return NextResponse.json({ ok: true, rev: saved.rev, config: cfg });
+      }
+    }
+
+    if (postAction === "save_price_configs") {
+      if (Array.isArray(payload.configuracionesPrecios)) {
+        const saved = await upsertCatalogDeltas(tenant, {
+          upserts: [
+            {
+              id: CATALOG_META_DELTA_ID,
+              configuracionesPrecios: payload.configuracionesPrecios,
+            },
+          ],
+          actor,
+          action: "save_price_configs",
+        });
+        return NextResponse.json({
+          ok: true,
+          rev: saved.rev,
+          configuracionesPrecios: payload.configuracionesPrecios,
+        });
+      }
+    }
+
+    if (postAction === "save_gondola_queue") {
+      const queue = payload.gondolaQueue ?? [];
+      const saved = await upsertCatalogDeltas(tenant, {
+        upserts: [{ id: CATALOG_META_DELTA_ID, gondolaQueue: queue }],
+        actor,
+        action: "save_gondola_queue",
+      });
+      return NextResponse.json({ ok: true, rev: saved.rev, gondolaQueue: queue });
+    }
+
+    if (postAction === "set_carrito_web_stock_mode") {
+      const nextMode =
+        payload.mode === "todos_sin_stock" ? "todos_sin_stock" : "solo_con_stock";
+      const saved = await upsertCatalogDeltas(tenant, {
+        upserts: [{ id: CATALOG_META_DELTA_ID, carritoWebStockMode: nextMode }],
+        actor,
+        action: "set_carrito_web_stock_mode",
+      });
+      return NextResponse.json({
+        ok: true,
+        rev: saved.rev,
+        carritoWebStockMode: nextMode,
+      });
+    }
+
     const [docRes, pendingStockEvents, existingDeltas] = await Promise.all([
       getTenantDoc<AnyObj>(tenant, "catalog_db", fallback),
       listPendingPosEvents(tenant, "catalog"),
@@ -705,22 +805,32 @@ export async function handleErpCatalog(
           }
         }
       }
+      const extraUpserts: AnyObj[] = [];
+      if (opts.extraMeta && Object.keys(opts.extraMeta).length > 0) {
+        const metaWithoutFp: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(opts.extraMeta)) {
+          if (k === "fpSupplierConfigEntry" && v && typeof v === "object") {
+            const entry = v as { provId?: string; config?: unknown };
+            if (entry.provId) {
+              extraUpserts.push({
+                id: CATALOG_FP_SUPPLIER_CONFIGS_DELTA_ID,
+                [entry.provId]: entry.config,
+              });
+            }
+          } else {
+            metaWithoutFp[k] = v;
+          }
+        }
+        if (Object.keys(metaWithoutFp).length > 0) {
+          extraUpserts.push({ id: CATALOG_META_DELTA_ID, ...metaWithoutFp });
+        }
+      }
       const saved = await upsertCatalogDeltas(tenant, {
-        upserts: Array.from(upsertMap.values()),
+        upserts: [...Array.from(upsertMap.values()), ...extraUpserts],
         deleteIds: opts.deleteIds || [],
         actor,
         action: actionTag,
       });
-      if (opts.extraMeta && Object.keys(opts.extraMeta).length > 0) {
-        await patchTenantDocKeys(
-          tenant,
-          "catalog_db",
-          opts.extraMeta,
-          db,
-          actor,
-          actionTag
-        );
-      }
       if (maxStockEvId > 0) {
         await markPosEventsCompacted(tenant, maxStockEvId, "catalog");
       }
@@ -732,18 +842,11 @@ export async function handleErpCatalog(
       responseObj: AnyObj,
       keysPatch: Record<string, unknown>
     ) => {
-      const metaPatch = {
-        ...buildCatalogMeta(actionTag),
-        ...keysPatch,
-      };
-      const saved = await patchTenantDocKeys(
-        tenant,
-        "catalog_db",
-        metaPatch,
-        db,
+      const saved = await upsertCatalogDeltas(tenant, {
+        upserts: [{ id: CATALOG_META_DELTA_ID, ...keysPatch }],
         actor,
-        actionTag
-      );
+        action: actionTag,
+      });
       return NextResponse.json({ ok: true, rev: saved.rev, ...responseObj });
     };
 
@@ -942,13 +1045,12 @@ export async function handleErpCatalog(
       }
       const extraMeta: Record<string, unknown> = {};
       if (payload.supplierConfig && typeof payload.supplierConfig === "object") {
-        const scProvId = String(payload.supplierConfig.proveedorId || "");
+        const scProvId = String(payload.supplierConfig.proveedorId || "").trim();
         if (scProvId) {
-          if (!db.fpSupplierConfigs || typeof db.fpSupplierConfigs !== "object") {
-            db.fpSupplierConfigs = {};
-          }
-          db.fpSupplierConfigs[scProvId] = payload.supplierConfig;
-          extraMeta.fpSupplierConfigs = db.fpSupplierConfigs;
+          extraMeta.fpSupplierConfigEntry = {
+            provId: scProvId,
+            config: payload.supplierConfig,
+          };
         }
       }
       return saveArticlesAndReply(
@@ -1289,6 +1391,14 @@ export async function handleErpCatalog(
           "bulk_set_canje_fidelizacion",
           {},
           { upserts: modifiedArts }
+        );
+      }
+      if (postAction === "set_fidelizacion_catalog_config") {
+        const nextCfg = payload.config ?? payload.fidelizacionCatalogConfig ?? payload;
+        return saveMetaKeysAndReply(
+          "set_fidelizacion_catalog_config",
+          { fidelizacionCatalogConfig: nextCfg },
+          { fidelizacionCatalogConfig: nextCfg }
         );
       }
       if (postAction === "recalc_all_canje_points") {
