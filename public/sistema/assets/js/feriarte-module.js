@@ -11,7 +11,7 @@
     { key: 'usuarios', label: 'Usuarios', icon: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>' },
     { key: 'organizadores', label: 'Organizadores', icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>' },
     { key: 'ferias', label: 'Ferias', icon: '<path d="M3 20h18L12 4 3 20z"></path><path d="M12 13v7"></path>' },
-    { key: 'feriantes', label: 'Feriantes', icon: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>' },
+    { key: 'feriantes', label: 'Emprendedores', icon: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>' },
     { key: 'tiendas', label: 'Tiendas', icon: '<path d="M3 9l2-5h14l2 5"></path><path d="M3 9v11h18V9"></path><path d="M9 20v-6h6v6"></path>' },
     { key: 'productos', label: 'Productos', icon: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>' },
     { key: 'categorias', label: 'Categorías', icon: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>' },
@@ -273,7 +273,7 @@
       var cards = [
         ['Usuarios registrados', k.usersRegistered],
         ['Clientes / Caminantes activos', k.clientsActive],
-        ['Feriantes activos', k.feriantesActive],
+        ['Emprendedores activos', k.feriantesActive],
         ['Organizadores activos', k.organizersActive],
         ['Organizadores pendientes', k.organizersPending],
         ['Ferias publicadas', k.fairsPublished],
@@ -281,7 +281,7 @@
         ['Productos disponibles', k.productsAvailable],
         ['Productos en «Otros»', otrosCount],
         ['Ventas brutas', fmtCents(k.grossSalesCents)],
-        ['Ventas netas feriantes', fmtCents(k.netSalesCents)],
+        ['Ventas netas emprendedores', fmtCents(k.netSalesCents)],
         ['Comisión FeriARTE', fmtCents(k.platformCommissionCents)],
         ['Comisiones organizadores', fmtCents(k.organizerCommissionCents)],
         ['Liquidaciones pendientes', fmtCents(k.pendingSettlementsCents)],
@@ -464,7 +464,7 @@
         body.innerHTML = banner +
           '<div style="background:#fff;border-radius:12px;padding:20px;border:1px solid #d9e2e6;display:grid;gap:12px;max-width:760px;">' +
             '<h3 style="margin:0;color:#023C46;">Sin productos pendientes en «Otros»</h3>' +
-            '<p style="margin:0;font-size:13px;color:#526570;line-height:1.5;">Cuando algún feriante publique un producto seleccionando la categoría <strong>Otros</strong>, aparecerá automáticamente en esta sección para que puedas redescubrir el producto, moverlo a una categoría existente o crear una nueva categoría al instante.</p>' +
+            '<p style="margin:0;font-size:13px;color:#526570;line-height:1.5;">Cuando algún emprendedor publique un producto seleccionando la categoría <strong>Otros</strong>, aparecerá automáticamente en esta sección para que puedas redescubrir el producto, moverlo a una categoría existente o crear una nueva categoría al instante.</p>' +
             '<div><button type="button" id="fa-go-cats-btn" style="padding:8px 14px;border:none;border-radius:8px;background:#023C46;color:#fff;font-weight:700;cursor:pointer;">Ir a gestionar Categorías →</button></div>' +
           '</div>';
         var goCats = document.getElementById('fa-go-cats-btn');
@@ -479,7 +479,7 @@
       var cardsHtml = inOtros.map(function (p) {
         var prodUrl = 'https://www.feriarte.com.ar/producto/' + encodeURIComponent(p.slug || '');
         var suggestionBadge = p.suggested_category_note
-          ? '<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#FFF8EF;border:1px solid #FC4702;font-size:12px;color:#023C46;"><strong>Categoría sugerida por el feriante:</strong> ' + esc(p.suggested_category_note) + '</div>'
+          ? '<div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#FFF8EF;border:1px solid #FC4702;font-size:12px;color:#023C46;"><strong>Categoría sugerida por el emprendedor:</strong> ' + esc(p.suggested_category_note) + '</div>'
           : '';
         return (
           '<div style="background:#fff;border:1px solid #d9e2e6;border-radius:12px;padding:16px;display:grid;gap:12px;">' +
@@ -674,7 +674,7 @@
           '<h3 style="margin:0 0 6px;color:#023C46;">Tarifario Nacional de Envíos FeriARTE</h3>' +
           '<p style="margin:0 0 14px;font-size:12px;color:#556;">' +
             'Define los importes referenciales por zona geográfica y tamaño de paquete cuando un producto usa <strong>Tarifa estándar FeriARTE</strong>. ' +
-            'La comisión de la plataforma sobre el envío es siempre <strong>0%</strong> (el 100% del envío va al artesano).' +
+            'La comisión de la plataforma sobre el envío es siempre <strong>0%</strong> (el 100% del envío va al emprendedor).' +
           '</p>' +
           '<form id="fa-shipping-tariffs-form" style="display:grid;gap:12px;">' +
             '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;">' +
