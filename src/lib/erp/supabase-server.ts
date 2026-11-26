@@ -1171,3 +1171,75 @@ export async function markPosEventsCompacted(
   if (error) return 0;
   return Number(data || 0);
 }
+
+export interface ErpCatalogDeltaRecord {
+  art_id: number;
+  deleted: boolean;
+  article: Record<string, any> | null;
+  rev: number;
+  updated_at: string;
+  updated_by: string;
+  last_action: string;
+}
+
+/**
+ * Escritura O(1) (~500 bytes, <50 ms, <1 MB RAM en Postgres) para ABM de productos:
+ * guarda únicamente los artículos creados/editados/eliminados en public.erp_catalog_deltas
+ * sin detoastear ni reescribir el blob de 11 MB de catalog_db ni invalidar el caché L2 Storage.
+ */
+export async function upsertCatalogDeltas(
+  tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">,
+  params: {
+    upserts?: Array<Record<string, unknown>>;
+    deleteIds?: Array<number | string>;
+    actor?: string;
+    action?: string;
+  }
+): Promise<{ rev: number; updatedAt: string }> {
+  const actor = params.actor || "system";
+  const action = params.action || "save_article";
+  const sb = await getTenantDataSupabase(tenant);
+  const { data, error } = await sb.rpc("erp_catalog_upsert_deltas", {
+    p_schema: tenant.db_schema,
+    p_upserts: params.upserts ?? [],
+    p_delete_ids: params.deleteIds ?? [],
+    p_actor: actor,
+    p_action: action,
+  });
+  if (error) {
+    throw new Error(`Error guardando artículo (${tenant.db_schema}): ${error.message}`);
+  }
+  statusMemoryCache.delete(tenant.db_schema);
+  const res = (data || {}) as { rev?: number; updated_at?: string };
+  return {
+    rev: Number(res.rev || 1),
+    updatedAt: String(res.updated_at || new Date().toISOString()),
+  };
+}
+
+export async function listCatalogDeltas(
+  tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">
+): Promise<ErpCatalogDeltaRecord[]> {
+  const sb = await getTenantDataSupabase(tenant);
+  const { data, error } = await sb.rpc("erp_catalog_list_deltas", {
+    p_schema: tenant.db_schema,
+  });
+  if (error || !Array.isArray(data)) {
+    return [];
+  }
+  return data as ErpCatalogDeltaRecord[];
+}
+
+export async function markCatalogDeltasCompacted(
+  tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">,
+  maxRev: number
+): Promise<number> {
+  if (!maxRev || maxRev <= 0) return 0;
+  const sb = await getTenantDataSupabase(tenant);
+  const { data, error } = await sb.rpc("erp_catalog_mark_deltas_compacted", {
+    p_schema: tenant.db_schema,
+    p_max_rev: maxRev,
+  });
+  if (error) return 0;
+  return Number(data || 0);
+}

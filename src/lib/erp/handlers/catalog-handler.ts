@@ -5,33 +5,114 @@ import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
   getTenantDoc,
   getTenantDocGzippedSnapshot,
+  listCatalogDeltas,
   listPendingPosEvents,
+  markCatalogDeltasCompacted,
   markPosEventsCompacted,
-  patchCatalogArticles,
   patchTenantDocKeys,
   putTenantDoc,
   putTenantMediaInDb,
+  upsertCatalogDeltas,
+  type ErpCatalogDeltaRecord,
   type ErpPosEventRecord,
 } from "../supabase-server";
 import type { ErpTenantRecord } from "../types";
 
-const storeGzipCache = new Map<string, { rev: number; maxEvId: number; gzBuf: Buffer }>();
+const storeGzipCache = new Map<
+  string,
+  { rev: number; maxDeltaRev: number; maxEvId: number; gzBuf: Buffer }
+>();
+const fullCatalogGzipCache = new Map<
+  string,
+  { rev: number; maxDeltaRev: number; maxEvId: number; gzBuf: Buffer }
+>();
 
 type AnyObj = Record<string, any>;
+
+function applyCatalogDeltas(
+  db: AnyObj,
+  deltas: ErpCatalogDeltaRecord[]
+): AnyObj {
+  if (!deltas.length || !Array.isArray(db.articulos)) return db;
+  const delIds = new Set<number>();
+  const upMap = new Map<number, Record<string, any>>();
+  let latestDelta: ErpCatalogDeltaRecord | null = null;
+
+  for (const d of deltas) {
+    const aid = Number(d?.art_id || 0);
+    if (aid <= 0) continue;
+    if (!latestDelta || Number(d.rev || 0) >= Number(latestDelta.rev || 0)) {
+      latestDelta = d;
+    }
+    if (d.deleted) {
+      delIds.add(aid);
+      upMap.delete(aid);
+    } else if (d.article && typeof d.article === "object") {
+      delIds.delete(aid);
+      const prev = upMap.get(aid);
+      upMap.set(aid, prev ? { ...prev, ...d.article } : d.article);
+    }
+  }
+
+  if (delIds.size === 0 && upMap.size === 0) return db;
+
+  const seen = new Set<number>();
+  const nextArts: AnyObj[] = [];
+  for (const a of db.articulos) {
+    const aid = Number(a?.id || 0);
+    if (delIds.has(aid)) continue;
+    seen.add(aid);
+    const patch = upMap.get(aid);
+    nextArts.push(patch ? { ...a, ...patch } : a);
+  }
+  for (const [aid, patch] of upMap.entries()) {
+    if (!seen.has(aid) && !delIds.has(aid)) {
+      nextArts.push(patch);
+    }
+  }
+
+  return {
+    ...db,
+    articulos: nextArts,
+    totalArticulos: nextArts.length,
+    totalActivos: nextArts.filter((a: AnyObj) => !a.bl).length,
+    totalCarritoWeb: nextArts.filter(
+      (a: AnyObj) => !a.bl && Number(a.cw ?? 1) === 1
+    ).length,
+    updatedAt: latestDelta?.updated_at || db.updatedAt,
+    lastModifiedBy: latestDelta?.updated_by || db.lastModifiedBy,
+    lastAction: latestDelta?.last_action || db.lastAction,
+  };
+}
 
 function applyPendingStockDeltas(
   db: AnyObj,
   stockEvents: ErpPosEventRecord[],
-  mutateInPlace = false
+  mutateInPlace = false,
+  catalogDeltas: ErpCatalogDeltaRecord[] = []
 ): AnyObj {
   if (!stockEvents.length || !Array.isArray(db.articulos)) return db;
+  // Si un artículo tiene un delta manual con `sf` explícito posterior al evento POS, no re-aplicar ese evento viejo
+  const sfOverrideAtMs = new Map<number, number>();
+  for (const cd of catalogDeltas) {
+    if (!cd.deleted && cd.article && cd.article.sf !== undefined) {
+      const ts = Date.parse(cd.updated_at || "");
+      const aid = Number(cd.art_id || 0);
+      if (aid > 0 && Number.isFinite(ts)) {
+        sfOverrideAtMs.set(aid, Math.max(sfOverrideAtMs.get(aid) || 0, ts));
+      }
+    }
+  }
   const deltaMap = new Map<number, number>();
   for (const ev of stockEvents) {
+    const evTs = Date.parse(ev.created_at || "");
     const deltas = Array.isArray(ev.stock_deltas) ? ev.stock_deltas : [];
     for (const d of deltas) {
       const aid = Number(d?.artId || 0);
       const delta = Number(d?.delta || 0);
       if (aid > 0 && delta) {
+        const ovTs = sfOverrideAtMs.get(aid) || 0;
+        if (ovTs > 0 && Number.isFinite(evTs) && evTs <= ovTs) continue;
         deltaMap.set(aid, (deltaMap.get(aid) || 0) + delta);
       }
     }
@@ -115,14 +196,21 @@ export async function handleErpCatalog(
     }
 
     const acceptEnc = (req.headers.get("accept-encoding") || "").toLowerCase();
-    const pendingStockEvents = await listPendingPosEvents(tenant, "catalog");
+    const [pendingStockEvents, catalogDeltas] = await Promise.all([
+      listPendingPosEvents(tenant, "catalog"),
+      listCatalogDeltas(tenant),
+    ]);
     const maxStockEvId = pendingStockEvents.reduce(
       (mx, ev) => Math.max(mx, Number(ev.id || 0)),
       0
     );
+    const maxDeltaRev = catalogDeltas.reduce(
+      (mx, d) => Math.max(mx, Number(d.rev || 0)),
+      0
+    );
 
     if (action !== "store") {
-      if (acceptEnc.includes("gzip") && pendingStockEvents.length === 0) {
+      if (acceptEnc.includes("gzip") && pendingStockEvents.length === 0 && catalogDeltas.length === 0) {
         const snap = await getTenantDocGzippedSnapshot(tenant, "catalog_db", fallback);
         return new NextResponse(new Uint8Array(snap.gzBuf), {
           status: 200,
@@ -135,12 +223,47 @@ export async function handleErpCatalog(
           },
         });
       }
-      const { payload: rawDb } = await getTenantDoc<AnyObj>(
+      const { payload: rawDb, rev } = await getTenantDoc<AnyObj>(
         tenant,
         "catalog_db",
         fallback
       );
-      const db = applyPendingStockDeltas(rawDb, pendingStockEvents, false);
+      const fullCacheKey = tenant.db_schema;
+      const cachedFull = fullCatalogGzipCache.get(fullCacheKey);
+      if (
+        acceptEnc.includes("gzip") &&
+        cachedFull &&
+        cachedFull.rev === rev &&
+        cachedFull.maxDeltaRev === maxDeltaRev &&
+        cachedFull.maxEvId === maxStockEvId
+      ) {
+        return new NextResponse(new Uint8Array(cachedFull.gzBuf), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Encoding": "gzip",
+            "Content-Length": String(cachedFull.gzBuf.byteLength),
+            Vary: "Accept-Encoding",
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        });
+      }
+      const withDeltas = applyCatalogDeltas(rawDb, catalogDeltas);
+      const db = applyPendingStockDeltas(withDeltas, pendingStockEvents, false, catalogDeltas);
+      if (acceptEnc.includes("gzip")) {
+        const gzBuf = zlib.gzipSync(Buffer.from(JSON.stringify(db), "utf8"), { level: 4 });
+        fullCatalogGzipCache.set(fullCacheKey, { rev, maxDeltaRev, maxEvId: maxStockEvId, gzBuf });
+        return new NextResponse(new Uint8Array(gzBuf), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Encoding": "gzip",
+            "Content-Length": String(gzBuf.byteLength),
+            Vary: "Accept-Encoding",
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        });
+      }
       return jsonResponseMaybeGzip(req, db);
     }
 
@@ -156,6 +279,7 @@ export async function handleErpCatalog(
       acceptEnc.includes("gzip") &&
       cachedStore &&
       cachedStore.rev === rev &&
+      cachedStore.maxDeltaRev === maxDeltaRev &&
       cachedStore.maxEvId === maxStockEvId
     ) {
       return new NextResponse(new Uint8Array(cachedStore.gzBuf), {
@@ -170,7 +294,8 @@ export async function handleErpCatalog(
       });
     }
 
-    const db = applyPendingStockDeltas(rawDb, pendingStockEvents, false);
+    const withDeltas = applyCatalogDeltas(rawDb, catalogDeltas);
+    const db = applyPendingStockDeltas(withDeltas, pendingStockEvents, false, catalogDeltas);
 
     const carritoWebStockMode =
       db.carritoWebStockMode === "todos_sin_stock"
@@ -222,7 +347,7 @@ export async function handleErpCatalog(
       const gzBuf = zlib.gzipSync(Buffer.from(JSON.stringify(storePayload), "utf8"), {
         level: 4,
       });
-      storeGzipCache.set(storeCacheKey, { rev, maxEvId: maxStockEvId, gzBuf });
+      storeGzipCache.set(storeCacheKey, { rev, maxDeltaRev, maxEvId: maxStockEvId, gzBuf });
       return new NextResponse(new Uint8Array(gzBuf), {
         status: 200,
         headers: {
@@ -394,7 +519,7 @@ export async function handleErpCatalog(
       });
     }
 
-    // Fast-path directo sin descargar 11 MB de catalog_db cuando se guarda un artículo con ID explícito
+    // Fast-path O(1) en tabla erp_catalog_deltas (~500 bytes, <50ms, cero RAM en Postgres)
     if (postAction === "save_article" || postAction === "") {
       const artIn = (payload.article || payload.articulo || payload) as AnyObj;
       const rawCode = String(artIn.c ?? artIn.codigo ?? "").trim();
@@ -446,7 +571,7 @@ export async function handleErpCatalog(
                 : "sis")
           ),
         };
-        const saved = await patchCatalogArticles(tenant, {
+        const saved = await upsertCatalogDeltas(tenant, {
           upserts: [directArticle],
           actor,
           action: "save_article",
@@ -459,13 +584,69 @@ export async function handleErpCatalog(
       }
     }
 
-    const [docRes, pendingStockEvents] = await Promise.all([
+    if (postAction === "delete") {
+      const id = Number(payload.id || 0);
+      if (id === 4407) {
+        return NextResponse.json(
+          { ok: false, message: "El Artículo Genérico 00020 no puede eliminarse." },
+          { status: 400 }
+        );
+      }
+      if (id > 0) {
+        const saved = payload.hard
+          ? await upsertCatalogDeltas(tenant, {
+              deleteIds: [id],
+              actor,
+              action: "delete_article",
+            })
+          : await upsertCatalogDeltas(tenant, {
+              upserts: [{ id, bl: 1, fb: new Date().toLocaleDateString("es-AR") }],
+              actor,
+              action: "delete_article",
+            });
+        return NextResponse.json({ ok: true, rev: saved.rev, id });
+      }
+    }
+
+    if (postAction === "update_article_stock_minimo") {
+      const id = Number(payload.id || payload.artId || 0);
+      if (id > 0) {
+        const sm = round2(payload.sm ?? payload.stockMinimo ?? 0);
+        const saved = await upsertCatalogDeltas(tenant, {
+          upserts: [{ id, sm }],
+          actor,
+          action: "update_sm",
+        });
+        return NextResponse.json({ ok: true, rev: saved.rev, article: { id, sm } });
+      }
+    }
+
+    if (postAction === "toggle_envase_retornable") {
+      const id = Number(payload.id || payload.artId || 0);
+      if (id > 0) {
+        const env = payload.env ? 1 : 0;
+        const saved = await upsertCatalogDeltas(tenant, {
+          upserts: [{ id, env }],
+          actor,
+          action: "toggle_envase",
+        });
+        return NextResponse.json({ ok: true, rev: saved.rev, article: { id, env } });
+      }
+    }
+
+    const [docRes, pendingStockEvents, existingDeltas] = await Promise.all([
       getTenantDoc<AnyObj>(tenant, "catalog_db", fallback),
       listPendingPosEvents(tenant, "catalog"),
+      listCatalogDeltas(tenant),
     ]);
-    const db = applyPendingStockDeltas(docRes.payload, pendingStockEvents, false);
+    const withExistingDeltas = applyCatalogDeltas(docRes.payload, existingDeltas);
+    const db = applyPendingStockDeltas(withExistingDeltas, pendingStockEvents, false, existingDeltas);
     const maxStockEvId = pendingStockEvents.reduce(
       (mx, ev) => Math.max(mx, Number(ev.id || 0)),
+      0
+    );
+    const maxExistingDeltaRev = existingDeltas.reduce(
+      (mx, d) => Math.max(mx, Number(d.rev || 0)),
       0
     );
     if (!Array.isArray(db.articulos)) db.articulos = [];
@@ -510,11 +691,7 @@ export async function handleErpCatalog(
         extraMeta?: Record<string, unknown>;
       }
     ) => {
-      const metaPatch = {
-        ...buildCatalogMeta(actionTag),
-        ...(opts.extraMeta || {}),
-      };
-      // Incluir artículos con deltas pendientes de POS para compactar de forma atómica
+      buildCatalogMeta(actionTag);
       const deleteSet = new Set((opts.deleteIds || []).map((x) => String(x)));
       const upsertMap = new Map<string, AnyObj>();
       for (const u of opts.upserts || []) {
@@ -528,14 +705,22 @@ export async function handleErpCatalog(
           }
         }
       }
-      const saved = await patchCatalogArticles(tenant, {
+      const saved = await upsertCatalogDeltas(tenant, {
         upserts: Array.from(upsertMap.values()),
         deleteIds: opts.deleteIds || [],
-        metaPatch,
-        fullMergedPayload: db,
         actor,
         action: actionTag,
       });
+      if (opts.extraMeta && Object.keys(opts.extraMeta).length > 0) {
+        await patchTenantDocKeys(
+          tenant,
+          "catalog_db",
+          opts.extraMeta,
+          db,
+          actor,
+          actionTag
+        );
+      }
       if (maxStockEvId > 0) {
         await markPosEventsCompacted(tenant, maxStockEvId, "catalog");
       }
@@ -559,13 +744,15 @@ export async function handleErpCatalog(
         actor,
         actionTag
       );
-      // No compactamos pos_events de stock aquí porque solo modificamos metadatos (rubros/marcas/góndola)
       return NextResponse.json({ ok: true, rev: saved.rev, ...responseObj });
     };
 
     const saveAndReply = async (actionTag: string, responseObj: AnyObj) => {
       buildCatalogMeta(actionTag);
       const saved = await putTenantDoc(tenant, "catalog_db", db, actor, actionTag);
+      if (maxExistingDeltaRev > 0) {
+        await markCatalogDeltasCompacted(tenant, maxExistingDeltaRev);
+      }
       if (maxStockEvId > 0) {
         await markPosEventsCompacted(tenant, maxStockEvId, "catalog");
       }
