@@ -415,6 +415,18 @@ export function renderErpHtmlResponse(params: {
       extraScripts.push(`/sistema/assets/js/don-contador-module.js?v=${assetVer}`);
       extraScripts.push(`/sistema/assets/js/reiki-online-module.js?v=${assetVer}`);
       extraScripts.push(`/sistema/assets/js/biblioteca-roncedo-module.js?v=${assetVer}`);
+      extraScripts.push(`/sistema/assets/js/minisistemas-medida-module.js?v=${assetVer}`);
+      extraScripts.push(`/sistema/assets/js/appcadi-module.js?v=${assetVer}`);
+      extraScripts.push(`/sistema/assets/js/campo-directo-module.js?v=${assetVer}`);
+    }
+    if (hasMod("campo_directo") || hasMod("campodirecto")) {
+      extraScripts.push(`/sistema/assets/js/campo-directo-module.js?v=${assetVer}`);
+    }
+    if (hasMod("appcadi") || hasMod("cadi")) {
+      extraScripts.push(`/sistema/assets/js/appcadi-module.js?v=${assetVer}`);
+    }
+    if (hasMod("minisistema_medida")) {
+      extraScripts.push(`/sistema/assets/js/minisistemas-medida-module.js?v=${assetVer}`);
     }
     if (hasMod("biblioteca_roncedo") || hasMod("roncedo")) {
       extraScripts.push(`/sistema/assets/js/biblioteca-roncedo-module.js?v=${assetVer}`);
