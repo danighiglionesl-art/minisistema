@@ -411,6 +411,7 @@ export function renderErpHtmlResponse(params: {
     // Panel Maestro Único y productos globales exclusivos de MiniSistema Base (www.minisistema.com.ar/sistema)
     if (tenant.is_base) {
       extraScripts.push(`/sistema/assets/js/superadmin-panel.js?v=${assetVer}`);
+      extraScripts.push(/sistema/assets/js/mega-sistemas-module.js?v=);
       extraScripts.push(`/sistema/assets/js/feriarte-module.js?v=${assetVer}`);
       extraScripts.push(`/sistema/assets/js/don-contador-module.js?v=${assetVer}`);
       extraScripts.push(`/sistema/assets/js/reiki-online-module.js?v=${assetVer}`);

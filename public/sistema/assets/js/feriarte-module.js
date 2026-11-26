@@ -109,8 +109,8 @@
       secMenu.innerHTML =
         '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
           '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
-            '<button type="button" class="btn-back-home" id="fa-back-home">← Volver a Pantalla Principal</button>' +
-            '<span class="module-breadcrumb">Administrador General · <strong>FeriARTE</strong></span>' +
+            '<button type="button" class="btn-back-home" id="fa-back-home">← Volver a Mega Sistemas</button>' +
+            '<span class="module-breadcrumb">Mega Sistemas · <strong>FeriARTE</strong></span>' +
           '</div>' +
         '</div>' +
         '<div class="modules-grid" id="fa-submodules-grid" aria-label="Submódulos de FeriARTE"></div>';
@@ -151,6 +151,10 @@
   }
 
   function closeToHome() {
+    if (typeof window.__MS_MEGASISTEMAS_OPEN__ === 'function') {
+      window.__MS_MEGASISTEMAS_OPEN__();
+      return;
+    }
     hideAllErpSections();
     var home = document.getElementById('sec-inicio');
     if (home) home.hidden = false;
@@ -169,7 +173,7 @@
       if (!target || typeof target.closest !== 'function') return;
 
       var navEl = target.closest(
-        '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-doncontador-home-card, #ms-reikionline-home-card, #ms-bibliotecaroncedo-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card'
+        '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-megasistemas-home-card, #ms-doncontador-home-card, #ms-reikionline-home-card, #ms-bibliotecaroncedo-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card'
       );
       if (!navEl) return;
 
@@ -832,43 +836,14 @@
     renderDetailView(STATE.view);
   }
 
+  window.__MS_FERIARTE_OPEN__ = openFeriarteView;
+
   function syncFeriarteHomeCard() {
     bindGlobalNavIntegration();
-    var allowed = isGeneralAdmin();
-    var grid = document.querySelector('#sec-inicio .modules-grid');
+    // Alojado dentro del módulo contenedor "Mega Sistemas"
     var existing = document.getElementById('ms-feriarte-home-card');
-
-    if (allowed && grid && !existing) {
-      var card = document.createElement('article');
-      card.id = 'ms-feriarte-home-card';
-      card.className = 'module-card';
-      card.setAttribute('role', 'button');
-      card.setAttribute('tabindex', '0');
-      card.innerHTML =
-        '<div class="module-icon" aria-hidden="true">' +
-          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-            '<path d="M3 20h18L12 4 3 20z"></path><path d="M8.5 14h7"></path>' +
-          '</svg>' +
-        '</div>' +
-        '<h3>FeriARTE</h3>';
-      card.addEventListener('click', function () {
-        openFeriarteView('menu');
-      });
-      card.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter' || ev.key === ' ') {
-          ev.preventDefault();
-          openFeriarteView('menu');
-        }
-      });
-      var saCard = document.getElementById('ms-superadmin-home-card');
-      if (saCard && saCard.nextSibling) {
-        grid.insertBefore(card, saCard.nextSibling);
-      } else {
-        grid.appendChild(card);
-      }
-    } else if (existing) {
-      existing.hidden = !allowed;
-      existing.style.display = allowed ? '' : 'none';
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing);
     }
   }
 

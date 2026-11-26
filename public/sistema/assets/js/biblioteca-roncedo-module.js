@@ -146,8 +146,8 @@
       secMenu.innerHTML =
         '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
           '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
-            '<button type="button" class="btn-back-home" id="br-back-home">← Volver a Pantalla Principal</button>' +
-            '<span class="module-breadcrumb">Administrador General · <strong>Biblioteca Roncedo</strong></span>' +
+            '<button type="button" class="btn-back-home" id="br-back-home">← Volver a Mega Sistemas</button>' +
+            '<span class="module-breadcrumb">Mega Sistemas · <strong>Biblioteca Roncedo</strong></span>' +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:0.5rem;">' +
             '<a href="https://www.bibliotecaroncedo.ar" target="_blank" rel="noopener noreferrer" class="btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:0.35rem;text-decoration:none;font-weight:700;padding:6px 14px;border-radius:10px;background:#0F2D54;color:#fff;border:none;">' +
@@ -161,6 +161,10 @@
       var backHomeBtn = secMenu.querySelector('#br-back-home');
       if (backHomeBtn) {
         backHomeBtn.addEventListener('click', function () {
+          if (typeof window.__MS_MEGASISTEMAS_OPEN__ === 'function') {
+            window.__MS_MEGASISTEMAS_OPEN__();
+            return;
+          }
           hideAllErpSections();
           var home = document.getElementById('sec-inicio');
           if (home) home.hidden = false;
@@ -209,37 +213,43 @@
   }
 
   function bindGlobalNavIntegration() {
-    var backTopBtn = document.getElementById('btn-topbar-back-facturacion');
-    if (backTopBtn && !backTopBtn.dataset.brBound) {
-      backTopBtn.dataset.brBound = '1';
-      backTopBtn.addEventListener('click', function () {
-        var menuSec = document.getElementById('sec-menu-bibliotecaroncedo');
-        var detailSec = document.getElementById('sec-bibliotecaroncedo-detail');
+    if (window.__MS_BR_NAV_BOUND__) return;
+    window.__MS_BR_NAV_BOUND__ = true;
+
+    document.addEventListener('click', function (ev) {
+      var target = ev.target;
+      if (!target || typeof target.closest !== 'function') return;
+
+      var navEl = target.closest(
+        '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-megasistemas-home-card, #ms-feriarte-home-card, #ms-doncontador-home-card, #ms-reikionline-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card'
+      );
+      if (!navEl) return;
+
+      var menuSec = document.getElementById('sec-menu-bibliotecaroncedo');
+      var detailSec = document.getElementById('sec-bibliotecaroncedo-detail');
+      var isBrActive = (menuSec && !menuSec.hidden) || (detailSec && !detailSec.hidden);
+
+      if (navEl.id === 'btn-topbar-back-facturacion' && isBrActive) {
+        ev.preventDefault();
+        ev.stopPropagation();
         if (detailSec && !detailSec.hidden) {
           openRoncedoView('menu');
-          return;
-        }
-        if (menuSec && !menuSec.hidden) {
+        } else if (typeof window.__MS_MEGASISTEMAS_OPEN__ === 'function') {
+          window.__MS_MEGASISTEMAS_OPEN__();
+        } else {
           hideAllErpSections();
           var home = document.getElementById('sec-inicio');
           if (home) home.hidden = false;
-          backTopBtn.hidden = true;
+          navEl.hidden = true;
           var topbarModInd = document.getElementById('topbar-caja-indicator');
           if (topbarModInd) topbarModInd.hidden = true;
         }
-      });
-    }
+        return;
+      }
 
-    var topbarHomeBtn = document.getElementById('topbar-home-btn');
-    if (topbarHomeBtn && !topbarHomeBtn.dataset.brBound) {
-      topbarHomeBtn.dataset.brBound = '1';
-      topbarHomeBtn.addEventListener('click', function () {
-        var menuSec = document.getElementById('sec-menu-bibliotecaroncedo');
-        var detailSec = document.getElementById('sec-bibliotecaroncedo-detail');
-        if (menuSec) menuSec.hidden = true;
-        if (detailSec) detailSec.hidden = true;
-      });
-    }
+      if (menuSec) menuSec.hidden = true;
+      if (detailSec) detailSec.hidden = true;
+    }, true);
   }
 
   async function reloadData() {
@@ -758,44 +768,10 @@
 
   function syncHomeCard() {
     bindGlobalNavIntegration();
-    var allowed = isGeneralAdmin();
-    var grid = document.querySelector('#sec-inicio .modules-grid');
+    // Alojado dentro del módulo contenedor "Mega Sistemas"
     var existing = document.getElementById('ms-bibliotecaroncedo-home-card');
-
-    if (allowed && grid && !existing) {
-      var card = document.createElement('article');
-      card.id = 'ms-bibliotecaroncedo-home-card';
-      card.className = 'module-card';
-      card.setAttribute('role', 'button');
-      card.setAttribute('tabindex', '0');
-      card.innerHTML =
-        '<div class="module-icon" aria-hidden="true">' +
-          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-            '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>' +
-            '<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>' +
-          '</svg>' +
-        '</div>' +
-        '<h3>Biblioteca Roncedo</h3>';
-      card.addEventListener('click', function () { openRoncedoView('menu'); });
-      card.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter' || ev.key === ' ') {
-          ev.preventDefault();
-          openRoncedoView('menu');
-        }
-      });
-
-      // Insertar después de Don Contador o FeriARTE
-      var prevCard = document.getElementById('ms-doncontador-home-card') ||
-                     document.getElementById('ms-feriarte-home-card') ||
-                     document.getElementById('ms-superadmin-home-card');
-      if (prevCard && prevCard.nextSibling) {
-        grid.insertBefore(card, prevCard.nextSibling);
-      } else {
-        grid.appendChild(card);
-      }
-    } else if (existing) {
-      existing.hidden = !allowed;
-      existing.style.display = allowed ? '' : 'none';
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing);
     }
   }
 

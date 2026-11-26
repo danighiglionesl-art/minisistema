@@ -121,6 +121,10 @@
   }
 
   function closeToHome() {
+    if (typeof window.__MS_MEGASISTEMAS_OPEN__ === 'function') {
+      window.__MS_MEGASISTEMAS_OPEN__();
+      return;
+    }
     hideAllErpSections();
     var home = document.getElementById('sec-inicio');
     if (home) home.hidden = false;
@@ -146,8 +150,8 @@
       secMenu.innerHTML =
         '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
           '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
-            '<button type="button" class="btn-back-home" id="dc-back-home">← Volver a Pantalla Principal</button>' +
-            '<span class="module-breadcrumb">Administrador General · <strong>Don Contador</strong></span>' +
+            '<button type="button" class="btn-back-home" id="dc-back-home">← Volver a Mega Sistemas</button>' +
+            '<span class="module-breadcrumb">Mega Sistemas · <strong>Don Contador</strong></span>' +
           '</div>' +
         '</div>' +
         '<div class="modules-grid" id="dc-submodules-grid" aria-label="Submódulos de Don Contador"></div>';
@@ -197,7 +201,7 @@
       if (!target || typeof target.closest !== 'function') return;
 
       var navEl = target.closest(
-        '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-feriarte-home-card, #ms-reikionline-home-card, #ms-bibliotecaroncedo-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card'
+        '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-megasistemas-home-card, #ms-feriarte-home-card, #ms-reikionline-home-card, #ms-bibliotecaroncedo-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card'
       );
       if (!navEl) return;
 
@@ -1364,39 +1368,14 @@
     renderDetailView(STATE.view);
   }
 
+  window.__MS_DONCONTADOR_OPEN__ = openDcView;
+
   function syncHomeCard() {
     bindGlobalNavIntegration();
-    var allowed = isGeneralAdmin();
-    var grid = document.querySelector('#sec-inicio .modules-grid');
+    // Alojado dentro del módulo contenedor "Mega Sistemas"
     var existing = document.getElementById('ms-doncontador-home-card');
-    if (allowed && grid && !existing) {
-      var card = document.createElement('article');
-      card.id = 'ms-doncontador-home-card';
-      card.className = 'module-card';
-      card.setAttribute('role', 'button');
-      card.setAttribute('tabindex', '0');
-      card.innerHTML =
-        '<div class="module-icon" aria-hidden="true">' +
-          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-            '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>' +
-            '<polyline points="14 2 14 8 20 8"></polyline>' +
-            '<path d="M9 15l2 2 4-4"></path>' +
-          '</svg>' +
-        '</div>' +
-        '<h3>Don Contador</h3>';
-      card.addEventListener('click', function () { openDcView('menu'); });
-      card.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openDcView('menu'); }
-      });
-      var faCard = document.getElementById('ms-feriarte-home-card') || document.getElementById('ms-superadmin-home-card');
-      if (faCard && faCard.nextSibling) {
-        grid.insertBefore(card, faCard.nextSibling);
-      } else {
-        grid.appendChild(card);
-      }
-    } else if (existing) {
-      existing.hidden = !allowed;
-      existing.style.display = allowed ? '' : 'none';
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing);
     }
   }
 
