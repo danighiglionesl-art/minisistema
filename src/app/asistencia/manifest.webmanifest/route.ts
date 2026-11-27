@@ -40,16 +40,28 @@ export async function GET(req: NextRequest) {
     categories: ["business", "productivity"],
     icons: [
       {
-        src: "/sistema/assets/img/minisistema/icon-192.png",
+        src: "/sistema/assets/img/minisistema/icon-192.png?v=3",
         sizes: "192x192",
         type: "image/png",
-        purpose: "any maskable",
+        purpose: "any",
       },
       {
-        src: "/sistema/assets/img/minisistema/icon-512.png",
+        src: "/sistema/assets/img/minisistema/icon-512.png?v=3",
         sizes: "512x512",
         type: "image/png",
-        purpose: "any maskable",
+        purpose: "any",
+      },
+      {
+        src: "/sistema/assets/img/minisistema/icon-maskable-192.png?v=3",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: "/sistema/assets/img/minisistema/icon-maskable-512.png?v=3",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
       },
     ],
   };

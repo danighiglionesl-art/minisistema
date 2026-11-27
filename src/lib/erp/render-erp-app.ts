@@ -304,9 +304,12 @@ export function renderErpHtmlResponse(params: {
     /<link\s+rel="icon"[^>]*>/gi,
     `<link rel="icon" type="image/png" sizes="64x64" href="${brand.logoSymbolUrl}?v=${assetVer}">`
   );
+  const appleTouchIconHref = tenant.is_base
+    ? `/sistema/assets/img/minisistema/apple-touch-icon.png?v=${assetVer}`
+    : `${brand.logoSymbolUrl}?v=${assetVer}`;
   html = html.replace(
     /<link\s+rel="apple-touch-icon"[^>]*>/gi,
-    `<link rel="apple-touch-icon" sizes="180x180" href="${brand.logoSymbolUrl}?v=${assetVer}">`
+    `<link rel="apple-touch-icon" sizes="180x180" href="${appleTouchIconHref}">`
   );
   html = html.replace(
     /<link\s+rel="manifest"\s+href="[^"]*"\s*\/?>/i,

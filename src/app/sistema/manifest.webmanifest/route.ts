@@ -113,22 +113,34 @@ export async function GET(req: NextRequest) {
   } else if (tenant.is_base) {
     icons = [
       {
-        src: "/sistema/assets/img/minisistema/favicon-64.png",
+        src: "/sistema/assets/img/minisistema/favicon-64.png?v=3",
         sizes: "64x64",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/sistema/assets/img/minisistema/icon-192.png",
+        src: "/sistema/assets/img/minisistema/icon-192.png?v=3",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/sistema/assets/img/minisistema/icon-512.png",
+        src: "/sistema/assets/img/minisistema/icon-512.png?v=3",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
+      },
+      {
+        src: "/sistema/assets/img/minisistema/icon-maskable-192.png?v=3",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: "/sistema/assets/img/minisistema/icon-maskable-512.png?v=3",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
       },
     ];
   } else {
