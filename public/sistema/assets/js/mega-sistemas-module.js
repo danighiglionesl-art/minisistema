@@ -5,6 +5,7 @@
    2. FeriARTE
    3. Don Contador
    4. Biblioteca Roncedo
+   5. AppCadi
    Respeta estrictamente las reglas de diseño de tarjetas uniformes
    (.modules-grid / .module-card) sin badges, pills ni descripciones.
    ========================================================================== */
@@ -57,6 +58,20 @@
       open: function () {
         if (typeof window.__MS_RONCEDO_GO === 'function') {
           window.__MS_RONCEDO_GO('menu');
+        }
+      }
+    },
+    {
+      key: 'appcadi',
+      label: 'AppCadi',
+      icon:
+        '<path d="M7 20h10"></path>' +
+        '<path d="M12 20V4"></path>' +
+        '<path d="M12 4l-4 4"></path>' +
+        '<path d="M12 4l4 4"></path>',
+      open: function () {
+        if (typeof window.__MS_APPCADI_OPEN__ === 'function') {
+          window.__MS_APPCADI_OPEN__('menu');
         }
       }
     }
@@ -233,7 +248,8 @@
       'ms-reikionline-home-card',
       'ms-feriarte-home-card',
       'ms-doncontador-home-card',
-      'ms-bibliotecaroncedo-home-card'
+      'ms-bibliotecaroncedo-home-card',
+      'ms-appcadi-home-card'
     ].forEach(function (id) {
       var el = document.getElementById(id);
       if (el && el.parentNode) el.parentNode.removeChild(el);

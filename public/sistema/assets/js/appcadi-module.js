@@ -177,8 +177,8 @@
       secMenu.innerHTML =
         '<div class="module-back-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">' +
           '<div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
-            '<button type="button" class="btn-back-home" id="appcadi-back-home">← Volver a Pantalla Principal</button>' +
-            '<span class="module-breadcrumb">Administrador General · <strong>AppCadi</strong></span>' +
+            '<button type="button" class="btn-back-home" id="appcadi-back-home">← Volver a Mega Sistemas</button>' +
+            '<span class="module-breadcrumb">Mega Sistemas · <strong>AppCadi</strong></span>' +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:0.5rem;">' +
             '<button type="button" class="btn-secondary btn-sm" id="btn-appcadi-reload" style="cursor:pointer;">🔄 Actualizar</button>' +
@@ -226,6 +226,10 @@
   }
 
   function closeToHome() {
+    if (typeof window.__MS_MEGASISTEMAS_OPEN__ === 'function') {
+      window.__MS_MEGASISTEMAS_OPEN__();
+      return;
+    }
     hideAllErpSections();
     var home = document.getElementById('sec-inicio');
     if (home) home.hidden = false;
@@ -244,7 +248,7 @@
       if (!target || typeof target.closest !== 'function') return;
 
       var navEl = target.closest(
-        '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-feriarte-home-card, #ms-doncontador-home-card, #ms-reikionline-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card'
+        '#topbar-home-btn, #btn-topbar-back-facturacion, [data-open-section], #ms-superadmin-home-card, #ms-megasistemas-home-card, #ms-minisistemas-medida-home-card, #ms-feriarte-home-card, #ms-doncontador-home-card, #ms-reikionline-home-card, #ms-bibliotecaroncedo-home-card, #ms-cv-home-card, #ms-personal-home-card, #ms-turnos-home-card, #ms-inmo-home-card, #ms-micontador-home-card, #ms-gestion-consultorios-home-card, #ms-gestion-web-home-card'
       );
       if (!navEl) return;
 
@@ -1061,51 +1065,17 @@
     renderDetailView(STATE.view);
   }
 
+  window.__MS_APPCADI_OPEN__ = openAppCadiView;
+
   // =========================================================================
-  // SINCRONIZACIÓN DE LA TARJETA PRINCIPAL (INICIO)
+  // SINCRONIZACIÓN DE LA TARJETA PRINCIPAL (ALOJADO EN MEGA SISTEMAS)
   // =========================================================================
   function syncHomeCard() {
     bindGlobalNavIntegration();
-    var allowed = isGeneralAdmin();
-    var grid = document.querySelector('#sec-inicio .modules-grid');
+    // Alojado dentro del módulo contenedor "Mega Sistemas"
     var existing = document.getElementById('ms-appcadi-home-card');
-
-    if (allowed && grid && !existing) {
-      var card = document.createElement('article');
-      card.id = 'ms-appcadi-home-card';
-      card.className = 'module-card';
-      card.setAttribute('role', 'button');
-      card.setAttribute('tabindex', '0');
-      card.innerHTML =
-        '<div class="module-icon" aria-hidden="true">' +
-          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-            '<path d="M7 20h10M12 20V4M12 4l-4 4M12 4l4 4"/>' +
-          '</svg>' +
-        '</div>' +
-        '<h3>AppCadi</h3>';
-
-      card.addEventListener('click', function () { openAppCadiView('menu'); });
-      card.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter' || ev.key === ' ') {
-          ev.preventDefault();
-          openAppCadiView('menu');
-        }
-      });
-
-      var anchorCard =
-        document.getElementById('ms-reikionline-home-card') ||
-        document.getElementById('ms-doncontador-home-card') ||
-        document.getElementById('ms-feriarte-home-card') ||
-        document.getElementById('ms-superadmin-home-card');
-
-      if (anchorCard && anchorCard.nextSibling) {
-        grid.insertBefore(card, anchorCard.nextSibling);
-      } else {
-        grid.appendChild(card);
-      }
-    } else if (existing) {
-      existing.hidden = !allowed;
-      existing.style.display = allowed ? '' : 'none';
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing);
     }
   }
 
