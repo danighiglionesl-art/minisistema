@@ -394,7 +394,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   {
     key: "facturacion",
     name: "Facturación Electrónica",
-    description: "Cajas 1, 2 y 3, Facturador A4, Recibos, Apertura/Retiro/Cierre de turno, POS Móvil y WSFEv1 ARCA.",
+    description: "Cajas 1, 2 y 3, Facturador POS, Recibos, Apertura/Retiro/Cierre de turno, POS Móvil y WSFEv1 ARCA.",
     defaultMonthlyArs: 22000,
     erpModuleKeys: [
       "facturacion",
@@ -414,7 +414,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       { key: "facturacion:caja1", name: "Caja 1 (POS)", defaultMonthlyArs: 2000 },
       { key: "facturacion:caja2", name: "Caja 2 (POS)", defaultMonthlyArs: 2000 },
       { key: "facturacion:caja3", name: "Caja 3 (POS)", defaultMonthlyArs: 2000 },
-      { key: "facturacion:facturador", name: "Facturador A4 / Directo", defaultMonthlyArs: 2000 },
+      { key: "facturacion:facturador", name: "Facturador POS", defaultMonthlyArs: 2000 },
       { key: "facturacion:recibo", name: "Emisión de Recibos", defaultMonthlyArs: 2000 },
       { key: "facturacion:apertura", name: "Apertura de Caja", defaultMonthlyArs: 2000 },
       { key: "facturacion:retiro", name: "Retiro de Efectivo", defaultMonthlyArs: 2000 },
