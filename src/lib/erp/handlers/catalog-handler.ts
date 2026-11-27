@@ -880,8 +880,20 @@ export async function handleErpCatalog(
       responseObj: AnyObj,
       keysPatch: Record<string, unknown>
     ) => {
+      const existingMetaRow = existingDeltas.find(
+        (d) =>
+          Number(d?.art_id) === CATALOG_META_DELTA_ID &&
+          !d.deleted &&
+          d.article &&
+          typeof d.article === "object"
+      );
+      const mergedMeta: Record<string, unknown> = {
+        ...(existingMetaRow?.article || {}),
+        ...keysPatch,
+        id: CATALOG_META_DELTA_ID,
+      };
       const saved = await upsertCatalogDeltas(tenant, {
-        upserts: [{ id: CATALOG_META_DELTA_ID, ...keysPatch }],
+        upserts: [mergedMeta],
         actor,
         action: actionTag,
       });
@@ -1215,7 +1227,10 @@ export async function handleErpCatalog(
     }
 
     if (postAction === "create_rubro" || postAction === "save_rubro") {
-      const nombre = String(payload.nombre || "")
+      const src = (
+        payload.rubro && typeof payload.rubro === "object" ? payload.rubro : payload
+      ) as AnyObj;
+      const nombre = String(src.nombre ?? payload.nombre ?? "")
         .trim()
         .toUpperCase();
       if (!nombre) {
@@ -1224,21 +1239,35 @@ export async function handleErpCatalog(
           { status: 400 }
         );
       }
-      const id = Number(payload.id || 0);
+      const id = Number(src.id ?? payload.id ?? 0);
+      const rawCod = src.codigo ?? payload.codigo;
+      const hasCod = rawCod !== undefined && rawCod !== null && String(rawCod).trim() !== "";
+      const parseCodigo = (fallbackNum: number): number | string => {
+        if (!hasCod) return fallbackNum;
+        const s = String(rawCod).trim().toUpperCase();
+        return /^\d+$/.test(s) ? Number(s) : s;
+      };
+      const isBaja = Number(src.bl ?? payload.bl ?? 0) === 1 ? 1 : 0;
       if (id > 0) {
         const found = db.rubros.find((r: AnyObj) => Number(r.id) === id);
         if (found) {
           found.nombre = nombre;
-          if (payload.codigo !== undefined) found.codigo = Number(payload.codigo);
-          found.bl = payload.bl ? 1 : 0;
+          if (hasCod) found.codigo = parseCodigo(Number(found.codigo || found.id));
+          found.bl = isBaja;
+          if (isBaja === 1) {
+            found.fb = src.fb || payload.fb || new Date().toLocaleDateString("es-AR");
+          } else {
+            delete found.fb;
+          }
           return saveMetaKeysAndReply("save_rubro", { rubro: found }, { rubros: db.rubros });
         }
       }
       const dup = db.rubros.find(
-        (r: AnyObj) => String(r.nombre || "").toUpperCase() === nombre
+        (r: AnyObj) => String(r.nombre || "").trim().toUpperCase() === nombre
       );
       if (dup) {
         dup.bl = 0;
+        delete dup.fb;
         return saveMetaKeysAndReply(
           "reactivate_rubro",
           { rubro: dup, alreadyExists: true },
@@ -1250,12 +1279,12 @@ export async function handleErpCatalog(
         3
       );
       const maxCod = db.rubros.reduce(
-        (m: number, r: AnyObj) => Math.max(m, Number(r.codigo || 0)),
+        (m: number, r: AnyObj) => Math.max(m, Number(r.codigo || 0) || 0),
         1
       );
       const newRubro = {
         id: maxId + 1,
-        codigo: Number(payload.codigo || maxCod + 1),
+        codigo: parseCodigo(maxCod + 1),
         nombre,
         bl: 0,
       };
@@ -1270,7 +1299,10 @@ export async function handleErpCatalog(
     }
 
     if (postAction === "create_marca" || postAction === "save_marca") {
-      const nombre = String(payload.nombre || "")
+      const src = (
+        payload.marca && typeof payload.marca === "object" ? payload.marca : payload
+      ) as AnyObj;
+      const nombre = String(src.nombre ?? payload.nombre ?? "")
         .trim()
         .toUpperCase();
       if (!nombre) {
@@ -1279,21 +1311,35 @@ export async function handleErpCatalog(
           { status: 400 }
         );
       }
-      const id = Number(payload.id || 0);
+      const id = Number(src.id ?? payload.id ?? 0);
+      const rawCod = src.codigo ?? payload.codigo;
+      const hasCod = rawCod !== undefined && rawCod !== null && String(rawCod).trim() !== "";
+      const parseCodigo = (fallbackNum: number): number | string => {
+        if (!hasCod) return fallbackNum;
+        const s = String(rawCod).trim().toUpperCase();
+        return /^\d+$/.test(s) ? Number(s) : s;
+      };
+      const isBaja = Number(src.bl ?? payload.bl ?? 0) === 1 ? 1 : 0;
       if (id > 0) {
         const found = db.marcas.find((m: AnyObj) => Number(m.id) === id);
         if (found) {
           found.nombre = nombre;
-          if (payload.codigo !== undefined) found.codigo = Number(payload.codigo);
-          found.bl = payload.bl ? 1 : 0;
+          if (hasCod) found.codigo = parseCodigo(Number(found.codigo || found.id));
+          found.bl = isBaja;
+          if (isBaja === 1) {
+            found.fb = src.fb || payload.fb || new Date().toLocaleDateString("es-AR");
+          } else {
+            delete found.fb;
+          }
           return saveMetaKeysAndReply("save_marca", { marca: found }, { marcas: db.marcas });
         }
       }
       const dup = db.marcas.find(
-        (m: AnyObj) => String(m.nombre || "").toUpperCase() === nombre
+        (m: AnyObj) => String(m.nombre || "").trim().toUpperCase() === nombre
       );
       if (dup) {
         dup.bl = 0;
+        delete dup.fb;
         return saveMetaKeysAndReply(
           "reactivate_marca",
           { marca: dup, alreadyExists: true },
@@ -1304,9 +1350,13 @@ export async function handleErpCatalog(
         (mx: number, m: AnyObj) => Math.max(mx, Number(m.id || 0)),
         0
       );
+      const maxCod = db.marcas.reduce(
+        (mx: number, m: AnyObj) => Math.max(mx, Number(m.codigo || 0) || 0),
+        maxId
+      );
       const newMarca = {
         id: maxId + 1,
-        codigo: Number(payload.codigo || maxId + 1),
+        codigo: parseCodigo(maxCod + 1),
         nombre,
         bl: 0,
       };
