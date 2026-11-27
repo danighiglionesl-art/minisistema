@@ -17,8 +17,9 @@
     newSubTab: 'config', // 'config' | 'quotes'
     data: null,
     loading: false,
-    // Configurador unificado (Opción + Árbol de Submódulos + Descuentos + Cliente + Demo)
+    // Configurador unificado (Opción + Usuarios + Árbol de Submódulos + Descuentos + Cliente + Demo)
     newOptionType: 1,
+    newMaxUsers: null,
     newActividadNegocio: 'comercial',
     selectedSubmodules: {}, // { [subKey]: boolean }
     expandedModules: {}, // { [modKey]: boolean }
@@ -328,6 +329,15 @@
         STATE_SA.submodulePrices[sk] = Math.max(0, Math.round(Number(q.submodulePricesSnapshot[sk] || 0)));
       });
     }
+    if (q.maxUsers !== undefined && q.maxUsers !== null && Number(q.maxUsers) > 0) {
+      STATE_SA.newMaxUsers = Math.max(1, Math.min(500, Math.round(Number(q.maxUsers))));
+    }
+    if (q.usersDiscountPct !== undefined && q.usersDiscountPct !== null) {
+      STATE_SA.quoteDiscountsByMod.__users = Math.min(100, Math.max(0, Number(q.usersDiscountPct || 0)));
+    }
+    if (q.userUnitPriceArs !== undefined && q.userUnitPriceArs !== null && STATE_SA.data && STATE_SA.data.pricingConfig) {
+      STATE_SA.data.pricingConfig.user_unit_price = Math.max(0, Math.round(Number(q.userUnitPriceArs || 0)));
+    }
 
     var nextSel = {};
     var subArr = Array.isArray(q.selectedSubmoduleKeys) ? q.selectedSubmoduleKeys : [];
@@ -380,6 +390,11 @@
         optionRaw: 0,
         optionDiscPct: 0,
         optionBase: 0,
+        maxUsers: 3,
+        userUnitPrice: 5000,
+        usersRaw: 15000,
+        usersDiscPct: 0,
+        usersNet: 15000,
         modTotal: 0,
         subtotal: 0,
         promoMonthly: 0,
@@ -403,6 +418,24 @@
       Math.max(0, Number(STATE_SA.quoteDiscountsByMod['__opt' + optType] || 0))
     );
     var optionBase = Math.round(rawOptBase * (1 - optDiscPct / 100));
+
+    var maxUsers = Math.max(
+      1,
+      Math.min(
+        500,
+        Math.round(
+          Number(
+            STATE_SA.newMaxUsers != null
+              ? STATE_SA.newMaxUsers
+              : (cfg.default_max_users ?? 3)
+          )
+        )
+      )
+    );
+    var userUnitPrice = Math.max(0, Math.round(Number(cfg.user_unit_price ?? 5000)));
+    var usersDiscPct = Math.min(100, Math.max(0, Number(STATE_SA.quoteDiscountsByMod.__users || 0)));
+    var usersRaw = maxUsers * userUnitPrice;
+    var usersNet = Math.max(0, Math.round(usersRaw * (1 - usersDiscPct / 100)));
 
     var modTotal = 0;
     var selectedModKeys = [];
@@ -457,7 +490,7 @@
       });
     });
 
-    var subtotal = Math.max(0, Math.round(optionBase + modTotal));
+    var subtotal = Math.max(0, Math.round(optionBase + usersNet + modTotal));
     var gType = STATE_SA.quoteGlobalType || 'none';
     var gPct = gType === 'none' ? 0 : Math.min(100, Math.max(0, Number(STATE_SA.quoteGlobalPct || 0)));
     var gFix = gType === 'none' ? 0 : Math.max(0, Math.round(Number(STATE_SA.quoteGlobalFixed || 0)));
@@ -468,6 +501,11 @@
       optionRaw: rawOptBase,
       optionDiscPct: optDiscPct,
       optionBase: optionBase,
+      maxUsers: maxUsers,
+      userUnitPrice: userUnitPrice,
+      usersRaw: usersRaw,
+      usersDiscPct: usersDiscPct,
+      usersNet: usersNet,
       modTotal: modTotal,
       subtotal: subtotal,
       promoMonthly: gType === 'none' ? subtotal : discounted,
@@ -795,6 +833,21 @@
         '<td class="num">' + (optDisc > 0 ? optDisc + '%' : '—') + '</td>' +
         '<td class="num"><strong>' + fmtArs.format(optNet) + '</strong></td>' +
       '</tr>';
+
+    var qMaxUsers = Math.max(0, Math.round(Number(quoteRecord.maxUsers || 0)));
+    var qUserUnit = Math.max(0, Math.round(Number(quoteRecord.userUnitPriceArs || 0)));
+    var qUsersDisc = Math.min(100, Math.max(0, Number(quoteRecord.usersDiscountPct || 0)));
+    var qUsersRaw = qMaxUsers * qUserUnit;
+    var qUsersNet = Number(quoteRecord.usersNet != null ? quoteRecord.usersNet : Math.round(qUsersRaw * (1 - qUsersDisc / 100)));
+    if (qMaxUsers > 0) {
+      itemsRowsHtml +=
+        '<tr class="mod-row">' +
+          '<td><strong>Cupo de Usuarios del Sistema — Hasta ' + esc(qMaxUsers) + (qMaxUsers === 1 ? ' usuario' : ' usuarios') + '</strong><div class="sub-note">Límite máximo de cuentas habilitables por el Administrador (' + fmtArs.format(qUserUnit) + ' por usuario/mes · sesión única por usuario).</div></td>' +
+          '<td class="num">' + fmtArs.format(qUsersRaw) + '</td>' +
+          '<td class="num">' + (qUsersDisc > 0 ? qUsersDisc + '%' : '—') + '</td>' +
+          '<td class="num"><strong>' + (qUsersNet > 0 ? fmtArs.format(qUsersNet) : 'Sin cargo') + '</strong></td>' +
+        '</tr>';
+    }
 
     allMods.forEach(function (m) {
       var subs = getModuleSubmodules(m);
@@ -1192,6 +1245,13 @@
           '<option value="servicios"' + ((dep.actividadNegocio === 'servicios') ? ' selected' : '') + '>Servicios (Facturación Directa sin Caja)</option>' +
           '<option value="mixta"' + ((dep.actividadNegocio === 'mixta') ? ' selected' : '') + '>Mixta (Comercial + Servicios)</option>' +
           '</select></div>' +
+          (t.is_base
+            ? ''
+            : '<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;"><strong>👥 Cupo Máx. Usuarios:</strong> ' +
+              '<input type="number" min="0" max="500" class="ms-sa-input" data-tenant-maxusers-inp="' + esc(t.slug) + '" value="' + esc(Number(sub.maxUsers || 0)) + '" style="width:74px;padding:0.18rem 0.45rem;font-size:0.78rem;font-weight:800;text-align:center;" title="0 = sin límite; >0 = límite máximo que puede crear el Administrador">' +
+              '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-save-tenant-maxusers="' + esc(t.slug) + '" style="padding:0.2rem 0.55rem;font-size:0.73rem;">Guardar cupo</button>' +
+              '<small style="opacity:0.72;">' + (Number(sub.maxUsers || 0) > 0 ? '(máx. ' + Number(sub.maxUsers) + ' usuarios)' : '(sin límite)') + '</small>' +
+              '</div>') +
           '<div><strong>URL Sistema:</strong> <a href="' +
           esc(dep.publicErpUrl || '/sistema') +
           '" target="_blank" style="color:#56D7A1;font-weight:800;">' +
@@ -1563,12 +1623,25 @@
         '<td style="padding:0.5rem;width:105px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-opt-disc="1" value="' + esc(opt1Disc) + '"></td>' +
         '<td data-net-opt-cell="1" style="padding:0.5rem;font-weight:800;text-align:right;">' + (isOpt1 ? fmtArs.format(opt1Net) : '—') + '</td>' +
       '</tr>' +
-      '<tr style="border-bottom:2px solid rgba(86,215,161,0.42);background:rgba(86,215,161,0.08);">' +
+      '<tr style="border-bottom:1px solid rgba(86,215,161,0.28);background:rgba(86,215,161,0.08);">' +
         '<td style="padding:0.5rem;"><input type="radio" name="ms_opt_radio" data-q-opt-chk="2" ' + (!isOpt1 ? 'checked' : '') + '></td>' +
         '<td style="padding:0.5rem;"><strong>⚡ Opción 2 · Subruta MiniSistema</strong> <small style="opacity:0.75;">(minisistema.com.ar/comercio con marca MiniSistema)</small></td>' +
         '<td style="padding:0.5rem;width:145px;"><input type="number" min="0" step="500" class="ms-sa-input" id="ms-cfg-opt2" value="' + esc(opt2Price) + '"></td>' +
         '<td style="padding:0.5rem;width:105px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-opt-disc="2" value="' + esc(opt2Disc) + '"></td>' +
         '<td data-net-opt-cell="2" style="padding:0.5rem;font-weight:800;text-align:right;">' + (!isOpt1 ? fmtArs.format(opt2Net) : '—') + '</td>' +
+      '</tr>' +
+      '<tr style="border-bottom:2px solid rgba(86,215,161,0.42);background:rgba(17,45,58,0.045);">' +
+        '<td style="padding:0.5rem;text-align:center;font-size:1rem;">👥</td>' +
+        '<td style="padding:0.5rem;">' +
+          '<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">' +
+            '<strong>Cantidad Máxima de Usuarios del Sistema:</strong>' +
+            '<input type="number" min="1" max="500" step="1" class="ms-sa-input" id="ms-cfg-max-users" value="' + esc(quote.maxUsers) + '" style="width:76px;padding:0.25rem 0.45rem;font-weight:900;text-align:center;border:2px solid #56D7A1;background:#ecfdf5;">' +
+            '<small style="opacity:0.78;">usuarios (tope para el Administrador · valor fijo por usuario)</small>' +
+          '</div>' +
+        '</td>' +
+        '<td style="padding:0.5rem;width:145px;"><input type="number" min="0" step="500" class="ms-sa-input" id="ms-cfg-user-unit-price" value="' + esc(quote.userUnitPrice) + '" title="Monto fijo mensual por cada usuario"></td>' +
+        '<td style="padding:0.5rem;width:105px;"><input type="number" min="0" max="100" class="ms-sa-input" data-q-users-disc="1" value="' + esc(quote.usersDiscPct) + '"></td>' +
+        '<td data-net-users-cell="1" style="padding:0.5rem;font-weight:800;text-align:right;color:#0f766e;">' + fmtArs.format(quote.usersNet) + '</td>' +
       '</tr>';
 
     var treeRowsHtml = mods
@@ -1748,6 +1821,7 @@
                 '</div>' +
                 '<div id="ms-q-sim-breakdown" style="font-size:0.8rem;color:#d1fae5;">' +
                   'Base Opción ' + STATE_SA.newOptionType + ': ' + fmtArs.format(quote.optionBase) +
+                  ' + Usuarios (' + quote.maxUsers + '): ' + fmtArs.format(quote.usersNet) +
                   ' + Módulos/Submódulos: ' + fmtArs.format(quote.modTotal) +
                   ' = Subtotal: ' + fmtArs.format(quote.subtotal) +
                 '</div>' +
@@ -2858,6 +2932,10 @@
       selectedSubmoduleKeys: qCalc.selectedSubmoduleKeys,
       optionBasePrice: qCalc.optionRaw,
       optionDiscountPct: qCalc.optionDiscPct,
+      maxUsers: qCalc.maxUsers,
+      userUnitPriceArs: qCalc.userUnitPrice,
+      usersDiscountPct: qCalc.usersDiscPct,
+      usersNet: qCalc.usersNet,
       moduleDiscountsPct: modDiscOnly,
       submodulePricesSnapshot: subSnap,
       globalDiscountType: STATE_SA.quoteGlobalType || 'none',
@@ -3101,8 +3179,20 @@
       var cfgObj = d.pricingConfig || (d.pricingConfig = {});
       var opt1Inp = bodyEl.querySelector('#ms-cfg-opt1');
       var opt2Inp = bodyEl.querySelector('#ms-cfg-opt2');
+      var maxUsersInp = bodyEl.querySelector('#ms-cfg-max-users');
+      var userUnitInp = bodyEl.querySelector('#ms-cfg-user-unit-price');
+      var usersDiscInp = bodyEl.querySelector('[data-q-users-disc]');
       if (opt1Inp) cfgObj.option_1_base = Math.max(0, Number(opt1Inp.value || 0));
       if (opt2Inp) cfgObj.option_2_base = Math.max(0, Number(opt2Inp.value || 0));
+      if (maxUsersInp) {
+        STATE_SA.newMaxUsers = Math.max(1, Math.min(500, Math.round(Number(maxUsersInp.value || 1))));
+      }
+      if (userUnitInp) {
+        cfgObj.user_unit_price = Math.max(0, Math.round(Number(userUnitInp.value || 0)));
+      }
+      if (usersDiscInp) {
+        STATE_SA.quoteDiscountsByMod.__users = Math.min(100, Math.max(0, Number(usersDiscInp.value || 0)));
+      }
 
       bodyEl.querySelectorAll('[data-q-opt-disc]').forEach(function (inp) {
         var n = inp.getAttribute('data-q-opt-disc');
@@ -3137,6 +3227,8 @@
       var netOpt2El = bodyEl.querySelector('[data-net-opt-cell="2"]');
       if (netOpt1El) netOpt1El.textContent = STATE_SA.newOptionType === 1 ? fmtArs.format(opt1Net) : '—';
       if (netOpt2El) netOpt2El.textContent = STATE_SA.newOptionType === 2 ? fmtArs.format(opt2Net) : '—';
+      var netUsersEl = bodyEl.querySelector('[data-net-users-cell="1"]');
+      if (netUsersEl) netUsersEl.textContent = fmtArs.format(quote.usersNet);
 
       var totalSubCount = 0;
       quote.moduleBreakdown.forEach(function (b, idx) {
@@ -3260,6 +3352,10 @@
           STATE_SA.newOptionType +
           ': ' +
           fmtArs.format(quote.optionBase) +
+          ' + Usuarios (' +
+          quote.maxUsers +
+          '): ' +
+          fmtArs.format(quote.usersNet) +
           ' + Módulos/Submódulos: ' +
           fmtArs.format(quote.modTotal) +
           ' = Subtotal: ' +
@@ -3456,7 +3552,7 @@
       }
     });
 
-    bodyEl.querySelectorAll('[data-q-opt-disc]').forEach(function (el) {
+    bodyEl.querySelectorAll('[data-q-opt-disc], [data-q-users-disc], #ms-cfg-max-users, #ms-cfg-user-unit-price').forEach(function (el) {
       el.addEventListener('input', syncIndeterminateAndDomTotals);
       el.addEventListener('change', syncIndeterminateAndDomTotals);
     });
@@ -3494,6 +3590,8 @@
       savePricingBtn.addEventListener('click', async function () {
         var opt1 = Number((bodyEl.querySelector('#ms-cfg-opt1') || {}).value || 0);
         var opt2 = Number((bodyEl.querySelector('#ms-cfg-opt2') || {}).value || 0);
+        var userUnitPrice = Math.max(0, Math.round(Number((bodyEl.querySelector('#ms-cfg-user-unit-price') || {}).value || 0)));
+        var defaultMaxUsers = Math.max(1, Math.min(500, Math.round(Number((bodyEl.querySelector('#ms-cfg-max-users') || {}).value || 3))));
         var modulePrices = {};
         mods.forEach(function (m) {
           var subMap = {};
@@ -3515,6 +3613,8 @@
           pricingConfig: {
             option_1_base: opt1,
             option_2_base: opt2,
+            user_unit_price: userUnitPrice,
+            default_max_users: defaultMaxUsers,
             module_prices: modulePrices
           }
         });
@@ -3807,6 +3907,9 @@
       moduleOverrides: modOverrides,
       customOptionBasePrice: qCalc.optionRaw,
       optionDiscountPct: qCalc.optionDiscPct,
+      maxUsers: qCalc.maxUsers,
+      userUnitPriceArs: qCalc.userUnitPrice,
+      usersDiscountPct: qCalc.usersDiscPct,
       globalDiscountType: STATE_SA.quoteGlobalType || 'none',
       globalDiscountPct: Number(STATE_SA.quoteGlobalPct || 0),
       globalDiscountFixed: Number(STATE_SA.quoteGlobalFixed || 0),
@@ -4021,6 +4124,32 @@
           await reloadSuperAdminData(true);
         } else {
           showFeedback((res && res.message) || 'No se pudo actualizar la actividad.', true);
+        }
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-save-tenant-maxusers]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var slug = btn.getAttribute('data-save-tenant-maxusers');
+        var inp = bodyEl.querySelector('[data-tenant-maxusers-inp="' + slug + '"]');
+        var maxU = Math.max(0, Math.min(500, Math.round(Number((inp && inp.value) || 0))));
+        btn.disabled = true;
+        var res = await apiSuperAdmin('POST', {
+          action: 'update_tenant',
+          slug: slug,
+          maxUsers: maxU
+        });
+        btn.disabled = false;
+        if (res && res.ok) {
+          showFeedback(
+            maxU > 0
+              ? 'Cupo máximo de "' + slug + '" actualizado a ' + maxU + ' usuarios.'
+              : 'Cupo de usuarios de "' + slug + '" configurado sin límite.',
+            false
+          );
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo actualizar el cupo de usuarios.', true);
         }
       });
     });

@@ -440,6 +440,8 @@ export function buildDefaultPricingConfig(): ErpPricingConfigRecord {
     id: "default",
     option_1_base: 35000,
     option_2_base: 15000,
+    user_unit_price: 5000,
+    default_max_users: 3,
     module_prices: modulePrices,
     discount_presets: [
       {
@@ -473,6 +475,9 @@ export function calculateSubscriptionQuote(params: {
   pricingConfig: ErpPricingConfigRecord;
   customOptionBasePrice?: number | null;
   optionDiscountPct?: number;
+  maxUsers?: number | null;
+  userUnitPriceArs?: number | null;
+  usersDiscountPct?: number;
   moduleOverrides: Array<{
     moduleKey: string;
     selectedSubmodules?: string[];
@@ -499,6 +504,31 @@ export function calculateSubscriptionQuote(params: {
   );
   const optDiscPct = Math.min(100, Math.max(0, Number(params.optionDiscountPct || 0)));
   const optionBasePrice = Math.max(0, Math.round(rawOptBase * (1 - optDiscPct / 100)));
+
+  const maxUsers = Math.max(
+    0,
+    Math.min(
+      500,
+      Math.round(
+        params.maxUsers !== undefined && params.maxUsers !== null
+          ? Number(params.maxUsers)
+          : Number(params.pricingConfig.default_max_users ?? 0)
+      )
+    )
+  );
+  const userUnitPriceArs = Math.max(
+    0,
+    Math.round(
+      params.userUnitPriceArs !== undefined && params.userUnitPriceArs !== null
+        ? Number(params.userUnitPriceArs)
+        : Number(params.pricingConfig.user_unit_price ?? 0)
+    )
+  );
+  const usersDiscountPct = Math.min(100, Math.max(0, Number(params.usersDiscountPct || 0)));
+  const usersMonthlyAmount =
+    maxUsers > 0
+      ? Math.max(0, Math.round(maxUsers * userUnitPriceArs * (1 - usersDiscountPct / 100)))
+      : 0;
 
   const selectedModules: ErpModuleSelection[] = [];
   let modulesNetSum = 0;
@@ -556,7 +586,7 @@ export function calculateSubscriptionQuote(params: {
     modulesNetSum += finalPrice;
   }
 
-  const regularSubtotal = Math.max(0, Math.round(optionBasePrice + modulesNetSum));
+  const regularSubtotal = Math.max(0, Math.round(optionBasePrice + usersMonthlyAmount + modulesNetSum));
   const globalPct = Math.min(100, Math.max(0, Number(params.globalDiscountPct || 0)));
   const globalFixed = Math.max(0, Math.round(Number(params.globalDiscountFixed || 0)));
   const discountedTotal = Math.max(
@@ -596,6 +626,10 @@ export function calculateSubscriptionQuote(params: {
     optionType: params.optionType,
     optionBasePrice,
     optionDiscountPct: optDiscPct,
+    maxUsers,
+    userUnitPriceArs,
+    usersDiscountPct,
+    usersMonthlyAmount,
     selectedModules,
     globalDiscountType: durationType,
     globalDiscountPct: globalPct,
@@ -1086,6 +1120,14 @@ export async function savePricingConfig(
       nextCfg.option_2_base !== undefined
         ? Math.max(0, Math.round(Number(nextCfg.option_2_base)))
         : current.option_2_base,
+    user_unit_price:
+      nextCfg.user_unit_price !== undefined
+        ? Math.max(0, Math.round(Number(nextCfg.user_unit_price)))
+        : Math.max(0, Math.round(Number(current.user_unit_price ?? 5000))),
+    default_max_users:
+      nextCfg.default_max_users !== undefined
+        ? Math.max(1, Math.min(500, Math.round(Number(nextCfg.default_max_users))))
+        : Math.max(1, Math.min(500, Math.round(Number(current.default_max_users ?? 3)))),
     module_prices: nextCfg.module_prices || current.module_prices,
     discount_presets: nextCfg.discount_presets || current.discount_presets,
     currency: "ARS",
@@ -1303,6 +1345,9 @@ export async function provisionNewCommerceTenant(input: {
   }>;
   customOptionBasePrice?: number | null;
   optionDiscountPct?: number;
+  maxUsers?: number | null;
+  userUnitPriceArs?: number | null;
+  usersDiscountPct?: number;
   globalDiscountType?: DiscountDurationType;
   globalDiscountPct?: number;
   globalDiscountFixed?: number;
@@ -1410,6 +1455,9 @@ export async function provisionNewCommerceTenant(input: {
     pricingConfig,
     customOptionBasePrice: input.customOptionBasePrice,
     optionDiscountPct: input.optionDiscountPct,
+    maxUsers: input.maxUsers,
+    userUnitPriceArs: input.userUnitPriceArs,
+    usersDiscountPct: input.usersDiscountPct,
     moduleOverrides,
     globalDiscountType: input.globalDiscountType || "none",
     globalDiscountPct: input.globalDiscountPct,

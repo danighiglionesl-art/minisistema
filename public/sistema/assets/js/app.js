@@ -1381,6 +1381,13 @@ async function syncUsersFromServer() {
     if (!res.ok) return;
     const json = await res.json();
     if (!json || !json.ok || !json.users || typeof json.users !== 'object') return;
+    if (typeof json.maxUsers === 'number' || typeof json.usedUsersCount === 'number') {
+      STATE.tenantUsersQuota = {
+        maxUsers: Number(json.maxUsers || 0),
+        usedUsersCount: Number(json.usedUsersCount || 0),
+        remainingUsers: json.remainingUsers !== undefined ? json.remainingUsers : null
+      };
+    }
     Object.keys(ADMIN_DIRECTORY).forEach((localKey) => {
       if (localKey !== PRIMARY_ADMIN_USER && !json.users[localKey]) {
         delete ADMIN_DIRECTORY[localKey];
@@ -1437,6 +1444,9 @@ async function syncUsersFromServer() {
         updateTopbarUserDisplay(STATE.currentUser);
         applyUserAllowedModules(STATE.currentUser);
       }
+    }
+    if (typeof window.__UPDATE_ADMIN_USERS_QUOTA_UI__ === 'function') {
+      window.__UPDATE_ADMIN_USERS_QUOTA_UI__();
     }
   } catch {}
 }
@@ -28678,7 +28688,7 @@ function initApp() {
     }
   }
 
-  function showLogin() {
+  function showLogin(alertMsg = '') {
     document.documentElement.removeAttribute('data-has-session');
     notifyServerActiveCaja(null);
     dashboardView.hidden = true;
@@ -28688,7 +28698,28 @@ function initApp() {
     togglePasswordBtn.setAttribute('aria-pressed', 'false');
     iconEye.hidden = false;
     iconEyeOff.hidden = true;
+    const formAlertBox = document.getElementById('form-alert');
+    const formAlertTxt = document.getElementById('form-alert-text');
+    if (formAlertBox && formAlertTxt) {
+      if (alertMsg) {
+        formAlertTxt.textContent = alertMsg;
+        formAlertBox.hidden = false;
+      } else {
+        formAlertBox.hidden = true;
+      }
+    }
     usernameInput.focus();
+  }
+
+  function handleForcedSingleSessionLogout(reasonMsg) {
+    if (!STATE.currentUser && loginView && !loginView.hidden) return;
+    const msg =
+      reasonMsg ||
+      '⚠️ Tu sesión se cerró automáticamente porque este usuario inició sesión desde otro dispositivo o navegador. Solo se permite una sesión activa por usuario.';
+    userExplicitlyLoggedOut = true;
+    STATE.currentUser = null;
+    clearPersistedAdminSession();
+    showLogin(msg);
   }
 
   // Catalog Filters & Pagination Listeners
@@ -34645,7 +34676,65 @@ function initApp() {
     }
   }
 
+  function computeLocalCommerceUsersCount() {
+    return Object.keys(ADMIN_DIRECTORY).filter((k) => k && k.toLowerCase() !== 'danielg').length;
+  }
+
+  function updateAdminUsersQuotaUI() {
+    const bar = document.getElementById('admin-users-quota-bar');
+    const newBtn = document.getElementById('btn-admin-new-user');
+    const q = STATE.tenantUsersQuota || {};
+    const maxUsers = Math.max(0, Math.round(Number(q.maxUsers || STATE.currentUser?.maxUsers || 0)));
+    const usedCount = computeLocalCommerceUsersCount();
+    const isGeneral = isErpGeneralAdminUser(STATE.currentUser);
+    const isLimitReached = maxUsers > 0 && usedCount >= maxUsers;
+
+    if (bar) {
+      if (maxUsers > 0) {
+        bar.hidden = false;
+        if (isLimitReached) {
+          bar.style.borderColor = '#dc2626';
+          bar.style.background = 'rgba(239,68,68,0.09)';
+          bar.innerHTML =
+            `<span>⚠️ <strong>Cupo de usuarios alcanzado: ${usedCount} / ${maxUsers}</strong> — Eliminá un usuario existente o contactá a MiniSistema para ampliar el límite.</span>` +
+            `<span class="badge" style="background:#fee2e2;color:#991b1b;font-weight:800;">0 disponibles</span>`;
+        } else {
+          const rem = Math.max(0, maxUsers - usedCount);
+          bar.style.borderColor = 'rgba(17,45,58,0.22)';
+          bar.style.background = 'rgba(17,45,58,0.04)';
+          bar.innerHTML =
+            `<span>👥 <strong>Cupo de usuarios del sistema: ${usedCount} / ${maxUsers}</strong> utilizados</span>` +
+            `<span class="badge badge--green" style="font-weight:800;">${rem} ${rem === 1 ? 'disponible' : 'disponibles'}</span>`;
+        }
+      } else {
+        bar.hidden = true;
+      }
+    }
+
+    if (newBtn) {
+      const blockNew = !isGeneral && isLimitReached;
+      newBtn.disabled = blockNew;
+      newBtn.title = blockNew
+        ? `Límite máximo alcanzado (${usedCount}/${maxUsers} usuarios). Eliminá un usuario o solicitá ampliar el cupo.`
+        : '';
+    }
+  }
+  window.__UPDATE_ADMIN_USERS_QUOTA_UI__ = updateAdminUsersQuotaUI;
+
   document.getElementById('btn-admin-new-user')?.addEventListener('click', () => {
+    const q = STATE.tenantUsersQuota || {};
+    const maxUsers = Math.max(0, Math.round(Number(q.maxUsers || STATE.currentUser?.maxUsers || 0)));
+    const usedCount = computeLocalCommerceUsersCount();
+    if (!isErpGeneralAdminUser(STATE.currentUser) && maxUsers > 0 && usedCount >= maxUsers) {
+      const globalOk = document.getElementById('admin-users-global-success');
+      if (globalOk) {
+        globalOk.style.borderColor = '#dc2626';
+        globalOk.style.background = 'rgba(239,68,68,0.12)';
+        globalOk.textContent = `⚠️ Alcanzaste el límite máximo de ${maxUsers} usuarios habilitados para este sistema. Eliminá un usuario existente o contactá a MiniSistema para ampliar el cupo.`;
+        globalOk.hidden = false;
+      }
+      return;
+    }
     openAdminUserEditor(null);
   });
 
@@ -34729,8 +34818,14 @@ function initApp() {
       }
       tr.appendChild(tdMods);
 
-      // 6. Acciones
+      // 6. Acciones (Editar + Eliminar respetando jerarquía de roles)
       const tdAct = document.createElement('td');
+      const actWrap = document.createElement('div');
+      actWrap.style.display = 'inline-flex';
+      actWrap.style.alignItems = 'center';
+      actWrap.style.gap = '0.4rem';
+      actWrap.style.flexWrap = 'nowrap';
+
       const btnEdit = document.createElement('button');
       btnEdit.type = 'button';
       btnEdit.className = 'btn-edit-row';
@@ -34738,11 +34833,86 @@ function initApp() {
       btnEdit.addEventListener('click', () => {
         openAdminUserEditor(uKey);
       });
-      tdAct.appendChild(btnEdit);
+      actWrap.appendChild(btnEdit);
+
+      const currActorKey = String(STATE.currentUser?.username || '').trim().toLowerCase();
+      const canDeleteTarget =
+        uKey !== 'danielg' &&
+        uKey !== currActorKey &&
+        (viewerIsGeneral || (normalizeErpUserRole(STATE.currentUser?.role, currActorKey) === 'Administrador' && normRole === 'Usuario'));
+
+      if (canDeleteTarget) {
+        const btnDel = document.createElement('button');
+        btnDel.type = 'button';
+        btnDel.className = 'btn-edit-row';
+        btnDel.style.borderColor = 'rgba(220,38,38,0.45)';
+        btnDel.style.color = '#b91c1c';
+        btnDel.style.background = 'rgba(239,68,68,0.06)';
+        btnDel.textContent = '🗑️ Eliminar';
+        btnDel.addEventListener('click', async () => {
+          const okConfirm = window.confirm(
+            `¿Seguro que querés eliminar al usuario "${rec.name}" (@${uKey})?\n\nEsta acción le cerrará la sesión, le quitará el acceso al sistema y liberará su cupo de usuario.`
+          );
+          if (!okConfirm) return;
+          btnDel.disabled = true;
+          const globalOk = document.getElementById('admin-users-global-success');
+          try {
+            const delRes = await fetch('api/auth.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'delete_user',
+                targetUsername: uKey
+              })
+            });
+            const delJson = await delRes.json().catch(() => null);
+            if (!delRes.ok || !delJson || !delJson.ok) {
+              btnDel.disabled = false;
+              const errMsg = (delJson && delJson.message) || 'No se pudo eliminar el usuario.';
+              if (globalOk) {
+                globalOk.style.borderColor = '#dc2626';
+                globalOk.style.background = 'rgba(239,68,68,0.12)';
+                globalOk.textContent = `❌ ${errMsg}`;
+                globalOk.hidden = false;
+              } else {
+                window.alert(errMsg);
+              }
+              return;
+            }
+            removeOrRenameCustomUserKey(uKey);
+            if (typeof delJson.maxUsers === 'number' || typeof delJson.usedUsersCount === 'number') {
+              STATE.tenantUsersQuota = {
+                maxUsers: Number(delJson.maxUsers || 0),
+                usedUsersCount: Number(delJson.usedUsersCount || 0),
+                remainingUsers: delJson.remainingUsers !== undefined ? delJson.remainingUsers : null
+              };
+            }
+            const editCard = document.getElementById('admin-edit-user-card');
+            if (editCard && document.getElementById('admin-edit-username')?.value === uKey) {
+              editCard.hidden = true;
+            }
+            renderAdminUsersTable();
+            updateAdminUsersQuotaUI();
+            if (globalOk) {
+              globalOk.style.borderColor = 'var(--success)';
+              globalOk.style.background = 'rgba(49,196,141,0.14)';
+              globalOk.textContent = `✅ ${delJson.message || `Usuario @${uKey} eliminado correctamente.`}`;
+              globalOk.hidden = false;
+            }
+          } catch (_err) {
+            btnDel.disabled = false;
+            window.alert('Error de conexión al intentar eliminar el usuario.');
+          }
+        });
+        actWrap.appendChild(btnDel);
+      }
+
+      tdAct.appendChild(actWrap);
       tr.appendChild(tdAct);
 
       tbody.appendChild(tr);
     });
+    updateAdminUsersQuotaUI();
   }
 
   document.getElementById('admin-edit-user-form')?.addEventListener('submit', async (e) => {
@@ -34800,8 +34970,9 @@ function initApp() {
     const saveBtn = document.getElementById('btn-admin-save-user');
     if (saveBtn) saveBtn.disabled = true;
 
+    let serverSaveOk = false;
     try {
-      await fetch('api/auth.php', {
+      const saveRes = await fetch('api/auth.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -34818,7 +34989,25 @@ function initApp() {
           modules: finalModules
         })
       });
-    } catch {}
+      const saveJson = await saveRes.json().catch(() => null);
+      if (!saveRes.ok || !saveJson || !saveJson.ok) {
+        if (saveBtn) saveBtn.disabled = false;
+        if (alertEl) {
+          alertEl.textContent = (saveJson && saveJson.message) || `No se pudo guardar el usuario (HTTP ${saveRes.status}).`;
+          alertEl.hidden = false;
+        }
+        return;
+      }
+      serverSaveOk = true;
+    } catch {
+      if (saveBtn) saveBtn.disabled = false;
+      if (alertEl) {
+        alertEl.textContent = 'Error de conexión al guardar el usuario. Intentá nuevamente.';
+        alertEl.hidden = false;
+      }
+      return;
+    }
+    if (!serverSaveOk) return;
 
     if (existingUsername && existingUsername !== targetUsername) {
       removeOrRenameCustomUserKey(existingUsername, targetUsername);
@@ -55449,10 +55638,14 @@ function initApp() {
       if (parsed && parsed.username) {
         restoredFromSessionStorage = true;
         showDashboard(parsed, { isFreshLogin: false });
-        // Re-sincronizar sesión en PHP silenciosamente por si el servidor recicló cookies/tmp
+        // Re-sincronizar sesión en PHP silenciosamente y validar sesión única activa
         fetch('api/auth.php', { method: 'GET', cache: 'no-store' })
-          .then((r) => (r.ok ? r.json() : null))
+          .then((r) => r.json().catch(() => null))
           .then((srvData) => {
+            if (srvData && srvData.sessionReplaced) {
+              handleForcedSingleSessionLogout(srvData.message);
+              return;
+            }
             if (!srvData || !srvData.ok) {
               fetch('api/auth.php', {
                 method: 'POST',
@@ -55462,7 +55655,14 @@ function initApp() {
                   username: parsed.username,
                   loginAt: parsed.loginAt || new Date().toISOString()
                 })
-              }).catch(() => {});
+              })
+                .then((r2) => r2.json().catch(() => null))
+                .then((restData) => {
+                  if (restData && restData.sessionReplaced) {
+                    handleForcedSingleSessionLogout(restData.message);
+                  }
+                })
+                .catch(() => {});
             }
           })
           .catch(() => {});
@@ -55670,6 +55870,12 @@ function initApp() {
         window.MS_OFFLINE_POS.markOnline();
       }
       const payload = await res.json();
+      if (payload && payload.sessionReplaced && STATE.currentUser) {
+        handleForcedSingleSessionLogout(
+          '⚠️ Tu sesión se cerró automáticamente porque este usuario inició sesión desde otro dispositivo o navegador. Solo se permite una sesión activa por usuario.'
+        );
+        return;
+      }
       if (payload && payload.appVersion) {
         window.__LAST_DETECTED_SERVER_APP_VERSION__ = String(payload.appVersion);
         if (typeof window.__notifyServerAppVersion === 'function') {

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/server/crypto-auth";
 import {
@@ -8,9 +9,12 @@ import {
   verifyErpUserPassword,
 } from "../erp-session";
 import {
+  clearActiveUserSession,
+  getActiveUserSession,
   getTenantDoc,
   listTenantUsersFromDb,
   putTenantDoc,
+  setActiveUserSession,
   softDeleteTenantUserInDb,
   upsertTenantUserInDb,
 } from "../supabase-server";
@@ -24,10 +28,26 @@ import {
   normalizeErpRole,
 } from "../types";
 
+function getTenantMaxUsersLimit(tenant: ErpTenantRecord): number {
+  if (tenant.is_base) return 0; // Sin límite para MiniSistema Base
+  const raw = Number(tenant.subscription?.maxUsers ?? 0);
+  return Number.isFinite(raw) && raw > 0 ? Math.round(raw) : 0;
+}
+
+function countCommerceUsers(byKey: Map<string, ErpUserRecord>): number {
+  let count = 0;
+  for (const [uKey] of byKey.entries()) {
+    if (uKey === GENERAL_ADMIN_USERNAME) continue;
+    count++;
+  }
+  return count;
+}
+
 function buildPublicUserProfile(
   record: ErpUserRecord,
   tenant: ErpTenantRecord,
-  loginAt?: string
+  loginAt?: string,
+  sessionId?: string
 ) {
   const cleanRole = normalizeErpRole(record.role, record.username);
   const tenantAllowed = new Set([
@@ -73,6 +93,8 @@ function buildPublicUserProfile(
     cajaAbierta: record.cajaAbierta ?? null,
     cajaAbiertaAt: record.cajaAbiertaAt ?? null,
     loginAt: loginAt || new Date().toISOString(),
+    sessionId: sessionId || undefined,
+    maxUsers: getTenantMaxUsersLimit(tenant),
     trial:
       tenant.deployment?.trial?.isTrial
         ? {
@@ -219,13 +241,20 @@ export async function handleErpAuth(
     const action = req.nextUrl.searchParams.get("action") || "session";
 
     if (action === "logout") {
-      if (effectiveActorRecord && effectiveActorRecord.cajaAbierta) {
-        await upsertTenantUserInDb(tenant, {
-          ...effectiveActorRecord,
-          cajaAbierta: null,
-          cajaAbiertaAt: null,
-          actor: effectiveActorRecord.username,
-        });
+      if (effectiveActorRecord) {
+        await clearActiveUserSession(
+          tenant,
+          effectiveActorRecord.username,
+          currentSess?.sid || null
+        );
+        if (effectiveActorRecord.cajaAbierta) {
+          await upsertTenantUserInDb(tenant, {
+            ...effectiveActorRecord,
+            cajaAbierta: null,
+            cajaAbiertaAt: null,
+            actor: effectiveActorRecord.username,
+          });
+        }
       }
       const res = NextResponse.json({ ok: true });
       res.cookies.set(getErpCookieName(tenant.slug), "", {
@@ -315,15 +344,45 @@ export async function handleErpAuth(
           cajaAbiertaAt: uRec.cajaAbiertaAt ?? null,
         };
       }
-      return NextResponse.json({ ok: true, users: usersMap });
+      const maxUsers = getTenantMaxUsersLimit(tenant);
+      const usedUsersCount = countCommerceUsers(byKey);
+      return NextResponse.json({
+        ok: true,
+        users: usersMap,
+        maxUsers,
+        usedUsersCount,
+        remainingUsers: maxUsers > 0 ? Math.max(0, maxUsers - usedUsersCount) : null,
+      });
     }
 
     if (currentSess) {
       const found = byKey.get(currentSess.username.toLowerCase());
       if (found && (found.active !== false || found.username === GENERAL_ADMIN_USERNAME)) {
+        if (currentSess.sid) {
+          const active = await getActiveUserSession(tenant, found.username);
+          if (active.sessionId && active.sessionId !== currentSess.sid) {
+            const kickedRes = NextResponse.json(
+              {
+                ok: false,
+                sessionReplaced: true,
+                message:
+                  "Tu sesión se cerró porque este usuario inició sesión desde otro dispositivo o navegador.",
+              },
+              { status: 401 }
+            );
+            kickedRes.cookies.set(getErpCookieName(tenant.slug), "", {
+              httpOnly: true,
+              sameSite: "lax",
+              secure: process.env.NODE_ENV === "production",
+              path: "/",
+              maxAge: 0,
+            });
+            return kickedRes;
+          }
+        }
         return NextResponse.json({
           ok: true,
-          user: buildPublicUserProfile(found, tenant, currentSess.loginAt),
+          user: buildPublicUserProfile(found, tenant, currentSess.loginAt, currentSess.sid),
         });
       }
     }
@@ -528,6 +587,29 @@ export async function handleErpAuth(
         );
       }
 
+      // Control estricto de límite máximo de usuarios contratados por sistema (aplica al Administrador del comercio al crear un usuario nuevo)
+      const maxUsersLimit = getTenantMaxUsersLimit(tenant);
+      const currentUsedUsers = countCommerceUsers(byKey);
+      const actorIsGeneralAdmin =
+        actorRec.username.toLowerCase() === GENERAL_ADMIN_USERNAME;
+      if (
+        !existingTarget &&
+        !actorIsGeneralAdmin &&
+        maxUsersLimit > 0 &&
+        currentUsedUsers >= maxUsersLimit
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            limitReached: true,
+            maxUsers: maxUsersLimit,
+            usedUsersCount: currentUsedUsers,
+            message: `Alcanzaste el límite máximo de ${maxUsersLimit} ${maxUsersLimit === 1 ? "usuario" : "usuarios"} contratados para este sistema. Eliminá un usuario existente o contactá a MiniSistema para ampliar el cupo.`,
+          },
+          { status: 403 }
+        );
+      }
+
       const name = String(payload.name ?? existingTarget?.name ?? targetUser).trim();
       const newPass = String(payload.pass ?? "").trim();
       if (!existingTarget && newPass.length < 4) {
@@ -652,10 +734,30 @@ export async function handleErpAuth(
       }
 
       if (action === "delete_user") {
+        if (targetUser === GENERAL_ADMIN_USERNAME) {
+          return NextResponse.json(
+            { ok: false, message: "No se puede eliminar al Administrador General (@danielg)." },
+            { status: 403 }
+          );
+        }
+        if (targetUser === actorRec.username.toLowerCase()) {
+          return NextResponse.json(
+            { ok: false, message: "No podés eliminar tu propio usuario mientras estás conectado." },
+            { status: 400 }
+          );
+        }
+        await clearActiveUserSession(tenant, targetUser, null);
         await softDeleteTenantUserInDb(tenant, targetUser);
+        byKey.delete(targetUser);
+        const maxUsers = getTenantMaxUsersLimit(tenant);
+        const usedUsersCount = countCommerceUsers(byKey);
         return NextResponse.json({
           ok: true,
-          message: `Usuario @${targetUser} dado de baja.`,
+          deletedUsername: targetUser,
+          maxUsers,
+          usedUsersCount,
+          remainingUsers: maxUsers > 0 ? Math.max(0, maxUsers - usedUsersCount) : null,
+          message: `Usuario @${targetUser} eliminado correctamente.`,
         });
       }
 
@@ -690,10 +792,33 @@ export async function handleErpAuth(
           { status: 401 }
         );
       }
+      if (currentSess.sid) {
+        const active = await getActiveUserSession(tenant, rec.username);
+        if (active.sessionId && active.sessionId !== currentSess.sid) {
+          const kickedRes = NextResponse.json(
+            {
+              ok: false,
+              sessionReplaced: true,
+              message:
+                "Tu sesión se cerró porque este usuario inició sesión desde otro dispositivo o navegador.",
+            },
+            { status: 401 }
+          );
+          kickedRes.cookies.set(getErpCookieName(tenant.slug), "", {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+            path: "/",
+            maxAge: 0,
+          });
+          return kickedRes;
+        }
+      }
       const profile = buildPublicUserProfile(
         rec,
         tenant,
-        String(payload.loginAt || currentSess.loginAt || new Date().toISOString())
+        String(payload.loginAt || currentSess.loginAt || new Date().toISOString()),
+        currentSess.sid
       );
       return NextResponse.json({ ok: true, user: profile });
     }
@@ -852,12 +977,20 @@ export async function handleErpAuth(
     }
 
     const loginAt = new Date().toISOString();
-    const profile = buildPublicUserProfile(rec, tenant, loginAt);
+    const sid = crypto.randomUUID();
+    await setActiveUserSession(
+      tenant,
+      rec.username,
+      sid,
+      req.headers.get("user-agent") || ""
+    );
+    const profile = buildPublicUserProfile(rec, tenant, loginAt, sid);
     const sessionToken = signErpSession({
       tenantSlug: tenant.slug,
       username: rec.username,
       role: profile.role,
       loginAt,
+      sid,
     });
 
     if (isNativeForm) {

@@ -54,6 +54,10 @@ export interface ErpTenantSubscription {
   optionType: 1 | 2;
   optionBasePrice: number;
   optionDiscountPct?: number;
+  maxUsers?: number;
+  userUnitPriceArs?: number;
+  usersDiscountPct?: number;
+  usersMonthlyAmount?: number;
   selectedModules: ErpModuleSelection[];
   globalDiscountType: DiscountDurationType;
   globalDiscountPct: number;
@@ -177,6 +181,10 @@ export interface SuperAdminQuoteRecord {
   selectedSubmoduleKeys: string[];
   optionBasePrice: number;
   optionDiscountPct: number;
+  maxUsers?: number;
+  userUnitPriceArs?: number;
+  usersDiscountPct?: number;
+  usersNet?: number;
   moduleDiscountsPct: Record<string, number>;
   submodulePricesSnapshot: Record<string, number>;
   globalDiscountType: DiscountDurationType;
@@ -873,6 +881,8 @@ export interface ErpPricingConfigRecord {
   id: string;
   option_1_base: number;
   option_2_base: number;
+  user_unit_price?: number;
+  default_max_users?: number;
   module_prices: Record<
     string,
     {

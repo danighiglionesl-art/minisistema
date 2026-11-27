@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getErpAppVersion } from "../erp-version";
+import { extractErpSessionFromRequest } from "../erp-session";
 import { lookupOfficialArcaByCuitOrDni } from "../arca-padron-client";
 import {
   lookupArgentineTaxpayerByCuitOrDni,
@@ -9,6 +10,7 @@ import {
 import { jsonResponseMaybeGzip } from "../json-response";
 import { buildCleanTenantSeed } from "../seed-clean-tenant";
 import {
+  getActiveUserSession,
   getTenantDbStatusMap,
   getTenantDoc,
   putTenantDoc,
@@ -40,6 +42,17 @@ export async function handleErpDbStatus(
       // Non-blocking fallback
     }
   }
+  let sessionValid = true;
+  let sessionReplaced = false;
+  const currentSess = extractErpSessionFromRequest(req, tenant.slug);
+  if (currentSess?.username && currentSess.sid) {
+    const active = await getActiveUserSession(tenant, currentSess.username);
+    if (active.sessionId && active.sessionId !== currentSess.sid) {
+      sessionValid = false;
+      sessionReplaced = true;
+    }
+  }
+
   return NextResponse.json(
     {
       ok: true,
@@ -47,6 +60,8 @@ export async function handleErpDbStatus(
       schema: tenant.db_schema,
       appVersion: getErpAppVersion(),
       serverTime: new Date().toISOString(),
+      sessionValid,
+      sessionReplaced,
       databases: statusMap,
       shield: req.nextUrl.searchParams.get("action") === "shield" ? { ok: true } : null,
     },

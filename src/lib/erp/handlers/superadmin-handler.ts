@@ -490,6 +490,16 @@ export async function handleErpSuperAdmin(
           body.customOptionBasePrice !== undefined
             ? Number(body.customOptionBasePrice)
             : null,
+        maxUsers:
+          body.maxUsers !== undefined && body.maxUsers !== ""
+            ? Number(body.maxUsers)
+            : null,
+        userUnitPriceArs:
+          body.userUnitPriceArs !== undefined && body.userUnitPriceArs !== ""
+            ? Number(body.userUnitPriceArs)
+            : null,
+        usersDiscountPct:
+          body.usersDiscountPct !== undefined ? Number(body.usersDiscountPct) : 0,
         moduleOverrides: Array.isArray(body.moduleOverrides)
           ? body.moduleOverrides
           : [],
@@ -670,6 +680,40 @@ export async function handleErpSuperAdmin(
         Math.round(optionBasePrice * (1 - optionDiscountPct / 100))
       );
 
+      const maxUsers = Math.max(
+        1,
+        Math.min(
+          500,
+          Math.round(
+            Number(
+              qIn.maxUsers ??
+                prev?.maxUsers ??
+                pricingConfig.default_max_users ??
+                3
+            )
+          )
+        )
+      );
+      const userUnitPriceArs = Math.max(
+        0,
+        Math.round(
+          Number(
+            qIn.userUnitPriceArs ??
+              prev?.userUnitPriceArs ??
+              pricingConfig.user_unit_price ??
+              5000
+          )
+        )
+      );
+      const usersDiscountPct = Math.min(
+        100,
+        Math.max(0, Number(qIn.usersDiscountPct ?? prev?.usersDiscountPct ?? 0))
+      );
+      const usersNet = Math.max(
+        0,
+        Math.round(maxUsers * userUnitPriceArs * (1 - usersDiscountPct / 100))
+      );
+
       const selectedSubmoduleKeys: string[] = Array.isArray(qIn.selectedSubmoduleKeys)
         ? qIn.selectedSubmoduleKeys.map((x: unknown) => String(x || "").trim()).filter(Boolean)
         : prev?.selectedSubmoduleKeys || [];
@@ -717,7 +761,7 @@ export async function handleErpSuperAdmin(
         modulesNet += Math.max(0, Math.round(modSum * (1 - mDisc / 100)));
       }
 
-      const subtotalMensual = Math.max(0, optionNet + modulesNet);
+      const subtotalMensual = Math.max(0, optionNet + usersNet + modulesNet);
       const globalDiscountType: DiscountDurationType =
         qIn.globalDiscountType === "temporary" || qIn.globalDiscountType === "permanent"
           ? qIn.globalDiscountType
@@ -833,6 +877,10 @@ export async function handleErpSuperAdmin(
         selectedSubmoduleKeys,
         optionBasePrice,
         optionDiscountPct,
+        maxUsers,
+        userUnitPriceArs,
+        usersDiscountPct,
+        usersNet,
         moduleDiscountsPct: modDiscs,
         submodulePricesSnapshot: subPricesSnap,
         globalDiscountType,
@@ -981,6 +1029,18 @@ export async function handleErpSuperAdmin(
               : null,
           optionDiscountPct:
             body.optionDiscountPct !== undefined ? Number(body.optionDiscountPct) : 0,
+          maxUsers:
+            body.maxUsers !== undefined && body.maxUsers !== ""
+              ? Number(body.maxUsers)
+              : linkedQuote?.maxUsers ?? null,
+          userUnitPriceArs:
+            body.userUnitPriceArs !== undefined && body.userUnitPriceArs !== ""
+              ? Number(body.userUnitPriceArs)
+              : linkedQuote?.userUnitPriceArs ?? null,
+          usersDiscountPct:
+            body.usersDiscountPct !== undefined
+              ? Number(body.usersDiscountPct)
+              : linkedQuote?.usersDiscountPct ?? 0,
           globalDiscountType: (body.globalDiscountType ||
             "none") as DiscountDurationType,
           globalDiscountPct: Number(body.globalDiscountPct || 0),
@@ -1403,6 +1463,18 @@ export async function handleErpSuperAdmin(
             body.customOptionBasePrice !== undefined
               ? Number(body.customOptionBasePrice)
               : existing.subscription.optionBasePrice,
+          maxUsers:
+            body.maxUsers !== undefined
+              ? Number(body.maxUsers)
+              : existing.subscription.maxUsers ?? null,
+          userUnitPriceArs:
+            body.userUnitPriceArs !== undefined
+              ? Number(body.userUnitPriceArs)
+              : existing.subscription.userUnitPriceArs ?? null,
+          usersDiscountPct:
+            body.usersDiscountPct !== undefined
+              ? Number(body.usersDiscountPct)
+              : existing.subscription.usersDiscountPct ?? 0,
           moduleOverrides: Array.isArray(body.moduleOverrides)
             ? body.moduleOverrides
             : existing.subscription.selectedModules.map((m) => ({
@@ -1435,6 +1507,30 @@ export async function handleErpSuperAdmin(
           mpPreapprovalId: existing.subscription.mpPreapprovalId,
           mpInitPoint: existing.subscription.mpInitPoint,
           mpStatus: existing.subscription.mpStatus,
+        };
+      } else if (body.maxUsers !== undefined || body.userUnitPriceArs !== undefined) {
+        const nextMaxUsers =
+          body.maxUsers !== undefined
+            ? Math.max(0, Math.min(500, Math.round(Number(body.maxUsers))))
+            : Math.max(0, Math.round(Number(existing.subscription?.maxUsers ?? 0)));
+        const nextUnitPrice =
+          body.userUnitPriceArs !== undefined
+            ? Math.max(0, Math.round(Number(body.userUnitPriceArs)))
+            : Math.max(0, Math.round(Number(existing.subscription?.userUnitPriceArs ?? 0)));
+        const nextDiscPct = Math.min(
+          100,
+          Math.max(0, Number(existing.subscription?.usersDiscountPct ?? 0))
+        );
+        const nextUsersAmt =
+          nextMaxUsers > 0
+            ? Math.max(0, Math.round(nextMaxUsers * nextUnitPrice * (1 - nextDiscPct / 100)))
+            : 0;
+        nextSubscription = {
+          ...existing.subscription,
+          maxUsers: nextMaxUsers,
+          userUnitPriceArs: nextUnitPrice,
+          usersDiscountPct: nextDiscPct,
+          usersMonthlyAmount: nextUsersAmt,
         };
       }
 

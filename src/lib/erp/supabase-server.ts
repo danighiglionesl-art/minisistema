@@ -1046,6 +1046,66 @@ export async function softDeleteTenantUserInDb(
   usersMemoryCache.delete(tenant.db_schema);
 }
 
+export async function setActiveUserSession(
+  tenant: Pick<ErpTenantRecord, "db_schema">,
+  username: string,
+  sessionId: string,
+  userAgent = ""
+): Promise<void> {
+  const sb = await getPlatformSupabase();
+  const { error } = await sb.rpc("erp_session_set", {
+    p_schema: tenant.db_schema,
+    p_username: username.trim().toLowerCase(),
+    p_session_id: sessionId,
+    p_user_agent: userAgent.slice(0, 240),
+  });
+  if (error) {
+    throw new Error(`Error registrando sesión activa (${tenant.db_schema}): ${error.message}`);
+  }
+}
+
+export async function getActiveUserSession(
+  tenant: Pick<ErpTenantRecord, "db_schema">,
+  username: string
+): Promise<{ sessionId: string | null; loginAt: string | null; userAgent: string }> {
+  try {
+    const sb = await getPlatformSupabase();
+    const { data, error } = await sb.rpc("erp_session_get", {
+      p_schema: tenant.db_schema,
+      p_username: username.trim().toLowerCase(),
+    });
+    if (error || !data || typeof data !== "object") {
+      return { sessionId: null, loginAt: null, userAgent: "" };
+    }
+    const row = data as Record<string, unknown>;
+    const sid = typeof row.session_id === "string" && row.session_id.trim() !== "" ? row.session_id.trim() : null;
+    return {
+      sessionId: sid,
+      loginAt: typeof row.login_at === "string" ? row.login_at : null,
+      userAgent: typeof row.user_agent === "string" ? row.user_agent : "",
+    };
+  } catch {
+    return { sessionId: null, loginAt: null, userAgent: "" };
+  }
+}
+
+export async function clearActiveUserSession(
+  tenant: Pick<ErpTenantRecord, "db_schema">,
+  username: string,
+  expectedSessionId?: string | null
+): Promise<void> {
+  try {
+    const sb = await getPlatformSupabase();
+    await sb.rpc("erp_session_clear", {
+      p_schema: tenant.db_schema,
+      p_username: username.trim().toLowerCase(),
+      p_expected_session_id: expectedSessionId || null,
+    });
+  } catch {
+    // Non-blocking
+  }
+}
+
 export async function putTenantMediaInDb(
   tenant: Pick<ErpTenantRecord, "db_schema" | "external_supabase_url" | "external_supabase_key">,
   media: {

@@ -22,6 +22,7 @@ export interface ErpSessionTokenPayload {
   username: string;
   role: ErpUserRole;
   loginAt: string;
+  sid?: string;
   exp: number;
 }
 
