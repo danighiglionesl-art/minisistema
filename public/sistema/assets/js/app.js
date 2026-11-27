@@ -57408,10 +57408,28 @@ function initApp() {
 
     const titleStr = isHist
       ? 'DETALLE DE CUENTA CORRIENTE · VERSIÓN HISTÓRICA (IMPUTACIÓN DE PAGOS)'
-      : 'DETALLE DE CUENTA CORRIENTE · VERSIÓN ACTUAL (ADEUDADOS Y POR IMPUTAR)';
+      : 'DETALLE DE CUENTA CORRIENTE · VERSIÓN ACTUAL';
     const subTitleDesc = isHist
       ? 'Detalle cronológico de comprobantes y cómo se fueron imputando los pagos y créditos.'
-      : 'Comprobantes que quedan adeudados y comprobantes a favor pendientes por imputar.';
+      : 'Detalle de comprobantes pendientes en cuenta corriente.';
+
+    const cleanCtaCteObsForReport = (rawObs) => {
+      const parts = String(rawObs || '')
+        .split('·')
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .filter((p) => {
+          if (/^FACTURA\s+CARGA\s+R[ÁA]PIDA\b/i.test(p)) return false;
+          if (/^FACTURA\s+PROVEEDOR\b/i.test(p)) return false;
+          if (/^STOCK\s+ACTUALIZADO\s*:/i.test(p)) return false;
+          if (/^PRECIOS?\s+ACTUALIZADOS?\s*:/i.test(p)) return false;
+          if (/^TOTAL\s+CON\s+IVA\s+INCLUIDO$/i.test(p)) return false;
+          if (/^ARCHIVO\s*:/i.test(p)) return false;
+          if (/^\d+\s*ART\.\s*\([+\-]?\d+(?:[.,]\d+)?\s*U(?:NID)?\.?\)$/i.test(p)) return false;
+          return true;
+        });
+      return parts.join(' · ');
+    };
 
     const trsHtml = rows
       .map((r) => {
@@ -57433,8 +57451,9 @@ function initApp() {
         const impDetailHtml = r.imputacionTexto
           ? `<div style="font-size:7.2pt; color:#15803d; margin-top:2px;">${escapeHtml(r.imputacionTexto)}</div>`
           : '';
-        const obsDetailHtml = r.obs
-          ? `<div style="font-size:7pt; color:#475569; margin-top:1px;">${escapeHtml(r.obs)}</div>`
+        const cleanObs = cleanCtaCteObsForReport(r.obs);
+        const obsDetailHtml = cleanObs
+          ? `<div style="font-size:7pt; color:#475569; margin-top:1px;">${escapeHtml(cleanObs)}</div>`
           : '';
         return `<tr>
           <td>${escapeHtml(r.fechaAr)}</td>
