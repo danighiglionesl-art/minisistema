@@ -59,7 +59,7 @@ const ALL_SYSTEM_MODULES = [
   {
     key: 'articulos',
     label: 'Artículos, Stock y Precios',
-    sections: ['sec-menu-articulos', 'sec-articulos', 'sec-config-precios', 'sec-abm-marcas', 'sec-abm-rubros', 'sec-menu-factura-proveedor', 'sec-factura-proveedor-stock', 'sec-factura-proveedor', 'sec-factura-carga-rapida', 'sec-control-stock', 'sec-stock-negativo', 'sec-menu-actualizacion-masiva', 'sec-act-masiva-lista', 'sec-act-masiva-porcentaje', 'sec-act-masiva-productos', 'sec-precios-gondola', 'sec-menu-ofertas', 'sec-ofertas-abm', 'sec-pedidos-proveedores', 'sec-stock-valorizado'],
+    sections: ['sec-menu-articulos', 'sec-articulos', 'sec-config-precios', 'sec-abm-marcas', 'sec-abm-rubros', 'sec-control-stock', 'sec-stock-negativo', 'sec-menu-actualizacion-masiva', 'sec-act-masiva-lista', 'sec-act-masiva-porcentaje', 'sec-act-masiva-productos', 'sec-precios-gondola', 'sec-menu-ofertas', 'sec-ofertas-abm'],
     submodules: [
       { key: 'articulos:listado', label: 'Artículos, Precios y Stock', selector: '#sec-menu-articulos [data-open-section="sec-articulos"]', sections: ['sec-articulos'] },
       { key: 'articulos:nuevo', label: 'Nuevo Artículo', selector: '#card-new-article', sections: [] },
@@ -67,14 +67,11 @@ const ALL_SYSTEM_MODULES = [
       { key: 'articulos:config_precios', label: 'Configuraciones de Precios', selector: '#sec-menu-articulos [data-open-section="sec-config-precios"]', sections: ['sec-config-precios'] },
       { key: 'articulos:abm_marcas', label: 'ABM Marca', selector: '#sec-menu-articulos [data-open-section="sec-abm-marcas"]', sections: ['sec-abm-marcas'] },
       { key: 'articulos:abm_rubros', label: 'ABM Rubro', selector: '#sec-menu-articulos [data-open-section="sec-abm-rubros"]', sections: ['sec-abm-rubros'] },
-      { key: 'articulos:factura_prov', label: 'Factura Proveedor PDF/JPG', selector: '#sec-menu-articulos [data-open-section="sec-menu-factura-proveedor"]', sections: ['sec-menu-factura-proveedor', 'sec-factura-proveedor-stock', 'sec-factura-proveedor'] },
-      { key: 'articulos:carga_rapida', label: 'Factura carga rápida', selector: '#sec-menu-articulos [data-open-section="sec-factura-carga-rapida"]', sections: ['sec-factura-carga-rapida'] },
       { key: 'articulos:control_stock', label: 'Control de Stock', selector: '#sec-menu-articulos [data-open-section="sec-control-stock"]', sections: ['sec-control-stock'] },
       { key: 'articulos:stock_negativo', label: 'Stock Negativo', selector: '#sec-menu-articulos [data-open-section="sec-stock-negativo"]', sections: ['sec-stock-negativo'] },
       { key: 'articulos:actualizacion_masiva', label: 'Actualización Masiva', selector: '#sec-menu-articulos [data-open-section="sec-menu-actualizacion-masiva"]', sections: ['sec-menu-actualizacion-masiva', 'sec-act-masiva-lista', 'sec-act-masiva-porcentaje', 'sec-act-masiva-productos'] },
       { key: 'articulos:precios_gondola', label: 'Precios en Góndola', selector: '#sec-menu-articulos [data-open-section="sec-precios-gondola"]', sections: ['sec-precios-gondola'] },
-      { key: 'articulos:ofertas', label: 'Administración de Ofertas', selector: '#sec-menu-articulos [data-open-section="sec-menu-ofertas"]', sections: ['sec-menu-ofertas', 'sec-ofertas-abm'] },
-      { key: 'articulos:pedidos', label: 'Pedidos a Proveedores', selector: '#sec-menu-articulos [data-open-section="sec-pedidos-proveedores"]', sections: ['sec-pedidos-proveedores'] }
+      { key: 'articulos:ofertas', label: 'Administración de Ofertas', selector: '#sec-menu-articulos [data-open-section="sec-menu-ofertas"]', sections: ['sec-menu-ofertas', 'sec-ofertas-abm'] }
     ]
   },
   {
@@ -91,7 +88,7 @@ const ALL_SYSTEM_MODULES = [
   {
     key: 'proveedores',
     label: 'Proveedores y Ventas',
-    sections: ['sec-menu-proveedores', 'sec-proveedores', 'sec-factura-carga-rapida', 'sec-pedidos-proveedores', 'sec-menu-factura-proveedor', 'sec-factura-proveedor-stock', 'sec-factura-proveedor', 'sec-control-stock', 'sec-stock-negativo', 'sec-precios-gondola', 'sec-menu-detalle-ctacte', 'sec-detalle-ctacte'],
+    sections: ['sec-menu-proveedores', 'sec-proveedores', 'sec-menu-factura-proveedor', 'sec-factura-proveedor-stock', 'sec-factura-proveedor', 'sec-factura-carga-rapida', 'sec-pedidos-proveedores', 'sec-menu-detalle-ctacte', 'sec-detalle-ctacte'],
     submodules: [
       { key: 'proveedores:padron', label: 'Padrón de Proveedores', selector: '#sec-menu-proveedores [data-open-section="sec-proveedores"]', sections: ['sec-proveedores'] },
       { key: 'proveedores:nuevo', label: 'Nuevo Proveedor', selector: '#card-new-proveedor', sections: [] },
@@ -99,9 +96,6 @@ const ALL_SYSTEM_MODULES = [
       { key: 'proveedores:duales', label: 'Clientes que son Proveedores', selector: '#card-proveedores-duales', sections: [] },
       { key: 'proveedores:factura_prov', label: 'Factura Proveedor PDF/JPG', selector: '#sec-menu-proveedores [data-open-section="sec-menu-factura-proveedor"]', sections: ['sec-menu-factura-proveedor', 'sec-factura-proveedor-stock', 'sec-factura-proveedor'] },
       { key: 'proveedores:carga_rapida', label: 'Factura carga rápida', selector: '#sec-menu-proveedores [data-open-section="sec-factura-carga-rapida"]', sections: ['sec-factura-carga-rapida'] },
-      { key: 'proveedores:control_stock', label: 'Control de Stock', selector: '#sec-menu-proveedores [data-open-section="sec-control-stock"]', sections: ['sec-control-stock'] },
-      { key: 'proveedores:stock_negativo', label: 'Stock Negativo', selector: '#sec-menu-proveedores [data-open-section="sec-stock-negativo"]', sections: ['sec-stock-negativo'] },
-      { key: 'proveedores:precios_gondola', label: 'Precios en Góndola', selector: '#sec-menu-proveedores [data-open-section="sec-precios-gondola"]', sections: ['sec-precios-gondola'] },
       { key: 'proveedores:pedidos', label: 'Pedidos a Proveedores', selector: '#sec-menu-proveedores [data-open-section="sec-pedidos-proveedores"]', sections: ['sec-pedidos-proveedores'] }
     ]
   },
@@ -344,7 +338,13 @@ const LEGACY_MODULE_KEY_ALIASES = {
   'articulos:marcas': 'articulos:abm_marcas',
   'articulos:rubros': 'articulos:abm_rubros',
   'articulos:gondola': 'articulos:precios_gondola',
-  'proveedores:gondola': 'proveedores:precios_gondola',
+  'proveedores:gondola': 'articulos:precios_gondola',
+  'proveedores:precios_gondola': 'articulos:precios_gondola',
+  'proveedores:control_stock': 'articulos:control_stock',
+  'proveedores:stock_negativo': 'articulos:stock_negativo',
+  'articulos:factura_prov': 'proveedores:factura_prov',
+  'articulos:carga_rapida': 'proveedores:carga_rapida',
+  'articulos:pedidos': 'proveedores:pedidos',
   'fondos:caja_tesoreria': 'fondos:caja',
   'fondos:stock_val': 'fondos:stock_valorizado',
   'carrito:registro_online': 'carrito:reg_online',
@@ -2986,17 +2986,44 @@ function applySelectedMarcaToArticleModal(marcaObj, prevSelectValues = null) {
   const prevAlicVal = prevSelectValues ? prevSelectValues.alicuota : (artAlicSel?.value || '5');
   const prevCfgVal = prevSelectValues ? prevSelectValues.configPrecio : (artCfgSel?.value || '0');
 
+  // Garantizar que la marca seleccionada figure activa en STATE.marcas antes de reconstruir selectores
+  if (marcaObj && marcaObj.id !== undefined && marcaObj.id !== null) {
+    const targetId = Number(marcaObj.id);
+    if (targetId > 0) {
+      const idx = STATE.marcas.findIndex((m) => Number(m.id) === targetId);
+      if (idx >= 0) {
+        STATE.marcas[idx] = Object.assign({}, STATE.marcas[idx], marcaObj, { bl: 0 });
+        delete STATE.marcas[idx].fb;
+        marcaObj = STATE.marcas[idx];
+      } else if (marcaObj.nombre) {
+        marcaObj = Object.assign({}, marcaObj, { id: targetId, bl: 0 });
+        delete marcaObj.fb;
+        STATE.marcas.push(marcaObj);
+      }
+    }
+  }
+
   rebuildRubrosAndMarcasMaps();
   saveLocalAbmCatalogOverrides();
   populateMasterSelects();
-  updateKpis();
-  applyAbmMarcasFilters(STATE.abmMarcasPage || 1);
 
   if (artRubroSel) artRubroSel.value = prevRubroVal;
-  if (artMarcaSel && marcaObj) artMarcaSel.value = String(marcaObj.id);
+  if (artMarcaSel && marcaObj && marcaObj.id !== undefined && marcaObj.id !== null) {
+    const targetVal = String(marcaObj.id);
+    if (!Array.from(artMarcaSel.options).some((opt) => opt.value === targetVal)) {
+      const opt = document.createElement('option');
+      opt.value = targetVal;
+      opt.textContent = String(marcaObj.nombre || '').toUpperCase() || `MARCA #${targetVal}`;
+      artMarcaSel.appendChild(opt);
+    }
+    artMarcaSel.value = targetVal;
+    artMarcaSel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
   if (artAlicSel) artAlicSel.value = prevAlicVal;
   if (artCfgSel) artCfgSel.value = prevCfgVal;
-  syncArticleModalIvaLockUI();
+  try { syncArticleModalIvaLockUI(); } catch {}
+  try { updateKpis(); } catch {}
+  try { applyAbmMarcasFilters(STATE.abmMarcasPage || 1); } catch {}
 }
 
 function renderQuickAbmMarcasTable(rawQuery = '') {
@@ -3071,15 +3098,28 @@ function renderQuickAbmMarcasTable(rawQuery = '') {
       if (isBaja) {
         m.bl = 0;
         delete m.fb;
+        const reactivatePayload = {
+          id: m.id,
+          codigo: String(m.codigo ?? m.id),
+          nombre: String(m.nombre || '').toUpperCase(),
+          bl: 0,
+          fb: null
+        };
         try {
-          await fetch('api/catalog.php', {
+          const res = await fetch('api/catalog.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'save_marca',
-              marca: { id: m.id, codigo: String(m.codigo ?? m.id), nombre: String(m.nombre || '').toUpperCase(), bl: 0, fb: null }
+              ...reactivatePayload,
+              marca: reactivatePayload
             })
           });
+          const json = await res.json().catch(() => null);
+          if (res.ok && json && json.ok && json.marca) {
+            Object.assign(m, json.marca, { bl: 0 });
+            delete m.fb;
+          }
         } catch {}
       }
       applySelectedMarcaToArticleModal(m, prevVals);
@@ -3109,10 +3149,15 @@ function renderQuickAbmMarcasTable(rawQuery = '') {
   tbody.appendChild(frag);
 }
 
-function openQuickAbmMarcaDialog() {
+async function openQuickAbmMarcaDialog() {
   const dlg = document.getElementById('quick-abm-marca-dialog');
   if (!dlg) {
     return;
+  }
+  if (!STATE.loaded || !Array.isArray(STATE.marcas) || STATE.marcas.length === 0) {
+    try {
+      await loadCatalogDatabase();
+    } catch {}
   }
   const codInp = document.getElementById('quick-abm-marca-codigo');
   const nomInp = document.getElementById('quick-abm-marca-nombre');
@@ -12470,7 +12515,7 @@ const SECTION_TOPBAR_META = {
   'sec-config-precios': { title: 'Configuraciones de Precios', back: 'sec-menu-articulos' },
   'sec-abm-marcas': { title: 'ABM Marca', back: 'sec-menu-articulos' },
   'sec-abm-rubros': { title: 'ABM Rubro', back: 'sec-menu-articulos' },
-  'sec-menu-factura-proveedor': { title: 'Factura Proveedor PDF/JPG', back: 'sec-menu-articulos' },
+  'sec-menu-factura-proveedor': { title: 'Factura Proveedor PDF/JPG', back: 'sec-menu-proveedores' },
   'sec-factura-proveedor-stock': { title: 'Factura Proveedor · Solo actualiza Stock', back: 'sec-menu-factura-proveedor' },
   'sec-factura-proveedor': { title: 'Factura Proveedor · Actualiza Stock y Precios', back: 'sec-menu-factura-proveedor' },
   'sec-control-stock': { title: 'Control de Stock', back: 'sec-menu-articulos' },
@@ -13101,35 +13146,22 @@ function initApp() {
     }
     savePersistedNavState(targetId, STATE.activeCajaId || 'caja1');
     if (targetId === 'sec-menu-factura-proveedor') {
-      const currentOpenSec = Array.from(document.querySelectorAll('.erp-section')).find((s) => !s.hidden);
-      if (currentOpenSec && (currentOpenSec.id === 'sec-menu-articulos' || currentOpenSec.id === 'sec-menu-proveedores')) {
-        SECTION_TOPBAR_META['sec-menu-factura-proveedor'].back = currentOpenSec.id;
-      }
+      SECTION_TOPBAR_META['sec-menu-factura-proveedor'].back = 'sec-menu-proveedores';
     }
     if (targetId === 'sec-factura-carga-rapida') {
-      const currentOpenSec = Array.from(document.querySelectorAll('.erp-section')).find((s) => !s.hidden);
-      if (currentOpenSec && (currentOpenSec.id === 'sec-menu-articulos' || currentOpenSec.id === 'sec-menu-proveedores')) {
-        SECTION_TOPBAR_META['sec-factura-carga-rapida'].back = currentOpenSec.id;
-        const backBtnFcr = document.getElementById('btn-fcr-back-menu');
-        if (backBtnFcr) {
-          backBtnFcr.setAttribute('data-open-section', currentOpenSec.id);
-          backBtnFcr.textContent = currentOpenSec.id === 'sec-menu-articulos'
-            ? '← Volver a Artículos, Stock y Precios'
-            : '← Volver a Proveedores y Ventas';
-        }
+      SECTION_TOPBAR_META['sec-factura-carga-rapida'].back = 'sec-menu-proveedores';
+      const backBtnFcr = document.getElementById('btn-fcr-back-menu');
+      if (backBtnFcr) {
+        backBtnFcr.setAttribute('data-open-section', 'sec-menu-proveedores');
+        backBtnFcr.textContent = '← Volver a Proveedores y Ventas';
       }
     }
     if (targetId === 'sec-pedidos-proveedores') {
-      const currentOpenSec = Array.from(document.querySelectorAll('.erp-section')).find((s) => !s.hidden);
-      if (currentOpenSec && (currentOpenSec.id === 'sec-menu-articulos' || currentOpenSec.id === 'sec-menu-proveedores')) {
-        SECTION_TOPBAR_META['sec-pedidos-proveedores'].back = currentOpenSec.id;
-        const backBtnPp = document.getElementById('btn-pp-back-menu');
-        if (backBtnPp) {
-          backBtnPp.setAttribute('data-open-section', currentOpenSec.id);
-          backBtnPp.textContent = currentOpenSec.id === 'sec-menu-articulos'
-            ? '← Volver a Artículos, Stock y Precios'
-            : '← Volver a Proveedores y Ventas';
-        }
+      SECTION_TOPBAR_META['sec-pedidos-proveedores'].back = 'sec-menu-proveedores';
+      const backBtnPp = document.getElementById('btn-pp-back-menu');
+      if (backBtnPp) {
+        backBtnPp.setAttribute('data-open-section', 'sec-menu-proveedores');
+        backBtnPp.textContent = '← Volver a Proveedores y Ventas';
       }
     }
     if (targetId === 'sec-inicio') {
@@ -32916,12 +32948,16 @@ function initApp() {
     const saveBtn = document.getElementById('btn-abm-marca-save');
     if (saveBtn) saveBtn.disabled = true;
 
-    let savedMarca = {
-      id: effectiveEditId > 0 ? effectiveEditId : (STATE.marcas.reduce((mx, x) => Math.max(mx, Number(x.id) || 0), 0) + 1),
+    const reqMarca = {
+      id: effectiveEditId > 0 ? effectiveEditId : 0,
       codigo: finalCode,
       nombre,
       bl,
       fb: bl === 1 ? todayFormatted() : null
+    };
+    let savedMarca = {
+      ...reqMarca,
+      id: effectiveEditId > 0 ? effectiveEditId : (STATE.marcas.reduce((mx, x) => Math.max(mx, Number(x.id) || 0), 0) + 1)
     };
 
     try {
@@ -32930,24 +32966,30 @@ function initApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save_marca',
-          marca: savedMarca
+          ...reqMarca,
+          marca: reqMarca
         })
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.ok === false) {
-          if (saveBtn) saveBtn.disabled = false;
-          if (alertEl) {
-            alertEl.textContent = json.message || 'No se pudo guardar la marca.';
-            alertEl.hidden = false;
-          }
-          return;
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.ok === false) {
+        if (saveBtn) saveBtn.disabled = false;
+        if (alertEl) {
+          alertEl.textContent = (json && json.message) || `No se pudo guardar la marca en el servidor (HTTP ${res.status}).`;
+          alertEl.hidden = false;
         }
-        if (json && json.ok && json.marca) {
-          savedMarca = json.marca;
-        }
+        return;
       }
-    } catch {}
+      if (json.marca) {
+        savedMarca = json.marca;
+      }
+    } catch (err) {
+      if (saveBtn) saveBtn.disabled = false;
+      if (alertEl) {
+        alertEl.textContent = `Error de conexión al guardar la marca: ${err?.message || 'reintentá en unos segundos'}.`;
+        alertEl.hidden = false;
+      }
+      return;
+    }
 
     const existingIdx = STATE.marcas.findIndex((m) => Number(m.id) === Number(savedMarca.id));
     if (existingIdx >= 0) {
@@ -33064,14 +33106,18 @@ function initApp() {
     const saveBtn = document.getElementById('btn-save-quick-abm-marca');
     if (saveBtn) saveBtn.disabled = true;
 
-    let savedMarca = {
-      id: effectiveEditId > 0
-        ? effectiveEditId
-        : (STATE.marcas.reduce((mx, x) => Math.max(mx, Number(x.id) || 0), 0) + 1),
+    const reqMarca = {
+      id: effectiveEditId > 0 ? effectiveEditId : 0,
       codigo: finalCode,
       nombre,
       bl: 0,
       fb: null
+    };
+    let savedMarca = {
+      ...reqMarca,
+      id: effectiveEditId > 0
+        ? effectiveEditId
+        : (STATE.marcas.reduce((mx, x) => Math.max(mx, Number(x.id) || 0), 0) + 1)
     };
 
     try {
@@ -33080,24 +33126,30 @@ function initApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save_marca',
-          marca: savedMarca
+          ...reqMarca,
+          marca: reqMarca
         })
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.ok === false) {
-          if (saveBtn) saveBtn.disabled = false;
-          if (alertEl) {
-            alertEl.textContent = json.message || 'No se pudo guardar la marca.';
-            alertEl.hidden = false;
-          }
-          return;
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.ok === false) {
+        if (saveBtn) saveBtn.disabled = false;
+        if (alertEl) {
+          alertEl.textContent = (json && json.message) || `No se pudo guardar la marca en el servidor (HTTP ${res.status}).`;
+          alertEl.hidden = false;
         }
-        if (json && json.ok && json.marca) {
-          savedMarca = json.marca;
-        }
+        return;
       }
-    } catch {}
+      if (json.marca) {
+        savedMarca = json.marca;
+      }
+    } catch (err) {
+      if (saveBtn) saveBtn.disabled = false;
+      if (alertEl) {
+        alertEl.textContent = `Error de conexión al guardar la marca: ${err?.message || 'reintentá en unos segundos'}.`;
+        alertEl.hidden = false;
+      }
+      return;
+    }
 
     const existingIdx = STATE.marcas.findIndex((m) => Number(m.id) === Number(savedMarca.id));
     if (existingIdx >= 0) {
@@ -33106,12 +33158,16 @@ function initApp() {
       savedMarca = STATE.marcas[existingIdx];
     } else {
       savedMarca.bl = 0;
+      delete savedMarca.fb;
       STATE.marcas.push(savedMarca);
     }
 
     applySelectedMarcaToArticleModal(savedMarca, prevVals);
     if (saveBtn) saveBtn.disabled = false;
     closeQuickAbmMarcaDlg();
+    requestAnimationFrame(() => {
+      document.getElementById('art-marca')?.focus();
+    });
     if (typeof showToast === 'function') {
       showToast(
         dupName
@@ -33265,24 +33321,30 @@ function initApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save_marca',
+          ...savedMarca,
           marca: savedMarca
         })
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.ok === false) {
-          if (saveBtn) saveBtn.disabled = false;
-          if (alertEl) {
-            alertEl.textContent = json.message || 'No se pudo guardar la marca.';
-            alertEl.hidden = false;
-          }
-          return;
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.ok === false) {
+        if (saveBtn) saveBtn.disabled = false;
+        if (alertEl) {
+          alertEl.textContent = (json && json.message) || `No se pudo guardar la marca en el servidor (HTTP ${res.status}).`;
+          alertEl.hidden = false;
         }
-        if (json && json.ok && json.marca) {
-          savedMarca = json.marca;
-        }
+        return;
       }
-    } catch {}
+      if (json.marca) {
+        savedMarca = json.marca;
+      }
+    } catch (err) {
+      if (saveBtn) saveBtn.disabled = false;
+      if (alertEl) {
+        alertEl.textContent = `Error de conexión al guardar la marca: ${err?.message || 'reintentá en unos segundos'}.`;
+        alertEl.hidden = false;
+      }
+      return;
+    }
 
     const existingIdx = STATE.marcas.findIndex((m) => Number(m.id) === Number(savedMarca.id));
     if (existingIdx >= 0) {
@@ -33423,12 +33485,16 @@ function initApp() {
     const saveBtn = document.getElementById('btn-abm-rubro-save');
     if (saveBtn) saveBtn.disabled = true;
 
-    let savedRubro = {
-      id: editId > 0 ? editId : (STATE.rubros.reduce((mx, x) => Math.max(mx, Number(x.id) || 0), 0) + 1),
+    const reqRubro = {
+      id: editId > 0 ? editId : 0,
       codigo: finalCodeNum,
       nombre,
       bl,
       fb: bl === 1 ? todayFormatted() : null
+    };
+    let savedRubro = {
+      ...reqRubro,
+      id: editId > 0 ? editId : (STATE.rubros.reduce((mx, x) => Math.max(mx, Number(x.id) || 0), 0) + 1)
     };
 
     try {
@@ -33437,24 +33503,30 @@ function initApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save_rubro',
-          rubro: savedRubro
+          ...reqRubro,
+          rubro: reqRubro
         })
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.ok === false) {
-          if (saveBtn) saveBtn.disabled = false;
-          if (alertEl) {
-            alertEl.textContent = json.message || 'No se pudo guardar el rubro.';
-            alertEl.hidden = false;
-          }
-          return;
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.ok === false) {
+        if (saveBtn) saveBtn.disabled = false;
+        if (alertEl) {
+          alertEl.textContent = (json && json.message) || `No se pudo guardar el rubro en el servidor (HTTP ${res.status}).`;
+          alertEl.hidden = false;
         }
-        if (json && json.ok && json.rubro) {
-          savedRubro = json.rubro;
-        }
+        return;
       }
-    } catch {}
+      if (json.rubro) {
+        savedRubro = json.rubro;
+      }
+    } catch (err) {
+      if (saveBtn) saveBtn.disabled = false;
+      if (alertEl) {
+        alertEl.textContent = `Error de conexión al guardar el rubro: ${err?.message || 'reintentá en unos segundos'}.`;
+        alertEl.hidden = false;
+      }
+      return;
+    }
 
     const existingIdx = STATE.rubros.findIndex((r) => Number(r.id) === Number(savedRubro.id));
     if (existingIdx >= 0) {
@@ -33565,24 +33637,30 @@ function initApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save_rubro',
+          ...savedRubro,
           rubro: savedRubro
         })
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.ok === false) {
-          if (saveBtn) saveBtn.disabled = false;
-          if (alertEl) {
-            alertEl.textContent = json.message || 'No se pudo guardar el rubro.';
-            alertEl.hidden = false;
-          }
-          return;
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.ok === false) {
+        if (saveBtn) saveBtn.disabled = false;
+        if (alertEl) {
+          alertEl.textContent = (json && json.message) || `No se pudo guardar el rubro en el servidor (HTTP ${res.status}).`;
+          alertEl.hidden = false;
         }
-        if (json && json.ok && json.rubro) {
-          savedRubro = json.rubro;
-        }
+        return;
       }
-    } catch {}
+      if (json.rubro) {
+        savedRubro = json.rubro;
+      }
+    } catch (err) {
+      if (saveBtn) saveBtn.disabled = false;
+      if (alertEl) {
+        alertEl.textContent = `Error de conexión al guardar el rubro: ${err?.message || 'reintentá en unos segundos'}.`;
+        alertEl.hidden = false;
+      }
+      return;
+    }
 
     const existingIdx = STATE.rubros.findIndex((r) => Number(r.id) === Number(savedRubro.id));
     if (existingIdx >= 0) {
@@ -36409,7 +36487,125 @@ function initApp() {
     '0100': 'PV 0100 (Caja 2 · Interno)',
     '0101': 'PV 0101 (Caja 3 · Interno)'
   };
-  const EST_MEDIOS_LIST = ['Efectivo', 'Débito', 'Crédito', 'QR', 'Cuenta Corriente'];
+  const EST_MEDIOS_LIST = ['Efectivo', 'Débito', 'Crédito', 'QR', 'Transferencia', 'Cuenta Corriente'];
+
+  function normalizeEstMedioPago(rawMp, paymentObj = null) {
+    if (paymentObj && typeof paymentObj === 'object') {
+      const m = String(paymentObj.method || '').trim().toLowerCase();
+      if (m === 'efectivo') return 'Efectivo';
+      if (m === 'debito' || m === 'tarjeta_debito') return 'Débito';
+      if (m === 'credito' || m === 'tarjeta_credito') return 'Crédito';
+      if (m === 'qr' || m === 'pago_qr') return 'QR';
+      if (m === 'transferencia') return 'Transferencia';
+      if (m === 'ctacte' || m === 'cuenta_corriente') return 'Cuenta Corriente';
+      if (m === 'combinado') {
+        const ef = Math.abs(Number(paymentObj.efectivoAplicado) || 0);
+        const el = Math.abs(Number(paymentObj.electronicoImporte) || 0);
+        if (ef <= 0.01 && el > 0) {
+          return normalizeEstMedioPago(paymentObj.electronicoTipo || paymentObj.combinadoElectronico || '');
+        }
+      }
+    }
+    const norm = String(rawMp || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+    if (!norm) return 'Efectivo';
+    if (
+      norm.includes('cuenta corriente') ||
+      norm.includes('cta cte') ||
+      norm.includes('cta. cte') ||
+      norm.includes('ctacte')
+    ) {
+      return 'Cuenta Corriente';
+    }
+    if (norm.includes('transfer') || norm.includes('cbu') || norm.includes('caja de ahorro')) {
+      return 'Transferencia';
+    }
+    if (norm.includes('qr')) return 'QR';
+    if (norm.includes('debito') || norm.includes('debit')) return 'Débito';
+    if (norm.includes('credito') || norm.includes('credit')) return 'Crédito';
+    if (norm.includes('efectivo') || norm.includes('contado') || norm.includes('cash')) return 'Efectivo';
+    return 'Efectivo';
+  }
+
+  function parseArsAmountToken(str) {
+    const clean = String(str || '').replace(/\s+/g, '').replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(clean);
+    return Number.isFinite(n) ? round2(n) : 0;
+  }
+
+  function expandEstPaymentSplits(rawMp, importe, costoTotal, tickets, paymentObj = null) {
+    const sign = importe < 0 ? -1 : 1;
+    const absImp = Math.abs(round2(importe));
+    const absCost = Math.abs(round2(costoTotal));
+    const tk = Math.max(1, Number(tickets) || 1);
+
+    // 1. Pago combinado con objeto payment exacto
+    if (paymentObj && typeof paymentObj === 'object' && String(paymentObj.method || '').toLowerCase() === 'combinado') {
+      const ef = Math.max(0, round2(Number(paymentObj.efectivoAplicado) || 0));
+      const el = Math.max(0, round2(Number(paymentObj.electronicoImporte) || 0));
+      const elMedio = normalizeEstMedioPago(
+        paymentObj.electronicoTipo || paymentObj.combinadoElectronico || rawMp || 'QR'
+      );
+      if (ef > 0.01 && el > 0.01 && elMedio !== 'Efectivo') {
+        const sum = ef + el;
+        const efRatio = sum > 0 ? ef / sum : 0.5;
+        const efImp = round2(absImp * efRatio) * sign;
+        const elImp = round2(importe - efImp);
+        const efCost = round2(absCost * efRatio) * sign;
+        const elCost = round2(costoTotal - efCost);
+        return [
+          { medioPago: 'Efectivo', importe: efImp, costoTotal: efCost, tickets: tk },
+          { medioPago: elMedio, importe: elImp, costoTotal: elCost, tickets: 0 }
+        ];
+      }
+      if (el > 0.01 && ef <= 0.01) {
+        return [{ medioPago: elMedio, importe, costoTotal, tickets: tk }];
+      }
+    }
+
+    // 2. Texto combinado con "+" (ej: "Efectivo + Pago QR (Mercado Pago)" o "Efectivo ($ 145.314,51) + T. Débito PayWay ($ 145.314,50)")
+    const rawStr = String(rawMp || '');
+    if (rawStr.includes('+')) {
+      const parts = rawStr.split('+').map((s) => s.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const m0 = normalizeEstMedioPago(parts[0]);
+        const m1 = normalizeEstMedioPago(parts.slice(1).join(' '));
+        if (m0 !== m1) {
+          const amtMatches = [...rawStr.matchAll(/\$\s*([\d.]+,\d{2}|\d+(?:\.\d+)?)/g)];
+          if (amtMatches.length >= 2) {
+            const a0 = parseArsAmountToken(amtMatches[0][1]);
+            const a1 = parseArsAmountToken(amtMatches[1][1]);
+            const sum = a0 + a1;
+            if (sum > 0) {
+              const r0 = a0 / sum;
+              const imp0 = round2(absImp * r0) * sign;
+              const imp1 = round2(importe - imp0);
+              const c0 = round2(absCost * r0) * sign;
+              const c1 = round2(costoTotal - c0);
+              return [
+                { medioPago: m0, importe: imp0, costoTotal: c0, tickets: tk },
+                { medioPago: m1, importe: imp1, costoTotal: c1, tickets: 0 }
+              ];
+            }
+          }
+          // Si no había montos explícitos ni objeto payment, repartir 50/50 entre ambos medios
+          const halfImp = round2(absImp / 2) * sign;
+          const restImp = round2(importe - halfImp);
+          const halfCost = round2(absCost / 2) * sign;
+          const restCost = round2(costoTotal - halfCost);
+          return [
+            { medioPago: m0, importe: halfImp, costoTotal: halfCost, tickets: tk },
+            { medioPago: m1, importe: restImp, costoTotal: restCost, tickets: 0 }
+          ];
+        }
+      }
+    }
+
+    return [{ medioPago: normalizeEstMedioPago(rawMp, paymentObj), importe, costoTotal, tickets: tk }];
+  }
   const EST_CHART_PALETTE = [
     '#d97706',
     '#2563eb',
@@ -36827,8 +37023,10 @@ function initApp() {
     if (STATE.ventasDb) {
       if (df.mode === 'rango' && df.from >= '2026-10-01' && Array.isArray(STATE.ventasDb.artRecentDaily)) {
         for (const row of STATE.ventasDb.artRecentDaily) {
-          if (!pvs.has(String(row.pv))) continue;
-          if (row.f < df.from || row.f > df.to) continue;
+          const rowPv = row.pv ? String(row.pv).replace(/\D/g, '').padStart(4, '0') : '';
+          if (rowPv && !pvs.has(rowPv)) continue;
+          const rowFecha = String(row.f || row.d || '');
+          if (!rowFecha || rowFecha < df.from || rowFecha > df.to) continue;
           const art = artById[row.a];
           if (isGenericStatisticArticle({ a: row.a, c: art?.c, n: art?.n }, artById)) continue;
           out.push({
@@ -37871,8 +38069,9 @@ function initApp() {
     });
 
     records.forEach((r) => {
-      const m = EST_MEDIOS_LIST.includes(r.medioPago) ? r.medioPago : 'Efectivo';
-      mediosMap[m].comps += Number(r.tickets) || 1;
+      const m = normalizeEstMedioPago(r.medioPago);
+      if (!mediosMap[m]) mediosMap[m] = { medio: m, comps: 0, total: 0 };
+      mediosMap[m].comps += Number(r.tickets) || 0;
       mediosMap[m].total = round2(mediosMap[m].total + r.importe);
     });
 
@@ -37882,14 +38081,15 @@ function initApp() {
     const setMedioKpi = (idVal, idPct, mObj) => {
       const elV = document.getElementById(idVal);
       const elP = document.getElementById(idPct);
-      if (elV) elV.textContent = `$ ${formatArs(mObj.total)}`;
-      if (elP) elP.textContent = `${pctStr(mObj.total)} (${mObj.comps} op.)`;
+      if (elV) elV.textContent = `$ ${formatArs(mObj?.total || 0)}`;
+      if (elP) elP.textContent = `${pctStr(mObj?.total || 0)} (${mObj?.comps || 0} op.)`;
     };
 
     setMedioKpi('est-kpi-mp-efectivo', 'est-kpi-mp-efectivo-sub', mediosMap['Efectivo']);
     setMedioKpi('est-kpi-mp-debito', 'est-kpi-mp-debito-sub', mediosMap['Débito']);
     setMedioKpi('est-kpi-mp-credito', 'est-kpi-mp-credito-sub', mediosMap['Crédito']);
     setMedioKpi('est-kpi-mp-qr', 'est-kpi-mp-qr-sub', mediosMap['QR']);
+    setMedioKpi('est-kpi-mp-transferencia', 'est-kpi-mp-transferencia-sub', mediosMap['Transferencia']);
     setMedioKpi('est-kpi-mp-ctacte', 'est-kpi-mp-ctacte-sub', mediosMap['Cuenta Corriente']);
 
     const rows = Object.values(mediosMap).sort((a, b) => b.total - a.total);
@@ -39404,15 +39604,18 @@ function initApp() {
     const mediosMap = new Map();
     EST_MEDIOS_LIST.forEach((m) => mediosMap.set(m, 0));
     records.forEach((r) => {
-      const m = mediosMap.has(r.medioPago) ? r.medioPago : 'Efectivo';
+      const m = normalizeEstMedioPago(r.medioPago);
       mediosMap.set(m, round2((mediosMap.get(m) || 0) + r.importe));
     });
-    const mediosEntries = Array.from(mediosMap.entries()).filter(([, val]) => val > 0);
+    const mediosEntries = Array.from(mediosMap.entries())
+      .filter(([, val]) => val > 0)
+      .sort((a, b) => b[1] - a[1]);
     drawEstControlChart(
       'canvas-est-dash-medios',
       EST_STATE.chartTypeDashMedios || 'pie',
       mediosEntries.length > 0 ? mediosEntries.map(([k]) => k) : ['Sin ventas'],
-      mediosEntries.length > 0 ? mediosEntries.map(([, v]) => v) : [0]
+      mediosEntries.length > 0 ? mediosEntries.map(([, v]) => v) : [0],
+      { isCurrency: true, multiColor: true, showAverage: false }
     );
 
     // 6. Top 10 Productos Estrella y Top 5 Rubros del Período
@@ -73197,57 +73400,6 @@ function initApp() {
             sampleBtn: '💾 Guardar Marca / Rubro'
           },
           {
-            key: 'articulos:factura_prov',
-            title: 'Factura Proveedor PDF/JPG (Solo Stock o Stock y Precios con Lectura IA)',
-            openSection: 'sec-menu-factura-proveedor',
-            description:
-              'Permite subir el archivo PDF o foto JPG de la factura/remito del proveedor para que la Inteligencia Artificial extraiga los renglones, los vincule por Código de Proveedor y actualice el Stock y/o los Costos y Precios de Venta.',
-            steps: [
-              'Ingresar a "Factura Proveedor PDF/JPG" y elegir entre: 1) "Solo actualiza Stock" (sin tocar precios) o 2) "Actualiza Stock y Precios (Lectura IA)".',
-              'Seleccionar el Proveedor y adjuntar el archivo PDF o imagen JPG del comprobante.',
-              'Verificar la tabla de lectura donde cada renglón se vincula por Código de Proveedor (o asociar un artículo nuevo con el buscador integrado).',
-              'Confirmar la aplicación para sumar las unidades al inventario, actualizar costos y registrar el comprobante en la Cuenta Corriente del proveedor.'
-            ],
-            keyRules: 'Si un precio de venta cambia al procesar la factura, el artículo se agrega automáticamente a la cola de "Precios en Góndola" para imprimir su etiqueta.',
-            sampleBadge: 'LECTURA IA DE FACTURAS PDF/JPG',
-            sampleTitle: 'Carga Inteligente de Factura Proveedor',
-            kpi1: ['Modalidad 1', 'Solo actualiza Stock'],
-            kpi2: ['Modalidad 2', 'Stock + Precios IA'],
-            kpi3: ['Vinculación', 'Por Cód. Proveedor'],
-            sampleRows: [
-              ['① Subir PDF o Foto JPG de Factura', 'Extracción automática de ítems', 'IA Activa'],
-              ['② Cruce por Código de Fabricante', 'Detecta variaciones de costo', 'Verificado'],
-              ['③ Impacto en Stock, Precios y Cta.Cte.', 'Envía cambios a Precios en Góndola', 'Completo']
-            ],
-            sampleCallout: 'Ahorra horas de tipeo leyendo facturas PDF o fotos con IA',
-            sampleBtn: '🚀 Procesar Factura con IA'
-          },
-          {
-            key: 'articulos:carga_rapida',
-            title: 'Factura Carga Rápida (Proveedores · Cuenta Corriente)',
-            openSection: 'sec-factura-carga-rapida',
-            description:
-              'Permite registrar en segundos una factura o remito de proveedor en su Cuenta Corriente ingresando únicamente el Proveedor y el Importe Total (IVA incluido), sin necesidad de detallar artículos.',
-            steps: [
-              'Ingresar a "Factura carga rápida" desde Artículos o desde Proveedores.',
-              'Buscar y seleccionar el Proveedor, indicar fecha, tipo de comprobante e importe total final.',
-              'Pulsar Guardar para impactar la deuda en la Cuenta Corriente del proveedor.'
-            ],
-            keyRules: 'Ideal para facturas de servicios, fletes o compras rápidas cuyo stock ya fue ingresado por remito.',
-            sampleBadge: 'IMPUTACIÓN RÁPIDA EN CTA. CTE.',
-            sampleTitle: 'Factura Carga Rápida de Proveedor',
-            kpi1: ['Datos Requeridos', 'Proveedor + Total'],
-            kpi2: ['Sin Detalle Ítems', 'Carga en 10 seg.'],
-            kpi3: ['Impacto', 'Cta. Cte. Proveedor'],
-            sampleRows: [
-              ['① Selección de Proveedor', 'Búsqueda por nombre o CUIT', 'Rápido'],
-              ['② Importe Total IVA Incluido', 'Sin requerir desglose de artículos', 'Directo'],
-              ['③ Acreditación en Cuenta Corriente', 'Listo para pagar en Orden de Pago', 'Impactado']
-            ],
-            sampleCallout: 'Registra compras en Cuenta Corriente en menos de 10 segundos',
-            sampleBtn: '💾 Registrar Comprobante'
-          },
-          {
             key: 'articulos:control_stock',
             title: 'Control de Stock en Góndola (Con Lector o Cámara de Celular)',
             openSection: 'sec-control-stock',
@@ -73346,31 +73498,6 @@ function initApp() {
             ],
             sampleCallout: 'Publicación simultánea en Cajas POS y en Carrito Web',
             sampleBtn: '🔥 Activar Oferta'
-          },
-          {
-            key: 'articulos:pedidos',
-            title: 'Pedidos a Proveedores (Órdenes de Compra por Stock Mínimo)',
-            openSection: 'sec-pedidos-proveedores',
-            description:
-              'Analiza los artículos cuyo stock actual está por debajo del Stock Mínimo Sugerido y arma automáticamente la Orden de Compra por proveedor para enviar por WhatsApp o descargar en PDF.',
-            steps: [
-              'Ingresar a "Pedidos a Proveedores" y seleccionar el Proveedor.',
-              'El sistema lista los artículos con faltante (Stock Actual < Stock Mínimo) y sugiere la cantidad a pedir.',
-              'Ajustar cantidades si se desea, guardar el pedido y enviarlo por WhatsApp o imprimirlo en PDF.'
-            ],
-            keyRules: 'Permite cambiar el estado del pedido entre PENDIENTE, ENVIADO y RECIBIDO.',
-            sampleBadge: 'REPOSICIÓN AUTOMÁTICA DE STOCK',
-            sampleTitle: 'Pedidos a Proveedores por Faltantes',
-            kpi1: ['Criterio', 'Stock < Mínimo Sug.'],
-            kpi2: ['Envío Directo', 'WhatsApp / PDF A4'],
-            kpi3: ['Seguimiento', 'Pendiente → Recibido'],
-            sampleRows: [
-              ['① Filtro por Proveedor o Rubro', 'Detecta artículos bajo stock mínimo', 'Automático'],
-              ['② Cantidad Sugerida de Reposición', 'Editable por el encargado de compras', 'Editable'],
-              ['③ Envío de Orden de Compra', 'PDF formal o mensaje WhatsApp', '1 Clic']
-            ],
-            sampleCallout: 'Evita quiebres de stock alertando faltantes por proveedor',
-            sampleBtn: '📲 Enviar Pedido a Proveedor'
           }
         ]
       },
@@ -73470,6 +73597,82 @@ function initApp() {
             ],
             sampleCallout: 'Unifica en una sola cuenta a los clientes que también son proveedores',
             sampleBtn: '🚚 Abrir Padrón de Proveedores'
+          },
+          {
+            key: 'proveedores:factura_prov',
+            title: 'Factura Proveedor PDF/JPG (Solo Stock o Stock y Precios con Lectura IA)',
+            openSection: 'sec-menu-factura-proveedor',
+            description:
+              'Permite subir el archivo PDF o foto JPG de la factura/remito del proveedor para que la Inteligencia Artificial extraiga los renglones, los vincule por Código de Proveedor y actualice el Stock y/o los Costos y Precios de Venta.',
+            steps: [
+              'Ingresar a "Proveedores y Ventas -> Factura Proveedor PDF/JPG" y elegir entre: 1) "Solo actualiza Stock" (sin tocar precios) o 2) "Actualiza Stock y Precios (Lectura IA)".',
+              'Seleccionar el Proveedor y adjuntar el archivo PDF o imagen JPG del comprobante.',
+              'Verificar la tabla de lectura donde cada renglón se vincula por Código de Proveedor (o asociar un artículo nuevo con el buscador integrado).',
+              'Confirmar la aplicación para sumar las unidades al inventario, actualizar costos y registrar el comprobante en la Cuenta Corriente del proveedor.'
+            ],
+            keyRules: 'Si un precio de venta cambia al procesar la factura, el artículo se agrega automáticamente a la cola de "Precios en Góndola" para imprimir su etiqueta.',
+            sampleBadge: 'LECTURA IA DE FACTURAS PDF/JPG',
+            sampleTitle: 'Carga Inteligente de Factura Proveedor',
+            kpi1: ['Modalidad 1', 'Solo actualiza Stock'],
+            kpi2: ['Modalidad 2', 'Stock + Precios IA'],
+            kpi3: ['Vinculación', 'Por Cód. Proveedor'],
+            sampleRows: [
+              ['① Subir PDF o Foto JPG de Factura', 'Extracción automática de ítems', 'IA Activa'],
+              ['② Cruce por Código de Fabricante', 'Detecta variaciones de costo', 'Verificado'],
+              ['③ Impacto en Stock, Precios y Cta.Cte.', 'Envía cambios a Precios en Góndola', 'Completo']
+            ],
+            sampleCallout: 'Ahorra horas de tipeo leyendo facturas PDF o fotos con IA',
+            sampleBtn: '🚀 Procesar Factura con IA'
+          },
+          {
+            key: 'proveedores:carga_rapida',
+            title: 'Factura Carga Rápida (Proveedores · Cuenta Corriente)',
+            openSection: 'sec-factura-carga-rapida',
+            description:
+              'Permite registrar en segundos una factura o remito de proveedor en su Cuenta Corriente ingresando únicamente el Proveedor y el Importe Total (IVA incluido), sin necesidad de detallar artículos.',
+            steps: [
+              'Ingresar a "Proveedores y Ventas -> Factura carga rápida".',
+              'Buscar y seleccionar el Proveedor, indicar fecha, tipo de comprobante e importe total final.',
+              'Pulsar Guardar para impactar la deuda en la Cuenta Corriente del proveedor.'
+            ],
+            keyRules: 'Ideal para facturas de servicios, fletes o compras rápidas cuyo stock ya fue ingresado por remito.',
+            sampleBadge: 'IMPUTACIÓN RÁPIDA EN CTA. CTE.',
+            sampleTitle: 'Factura Carga Rápida de Proveedor',
+            kpi1: ['Datos Requeridos', 'Proveedor + Total'],
+            kpi2: ['Sin Detalle Ítems', 'Carga en 10 seg.'],
+            kpi3: ['Impacto', 'Cta. Cte. Proveedor'],
+            sampleRows: [
+              ['① Selección de Proveedor', 'Búsqueda por nombre o CUIT', 'Rápido'],
+              ['② Importe Total IVA Incluido', 'Sin requerir desglose de artículos', 'Directo'],
+              ['③ Acreditación en Cuenta Corriente', 'Listo para pagar en Orden de Pago', 'Impactado']
+            ],
+            sampleCallout: 'Registra compras en Cuenta Corriente en menos de 10 segundos',
+            sampleBtn: '💾 Registrar Comprobante'
+          },
+          {
+            key: 'proveedores:pedidos',
+            title: 'Pedidos a Proveedores (Órdenes de Compra por Stock Mínimo)',
+            openSection: 'sec-pedidos-proveedores',
+            description:
+              'Analiza los artículos cuyo stock actual está por debajo del Stock Mínimo Sugerido y arma automáticamente la Orden de Compra por proveedor para enviar por WhatsApp o descargar en PDF.',
+            steps: [
+              'Ingresar a "Proveedores y Ventas -> Pedidos a Proveedores" y seleccionar el Proveedor.',
+              'El sistema lista los artículos con faltante (Stock Actual < Stock Mínimo) y sugiere la cantidad a pedir.',
+              'Ajustar cantidades si se desea, guardar el pedido y enviarlo por WhatsApp o imprimirlo en PDF.'
+            ],
+            keyRules: 'Permite cambiar el estado del pedido entre PENDIENTE, ENVIADO y RECIBIDO.',
+            sampleBadge: 'REPOSICIÓN AUTOMÁTICA DE STOCK',
+            sampleTitle: 'Pedidos a Proveedores por Faltantes',
+            kpi1: ['Criterio', 'Stock < Mínimo Sug.'],
+            kpi2: ['Envío Directo', 'WhatsApp / PDF A4'],
+            kpi3: ['Seguimiento', 'Pendiente → Recibido'],
+            sampleRows: [
+              ['① Filtro por Proveedor o Rubro', 'Detecta artículos bajo stock mínimo', 'Automático'],
+              ['② Cantidad Sugerida de Reposición', 'Editable por el encargado de compras', 'Editable'],
+              ['③ Envío de Orden de Compra', 'PDF formal o mensaje WhatsApp', '1 Clic']
+            ],
+            sampleCallout: 'Evita quiebres de stock alertando faltantes por proveedor',
+            sampleBtn: '📲 Enviar Pedido a Proveedor'
           }
         ]
       },
