@@ -1755,7 +1755,6 @@
           '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.65rem;margin-bottom:0.8rem;">' +
             '<div>' +
               '<h4 style="margin:0;">1. Modalidad, Árbol de Módulos y Submódulos y Valores Mensuales</h4>' +
-              '<div style="font-size:0.78rem;opacity:0.78;margin-top:0.15rem;">Cada módulo suma automáticamente el valor de sus submódulos tildados. Desplegá cualquier módulo (▶) para elegir submódulos puntuales.</div>' +
             '</div>' +
             '<div style="display:flex;gap:0.45rem;flex-wrap:wrap;">' +
               '<button type="button" class="ms-sa-btn ms-sa-btn--outline" id="ms-tree-expand-all" style="padding:0.38rem 0.7rem;font-size:0.76rem;">➕ Expandir Submódulos</button>' +
