@@ -117,7 +117,11 @@ function applyPendingVentasEvents(
         if (corrKey) {
           db.lastEmitidosDetalle[corrKey] = saleRecord;
         }
-        if (p.dailyRecord && typeof p.dailyRecord === "object") {
+        if (Array.isArray(p.dailyRecords)) {
+          for (const dr of p.dailyRecords) {
+            if (dr && typeof dr === "object") db.dailyRecords.push(dr);
+          }
+        } else if (p.dailyRecord && typeof p.dailyRecord === "object") {
           db.dailyRecords.push(p.dailyRecord);
         }
       }
@@ -128,8 +132,9 @@ function applyPendingVentasEvents(
           if (!ad || !ad.a) continue;
           const artId = Number(ad.a);
           const ym = String(ad.ym || "");
+          const adPv = String(ad.pv || saleRecord.pv || "0002").replace(/\D/g, "").padStart(4, "0");
           const mRow = db.artMonthly.find(
-            (m: AnyObj) => m && m.ym === ym && Number(m.a) === artId
+            (m: AnyObj) => m && m.ym === ym && String(m.pv || "") === adPv && Number(m.a) === artId
           );
           if (mRow) {
             mRow.q = round3(Number(mRow.q || 0) + Number(ad.q || 0));
@@ -138,15 +143,18 @@ function applyPendingVentasEvents(
           } else if (ym) {
             db.artMonthly.push({
               ym,
+              pv: adPv,
               a: artId,
               q: round3(Number(ad.q || 0)),
               v: round2(Number(ad.v || 0)),
               c: round2(Number(ad.c || 0)),
             });
           }
-          if (ad.d) {
+          const adFecha = String(ad.f || ad.d || "");
+          if (adFecha) {
             db.artRecentDaily.push({
-              d: ad.d,
+              f: adFecha,
+              pv: adPv,
               a: artId,
               q: round3(Number(ad.q || 0)),
               v: round2(Number(ad.v || 0)),
@@ -213,6 +221,7 @@ function applyPendingVentasEvents(
             return {
               ...row,
               medioPago: p.medioPago ?? row.medioPago,
+              ...(p.payment ? { payment: p.payment } : {}),
               ...(p.pagos ? { pagos: p.pagos } : {}),
             };
           }
@@ -569,17 +578,48 @@ export async function handleErpVentas(
         }
       }
 
+      const normalizeMpLabel = (rawMp: unknown, payObj?: AnyObj | null): string => {
+        if (payObj && typeof payObj === "object") {
+          const m = String(payObj.method || "").trim().toLowerCase();
+          if (m === "efectivo") return "Efectivo";
+          if (m === "debito" || m === "tarjeta_debito") return "Débito";
+          if (m === "credito" || m === "tarjeta_credito") return "Crédito";
+          if (m === "qr" || m === "pago_qr") return "QR";
+          if (m === "transferencia") return "Transferencia";
+          if (m === "ctacte" || m === "cuenta_corriente") return "Cuenta Corriente";
+        }
+        const norm = String(rawMp || "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .trim();
+        if (norm.includes("cuenta corriente") || norm.includes("cta cte") || norm.includes("ctacte")) {
+          return "Cuenta Corriente";
+        }
+        if (norm.includes("transfer") || norm.includes("cbu") || norm.includes("caja de ahorro")) {
+          return "Transferencia";
+        }
+        if (norm.includes("qr")) return "QR";
+        if (norm.includes("debito") || norm.includes("debit")) return "Débito";
+        if (norm.includes("credito") || norm.includes("credit")) return "Crédito";
+        return "Efectivo";
+      };
+
       const dailyRecord =
         letra !== "X"
           ? {
-              d: fechaIso,
-              pv: Number(pv),
+              f: fechaIso,
+              pv,
               tc: isNC ? 6 : 1,
               l: letra,
-              m: String(src.medioPago || "EFECTIVO").toUpperCase(),
+              mp:
+                src.payment?.method === "combinado"
+                  ? String(src.medioPago || "Efectivo")
+                  : normalizeMpLabel(src.medioPago, src.payment),
+              ...(src.payment?.method === "combinado" ? { payment: src.payment } : {}),
               v: isNC ? -Math.abs(importe) : importe,
               c: isNC ? -Math.abs(round2(costoTotal)) : round2(costoTotal),
-              n: 1,
+              t: 1,
             }
           : null;
 
@@ -699,6 +739,7 @@ export async function handleErpVentas(
             updated = {
               ...row,
               medioPago: payload.medioPago ?? row.medioPago,
+              ...(payload.payment ? { payment: payload.payment } : {}),
               ...(payload.pagos ? { pagos: payload.pagos } : {}),
             };
           }
@@ -712,6 +753,7 @@ export async function handleErpVentas(
           id,
           numeroCompleto,
           medioPago: payload.medioPago,
+          payment: payload.payment,
           pagos: payload.pagos,
         },
         actor,
