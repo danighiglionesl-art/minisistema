@@ -11604,16 +11604,49 @@ html[data-theme="dark"] .fact-code-entry-input:focus::placeholder {
   }
 }
 
+/* =========================================================================
+   MÓDULO CRM · TABLA COMPACTA DE TICKETS
+   ========================================================================= */
+#sec-crm .crm-compact-table thead th {
+  padding: 0.42rem 0.5rem !important;
+  font-size: 0.74rem !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+}
 
+#sec-crm .crm-compact-table tbody td {
+  padding: 0.34rem 0.5rem !important;
+  font-size: 0.76rem !important;
+  line-height: 1.22 !important;
+  vertical-align: middle !important;
+}
 
+#sec-crm .crm-compact-table tbody td .badge {
+  padding: 0.14rem 0.46rem !important;
+  font-size: 0.69rem !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+}
 
+#sec-crm .crm-compact-table .crm-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  flex-wrap: nowrap;
+}
 
-
-
-
-
-
-
-
-
-
+#sec-crm .crm-compact-table .crm-row-actions button {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 26px !important;
+  height: 26px !important;
+  padding: 0 0.52rem !important;
+  font-size: 0.71rem !important;
+  line-height: 1 !important;
+  border-radius: 7px !important;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

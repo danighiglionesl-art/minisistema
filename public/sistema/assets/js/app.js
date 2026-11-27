@@ -76632,30 +76632,29 @@ function initApp() {
           return `
             <tr data-crm-row-id="${escapeHtml(r.id)}">
               <td style="white-space:nowrap;">
-                <strong style="color:var(--brand-gold); font-size:0.92rem;">${escapeHtml(r.codigo || r.id)}</strong>
-                ${atts.length > 0 ? `<div style="font-size:0.72rem; color:var(--text-secondary); margin-top:0.15rem;">📎 ${atts.length} ${atts.length === 1 ? 'adjunto' : 'adjuntos'}</div>` : ''}
+                <strong style="color:var(--brand-gold); font-size:0.8rem;">${escapeHtml(r.codigo || r.id)}</strong>
+                ${atts.length > 0 ? `<div style="font-size:0.67rem; color:var(--text-secondary); margin-top:0.08rem;">📎 ${atts.length} ${atts.length === 1 ? 'adj.' : 'adjs.'}</div>` : ''}
               </td>
               <td style="white-space:nowrap;">
-                <div style="font-size:0.82rem; color:var(--text-secondary);">🕒 ${escapeHtml(r.fechaHora || '—')}</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);">🕒 ${escapeHtml(r.fechaHora || '—')}</div>
               </td>
               <td>
-                <div style="font-weight:800; font-size:0.85rem;">${escapeHtml(r.usuario || 'Usuario')}</div>
-                <div style="font-size:0.76rem; color:var(--text-secondary);">@${escapeHtml(r.username || 'admin')} · ${escapeHtml(r.rol || 'Operador')}</div>
-                <div style="font-size:0.74rem; color:var(--text-secondary);">🏢 ${escapeHtml(r.marca || r.sucursal || 'Casa Central')}</div>
+                <div style="font-weight:800; font-size:0.78rem; line-height:1.2;">${escapeHtml(r.usuario || 'Usuario')} <span style="font-weight:500; font-size:0.69rem; color:var(--text-secondary);">@${escapeHtml(r.username || 'admin')} · ${escapeHtml(r.rol || 'Operador')}</span></div>
+                <div style="font-size:0.69rem; color:var(--text-secondary); line-height:1.2; margin-top:0.1rem;">🏢 ${escapeHtml(r.marca || r.sucursal || 'Casa Central')}</div>
               </td>
-              <td>
-                <span class="badge" style="background:${tipoInfo.bg}; color:${tipoInfo.color}; border:1px solid ${tipoInfo.border}; font-size:0.74rem; display:inline-block;">
+              <td style="white-space:nowrap;">
+                <span class="badge" style="background:${tipoInfo.bg}; color:${tipoInfo.color}; border:1px solid ${tipoInfo.border}; font-size:0.69rem; display:inline-block;">
                   ${escapeHtml(tipoInfo.label)}
                 </span>
               </td>
               <td style="white-space:nowrap;">
-                <span class="badge" style="background:${prioInfo.bg}; color:${prioInfo.color}; font-size:0.74rem; display:inline-block;">
+                <span class="badge" style="background:${prioInfo.bg}; color:${prioInfo.color}; font-size:0.69rem; display:inline-block;">
                   ${escapeHtml(prioInfo.label)}
                 </span>
               </td>
-              <td style="font-weight:700; font-size:0.83rem;">${escapeHtml(r.moduloLabel || 'General')}</td>
+              <td style="font-weight:700; font-size:0.75rem; line-height:1.2;">${escapeHtml(r.moduloLabel || 'General')}</td>
               <td style="white-space:nowrap;">
-                <span class="badge" style="background:${estInfo.bg}; color:${estInfo.color}; border:1px solid ${estInfo.border}; font-weight:800; font-size:0.74rem; display:inline-block;">
+                <span class="badge" style="background:${estInfo.bg}; color:${estInfo.color}; border:1px solid ${estInfo.border}; font-weight:800; font-size:0.69rem; display:inline-block;">
                   ${escapeHtml(
                     String(r.estado || '').toUpperCase() === 'RESUELTO'
                       ? (String(r.tipo || '').toUpperCase() === 'PROBLEMA' ? '🟢 Reporte resuelto' : '🟢 Reporte implementado')
@@ -76664,18 +76663,18 @@ function initApp() {
                 </span>
                 ${
                   r.reabierto
-                    ? `<div style="margin-top:0.2rem;"><span class="badge" style="background:rgba(217,119,6,0.14); color:#b45309; border:1px solid rgba(217,119,6,0.35); font-size:0.68rem; font-weight:800;">🔄 Reabierto${Number(r.reabiertoCount) > 1 ? ` ×${Number(r.reabiertoCount)}` : ''}</span></div>`
+                    ? `<div style="margin-top:0.14rem;"><span class="badge" style="background:rgba(217,119,6,0.14); color:#b45309; border:1px solid rgba(217,119,6,0.35); font-size:0.64rem; font-weight:800;">🔄 Reabierto${Number(r.reabiertoCount) > 1 ? ` ×${Number(r.reabiertoCount)}` : ''}</span></div>`
                     : ''
                 }
               </td>
               <td class="text-center" style="white-space:nowrap;">
-                <div style="display:inline-flex; align-items:center; gap:0.35rem; flex-wrap:wrap; justify-content:center;">
-                  <button type="button" class="btn-primary btn-sm btn-crm-admin-open-modal" data-crm-id="${escapeHtml(r.id)}" style="width:auto; min-width:74px; font-weight:800; font-size:0.78rem; padding:0.35rem 0.85rem;">
+                <div class="crm-row-actions">
+                  <button type="button" class="btn-primary btn-sm btn-crm-admin-open-modal" data-crm-id="${escapeHtml(r.id)}" style="font-weight:800;">
                     VER
                   </button>
                   ${
                     ['RESUELTO', 'DESCARTADO'].includes(String(r.estado || '').toUpperCase())
-                      ? `<button type="button" class="btn-secondary btn-sm btn-crm-reopen-ticket" data-crm-id="${escapeHtml(r.id)}" style="width:auto; font-weight:700; font-size:0.74rem; padding:0.32rem 0.6rem; border-color:rgba(217,119,6,0.45); color:#b45309;">
+                      ? `<button type="button" class="btn-secondary btn-sm btn-crm-reopen-ticket" data-crm-id="${escapeHtml(r.id)}" style="font-weight:700; border-color:rgba(217,119,6,0.45); color:#b45309;">
                           🔄 Reabrir
                         </button>`
                       : ''
