@@ -928,6 +928,11 @@ export async function handleErpSuperAdmin(
           { status: 404 }
         );
       }
+      const remainingMaxSeq = quotesDoc.items.reduce(
+        (m, x) => Math.max(m, Number(x?.seq || 0)),
+        0
+      );
+      quotesDoc.lastSeq = remainingMaxSeq;
       await saveQuotesDoc(baseTenant, quotesDoc, `delete_quote:${id}`);
       return NextResponse.json({
         ok: true,

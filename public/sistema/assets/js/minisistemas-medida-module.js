@@ -384,6 +384,18 @@
     return cat;
   }
 
+  function computeNextQuoteNumber(orders) {
+    if (!Array.isArray(orders) || orders.length === 0) return 2291;
+    var max = null;
+    orders.forEach(function (o) {
+      var n = parseInt(o && o.quoteNumber, 10);
+      if (Number.isFinite(n) && n > 0) {
+        if (max === null || n > max) max = n;
+      }
+    });
+    return max === null ? 2291 : max + 1;
+  }
+
   function getOrderDesiredDeductionMap(order) {
     var map = {};
     if (!order || !Array.isArray(order.items)) return map;
@@ -1338,7 +1350,7 @@
       var newOrdBtn = body.querySelector('#mm-btn-new-order');
       if (newOrdBtn) {
         newOrdBtn.addEventListener('click', function () {
-          var qNum = Number(cat.config.nextQuoteNumber) || 2292;
+          var qNum = computeNextQuoteNumber(STATE.orders);
           cat.config.nextQuoteNumber = qNum + 1;
           var manualOrder = {
             id: 'ORD-' + qNum + '-' + String(Date.now()).slice(-4),
@@ -1530,6 +1542,9 @@
             currentOrder.items = [];
             reconcileOrderStock(currentOrder);
             STATE.orders = STATE.orders.filter(function (o) { return o.id !== delId; });
+            if (cat && cat.config) {
+              cat.config.nextQuoteNumber = computeNextQuoteNumber(STATE.orders);
+            }
             STATE.editingOrderId = STATE.orders[0] ? STATE.orders[0].id : null;
             saveAllToCloud('🗑️ Presupuesto eliminado y stock restaurado.', {
               deletedOrderId: delId,
