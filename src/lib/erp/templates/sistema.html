@@ -17751,6 +17751,9 @@
           <button type="button" id="btn-edit-cierre-det" class="btn-secondary" style="width:auto; font-weight:700;">
             ✏️ Editar Planilla
           </button>
+          <button type="button" id="btn-retiros-cierre-det" class="btn-secondary" style="width:auto; font-weight:700; border-color:#b91c1c; color:#b91c1c;">
+            💸 Ver / Editar Retiros del Turno
+          </button>
           <button type="button" id="btn-confirm-cierre-det" class="btn-primary" style="width:auto; background:#15803d; border-color:#15803d; color:#fff;">
             ✅ Confirmar Recepción y Pasar Fondos a Caja
           </button>
@@ -17763,6 +17766,120 @@
         </div>
       </footer>
     </div>
+  </dialog>
+
+  <!-- ====================================================================
+       MODAL NATIVO (<dialog>): VER / EDITAR RETIROS DEL TURNO DE UNA PLANILLA
+       ==================================================================== -->
+  <dialog id="cierre-retiros-turno-dialog" class="erp-dialog cierre-caja-dialog" style="width:min(860px, 96vw); max-width:860px;" closedby="any" aria-labelledby="cierre-retiros-turno-title">
+    <form id="cierre-retiros-turno-form" class="dialog-form" novalidate>
+      <header class="dialog-header">
+        <div class="dialog-title-wrap">
+          <span class="badge badge--gold" id="cierre-retiros-turno-badge">AUDITORÍA DE RETIROS DEL TURNO</span>
+          <h2 id="cierre-retiros-turno-title">Retiros de Caja y Comprobantes del Turno</h2>
+        </div>
+        <button type="button" id="btn-close-cierre-retiros-top" class="btn-icon-close" aria-label="Cerrar auditoría de retiros">
+          ✕
+        </button>
+      </header>
+
+      <div class="dialog-body" style="display:flex; flex-direction:column; gap:0.95rem;">
+        <div id="cierre-retiros-ctacte-alert" hidden style="padding:0.75rem 0.95rem; border-radius:10px; border:1.5px solid #d97706; background:#fffbeb; color:#92400e; font-size:0.84rem; line-height:1.45;"></div>
+
+        <div class="filters-card" style="margin:0; padding:0.85rem;">
+          <h3 style="margin:0 0 0.5rem; font-size:0.9rem; font-weight:800;">1. Comprobantes de Retiro de Caja registrados en el sistema (Turno)</h3>
+          <div style="overflow-x:auto;">
+            <table class="cierre-classic-table" style="font-size:0.82rem; width:100%;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Comprobante</th>
+                  <th style="text-align:left;">Fecha / Hora</th>
+                  <th style="text-align:left;">Destinatario</th>
+                  <th style="text-align:left;">Concepto</th>
+                  <th style="text-align:right;">Importe ($)</th>
+                </tr>
+              </thead>
+              <tbody id="cierre-retiros-turno-tbody"></tbody>
+              <tfoot>
+                <tr style="font-weight:800; background:#f8fafc;">
+                  <td colspan="4">TOTAL RETIROS REGISTRADOS EN SISTEMA</td>
+                  <td id="cierre-retiros-sistema-total" style="text-align:right; color:#b91c1c;">$ 0,00</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div id="cierre-retiros-ctacte-box" class="filters-card" style="margin:0; padding:0.85rem;" hidden>
+          <h3 style="margin:0 0 0.5rem; font-size:0.9rem; font-weight:800; color:#334155;">2. Ventas en Cuenta Corriente del Turno (Informativo · No son Retiros de Efectivo)</h3>
+          <div style="overflow-x:auto;">
+            <table class="cierre-classic-table" style="font-size:0.82rem; width:100%;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Comprobante</th>
+                  <th style="text-align:left;">Fecha / Hora</th>
+                  <th style="text-align:left;">Cliente</th>
+                  <th style="text-align:right;">Importe ($)</th>
+                </tr>
+              </thead>
+              <tbody id="cierre-retiros-ctacte-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="cierre-retiros-admin-edit-box" class="filters-card" style="margin:0; padding:0.9rem; border:1.5px solid rgba(185,28,28,0.35); background:#fffafa;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+            <h3 style="margin:0; font-size:0.92rem; font-weight:800; color:#991b1b;">✏️ Corregir (-) Retiros de Caja en esta Planilla (Administrador)</h3>
+            <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+              <button type="button" id="btn-cierre-retiros-use-sys" class="btn-secondary btn-sm" style="width:auto; font-weight:700;">
+                📋 Igualar a Retiros del Sistema
+              </button>
+              <button type="button" id="btn-cierre-retiros-set-zero" class="btn-secondary btn-sm" style="width:auto; font-weight:700;">
+                0️⃣ Poner en $ 0,00
+              </button>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem; align-items:end;">
+            <div class="form-group" style="margin:0;">
+              <label for="cierre-retiros-edit-val" class="form-label" style="font-weight:800;">Nuevo importe (-) Retiros de Caja ($)</label>
+              <input type="number" id="cierre-retiros-edit-val" class="form-input" step="0.01" min="0" value="0.00" style="font-weight:800; font-size:1.05rem; color:#b91c1c;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="cierre-retiros-edit-obs" class="form-label">Motivo / Observación de la corrección</label>
+              <input type="text" id="cierre-retiros-edit-obs" class="form-input uppercase-input" placeholder="EJ: CAJERO CARGÓ CTA. CTE. COMO RETIRO POR ERROR">
+            </div>
+          </div>
+
+          <div id="cierre-retiros-preview-box" style="margin-top:0.75rem; padding:0.7rem 0.9rem; border-radius:8px; background:#f8fafc; border:1px solid #cbd5e1; display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:0.65rem; font-size:0.83rem;">
+            <div>
+              <span style="display:block; color:#64748b; font-size:0.75rem;">Esperado a Central (Nuevo)</span>
+              <strong id="cierre-retiros-prev-esperado" style="font-size:0.98rem;">$ 0,00</strong>
+            </div>
+            <div>
+              <span style="display:block; color:#64748b; font-size:0.75rem;">Arqueado a Central</span>
+              <strong id="cierre-retiros-prev-arqueado" style="font-size:0.98rem; color:#1e40af;">$ 0,00</strong>
+            </div>
+            <div>
+              <span style="display:block; color:#64748b; font-size:0.75rem;">Nueva Diferencia de Caja</span>
+              <strong id="cierre-retiros-prev-dif" style="font-size:0.98rem;">$ 0,00</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="dialog-footer" style="justify-content:space-between; flex-wrap:wrap; gap:0.6rem;">
+        <span class="field-hint" style="margin:0;">Al guardar, se recalcula automáticamente la Ecuación de Cierre y la Diferencia de Caja.</span>
+        <div style="display:flex; gap:0.55rem; flex-wrap:wrap;">
+          <button type="button" id="btn-cancel-cierre-retiros" class="btn-secondary" style="width:auto;">
+            Cerrar
+          </button>
+          <button type="submit" id="btn-save-cierre-retiros" class="btn-primary" style="width:auto; font-weight:800;">
+            💾 Guardar Retiros y Recalcular Planilla
+          </button>
+        </div>
+      </footer>
+    </form>
   </dialog>
 
   <!-- ====================================================================
@@ -17848,17 +17965,6 @@
             <span>Total Planilla a Caja Central</span>
             <strong id="central-edit-kpi-total" style="color:var(--brand-gold-dark);">$ 0,00</strong>
             <small style="display:block; color:var(--text-secondary); font-size:0.74rem; margin-top:0.15rem;">Efectivo Recibido + Valores</small>
-          </div>
-        </div>
-
-        <!-- Banner destacado de Diferencia de Caja (En más o en menos) y Control de Recuento -->
-        <div id="central-edit-dif-banner" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.75rem; padding:0.7rem 1rem; border-radius:10px; border:1px solid var(--border-subtle); background:#f8fafc; margin-block-end:0.9rem;">
-          <div style="display:flex; flex-direction:column; gap:0.15rem;">
-            <strong id="central-edit-dif-banner-title" style="font-size:0.92rem;">Diferencia de Caja del Cierre: $ 0,00 (Sin diferencia)</strong>
-            <span id="central-edit-dif-banner-formula" style="font-size:0.79rem; color:var(--text-secondary);">Efectivo Total Arqueado (Recibido en Central + Cambio en Caja) − Efectivo Esperado por Sistema</span>
-          </div>
-          <div id="central-edit-recuento-status-pill" style="font-size:0.82rem; font-weight:800; padding:0.35rem 0.75rem; border-radius:999px; background:#dcfce7; color:#15803d; border:1px solid rgba(21,128,61,0.25);">
-            ✓ Recuento coincide con lo declarado por el cajero
           </div>
         </div>
 
@@ -17949,6 +18055,16 @@
                   </button>
                 </div>
                 <input type="number" id="central-edit-efec-apertura" class="form-input" step="0.01" min="0" value="0.00" style="font-weight:800;">
+              </div>
+
+              <div id="central-edit-retiros-admin-wrap" class="form-group" style="margin:0; padding:0.65rem 0.8rem; border-radius:8px; border:1px solid rgba(185,28,28,0.35); background:rgba(185,28,28,0.05);" hidden>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-block-end:0.35rem;">
+                  <label for="central-edit-retiros" class="form-label" style="margin:0; color:#991b1b; font-weight:800;">💸 (-) Retiros de Caja ($) · Admin</label>
+                  <button type="button" id="btn-central-open-retiros-modal" class="btn-secondary btn-sm" style="width:auto; font-size:0.76rem; padding:0.2rem 0.6rem; border-color:#b91c1c; color:#b91c1c;">
+                    👁️ Ver Detalle Retiros
+                  </button>
+                </div>
+                <input type="number" id="central-edit-retiros" class="form-input" step="0.01" min="0" value="0.00" style="font-weight:800; color:#b91c1c;">
               </div>
 
               <div class="form-group" style="margin:0;">
