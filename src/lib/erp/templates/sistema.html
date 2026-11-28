@@ -2593,7 +2593,6 @@
         <div class="section-header-card" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem;">
           <div>
             <h2>📤 Orden de Pago · Pagos desde Caja Central</h2>
-            <p>Contabilizá los pagos efectuados desde <strong>Caja Central</strong> imputando <strong>Compra de Mercadería</strong> (Proveedores con selección de comprobantes pendientes) o <strong>Gastos Operativos</strong> (Energía Eléctrica, Teléfonos, Alquileres, Sueldos, etc.) con imputación de Mes de Pago.</p>
           </div>
           <div style="display:flex; flex-wrap:wrap; gap:0.55rem; align-items:center;">
             <button type="button" id="btn-open-abm-gastos" class="btn-primary btn-sm" style="width:auto; background:#0f172a; border-color:#0f172a; color:#fff;">
@@ -6777,14 +6776,14 @@
             <h3>Nuevo Cliente</h3>
           </article>
 
-          <article class="module-card" role="button" tabindex="0" data-open-section="sec-cuentas-corrientes">
+          <article class="module-card" role="button" tabindex="0" id="card-clientes-ctacte" data-open-section="sec-cuentas-corrientes">
             <div class="module-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="2" y="5" width="20" height="14" rx="2"></rect>
                 <line x1="2" y1="10" x2="22" y2="10"></line>
               </svg>
             </div>
-            <h3>Cuentas Corrientes y Saldos</h3>
+            <h3>Cuenta Corriente Clientes</h3>
           </article>
 
           <article class="module-card" role="button" tabindex="0" data-open-section="sec-menu-detalle-ctacte">
@@ -6943,17 +6942,17 @@
            ================================================================ -->
       <section id="sec-cuentas-corrientes" class="erp-section" hidden>
         <div class="module-back-bar">
-          <button type="button" class="btn-back-home" data-open-section="sec-menu-clientes">
+          <button type="button" id="btn-ctacte-back-menu" class="btn-back-home" data-open-section="sec-menu-clientes">
             ← Volver a Clientes y Cuentas Corrientes
           </button>
-          <span class="module-breadcrumb">
-            Clientes y Proveedores · <strong>Cuentas Corrientes Unificadas y Saldos</strong>
+          <span id="ctacte-breadcrumb" class="module-breadcrumb">
+            Clientes y Cuentas Corrientes · <strong>Cuenta Corriente Clientes</strong>
           </span>
         </div>
 
         <div class="section-header-card" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
           <div style="display:flex; flex-direction:column; gap:0.75rem;">
-            <h2 style="margin:0;">Cuentas Corrientes Unificadas · Clientes y Proveedores</h2>
+            <h2 id="ctacte-section-title" style="margin:0;">Cuenta Corriente Clientes</h2>
             <div style="display:flex; gap:0.65rem; flex-wrap:wrap;">
               <button type="button" id="btn-print-ctacte-unificadas-header" class="btn-primary" style="width:auto;">
                 🖨️ Imprimir Reporte
@@ -6968,7 +6967,7 @@
           </div>
 
           <div class="kpi-box kpi-box--gold" style="margin:0; min-inline-size:260px;">
-            <span class="kpi-label">Saldo Total a Cobrar</span>
+            <span id="kpi-ctacte-saldo-label" class="kpi-label">Saldo Total a Cobrar</span>
             <strong id="kpi-ctacte-saldo-total" class="kpi-value">$ 0,00</strong>
             <span id="kpi-ctacte-deudores-sub" class="kpi-sub">Calculando saldos activos...</span>
           </div>
@@ -6976,7 +6975,7 @@
 
         <div class="catalog-toolbar" style="grid-template-columns: 1.8fr 1.1fr 1.1fr 1fr auto;">
           <div class="toolbar-search" style="position:relative;">
-            <label for="ctacte-filter-q" class="toolbar-label">Buscar Cliente o Proveedor por Código, Nombre, Razón Social o CUIT/DNI</label>
+            <label id="ctacte-filter-q-label" for="ctacte-filter-q" class="toolbar-label">Buscar Cliente por Código, Nombre, Razón Social o CUIT/DNI</label>
             <div class="search-input-wrap">
               <input
                 type="search"
@@ -6994,10 +6993,8 @@
           <div class="toolbar-filter">
             <label for="ctacte-filter-rol" class="toolbar-label">Rol / Padrón</label>
             <select id="ctacte-filter-rol" class="form-select">
-              <option value="todos">Todos (Unificado)</option>
-              <option value="duales">🔄 Cliente + Proveedor (Unificados)</option>
-              <option value="clientes">👤 Clientes</option>
-              <option value="proveedores">🚚 Proveedores</option>
+              <option value="clientes">👤 Clientes y Clientes-Proveedores</option>
+              <option value="duales">🔄 Solo Clientes que son Proveedores</option>
             </select>
           </div>
 
@@ -7051,11 +7048,11 @@
             </caption>
             <thead>
               <tr>
-                <th scope="col">Cód. / Cliente · Proveedor</th>
+                <th id="ctacte-col-entity-th" scope="col">Cód. / Cliente</th>
                 <th scope="col">Rol / Condición Cta. Cte.</th>
                 <th scope="col" class="num-col">Total Debe ($)</th>
                 <th scope="col" class="num-col">Total Haber ($)</th>
-                <th scope="col" class="num-col">Saldo Unificado ($)</th>
+                <th scope="col" class="num-col">Saldo ($)</th>
                 <th scope="col">Último Mov.</th>
                 <th scope="col">Acciones</th>
               </tr>
@@ -7353,7 +7350,7 @@
                 <line x1="2" y1="10" x2="22" y2="10"></line>
               </svg>
             </div>
-            <h3>Cuentas Corrientes Unificadas</h3>
+            <h3>Cuenta Corriente Proveedores</h3>
           </article>
 
           <article class="module-card" role="button" tabindex="0" id="card-proveedores-duales">

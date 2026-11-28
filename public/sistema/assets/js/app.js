@@ -81,18 +81,18 @@ const ALL_SYSTEM_MODULES = [
     submodules: [
       { key: 'clientes:padron', label: 'Padrón de Clientes', selector: '#sec-menu-clientes [data-open-section="sec-clientes"]', sections: ['sec-clientes'] },
       { key: 'clientes:nuevo', label: 'Nuevo Cliente', selector: '#card-new-client', sections: [] },
-      { key: 'clientes:ctacte', label: 'Cuentas Corrientes y Saldos', selector: '#sec-menu-clientes [data-open-section="sec-cuentas-corrientes"]', sections: ['sec-cuentas-corrientes'] },
+      { key: 'clientes:ctacte', label: 'Cuenta Corriente Clientes', selector: '#sec-menu-clientes [data-open-section="sec-cuentas-corrientes"]', sections: ['sec-cuentas-corrientes'] },
       { key: 'clientes:detalle_ctacte', label: 'Detalle de Cuentas Corrientes', selector: '#sec-menu-clientes [data-open-section="sec-menu-detalle-ctacte"]', sections: ['sec-menu-detalle-ctacte', 'sec-detalle-ctacte'] }
     ]
   },
   {
     key: 'proveedores',
     label: 'Proveedores y Ventas',
-    sections: ['sec-menu-proveedores', 'sec-proveedores', 'sec-menu-factura-proveedor', 'sec-factura-proveedor-stock', 'sec-factura-proveedor', 'sec-factura-carga-rapida', 'sec-pedidos-proveedores', 'sec-menu-detalle-ctacte', 'sec-detalle-ctacte'],
+    sections: ['sec-menu-proveedores', 'sec-proveedores', 'sec-cuentas-corrientes', 'sec-menu-factura-proveedor', 'sec-factura-proveedor-stock', 'sec-factura-proveedor', 'sec-factura-carga-rapida', 'sec-pedidos-proveedores', 'sec-menu-detalle-ctacte', 'sec-detalle-ctacte'],
     submodules: [
       { key: 'proveedores:padron', label: 'Padrón de Proveedores', selector: '#sec-menu-proveedores [data-open-section="sec-proveedores"]', sections: ['sec-proveedores'] },
       { key: 'proveedores:nuevo', label: 'Nuevo Proveedor', selector: '#card-new-proveedor', sections: [] },
-      { key: 'proveedores:ctacte', label: 'Cuentas Corrientes Unificadas', selector: '#card-proveedores-ctacte', sections: [] },
+      { key: 'proveedores:ctacte', label: 'Cuenta Corriente Proveedores', selector: '#card-proveedores-ctacte', sections: ['sec-cuentas-corrientes'] },
       { key: 'proveedores:duales', label: 'Clientes que son Proveedores', selector: '#card-proveedores-duales', sections: [] },
       { key: 'proveedores:factura_prov', label: 'Factura Proveedor PDF/JPG', selector: '#sec-menu-proveedores [data-open-section="sec-menu-factura-proveedor"]', sections: ['sec-menu-factura-proveedor', 'sec-factura-proveedor-stock', 'sec-factura-proveedor'] },
       { key: 'proveedores:carga_rapida', label: 'Factura carga rápida', selector: '#sec-menu-proveedores [data-open-section="sec-factura-carga-rapida"]', sections: ['sec-factura-carga-rapida'] },
@@ -7374,22 +7374,96 @@ function scoreCtaCteEntityMatch(c, q, tokens) {
   return tokens.every((t) => hay.includes(t)) ? 250 : 0;
 }
 
+function applyCtaCteContext(context = 'clientes', options = {}) {
+  const mode = context === 'proveedores' ? 'proveedores' : 'clientes';
+  const changed = STATE.ctacteContext !== mode;
+  STATE.ctacteContext = mode;
+  if (changed && !options.keepSelected) {
+    STATE.ctacteSelectedEntityId = null;
+    STATE.ctactePage = 1;
+    const qInp = document.getElementById('ctacte-filter-q');
+    if (qInp) qInp.value = '';
+    const sugBox = document.getElementById('ctacte-cli-suggestions');
+    if (sugBox) {
+      sugBox.hidden = true;
+      sugBox.textContent = '';
+    }
+  }
+
+  const isProv = mode === 'proveedores';
+  const titleText = isProv ? 'Cuenta Corriente Proveedores' : 'Cuenta Corriente Clientes';
+
+  if (typeof SECTION_TOPBAR_META === 'object' && SECTION_TOPBAR_META['sec-cuentas-corrientes']) {
+    SECTION_TOPBAR_META['sec-cuentas-corrientes'].title = titleText;
+    SECTION_TOPBAR_META['sec-cuentas-corrientes'].back = isProv ? 'sec-menu-proveedores' : 'sec-menu-clientes';
+  }
+
+  const backBtn = document.getElementById('btn-ctacte-back-menu');
+  if (backBtn) {
+    backBtn.setAttribute('data-open-section', isProv ? 'sec-menu-proveedores' : 'sec-menu-clientes');
+    backBtn.textContent = isProv ? '← Volver a Proveedores y Ventas' : '← Volver a Clientes y Cuentas Corrientes';
+  }
+
+  const breadcrumbEl = document.getElementById('ctacte-breadcrumb');
+  if (breadcrumbEl) {
+    breadcrumbEl.innerHTML = isProv
+      ? 'Proveedores y Ventas · <strong>Cuenta Corriente Proveedores</strong>'
+      : 'Clientes y Cuentas Corrientes · <strong>Cuenta Corriente Clientes</strong>';
+  }
+
+  const titleEl = document.getElementById('ctacte-section-title');
+  if (titleEl) titleEl.textContent = titleText;
+
+  const qLbl = document.getElementById('ctacte-filter-q-label');
+  if (qLbl) {
+    qLbl.textContent = isProv
+      ? 'Buscar Proveedor por Código, Nombre, Razón Social o CUIT/DNI'
+      : 'Buscar Cliente por Código, Nombre, Razón Social o CUIT/DNI';
+  }
+
+  const thEntity = document.getElementById('ctacte-col-entity-th');
+  if (thEntity) thEntity.textContent = isProv ? 'Cód. / Proveedor' : 'Cód. / Cliente';
+
+  const newBtn = document.getElementById('btn-new-client-from-ctacte');
+  if (newBtn) newBtn.textContent = isProv ? '+ Nuevo Proveedor' : '+ Nuevo Cliente';
+
+  const rolSel = document.getElementById('ctacte-filter-rol');
+  if (rolSel) {
+    const prevVal = rolSel.value;
+    const expectedBase = isProv ? 'proveedores' : 'clientes';
+    const optHtml = isProv
+      ? '<option value="proveedores">🚚 Proveedores y Proveedores-Clientes</option><option value="duales">🔄 Solo Proveedores que son Clientes</option>'
+      : '<option value="clientes">👤 Clientes y Clientes-Proveedores</option><option value="duales">🔄 Solo Clientes que son Proveedores</option>';
+    if (rolSel.dataset.ctacteMode !== mode) {
+      rolSel.innerHTML = optHtml;
+      rolSel.dataset.ctacteMode = mode;
+      rolSel.value = (!changed && prevVal === 'duales') ? 'duales' : expectedBase;
+    } else if (rolSel.value !== expectedBase && rolSel.value !== 'duales') {
+      rolSel.value = expectedBase;
+    }
+  }
+}
+
 function getFilteredCuentasCorrientesUnificadasList() {
   if (typeof window.__MS_ENSURE_CTACTE_ORIGEN_FILTER__ === 'function') {
     window.__MS_ENSURE_CTACTE_ORIGEN_FILTER__();
   }
+  const activeMode = STATE.ctacteContext === 'proveedores' ? 'proveedores' : 'clientes';
   const qRaw = String(document.getElementById('ctacte-filter-q')?.value || '').trim();
   const q = normalizeStr(qRaw);
-  const rol = document.getElementById('ctacte-filter-rol')?.value || 'todos';
+  const rol = document.getElementById('ctacte-filter-rol')?.value || activeMode;
   const origenFilter = String(document.getElementById('ctacte-filter-origen')?.value || 'todos').toUpperCase();
   const estado = document.getElementById('ctacte-filter-estado')?.value || 'con_movimientos';
   const orden = document.getElementById('ctacte-filter-orden')?.value || 'mayor_saldo';
   const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
 
   if (STATE.ctacteSelectedEntityId) {
-    const pinned = STATE.clientes.find((c) => Number(c.id) === Number(STATE.ctacteSelectedEntityId) && !isSystemConfigClient(c));
+    const pinned = STATE.clientes.find((c) => {
+      if (Number(c.id) !== Number(STATE.ctacteSelectedEntityId) || isSystemConfigClient(c)) return false;
+      return activeMode === 'proveedores' ? Boolean(c.esProveedor) : Boolean(c.esCliente);
+    });
     if (pinned) {
-      return { list: [pinned], qRaw, rol, estado, orden };
+      return { list: [pinned], qRaw, rol, estado, orden, activeMode };
     }
   }
 
@@ -7398,9 +7472,10 @@ function getFilteredCuentasCorrientesUnificadasList() {
     const saldo = Number(c.saldoActual) || 0;
     const movs = Number(c.cantMovs) || 0;
 
+    // Aislamiento estricto por contexto: Clientes (+ duales) vs Proveedores (+ duales)
+    if (activeMode === 'proveedores' && !c.esProveedor) return false;
+    if (activeMode === 'clientes' && !c.esCliente) return false;
     if (rol === 'duales' && !(c.esCliente && c.esProveedor)) return false;
-    if (rol === 'clientes' && !c.esCliente) return false;
-    if (rol === 'proveedores' && !c.esProveedor) return false;
 
     if (origenFilter !== 'TODOS') {
       const cliMovs = Array.isArray(STATE.movimientosPorCliente?.[String(c.id)])
@@ -7446,17 +7521,22 @@ function getFilteredCuentasCorrientesUnificadasList() {
     return 0;
   });
 
-  return { list, qRaw, rol, estado, orden };
+  return { list, qRaw, rol, estado, orden, activeMode };
 }
 
 function printCuentasCorrientesUnificadasReport() {
-  const { list, qRaw } = getFilteredCuentasCorrientesUnificadasList();
+  const { list, qRaw, activeMode } = getFilteredCuentasCorrientesUnificadasList();
+  const isProv = activeMode === 'proveedores';
+  const reportTitle = isProv ? 'CUENTA CORRIENTE PROVEEDORES' : 'CUENTA CORRIENTE CLIENTES';
+  const reportSub = isProv
+    ? 'Reporte de Saldos de Proveedores y Proveedores-Clientes (Sin Cuentas en $ 0,00)'
+    : 'Reporte de Saldos de Clientes y Clientes-Proveedores (Sin Cuentas en $ 0,00)';
   // Excluir en la impresión las cuentas corrientes con saldo "Cero" ($ 0,00)
   const printList = list.filter((c) => Math.abs(Number(c?.saldoActual) || 0) >= 0.01);
   const rolSel = document.getElementById('ctacte-filter-rol');
   const estadoSel = document.getElementById('ctacte-filter-estado');
   const ordenSel = document.getElementById('ctacte-filter-orden');
-  const rolLabel = rolSel?.options[rolSel.selectedIndex]?.text || 'Todos (Unificado)';
+  const rolLabel = rolSel?.options[rolSel.selectedIndex]?.text || (isProv ? 'Proveedores y Proveedores-Clientes' : 'Clientes y Clientes-Proveedores');
   const estadoLabel = estadoSel?.options[estadoSel.selectedIndex]?.text || 'Con Saldo o Movimientos';
   const ordenLabel = ordenSel?.options[ordenSel.selectedIndex]?.text || 'Mayor Saldo primero';
 
@@ -7506,7 +7586,7 @@ function printCuentasCorrientesUnificadasReport() {
 <html lang="es-AR">
 <head>
   <meta charset="UTF-8">
-  <title>Reporte de Cuentas Corrientes Unificadas - ${escapeHtml(brandTitle)}</title>
+  <title>${escapeHtml(reportTitle)} - ${escapeHtml(brandTitle)}</title>
   <style>
     @page { size: A4 landscape; margin: 10mm; }
     body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; font-size: 9pt; margin: 0; }
@@ -7534,8 +7614,8 @@ function printCuentasCorrientesUnificadasReport() {
   </div>
   <div class="header">
     <div>
-      <h1>${escapeHtml(brandTitle.toUpperCase())} · CUENTAS CORRIENTES UNIFICADAS</h1>
-      <p class="subtitle">Reporte de Saldos Unificados de Clientes y Proveedores (Sin Cuentas en $ 0,00)</p>
+      <h1>${escapeHtml(brandTitle.toUpperCase())} · ${escapeHtml(reportTitle)}</h1>
+      <p class="subtitle">${escapeHtml(reportSub)}</p>
     </div>
     <div style="text-align:right; font-size:8.5pt; color:#475569;">
       <div><strong>Fecha de emisión:</strong> ${escapeHtml(nowStr)}</div>
@@ -7551,8 +7631,8 @@ function printCuentasCorrientesUnificadasReport() {
   </div>
   <div class="meta-grid">
     <div class="kpi-card kpi-card--gold">
-      <span class="kpi-label">Saldo Total a Cobrar</span>
-      <span class="kpi-val">$ ${formatArs(sumSaldoCobrar)}</span>
+      <span class="kpi-label">${isProv ? 'Saldo Total a Pagar' : 'Saldo Total a Cobrar'}</span>
+      <span class="kpi-val">$ ${formatArs(isProv ? sumSaldoPagar : sumSaldoCobrar)}</span>
     </div>
     <div class="kpi-card">
       <span class="kpi-label">Total Debe (+)</span>
@@ -7572,11 +7652,11 @@ function printCuentasCorrientesUnificadasReport() {
       <tr>
         <th style="width:32px; text-align:center;">#</th>
         <th style="width:65px;">Cód.</th>
-        <th>Cliente / Proveedor</th>
+        <th>${isProv ? 'Proveedor' : 'Cliente'}</th>
         <th style="width:85px;">Rol</th>
         <th style="text-align:right; width:105px;">Total Debe ($)</th>
         <th style="text-align:right; width:105px;">Total Haber ($)</th>
-        <th style="text-align:right; width:115px;">Saldo Unificado ($)</th>
+        <th style="text-align:right; width:115px;">Saldo ($)</th>
         <th style="text-align:center; width:85px;">Último Mov.</th>
       </tr>
     </thead>
@@ -7606,6 +7686,39 @@ function renderCuentasCorrientesSection(page = null) {
   const btnPrev = document.getElementById('btn-ctacte-prev-page');
   const btnNext = document.getElementById('btn-ctacte-next-page');
   if (!tbody) return;
+
+  const activeMode = STATE.ctacteContext === 'proveedores' ? 'proveedores' : 'clientes';
+  applyCtaCteContext(activeMode, { keepSelected: true });
+
+  // Actualizar KPI superior según el contexto activo (Clientes vs Proveedores)
+  const isProv = activeMode === 'proveedores';
+  const scopeEntities = STATE.clientes.filter((c) => !isSystemConfigClient(c) && (isProv ? c.esProveedor : c.esCliente));
+  let kpiAmount = 0;
+  let kpiCount = 0;
+  let kpiDuales = 0;
+  scopeEntities.forEach((c) => {
+    const s = Number(c.saldoActual) || 0;
+    if (c.esCliente && c.esProveedor) kpiDuales += 1;
+    if (isProv) {
+      if (s < -0.009) {
+        kpiAmount += Math.abs(s);
+        kpiCount += 1;
+      }
+    } else if (s > 0.009) {
+      kpiAmount += s;
+      kpiCount += 1;
+    }
+  });
+  const elSaldoLbl = document.getElementById('kpi-ctacte-saldo-label');
+  if (elSaldoLbl) elSaldoLbl.textContent = isProv ? 'Saldo Total a Pagar' : 'Saldo Total a Cobrar';
+  const elSaldoTot = document.getElementById('kpi-ctacte-saldo-total');
+  if (elSaldoTot) elSaldoTot.textContent = `$ ${formatArs(kpiAmount)}`;
+  const elDeudSub = document.getElementById('kpi-ctacte-deudores-sub');
+  if (elDeudSub) {
+    elDeudSub.textContent = isProv
+      ? `${kpiCount} proveedor(es) con saldo a pagar · ${kpiDuales} proveedor(es)-cliente(s)`
+      : `${kpiCount} cliente(s) con saldo a cobrar · ${kpiDuales} cliente(s)-proveedor(es)`;
+  }
 
   const CTACTE_PAGE_SIZE = 10;
   if (typeof page === 'number' && isFinite(page)) {
@@ -13217,6 +13330,19 @@ function initApp() {
       if (backBtnFcr) {
         backBtnFcr.setAttribute('data-open-section', 'sec-menu-proveedores');
         backBtnFcr.textContent = '← Volver a Proveedores y Ventas';
+      }
+    }
+    if (targetId === 'sec-cuentas-corrientes') {
+      if (prevSecId === 'sec-menu-clientes' || prevSecId === 'sec-clientes') {
+        applyCtaCteContext('clientes');
+      } else if (
+        prevSecId === 'sec-menu-proveedores' ||
+        prevSecId === 'sec-proveedores' ||
+        prevSecId === 'sec-factura-carga-rapida'
+      ) {
+        applyCtaCteContext('proveedores');
+      } else {
+        applyCtaCteContext(STATE.ctacteContext || 'clientes', { keepSelected: true });
       }
     }
     if (targetId === 'sec-pedidos-proveedores') {
@@ -29769,7 +29895,13 @@ function initApp() {
   document.getElementById('btn-login-online-reg')?.addEventListener('click', () => openOnlineRegModal());
   document.getElementById('btn-open-online-reg')?.addEventListener('click', () => openOnlineRegModal());
   document.getElementById('btn-new-client')?.addEventListener('click', () => openClientModal(null));
-  document.getElementById('btn-new-client-from-ctacte')?.addEventListener('click', () => openClientModal(null));
+  document.getElementById('btn-new-client-from-ctacte')?.addEventListener('click', () => {
+    if (STATE.ctacteContext === 'proveedores') {
+      openProveedorModal(null);
+    } else {
+      openClientModal(null);
+    }
+  });
   document.getElementById('btn-print-ctacte-unificadas')?.addEventListener('click', () => printCuentasCorrientesUnificadasReport());
   document.getElementById('btn-print-ctacte-unificadas-header')?.addEventListener('click', () => printCuentasCorrientesUnificadasReport());
 
@@ -29823,14 +29955,15 @@ function initApp() {
       ctaSugHighlightIdx = -1;
       return;
     }
-    const rol = document.getElementById('ctacte-filter-rol')?.value || 'todos';
-    const tokens = q.split(/\s+/).filter(Boolean);
+    const activeMode = STATE.ctacteContext === 'proveedores' ? 'proveedores' : 'clientes';
+    const rol = document.getElementById('ctacte-filter-rol')?.value || activeMode;
+    const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
     const scored = [];
     for (const c of STATE.clientes) {
       if (isSystemConfigClient(c)) continue;
+      if (activeMode === 'proveedores' && !c.esProveedor) continue;
+      if (activeMode === 'clientes' && !c.esCliente) continue;
       if (rol === 'duales' && !(c.esCliente && c.esProveedor)) continue;
-      if (rol === 'clientes' && !c.esCliente) continue;
-      if (rol === 'proveedores' && !c.esProveedor) continue;
       const sc = scoreCtaCteEntityMatch(c, q, tokens);
       if (sc > 0) scored.push({ c, sc });
     }
@@ -30919,11 +31052,11 @@ function initApp() {
   const cardProvCtaCte = document.getElementById('card-proveedores-ctacte');
   if (cardProvCtaCte) {
     const triggerProvCta = () => {
+      applyCtaCteContext('proveedores');
       switchSection('sec-cuentas-corrientes');
       loadClientesDatabase().then(() => {
-        const selRol = document.getElementById('ctacte-filter-rol');
-        if (selRol) selRol.value = 'todos';
-        renderCuentasCorrientesSection();
+        applyCtaCteContext('proveedores', { keepSelected: true });
+        renderCuentasCorrientesSection(1);
       });
     };
     cardProvCtaCte.addEventListener('click', triggerProvCta);
@@ -71040,8 +71173,7 @@ function initApp() {
     });
 
     document.getElementById('btn-fcr-go-ctacte')?.addEventListener('click', () => {
-      const rolSel = document.getElementById('ctacte-filter-rol');
-      if (rolSel) rolSel.value = 'proveedores';
+      applyCtaCteContext('proveedores');
       switchSection('sec-cuentas-corrientes');
     });
 

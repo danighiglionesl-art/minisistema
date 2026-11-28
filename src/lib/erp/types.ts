@@ -476,14 +476,14 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     submodules: [
       { key: "clientes:padron", name: "Padrón de Clientes", defaultMonthlyArs: 3000 },
       { key: "clientes:nuevo", name: "Alta y Edición de Cliente", defaultMonthlyArs: 3000 },
-      { key: "clientes:ctacte", name: "Resumen de Cuentas Corrientes", defaultMonthlyArs: 3000 },
+      { key: "clientes:ctacte", name: "Cuenta Corriente Clientes", defaultMonthlyArs: 3000 },
       { key: "clientes:detalle_ctacte", name: "Detalle e Imputación de Cta. Cte.", defaultMonthlyArs: 3000 },
     ],
   },
   {
     key: "proveedores",
     name: "Proveedores y Ventas",
-    description: "Padrón de proveedores, cuentas corrientes unificadas, lectura de Factura Proveedor PDF/JPG, Factura carga rápida y Pedidos a Proveedores.",
+    description: "Padrón de proveedores, cuenta corriente proveedores, lectura de Factura Proveedor PDF/JPG, Factura carga rápida y Pedidos a Proveedores.",
     defaultMonthlyArs: 14000,
     erpModuleKeys: [
       "proveedores",
@@ -498,7 +498,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
     submodules: [
       { key: "proveedores:padron", name: "Padrón de Proveedores", defaultMonthlyArs: 1500 },
       { key: "proveedores:nuevo", name: "Alta y Edición de Proveedor", defaultMonthlyArs: 1500 },
-      { key: "proveedores:ctacte", name: "Cuentas Corrientes Proveedores", defaultMonthlyArs: 2000 },
+      { key: "proveedores:ctacte", name: "Cuenta Corriente Proveedores", defaultMonthlyArs: 2000 },
       { key: "proveedores:duales", name: "Titulares Duales (Cliente / Proveedor)", defaultMonthlyArs: 1500 },
       { key: "proveedores:factura_prov", name: "Factura Proveedor PDF/JPG (Lectura IA)", defaultMonthlyArs: 3000 },
       { key: "proveedores:carga_rapida", name: "Factura Carga Rápida", defaultMonthlyArs: 2500 },
