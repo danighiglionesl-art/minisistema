@@ -61663,6 +61663,21 @@ function initApp() {
     renderOpProveedorState();
   }
 
+  function normalizeOpMedioPago(raw) {
+    const clean = String(raw || '').trim().toLowerCase();
+    if (clean === 'transferencia' || clean.includes('transfer')) return 'Transferencia';
+    if (clean === 'combinado' || clean.includes('combinad')) return 'Pago Combinado';
+    return 'Efectivo';
+  }
+
+  function normalizeOpSearchText(raw) {
+    return String(raw || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase();
+  }
+
   function updateOrdenPagoGastoLiveKpis() {
     const catId = String(document.getElementById('op-gasto-categoria-select')?.value || '');
     const catObj = (FONDOS_STATE.categoriasGastos || []).find((c) => c && c.id === catId) || null;
@@ -61670,7 +61685,7 @@ function initApp() {
     const anioVal = String(document.getElementById('op-gasto-anio-select')?.value || new Date().getFullYear());
     const periodoYm = `${anioVal}-${mesVal}`;
     const monto = roundMoney(Math.max(0, Number(document.getElementById('op-gasto-monto-input')?.value) || 0));
-    const medio = String(document.getElementById('op-gasto-medio-pago')?.value || 'Efectivo');
+    const medio = normalizeOpMedioPago(document.getElementById('op-gasto-medio-pago')?.value);
 
     const elCat = document.getElementById('op-gasto-kpi-cat');
     const elCatSub = document.getElementById('op-gasto-kpi-cat-sub');
@@ -61704,14 +61719,15 @@ function initApp() {
     const tbody = document.getElementById('op-historial-tbody');
     if (!tbody) return;
 
-    const fTipo = String(document.getElementById('op-hist-filter-tipo')?.value || 'TODOS');
+    const fTipoRaw = String(document.getElementById('op-hist-filter-tipo')?.value || 'TODOS').trim().toUpperCase();
+    const fTipo = fTipoRaw === 'GASTOS' ? 'GASTO' : fTipoRaw;
     const fPer = String(document.getElementById('op-hist-filter-periodo')?.value || '');
     const fQ = String(document.getElementById('op-hist-filter-q')?.value || '').trim().toUpperCase();
 
     const ops = Array.isArray(FONDOS_STATE.ordenesPago) ? FONDOS_STATE.ordenesPago : [];
     const filtered = ops.filter((op) => {
       if (!op) return false;
-      if (fTipo !== 'TODOS' && op.tipoOrden !== fTipo) return false;
+      if (fTipo !== 'TODOS' && String(op.tipoOrden || '').toUpperCase() !== fTipo) return false;
       if (fPer) {
         const opPer = op.tipoOrden === 'GASTO'
           ? String(op.periodoImputado || '')
@@ -61827,10 +61843,139 @@ function initApp() {
     }
   }
 
+  async function loadOpAsistenciaEmployeesOnce() {
+    if (ORDEN_PAGO_UI.asistenciaEmployeesLoaded || ORDEN_PAGO_UI.asistenciaEmployeesLoading) return;
+    ORDEN_PAGO_UI.asistenciaEmployeesLoading = true;
+    try {
+      const res = await fetch('/sistema/api/asistencia.php', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ok && Array.isArray(data.employees)) {
+          ORDEN_PAGO_UI.asistenciaEmployees = data.employees;
+        }
+      }
+    } catch {}
+    ORDEN_PAGO_UI.asistenciaEmployeesLoaded = true;
+    ORDEN_PAGO_UI.asistenciaEmployeesLoading = false;
+    const benInp = document.getElementById('op-gasto-beneficiario');
+    if (benInp && document.activeElement === benInp) {
+      renderOpGastoBeneficiarioSuggestions(true);
+    }
+  }
+
+  function buildOpGastoBeneficiarioCandidates() {
+    const seen = new Map();
+    const addCandidate = (nombreRaw, role, roleClass, meta, priority, extraHay) => {
+      const nombre = String(nombreRaw || '').trim();
+      const key = normalizeOpSearchText(nombre);
+      if (!key) return;
+      const existing = seen.get(key);
+      if (existing && existing.priority <= priority) return;
+      seen.set(key, {
+        nombre,
+        role,
+        roleClass,
+        meta: String(meta || '').trim(),
+        priority,
+        searchHay: normalizeOpSearchText(`${nombre} ${extraHay || ''} ${meta || ''} ${role}`)
+      });
+    };
+
+    const clientes = Array.isArray(STATE.clientes) ? STATE.clientes : [];
+    clientes.forEach((c) => {
+      if (!c || c.baja || isSystemConfigClient(c)) return;
+      const doc = c.nroDoc || c.cuit || '';
+      const metaParts = [];
+      if (c.codigo || c.id) metaParts.push(`Cód. #${c.codigo || c.id}`);
+      if (doc) metaParts.push(`CUIT/DNI: ${doc}`);
+      if (c.esProveedor) {
+        addCandidate(c.nombre, 'PROVEEDOR', 'pos-autocomplete-role--prov', metaParts.join(' · '), 1, `${c.codigo || ''} ${doc}`);
+      } else {
+        addCandidate(c.nombre, 'CLIENTE', 'pos-autocomplete-role--cli', metaParts.join(' · '), 3, `${c.codigo || ''} ${doc}`);
+      }
+    });
+
+    const empleados = Array.isArray(ORDEN_PAGO_UI.asistenciaEmployees) ? ORDEN_PAGO_UI.asistenciaEmployees : [];
+    empleados.forEach((e) => {
+      if (!e || e.active === false) return;
+      const p = e.profile || {};
+      const nombre = String(p.nombreCompleto || e.username || e.email || '').trim();
+      if (!nombre) return;
+      const metaParts = [];
+      if (p.dni || p.cuil) metaParts.push(`DNI/CUIL: ${p.dni || p.cuil}`);
+      if (p.puesto) metaParts.push(p.puesto);
+      addCandidate(nombre, 'EMPLEADO', 'pos-autocomplete-role--emp', metaParts.join(' · ') || 'Personal activo', 2, `${p.dni || ''} ${p.cuil || ''} ${p.puesto || ''}`);
+    });
+
+    const ops = Array.isArray(FONDOS_STATE.ordenesPago) ? FONDOS_STATE.ordenesPago : [];
+    ops.forEach((o) => {
+      if (!o) return;
+      if (o.beneficiario) {
+        addCandidate(o.beneficiario, 'HISTORIAL', '', o.categoriaNombre ? `Último gasto: ${o.categoriaNombre}` : 'Destinatario previo OP', 4, o.categoriaNombre || '');
+      }
+      if (o.proveedorNombre) {
+        addCandidate(o.proveedorNombre, 'PROVEEDOR', 'pos-autocomplete-role--prov', o.proveedorDoc ? `CUIT: ${o.proveedorDoc}` : 'Destinatario previo OP', 4, o.proveedorDoc || '');
+      }
+    });
+
+    const movs = Array.isArray(FONDOS_STATE.movimientosCaja) ? FONDOS_STATE.movimientosCaja : [];
+    movs.slice(0, 200).forEach((m) => {
+      if (!m || !m.destinatario) return;
+      addCandidate(m.destinatario, 'HISTORIAL', '', 'Destinatario previo Caja', 5, '');
+    });
+
+    return Array.from(seen.values()).sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
+    });
+  }
+
+  function renderOpGastoBeneficiarioSuggestions(forceOpen = false) {
+    const benInp = document.getElementById('op-gasto-beneficiario');
+    const benSug = document.getElementById('op-gasto-beneficiario-suggestions');
+    if (!benInp || !benSug) return;
+
+    const q = normalizeOpSearchText(benInp.value || '');
+    if (!q && !forceOpen) {
+      benSug.hidden = true;
+      ORDEN_PAGO_UI.gastoBenMatches = [];
+      ORDEN_PAGO_UI.gastoBenHighlight = -1;
+      return;
+    }
+
+    const candidates = buildOpGastoBeneficiarioCandidates();
+    const matches = (q
+      ? candidates.filter((c) => c.searchHay.includes(q))
+      : candidates
+    ).slice(0, 25);
+
+    ORDEN_PAGO_UI.gastoBenMatches = matches;
+    ORDEN_PAGO_UI.gastoBenHighlight = matches.length > 0 ? 0 : -1;
+
+    if (matches.length === 0) {
+      benSug.hidden = true;
+      return;
+    }
+
+    benSug.innerHTML = matches
+      .map(
+        (c, idx) => `<div class="pos-autocomplete-item${idx === 0 ? ' is-highlighted' : ''}" data-op-ben-idx="${idx}">
+          <div class="pos-autocomplete-item-row">
+            <strong>${escapeHtml(c.nombre)}</strong>
+            <span class="pos-autocomplete-role ${escapeHtml(c.roleClass)}">${escapeHtml(c.role)}</span>
+          </div>
+          ${c.meta ? `<span style="font-size:0.76rem; color:var(--text-secondary);">${escapeHtml(c.meta)}</span>` : ''}
+        </div>`
+      )
+      .join('');
+    benSug.hidden = false;
+  }
+
   window.initOrRefreshFondosOrdenPagoSection = function () {
     loadFondosLocalState();
     updateOrdenPagoHeaderStatus();
     populateGastosCategorySelectors();
+    loadOpAsistenciaEmployeesOnce();
 
     // Inicializar selectores de fecha y mes imputado por defecto
     const now = new Date();
@@ -61870,6 +62015,10 @@ function initApp() {
       if (ORDEN_PAGO_UI.selectedProveedor) {
         renderOpProveedorState();
       }
+      const benInp = document.getElementById('op-gasto-beneficiario');
+      if (benInp && document.activeElement === benInp) {
+        renderOpGastoBeneficiarioSuggestions(true);
+      }
     });
 
     // Poblar bancos de transferencia
@@ -61904,23 +62053,25 @@ function initApp() {
         }
       });
 
-      // Buscador predictivo de proveedores
+      // Buscador predictivo de proveedores (Compra de Mercadería)
       const provSearch = document.getElementById('op-prov-search');
       const provSug = document.getElementById('op-prov-suggestions');
-      provSearch?.addEventListener('input', () => {
-        const q = String(provSearch.value || '').trim().toUpperCase();
-        if (!provSug) return;
-        if (!q) {
+      const renderOpProvSuggestions = (forceOpen = false) => {
+        if (!provSearch || !provSug) return;
+        const q = normalizeOpSearchText(provSearch.value || '');
+        if (!q && !forceOpen) {
           provSug.hidden = true;
           return;
         }
         const matches = (Array.isArray(STATE.clientes) ? STATE.clientes : [])
           .filter((c) => {
             if (!c || c.baja || !c.esProveedor || isSystemConfigClient(c)) return false;
-            const hay = `${c.nombre || ''} ${c.codigo || ''} ${c.nroDoc || ''} ${c.cuit || ''}`.toUpperCase();
+            if (!q) return true;
+            const hay = normalizeOpSearchText(`${c.nombre || ''} ${c.codigo || ''} ${c.nroDoc || ''} ${c.cuit || ''}`);
             return hay.includes(q);
           })
-          .slice(0, 20);
+          .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' }))
+          .slice(0, 25);
         if (matches.length === 0) {
           provSug.hidden = true;
           return;
@@ -61928,20 +62079,95 @@ function initApp() {
         provSug.innerHTML = matches
           .map(
             (p) => `<div class="pos-autocomplete-item" data-op-prov-id="${escapeHtml(String(p.id))}">
-              <strong>${escapeHtml(p.nombre)}</strong>
+              <div class="pos-autocomplete-item-row">
+                <strong>${escapeHtml(p.nombre)}</strong>
+                <span class="pos-autocomplete-role pos-autocomplete-role--prov">PROVEEDOR</span>
+              </div>
               <span style="font-size:0.76rem; color:var(--text-secondary);">Cód. #${escapeHtml(String(p.codigo || p.id))} · CUIT: ${escapeHtml(p.nroDoc || p.cuit || 'S/D')}</span>
             </div>`
           )
           .join('');
         provSug.hidden = false;
-      });
+      };
+      provSearch?.addEventListener('input', () => renderOpProvSuggestions(false));
+      provSearch?.addEventListener('focus', () => renderOpProvSuggestions(true));
 
-      provSug?.addEventListener('click', (e) => {
+      const handleOpProvPick = (e) => {
         const item = e.target.closest('[data-op-prov-id]');
         if (!item) return;
+        e.preventDefault();
         const id = Number(item.getAttribute('data-op-prov-id'));
         const prov = (STATE.clientes || []).find((c) => Number(c.id) === id);
         if (prov) selectOpProveedor(prov);
+      };
+      provSug?.addEventListener('mousedown', handleOpProvPick);
+      provSug?.addEventListener('click', handleOpProvPick);
+
+      // Buscador predictivo de Beneficiario / Entidad / Destinatario (OP Gastos)
+      const benInp = document.getElementById('op-gasto-beneficiario');
+      const benSug = document.getElementById('op-gasto-beneficiario-suggestions');
+      const pickOpBeneficiarioByIdx = (idx) => {
+        const matches = Array.isArray(ORDEN_PAGO_UI.gastoBenMatches) ? ORDEN_PAGO_UI.gastoBenMatches : [];
+        const picked = matches[idx];
+        if (!picked || !benInp) return;
+        benInp.value = picked.nombre;
+        if (benSug) benSug.hidden = true;
+      };
+      benInp?.addEventListener('focus', () => {
+        if (!Array.isArray(STATE.clientes) || STATE.clientes.length === 0) {
+          loadClientesDatabase().then(() => {
+            if (document.activeElement === benInp) renderOpGastoBeneficiarioSuggestions(true);
+          });
+        }
+        renderOpGastoBeneficiarioSuggestions(true);
+      });
+      benInp?.addEventListener('input', () => renderOpGastoBeneficiarioSuggestions(true));
+      benInp?.addEventListener('keydown', (e) => {
+        if (!benSug || benSug.hidden) return;
+        const matches = Array.isArray(ORDEN_PAGO_UI.gastoBenMatches) ? ORDEN_PAGO_UI.gastoBenMatches : [];
+        if (matches.length === 0) return;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          ORDEN_PAGO_UI.gastoBenHighlight = ((ORDEN_PAGO_UI.gastoBenHighlight ?? -1) + 1) % matches.length;
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          ORDEN_PAGO_UI.gastoBenHighlight = ((ORDEN_PAGO_UI.gastoBenHighlight ?? 0) - 1 + matches.length) % matches.length;
+        } else if (e.key === 'Enter') {
+          const idx = ORDEN_PAGO_UI.gastoBenHighlight ?? -1;
+          if (idx >= 0 && idx < matches.length) {
+            e.preventDefault();
+            pickOpBeneficiarioByIdx(idx);
+          }
+          return;
+        } else if (e.key === 'Escape') {
+          benSug.hidden = true;
+          return;
+        } else {
+          return;
+        }
+        const items = benSug.querySelectorAll('[data-op-ben-idx]');
+        items.forEach((el, i) => el.classList.toggle('is-highlighted', i === ORDEN_PAGO_UI.gastoBenHighlight));
+        const activeEl = items[ORDEN_PAGO_UI.gastoBenHighlight];
+        if (activeEl && typeof activeEl.scrollIntoView === 'function') {
+          activeEl.scrollIntoView({ block: 'nearest' });
+        }
+      });
+      const handleOpBenPick = (e) => {
+        const item = e.target.closest('[data-op-ben-idx]');
+        if (!item) return;
+        e.preventDefault();
+        pickOpBeneficiarioByIdx(Number(item.getAttribute('data-op-ben-idx')));
+      };
+      benSug?.addEventListener('mousedown', handleOpBenPick);
+      benSug?.addEventListener('click', handleOpBenPick);
+
+      document.addEventListener('click', (e) => {
+        if (provSug && !provSug.hidden && e.target !== provSearch && !provSug.contains(e.target)) {
+          provSug.hidden = true;
+        }
+        if (benSug && !benSug.hidden && e.target !== benInp && !benSug.contains(e.target)) {
+          benSug.hidden = true;
+        }
       });
 
       document.getElementById('op-prov-quick-select')?.addEventListener('change', (e) => {
@@ -61990,7 +62216,7 @@ function initApp() {
       // Medio de pago en Compra de Mercadería
       const provMedioSel = document.getElementById('op-prov-medio-pago');
       provMedioSel?.addEventListener('change', () => {
-        const val = String(provMedioSel.value || 'Efectivo');
+        const val = normalizeOpMedioPago(provMedioSel.value);
         const bancoWrap = document.getElementById('op-prov-banco-wrap');
         const combWrap = document.getElementById('op-prov-combinado-wrap');
         if (bancoWrap) bancoWrap.hidden = val !== 'Transferencia' && val !== 'Pago Combinado';
@@ -62011,7 +62237,7 @@ function initApp() {
           return;
         }
 
-        const medioPago = String(document.getElementById('op-prov-medio-pago')?.value || 'Efectivo');
+        const medioPago = normalizeOpMedioPago(document.getElementById('op-prov-medio-pago')?.value);
         const obsUser = String(document.getElementById('op-prov-obs-input')?.value || '').trim().toUpperCase();
         let impEfectivo = montoTotal;
         let impBanco = 0;
@@ -62152,7 +62378,7 @@ function initApp() {
       ['op-gasto-categoria-select', 'op-gasto-mes-select', 'op-gasto-anio-select', 'op-gasto-medio-pago'].forEach((id) => {
         document.getElementById(id)?.addEventListener('change', () => {
           if (id === 'op-gasto-medio-pago') {
-            const medio = String(document.getElementById('op-gasto-medio-pago')?.value || 'Efectivo');
+            const medio = normalizeOpMedioPago(document.getElementById('op-gasto-medio-pago')?.value);
             const bWrap = document.getElementById('op-gasto-banco-wrap');
             if (bWrap) bWrap.hidden = medio !== 'Transferencia';
           }
@@ -62186,7 +62412,7 @@ function initApp() {
         const fechaIso = String(document.getElementById('op-gasto-fecha-pago')?.value || getTodayIsoLocal());
         const beneficiario = String(document.getElementById('op-gasto-beneficiario')?.value || '').trim().toUpperCase();
         const comprobanteRef = String(document.getElementById('op-gasto-comprobante-ref')?.value || '').trim().toUpperCase();
-        const medioPago = String(document.getElementById('op-gasto-medio-pago')?.value || 'Efectivo');
+        const medioPago = normalizeOpMedioPago(document.getElementById('op-gasto-medio-pago')?.value);
         const obsUser = String(document.getElementById('op-gasto-obs-input')?.value || '').trim().toUpperCase();
 
         const numeroOp = getNextOrdenPagoNumber();

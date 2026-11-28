@@ -2873,9 +2873,16 @@
                 <input type="date" id="op-gasto-fecha-pago" class="form-input">
               </div>
 
-              <div class="form-group">
+              <div class="form-group" style="position:relative;">
                 <label for="op-gasto-beneficiario" class="form-label">Beneficiario / Entidad / Destinatario</label>
-                <input type="text" id="op-gasto-beneficiario" class="form-input" placeholder="Ej: EPEC, Telecom, Propietario, Empleado...">
+                <input
+                  type="text"
+                  id="op-gasto-beneficiario"
+                  class="form-input"
+                  placeholder="Buscá proveedor, cliente, empleado o escribí entidad..."
+                  autocomplete="off"
+                >
+                <div id="op-gasto-beneficiario-suggestions" class="pos-suggestions" hidden></div>
               </div>
             </div>
 

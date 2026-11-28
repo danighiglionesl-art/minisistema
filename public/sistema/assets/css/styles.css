@@ -2824,19 +2824,83 @@ html[data-theme="dark"] #art-alicuota:disabled {
   font-variant-numeric: tabular-nums;
 }
 
-/* Autocompletado de artículos (Ventana Emergente Flotante) y clientes en Facturación */
+/* Autocompletado de artículos (Ventana Emergente Flotante) y clientes/terceros */
 .fact-autocomplete-list,
-.fact-suggestions-box {
+.fact-suggestions-box,
+.pos-suggestions,
+.pos-autocomplete-list {
   position: absolute;
   inset-inline: 0;
   top: calc(100% + 4px);
-  z-index: 120;
+  z-index: 250;
   max-height: 300px;
   overflow-y: auto;
   background: #ffffff !important;
   border: 1.5px solid var(--gold-main);
   border-radius: var(--radius-sm);
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.24);
+}
+
+.pos-suggestions[hidden],
+.pos-autocomplete-list[hidden] {
+  display: none !important;
+}
+
+.pos-autocomplete-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.14rem;
+  padding: 0.55rem 0.85rem;
+  border-block-end: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: var(--silver-bright, #0f172a);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.pos-autocomplete-item:last-child {
+  border-block-end: none;
+}
+
+.pos-autocomplete-item:hover,
+.pos-autocomplete-item.is-highlighted {
+  background: #fef9e7;
+}
+
+.pos-autocomplete-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pos-autocomplete-role {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pos-autocomplete-role--prov {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.pos-autocomplete-role--emp {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pos-autocomplete-role--cli {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .fact-suggestions-popover {
@@ -3795,14 +3859,24 @@ html[data-theme="dark"] .fact-code-entry-input::placeholder {
 
 html[data-theme="dark"] .fact-suggestions-popover,
 html[data-theme="dark"] .fact-autocomplete-list,
-html[data-theme="dark"] .fact-suggestions-box {
+html[data-theme="dark"] .fact-suggestions-box,
+html[data-theme="dark"] .pos-suggestions,
+html[data-theme="dark"] .pos-autocomplete-list {
   background: #141822 !important;
   border-color: var(--gold-main);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85);
 }
 
-html[data-theme="dark"] .fact-sug-item {
+html[data-theme="dark"] .fact-sug-item,
+html[data-theme="dark"] .pos-autocomplete-item {
   background: #141822;
+  color: #f1f5f9;
+  border-block-end-color: #243044;
+}
+
+html[data-theme="dark"] .pos-autocomplete-item:hover,
+html[data-theme="dark"] .pos-autocomplete-item.is-highlighted {
+  background: #1e293b;
 }
 
 html[data-theme="dark"] .fact-sug-modal-header {
@@ -11650,3 +11724,17 @@ html[data-theme="dark"] .fact-code-entry-input:focus::placeholder {
   align-items: center;
   justify-content: center;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
