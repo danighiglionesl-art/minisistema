@@ -312,34 +312,377 @@
     }
 
     if (viewKey === 'organizadores') {
-      var rows = (d.organizers || []).map(function (o) {
-        return '<tr>' +
-          '<td style="padding:8px;border-bottom:1px solid #eee;"><strong>' + esc(o.organization_name) + '</strong><br><small>' + esc(o.locality) + ', ' + esc(o.province) + '</small></td>' +
-          '<td style="padding:8px;border-bottom:1px solid #eee;">' + esc(o.approval_status) + '</td>' +
-          '<td style="padding:8px;border-bottom:1px solid #eee;"><code>' + esc(o.invite_code) + '</code></td>' +
-          '<td style="padding:8px;border-bottom:1px solid #eee;">' +
-            '<button type="button" data-org-act="approved" data-org-id="' + esc(o.id) + '" style="margin-right:6px;padding:5px 10px;border-radius:6px;border:none;background:#069294;color:#fff;font-weight:700;cursor:pointer;">Aprobar</button>' +
-            '<button type="button" data-org-act="suspended" data-org-id="' + esc(o.id) + '" style="padding:5px 10px;border-radius:6px;border:none;background:#FC4702;color:#fff;font-weight:700;cursor:pointer;">Suspender</button>' +
-          '</td>' +
-        '</tr>';
-      }).join('');
-      body.innerHTML = banner +
-        '<div style="background:#fff;border-radius:12px;padding:16px;border:1px solid #d9e2e6;overflow:auto;">' +
-        '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr><th style="text-align:left;padding:8px;">Organización</th><th style="text-align:left;padding:8px;">Estado</th><th style="text-align:left;padding:8px;">Código Invitación</th><th style="text-align:left;padding:8px;">Acción</th></tr></thead><tbody>' +
-        (rows || '<tr><td colspan="4" style="padding:12px;">Sin solicitudes de organizadores registradas aún.</td></tr>') +
-        '</tbody></table></div>';
-      body.querySelectorAll('[data-org-act]').forEach(function (btn) {
-        btn.addEventListener('click', async function () {
-          var res = await apiFeriarte('POST', {
-            action: 'review_organizer',
-            organizerProfileId: btn.getAttribute('data-org-id'),
-            decision: btn.getAttribute('data-org-act')
+      var allOrgs = d.organizers || [];
+
+      var fmtOrgDate = function (iso) {
+        if (!iso) return '—';
+        try {
+          return new Date(iso).toLocaleString('es-AR', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
           });
-          STATE.feedback = (res && res.message) || 'Actualizado';
-          await reloadData();
-          renderDetailView('organizadores');
+        } catch (_e) { return String(iso); }
+      };
+
+      var orgStatusMeta = function (st) {
+        if (st === 'approved') return { label: 'Aprobado', bg: '#dcfce7', color: '#166534' };
+        if (st === 'pending') return { label: 'Pendiente', bg: '#fef3c7', color: '#92400e' };
+        if (st === 'suspended') return { label: 'Suspendido', bg: '#fee2e2', color: '#991b1b' };
+        if (st === 'rejected') return { label: 'Rechazado', bg: '#f1f5f9', color: '#475569' };
+        return { label: String(st || '—'), bg: '#f1f5f9', color: '#334155' };
+      };
+
+      var openOrgFichaModal = function (orgObj) {
+        if (!orgObj) return;
+        var prevModal = document.getElementById('fa-org-ficha-modal');
+        if (prevModal) prevModal.remove();
+
+        var stMeta = orgStatusMeta(orgObj.approval_status);
+        var hasPayout = Boolean(orgObj.payout_cbu_cvu || orgObj.payout_alias || orgObj.payout_holder_name);
+        var payoutBlock = hasPayout
+          ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;font-size:12px;">' +
+              '<div><strong>Método:</strong> ' + esc(orgObj.payout_method || 'Transferencia') + '</div>' +
+              '<div><strong>Titular:</strong> ' + esc(orgObj.payout_holder_name || '—') + '</div>' +
+              '<div><strong>Alias:</strong> ' + esc(orgObj.payout_alias || '—') + '</div>' +
+              '<div><strong>CBU / CVU:</strong> ' + esc(orgObj.payout_cbu_cvu || '—') + '</div>' +
+            '</div>'
+          : '<div style="font-size:12px;color:#64748b;">Aún no cargó datos bancarios de cobro.</div>';
+
+        var fairsListHtml = (orgObj.fairs || []).length
+          ? orgObj.fairs.map(function (f) {
+              var loc = [f.locality, f.province].filter(Boolean).join(', ');
+              return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;margin-top:6px;font-size:12px;">' +
+                '<div><strong>' + esc(f.name) + '</strong>' + (loc ? ' · <span style="color:#64748b;">' + esc(loc) + '</span>' : '') + ' · <span style="text-transform:capitalize;">' + esc(f.status || '') + '</span></div>' +
+                '<a href="https://feriarte.vercel.app/feria/' + encodeURIComponent(f.slug) + '" target="_blank" rel="noopener" style="color:#069294;font-weight:700;text-decoration:none;">Ver feria ↗</a>' +
+              '</div>';
+            }).join('')
+          : '<div style="font-size:12px;color:#64748b;">Todavía no creó ferias.</div>';
+
+        var overlay = document.createElement('div');
+        overlay.id = 'fa-org-ficha-modal';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(2,60,70,0.62);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;';
+        overlay.innerHTML =
+          '<div style="background:#fff;border-radius:16px;max-width:650px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.28);border:1px solid #d9e2e6;">' +
+            '<div style="background:#023C46;color:#fff;padding:18px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-radius:16px 16px 0 0;">' +
+              '<div>' +
+                '<div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#56D7A1;">Ficha de Organizador · FeriARTE</div>' +
+                '<h3 style="margin:4px 0 2px;font-size:19px;font-weight:900;color:#fff;">' + esc(orgObj.organization_name || 'Sin nombre') + '</h3>' +
+                '<div style="font-size:13px;color:rgba(255,255,255,0.88);">' + esc(orgObj.user_full_name || 'Responsable') + (orgObj.user_email ? ' · ' + esc(orgObj.user_email) : '') + '</div>' +
+              '</div>' +
+              '<button type="button" id="fa-org-close-x" aria-label="Cerrar ficha" style="background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;">&times;</button>' +
+            '</div>' +
+            '<div style="padding:18px 20px;display:grid;gap:14px;color:#023C46;">' +
+              '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+                '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:' + stMeta.bg + ';color:' + stMeta.color + ';">Estado: ' + esc(stMeta.label) + '</span>' +
+                '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:#023C46;">Código invitación: <code>' + esc(orgObj.invite_code || '—') + '</code></span>' +
+              '</div>' +
+              '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#069294;margin-bottom:8px;">Datos de registración Web</div>' +
+                '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:12.5px;">' +
+                  '<div><strong>Responsable:</strong><br>' + esc(orgObj.user_full_name || '—') + '</div>' +
+                  '<div><strong>Correo electrónico:</strong><br>' + esc(orgObj.user_email || '—') + '</div>' +
+                  '<div><strong>WhatsApp / Teléfono:</strong><br>' + esc(orgObj.user_phone || 'No informado') + '</div>' +
+                  '<div><strong>CUIT / CUIL:</strong><br>' + esc(orgObj.cuit_cuil || 'No informado') + '</div>' +
+                  '<div><strong>Ubicación:</strong><br>' + esc([orgObj.locality, orgObj.province].filter(Boolean).join(', ') || 'No informada') + '</div>' +
+                  '<div><strong>Comisión especial:</strong><br>' + (orgObj.commission_override_pct != null ? esc(orgObj.commission_override_pct) + '%' : 'Regla global vigente') + '</div>' +
+                  '<div><strong>Fecha de solicitud:</strong><br>' + esc(fmtOrgDate(orgObj.created_at)) + '</div>' +
+                  '<div><strong>Aprobación:</strong><br>' + (orgObj.approved_at ? esc(fmtOrgDate(orgObj.approved_at)) + (orgObj.approved_by ? ' (' + esc(orgObj.approved_by) + ')' : '') : 'Pendiente') + '</div>' +
+                '</div>' +
+                (orgObj.description ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:12.5px;"><strong>Descripción:</strong><br>' + esc(orgObj.description) + '</div>' : '') +
+              '</div>' +
+              '<div style="background:#FFF8EF;border:1px solid #f2dfc4;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#FC4702;margin-bottom:8px;">Datos de cobro de comisiones</div>' +
+                payoutBlock +
+              '</div>' +
+              '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#023C46;margin-bottom:6px;">Ferias registradas (' + esc(orgObj.fairs_count || 0) + ')</div>' +
+                fairsListHtml +
+              '</div>' +
+              '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding-top:4px;">' +
+                '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+                  '<button type="button" data-modal-org-act="approved" style="padding:8px 14px;border-radius:8px;border:none;background:#069294;color:#fff;font-weight:700;cursor:pointer;">Aprobar organizador</button>' +
+                  '<button type="button" data-modal-org-act="suspended" style="padding:8px 14px;border-radius:8px;border:none;background:#FC4702;color:#fff;font-weight:700;cursor:pointer;">Suspender</button>' +
+                '</div>' +
+                '<button type="button" id="fa-org-close-btn" style="background:#023C46;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;">Cerrar ficha</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+
+        var closeModal = function () {
+          overlay.remove();
+          document.removeEventListener('keydown', onEsc);
+        };
+        var onEsc = function (e) { if (e.key === 'Escape') closeModal(); };
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+        overlay.querySelector('#fa-org-close-x').addEventListener('click', closeModal);
+        overlay.querySelector('#fa-org-close-btn').addEventListener('click', closeModal);
+        overlay.querySelectorAll('[data-modal-org-act]').forEach(function (btn) {
+          btn.addEventListener('click', async function () {
+            var res = await apiFeriarte('POST', {
+              action: 'review_organizer',
+              organizerProfileId: orgObj.id,
+              decision: btn.getAttribute('data-modal-org-act')
+            });
+            closeModal();
+            STATE.feedback = (res && res.message) || 'Organizador actualizado.';
+            await reloadData();
+            renderDetailView('organizadores');
+          });
         });
-      });
+        document.addEventListener('keydown', onEsc);
+        document.body.appendChild(overlay);
+      };
+
+      var renderOrgsTable = function (queryStr) {
+        var q = String(queryStr || '').trim().toLowerCase();
+        var filtered = q
+          ? allOrgs.filter(function (o) {
+              return String(o.organization_name || '').toLowerCase().indexOf(q) !== -1 ||
+                String(o.user_full_name || '').toLowerCase().indexOf(q) !== -1 ||
+                String(o.user_email || '').toLowerCase().indexOf(q) !== -1;
+            })
+          : allOrgs;
+
+        var tbody = document.getElementById('fa-orgs-tbody');
+        var countEl = document.getElementById('fa-orgs-count');
+        if (countEl) countEl.textContent = filtered.length + ' registro(s)';
+        if (!tbody) return;
+
+        if (!filtered.length) {
+          tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;color:#64748b;">Sin organizadores registrados aún.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = filtered.map(function (o) {
+          var stMeta = orgStatusMeta(o.approval_status);
+          return '<tr data-fa-org-id="' + esc(o.id) + '" style="cursor:pointer;">' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-weight:700;color:#023C46;">' + esc(o.organization_name || 'Sin nombre') + '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;color:#334155;">' +
+              '<div>' + esc(o.user_full_name || '—') + '</div>' +
+              '<small style="color:#64748b;">' + esc(o.user_email || '') + '</small>' +
+            '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;">' +
+              '<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;background:' + stMeta.bg + ';color:' + stMeta.color + ';">' + esc(stMeta.label) + '</span>' +
+            '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;">' +
+              '<button type="button" style="background:#069294;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">Ver ficha</button>' +
+            '</td>' +
+          '</tr>';
+        }).join('');
+
+        tbody.querySelectorAll('[data-fa-org-id]').forEach(function (tr) {
+          tr.addEventListener('click', function () {
+            var oid = tr.getAttribute('data-fa-org-id');
+            var found = allOrgs.find(function (x) { return x.id === oid; });
+            openOrgFichaModal(found);
+          });
+        });
+      };
+
+      body.innerHTML = banner +
+        '<div style="background:#fff;border-radius:12px;padding:16px;border:1px solid #d9e2e6;">' +
+          '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">' +
+            '<input id="fa-orgs-search" type="search" placeholder="Buscar por organización, responsable o correo..." style="flex:1;min-width:220px;max-width:400px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;">' +
+            '<span id="fa-orgs-count" style="font-size:12px;font-weight:700;color:#64748b;">' + esc(allOrgs.length) + ' registro(s)</span>' +
+          '</div>' +
+          '<div style="overflow:auto;">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Organización</th>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Responsable y correo</th>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Estado</th>' +
+              '<th style="text-align:right;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Ficha</th>' +
+            '</tr></thead><tbody id="fa-orgs-tbody"></tbody></table>' +
+          '</div>' +
+        '</div>';
+
+      renderOrgsTable('');
+      var orgSearch = document.getElementById('fa-orgs-search');
+      if (orgSearch) {
+        orgSearch.addEventListener('input', function () {
+          renderOrgsTable(orgSearch.value);
+        });
+      }
+      return;
+    }
+
+    if (viewKey === 'ferias') {
+      var allFairs = d.fairs || [];
+
+      var fmtFairDate = function (iso) {
+        if (!iso) return '—';
+        try {
+          return new Date(iso).toLocaleString('es-AR', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+          });
+        } catch (_e) { return String(iso); }
+      };
+
+      var fairStatusMeta = function (st) {
+        if (st === 'active') return { label: 'Activa', bg: '#dcfce7', color: '#166534' };
+        if (st === 'upcoming') return { label: 'Próxima', bg: '#e0f2fe', color: '#075985' };
+        if (st === 'finished') return { label: 'Finalizada', bg: '#f1f5f9', color: '#475569' };
+        if (st === 'draft') return { label: 'Borrador', bg: '#fef3c7', color: '#92400e' };
+        if (st === 'suspended') return { label: 'Suspendida', bg: '#fee2e2', color: '#991b1b' };
+        return { label: String(st || '—'), bg: '#f1f5f9', color: '#334155' };
+      };
+
+      var modalityLabel = function (m) {
+        if (m === 'presencial') return 'Presencial';
+        if (m === 'virtual') return 'Virtual';
+        if (m === 'hibrida') return 'Híbrida';
+        return String(m || '—');
+      };
+
+      var openFairFichaModal = function (fairObj) {
+        if (!fairObj) return;
+        var prevModal = document.getElementById('fa-fair-ficha-modal');
+        if (prevModal) prevModal.remove();
+
+        var stMeta = fairStatusMeta(fairObj.status);
+        var tags = Array.isArray(fairObj.categories_tags) ? fairObj.categories_tags.filter(Boolean) : [];
+        var socials = fairObj.social_links && typeof fairObj.social_links === 'object' ? fairObj.social_links : {};
+        var socialEntries = Object.keys(socials).filter(function (k) { return Boolean(socials[k]); });
+
+        var storesHtml = (fairObj.linked_stores || []).length
+          ? fairObj.linked_stores.map(function (ls) {
+              return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;margin-top:6px;font-size:12px;">' +
+                '<div><strong>' + esc(ls.store_name) + '</strong>' + (ls.stand_code ? ' · Puesto ' + esc(ls.stand_code) : '') + ' · <span style="color:#64748b;">' + esc(ls.status) + '</span></div>' +
+                (ls.store_slug ? '<a href="https://feriarte.vercel.app/tienda/' + encodeURIComponent(ls.store_slug) + '" target="_blank" rel="noopener" style="color:#069294;font-weight:700;text-decoration:none;">Ver tienda ↗</a>' : '') +
+              '</div>';
+            }).join('')
+          : '<div style="font-size:12px;color:#64748b;">Sin emprendedores vinculados todavía.</div>';
+
+        var overlay = document.createElement('div');
+        overlay.id = 'fa-fair-ficha-modal';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(2,60,70,0.62);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;';
+        overlay.innerHTML =
+          '<div style="background:#fff;border-radius:16px;max-width:650px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.28);border:1px solid #d9e2e6;">' +
+            '<div style="background:#023C46;color:#fff;padding:18px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-radius:16px 16px 0 0;">' +
+              '<div>' +
+                '<div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#56D7A1;">Ficha de Feria · FeriARTE</div>' +
+                '<h3 style="margin:4px 0 2px;font-size:19px;font-weight:900;color:#fff;">' + esc(fairObj.name || 'Sin nombre') + '</h3>' +
+                '<div style="font-size:13px;color:rgba(255,255,255,0.88);">' + esc(fairObj.organizer_name || 'Organizador') + (fairObj.organizer_email ? ' · ' + esc(fairObj.organizer_email) : '') + '</div>' +
+              '</div>' +
+              '<button type="button" id="fa-fair-close-x" aria-label="Cerrar ficha" style="background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;">&times;</button>' +
+            '</div>' +
+            '<div style="padding:18px 20px;display:grid;gap:14px;color:#023C46;">' +
+              '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+                '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:' + stMeta.bg + ';color:' + stMeta.color + ';">Estado: ' + esc(stMeta.label) + '</span>' +
+                '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:#023C46;">Modalidad: ' + esc(modalityLabel(fairObj.modality)) + '</span>' +
+                (fairObj.is_featured ? '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:#FFF8EF;color:#FC4702;">Destacada</span>' : '') +
+                (fairObj.slug ? '<a href="https://feriarte.vercel.app/feria/' + encodeURIComponent(fairObj.slug) + '" target="_blank" rel="noopener" style="margin-left:auto;font-size:12px;font-weight:800;color:#069294;text-decoration:none;">Abrir página pública ↗</a>' : '') +
+              '</div>' +
+              '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#069294;margin-bottom:8px;">Datos de registración Web</div>' +
+                '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:12.5px;">' +
+                  '<div><strong>Organizador:</strong><br>' + esc(fairObj.organizer_name || '—') + '</div>' +
+                  '<div><strong>Contacto organizador:</strong><br>' + esc([fairObj.organizer_user_name, fairObj.organizer_email].filter(Boolean).join(' · ') || '—') + '</div>' +
+                  '<div><strong>Dirección / Predio:</strong><br>' + esc(fairObj.address || 'No informada') + '</div>' +
+                  '<div><strong>Localidad y Provincia:</strong><br>' + esc([fairObj.locality, fairObj.province].filter(Boolean).join(', ') || 'No informada') + '</div>' +
+                  '<div><strong>Inicio:</strong><br>' + esc(fmtFairDate(fairObj.starts_at)) + '</div>' +
+                  '<div><strong>Finalización:</strong><br>' + esc(fmtFairDate(fairObj.ends_at)) + '</div>' +
+                  '<div><strong>Horarios:</strong><br>' + esc(fairObj.schedule_text || 'No informado') + '</div>' +
+                  '<div><strong>Sigue online al finalizar:</strong><br>' + (fairObj.keep_online_after_end ? 'Sí (vidriera 24/7)' : 'No') + '</div>' +
+                  '<div><strong>Fecha de alta:</strong><br>' + esc(fmtFairDate(fairObj.created_at)) + '</div>' +
+                '</div>' +
+                (fairObj.description ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:12.5px;"><strong>Descripción:</strong><br>' + esc(fairObj.description) + '</div>' : '') +
+                (tags.length ? '<div style="margin-top:10px;font-size:12px;"><strong>Rubros / etiquetas:</strong> ' + esc(tags.join(', ')) + '</div>' : '') +
+                (socialEntries.length ? '<div style="margin-top:8px;font-size:12px;"><strong>Redes:</strong> ' + socialEntries.map(function (k) { return esc(k + ': ' + socials[k]); }).join(' · ') + '</div>' : '') +
+              '</div>' +
+              '<div style="background:#FFF8EF;border:1px solid #f2dfc4;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#FC4702;margin-bottom:6px;">Emprendedores / Tiendas vinculadas (' + esc((fairObj.linked_stores || []).length) + ')</div>' +
+                storesHtml +
+              '</div>' +
+              '<div style="display:flex;justify-content:flex-end;padding-top:4px;">' +
+                '<button type="button" id="fa-fair-close-btn" style="background:#023C46;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;">Cerrar ficha</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+
+        var closeModal = function () {
+          overlay.remove();
+          document.removeEventListener('keydown', onEsc);
+        };
+        var onEsc = function (e) { if (e.key === 'Escape') closeModal(); };
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+        overlay.querySelector('#fa-fair-close-x').addEventListener('click', closeModal);
+        overlay.querySelector('#fa-fair-close-btn').addEventListener('click', closeModal);
+        document.addEventListener('keydown', onEsc);
+        document.body.appendChild(overlay);
+      };
+
+      var renderFairsTable = function (queryStr) {
+        var q = String(queryStr || '').trim().toLowerCase();
+        var filtered = q
+          ? allFairs.filter(function (f) {
+              return String(f.name || '').toLowerCase().indexOf(q) !== -1 ||
+                String(f.organizer_name || '').toLowerCase().indexOf(q) !== -1 ||
+                String(f.organizer_email || '').toLowerCase().indexOf(q) !== -1;
+            })
+          : allFairs;
+
+        var tbody = document.getElementById('fa-fairs-tbody');
+        var countEl = document.getElementById('fa-fairs-count');
+        if (countEl) countEl.textContent = filtered.length + ' registro(s)';
+        if (!tbody) return;
+
+        if (!filtered.length) {
+          tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;color:#64748b;">Sin ferias registradas aún.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = filtered.map(function (f) {
+          var stMeta = fairStatusMeta(f.status);
+          return '<tr data-fa-fair-id="' + esc(f.id) + '" style="cursor:pointer;">' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-weight:700;color:#023C46;">' + esc(f.name || 'Sin nombre') + '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;color:#334155;">' +
+              '<div>' + esc(f.organizer_name || '—') + '</div>' +
+              '<small style="color:#64748b;">' + esc(f.organizer_email || '') + '</small>' +
+            '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;">' +
+              '<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;background:' + stMeta.bg + ';color:' + stMeta.color + ';">' + esc(stMeta.label) + '</span>' +
+            '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;">' +
+              '<button type="button" style="background:#069294;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">Ver ficha</button>' +
+            '</td>' +
+          '</tr>';
+        }).join('');
+
+        tbody.querySelectorAll('[data-fa-fair-id]').forEach(function (tr) {
+          tr.addEventListener('click', function () {
+            var fid = tr.getAttribute('data-fa-fair-id');
+            var found = allFairs.find(function (x) { return x.id === fid; });
+            openFairFichaModal(found);
+          });
+        });
+      };
+
+      body.innerHTML = banner +
+        '<div style="background:#fff;border-radius:12px;padding:16px;border:1px solid #d9e2e6;">' +
+          '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">' +
+            '<input id="fa-fairs-search" type="search" placeholder="Buscar por nombre de feria, organizador o correo..." style="flex:1;min-width:220px;max-width:400px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;">' +
+            '<span id="fa-fairs-count" style="font-size:12px;font-weight:700;color:#64748b;">' + esc(allFairs.length) + ' registro(s)</span>' +
+          '</div>' +
+          '<div style="overflow:auto;">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Feria</th>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Organizador y correo</th>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Estado</th>' +
+              '<th style="text-align:right;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Ficha</th>' +
+            '</tr></thead><tbody id="fa-fairs-tbody"></tbody></table>' +
+          '</div>' +
+        '</div>';
+
+      renderFairsTable('');
+      var fairSearch = document.getElementById('fa-fairs-search');
+      if (fairSearch) {
+        fairSearch.addEventListener('input', function () {
+          renderFairsTable(fairSearch.value);
+        });
+      }
       return;
     }
 

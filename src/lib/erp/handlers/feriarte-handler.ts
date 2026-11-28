@@ -65,6 +65,7 @@ export async function handleErpFeriarte(
       auditRes,
       qrScansRes,
       identitiesRes,
+      fairLinksRes,
     ] = await Promise.all([
       sb
         .from("fa_users")
@@ -74,12 +75,12 @@ export async function handleErpFeriarte(
       sb.from("fa_user_roles").select("user_id, role, status"),
       sb
         .from("fa_organizer_profiles")
-        .select("id, user_id, organization_name, cuit_cuil, province, locality, approval_status, invite_code, commission_override_pct, approved_by, approved_at, created_at")
+        .select("id, user_id, organization_name, cuit_cuil, province, locality, description, payout_method, payout_cbu_cvu, payout_alias, payout_holder_name, approval_status, invite_code, commission_override_pct, approved_by, approved_at, created_at")
         .order("created_at", { ascending: false })
         .limit(200),
       sb
         .from("fa_fairs")
-        .select("id, organizer_id, slug, name, modality, province, locality, status, is_featured, starts_at, ends_at, created_at")
+        .select("id, organizer_id, slug, name, modality, province, locality, address, starts_at, ends_at, schedule_text, description, categories_tags, social_links, keep_online_after_end, status, is_featured, created_at")
         .order("created_at", { ascending: false })
         .limit(200),
       sb
@@ -139,6 +140,7 @@ export async function handleErpFeriarte(
         .limit(150),
       sb.from("fa_qr_scan_events").select("id", { count: "exact", head: true }),
       sb.from("fa_user_identities").select("user_id, provider, provider_email, created_at"),
+      sb.from("fa_fair_store_links").select("fair_id, store_id, status, stand_code"),
     ]);
 
     const users = usersRes.data || [];
@@ -256,6 +258,75 @@ export async function handleErpFeriarte(
       };
     });
 
+    const userById = new Map<string, (typeof enrichedUsers)[number]>();
+    for (const u of enrichedUsers) userById.set(u.id, u);
+
+    const fairsByOrgId = new Map<
+      string,
+      Array<{ id: string; slug: string; name: string; status: string; modality: string; locality: string | null; province: string | null }>
+    >();
+    for (const f of fairs) {
+      if (!f.organizer_id) continue;
+      const list = fairsByOrgId.get(f.organizer_id) || [];
+      list.push({
+        id: f.id,
+        slug: f.slug,
+        name: f.name,
+        status: f.status,
+        modality: f.modality,
+        locality: f.locality || null,
+        province: f.province || null,
+      });
+      fairsByOrgId.set(f.organizer_id, list);
+    }
+
+    const enrichedOrganizers = organizers.map((o) => {
+      const u = o.user_id ? userById.get(o.user_id) : null;
+      const orgFairs = fairsByOrgId.get(o.id) || [];
+      return {
+        ...o,
+        user_full_name: u?.full_name || "",
+        user_email: u?.email || "",
+        user_phone: u?.phone || "",
+        fairs_count: orgFairs.length,
+        fairs: orgFairs,
+      };
+    });
+
+    const orgById = new Map<string, (typeof enrichedOrganizers)[number]>();
+    for (const o of enrichedOrganizers) orgById.set(o.id, o);
+
+    const linksByFairId = new Map<
+      string,
+      Array<{ store_id: string; store_name: string; store_slug: string; status: string; stand_code: string | null }>
+    >();
+    for (const lk of fairLinksRes.data || []) {
+      const st = storeById.get(lk.store_id);
+      const list = linksByFairId.get(lk.fair_id) || [];
+      list.push({
+        store_id: lk.store_id,
+        store_name: st?.name || "Tienda",
+        store_slug: st?.slug || "",
+        status: lk.status,
+        stand_code: lk.stand_code || null,
+      });
+      linksByFairId.set(lk.fair_id, list);
+    }
+
+    const enrichedFairs = fairs.map((f) => {
+      const org = f.organizer_id ? orgById.get(f.organizer_id) : null;
+      const linkedStores = linksByFairId.get(f.id) || [];
+      return {
+        ...f,
+        organizer_name: org?.organization_name || "",
+        organizer_user_name: org?.user_full_name || "",
+        organizer_email: org?.user_email || "",
+        organizer_phone: org?.user_phone || "",
+        linked_stores_count: linkedStores.filter((x) => x.status === "active").length,
+        linked_stores: linkedStores,
+      };
+    });
+
     const paidOrders = orders.filter((o) =>
       ["paid", "preparing", "ready_for_pickup", "shipped", "delivered"].includes(o.status)
     );
@@ -303,8 +374,8 @@ export async function handleErpFeriarte(
       ok: true,
       kpis,
       users: enrichedUsers,
-      organizers,
-      fairs,
+      organizers: enrichedOrganizers,
+      fairs: enrichedFairs,
       stores,
       products,
       productsInOtros,
