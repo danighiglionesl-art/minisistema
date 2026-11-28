@@ -754,6 +754,226 @@
       return;
     }
 
+    if (viewKey === 'usuarios' || viewKey === 'feriantes') {
+      var isEmpView = viewKey === 'feriantes';
+      var allUsers = isEmpView
+        ? (d.users || []).filter(function (u) {
+            return (u.roles || []).some(function (r) { return r.role === 'feriante'; });
+          })
+        : (d.users || []);
+
+      var fmtDate = function (iso) {
+        if (!iso) return '—';
+        try {
+          return new Date(iso).toLocaleString('es-AR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        } catch (_e) {
+          return String(iso);
+        }
+      };
+
+      var roleLabel = function (r) {
+        if (r === 'caminante') return 'Caminante / Cliente';
+        if (r === 'feriante') return 'Emprendedor';
+        if (r === 'organizador') return 'Organizador';
+        return String(r || '');
+      };
+
+      var statusLabel = function (s) {
+        if (s === 'active') return 'Activo';
+        if (s === 'suspended') return 'Suspendido';
+        if (s === 'disabled') return 'Deshabilitado';
+        return String(s || '—');
+      };
+
+      var openUserFichaModal = function (userObj) {
+        if (!userObj) return;
+        var prevModal = document.getElementById('fa-user-ficha-modal');
+        if (prevModal) prevModal.remove();
+
+        var rolesText = (userObj.roles || []).length
+          ? userObj.roles.map(function (r) {
+              var st = r.status === 'active' ? '' : ' (' + r.status + ')';
+              return roleLabel(r.role) + st;
+            }).join(' · ')
+          : roleLabel(userObj.active_profile);
+
+        var authMethods = [];
+        var hasGoogle = (userObj.identities || []).some(function (i) { return i.provider === 'google'; });
+        if (hasGoogle) authMethods.push('Google');
+        if (userObj.has_password) authMethods.push('Correo y contraseña');
+        if (!authMethods.length) authMethods.push('Registración Web');
+
+        var addr = userObj.shipping_address && typeof userObj.shipping_address === 'object'
+          ? userObj.shipping_address
+          : {};
+        var hasPostal = Boolean(addr.street && addr.locality && addr.province);
+        var postalBlock = hasPostal
+          ? (
+              '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;font-size:12px;">' +
+                '<div><strong>Calle y número:</strong> ' + esc(addr.street) + ' ' + esc(addr.noNumber ? 'S/N' : (addr.number || '')) + '</div>' +
+                (addr.floor ? '<div><strong>Piso:</strong> ' + esc(addr.floor) + '</div>' : '') +
+                (addr.apartment ? '<div><strong>Dpto:</strong> ' + esc(addr.apartment) + '</div>' : '') +
+                (addr.building ? '<div><strong>Edificio:</strong> ' + esc(addr.building) + '</div>' : '') +
+                (addr.tower ? '<div><strong>Torre:</strong> ' + esc(addr.tower) + '</div>' : '') +
+                '<div><strong>Código Postal:</strong> ' + esc(addr.postalCode || '—') + '</div>' +
+                '<div><strong>Localidad:</strong> ' + esc(addr.locality || '—') + '</div>' +
+                '<div><strong>Provincia:</strong> ' + esc(addr.province || '—') + '</div>' +
+              '</div>'
+            )
+          : '<div style="font-size:12px;color:#64748b;">Aún no cargó domicilio de envío en Mi Perfil.</div>';
+
+        var storesList = (userObj.stores || []).length
+          ? userObj.stores.map(function (st) {
+              var loc = [st.locality, st.province].filter(Boolean).join(', ');
+              return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;margin-top:6px;font-size:12px;">' +
+                '<div><strong>' + esc(st.name) + '</strong>' + (loc ? ' · <span style="color:#64748b;">' + esc(loc) + '</span>' : '') + '</div>' +
+                '<a href="https://feriarte.vercel.app/tienda/' + encodeURIComponent(st.slug) + '" target="_blank" rel="noopener" style="color:#069294;font-weight:700;text-decoration:none;">Ver tienda ↗</a>' +
+              '</div>';
+            }).join('')
+          : '<div style="font-size:12px;color:#64748b;">Sin tienda creada.</div>';
+
+        var orgBlock = userObj.organizer_profile
+          ? '<div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;font-size:12px;">' +
+              '<strong>Organizador:</strong> ' + esc(userObj.organizer_profile.organization_name) +
+              ' · Estado: <strong>' + esc(userObj.organizer_profile.approval_status) + '</strong>' +
+              (userObj.organizer_profile.cuit_cuil ? ' · CUIT/CUIL: ' + esc(userObj.organizer_profile.cuit_cuil) : '') +
+            '</div>'
+          : '';
+
+        var overlay = document.createElement('div');
+        overlay.id = 'fa-user-ficha-modal';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(2,60,70,0.62);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;';
+        overlay.innerHTML =
+          '<div style="background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.28);border:1px solid #d9e2e6;">' +
+            '<div style="background:#023C46;color:#fff;padding:18px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-radius:16px 16px 0 0;">' +
+              '<div>' +
+                '<div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#56D7A1;">Ficha de Registración Web · FeriARTE</div>' +
+                '<h3 style="margin:4px 0 2px;font-size:19px;font-weight:900;color:#fff;">' + esc(userObj.full_name || 'Sin nombre') + '</h3>' +
+                '<div style="font-size:13px;color:rgba(255,255,255,0.88);">' + esc(userObj.email || '—') + '</div>' +
+              '</div>' +
+              '<button type="button" id="fa-ficha-close-x" aria-label="Cerrar ficha" style="background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;">&times;</button>' +
+            '</div>' +
+            '<div style="padding:18px 20px;display:grid;gap:14px;color:#023C46;">' +
+              '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+                '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:' + (userObj.status === 'active' ? '#dcfce7;color:#166534;' : '#fee2e2;color:#991b1b;') + '">Estado: ' + esc(statusLabel(userObj.status)) + '</span>' +
+                '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:' + (userObj.email_verified_at ? '#e0f2fe;color:#075985;' : '#fef3c7;color:#92400e;') + '">' + (userObj.email_verified_at ? 'Correo verificado' : 'Correo pendiente de verificación') + '</span>' +
+                '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:#023C46;">Acceso: ' + esc(authMethods.join(' + ')) + '</span>' +
+              '</div>' +
+              '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#069294;margin-bottom:8px;">Datos de cuenta y contacto</div>' +
+                '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:12.5px;">' +
+                  '<div><strong>Perfiles habilitados:</strong><br>' + esc(rolesText) + '</div>' +
+                  '<div><strong>Perfil activo:</strong><br>' + esc(roleLabel(userObj.active_profile)) + '</div>' +
+                  '<div><strong>WhatsApp / Teléfono:</strong><br>' + esc(userObj.phone || 'No informado') + '</div>' +
+                  '<div><strong>Ubicación perfil:</strong><br>' + esc([userObj.locality, userObj.province].filter(Boolean).join(', ') || 'No informada') + '</div>' +
+                  '<div><strong>Fecha de registro:</strong><br>' + esc(fmtDate(userObj.created_at)) + '</div>' +
+                  '<div><strong>Último ingreso:</strong><br>' + esc(fmtDate(userObj.last_login_at)) + '</div>' +
+                  '<div><strong>Términos y privacidad:</strong><br>' + (userObj.terms_accepted_at ? 'Aceptados (' + esc(fmtDate(userObj.terms_accepted_at)) + ')' : 'Sin fecha registrada') + '</div>' +
+                  '<div><strong>Compras realizadas:</strong><br>' + esc(userObj.orders_count || 0) + ' pedido(s)</div>' +
+                '</div>' +
+              '</div>' +
+              '<div style="background:#FFF8EF;border:1px solid #f2dfc4;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#FC4702;margin-bottom:8px;">Domicilio postal de envío (Mi Perfil)</div>' +
+                postalBlock +
+              '</div>' +
+              '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#023C46;margin-bottom:6px;">Tiendas y actividad</div>' +
+                storesList +
+                orgBlock +
+              '</div>' +
+              '<div style="display:flex;justify-content:flex-end;padding-top:4px;">' +
+                '<button type="button" id="fa-ficha-close-btn" style="background:#023C46;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;">Cerrar ficha</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+
+        var closeModal = function () {
+          overlay.remove();
+          document.removeEventListener('keydown', onEsc);
+        };
+        var onEsc = function (e) {
+          if (e.key === 'Escape') closeModal();
+        };
+        overlay.addEventListener('click', function (e) {
+          if (e.target === overlay) closeModal();
+        });
+        overlay.querySelector('#fa-ficha-close-x').addEventListener('click', closeModal);
+        overlay.querySelector('#fa-ficha-close-btn').addEventListener('click', closeModal);
+        document.addEventListener('keydown', onEsc);
+        document.body.appendChild(overlay);
+      };
+
+      var renderUsersTable = function (queryStr) {
+        var q = String(queryStr || '').trim().toLowerCase();
+        var filtered = q
+          ? allUsers.filter(function (u) {
+              return String(u.full_name || '').toLowerCase().indexOf(q) !== -1 ||
+                String(u.email || '').toLowerCase().indexOf(q) !== -1;
+            })
+          : allUsers;
+
+        var tbody = document.getElementById('fa-users-tbody');
+        var countEl = document.getElementById('fa-users-count');
+        if (countEl) countEl.textContent = filtered.length + ' registro(s)';
+        if (!tbody) return;
+
+        if (!filtered.length) {
+          tbody.innerHTML = '<tr><td colspan="3" style="padding:14px;color:#64748b;">No se encontraron registros.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = filtered.map(function (u) {
+          return '<tr data-fa-user-id="' + esc(u.id) + '" style="cursor:pointer;">' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-weight:700;color:#023C46;">' + esc(u.full_name || 'Sin nombre') + '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;color:#334155;">' + esc(u.email || '—') + '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;">' +
+              '<button type="button" data-fa-open-ficha="' + esc(u.id) + '" style="background:#069294;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">Ver ficha</button>' +
+            '</td>' +
+          '</tr>';
+        }).join('');
+
+        tbody.querySelectorAll('[data-fa-user-id]').forEach(function (tr) {
+          tr.addEventListener('click', function () {
+            var uid = tr.getAttribute('data-fa-user-id');
+            var found = allUsers.find(function (x) { return x.id === uid; });
+            openUserFichaModal(found);
+          });
+        });
+      };
+
+      body.innerHTML = banner +
+        '<div style="background:#fff;border-radius:12px;padding:16px;border:1px solid #d9e2e6;">' +
+          '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">' +
+            '<input id="fa-users-search" type="search" placeholder="Buscar por nombre o correo..." style="flex:1;min-width:220px;max-width:380px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;">' +
+            '<span id="fa-users-count" style="font-size:12px;font-weight:700;color:#64748b;">' + esc(allUsers.length) + ' registro(s)</span>' +
+          '</div>' +
+          '<div style="overflow:auto;">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">' + (isEmpView ? 'Emprendedor' : 'Cliente') + '</th>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Correo electrónico</th>' +
+              '<th style="text-align:right;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Ficha</th>' +
+            '</tr></thead><tbody id="fa-users-tbody"></tbody></table>' +
+          '</div>' +
+        '</div>';
+
+      renderUsersTable('');
+      var searchInput = document.getElementById('fa-users-search');
+      if (searchInput) {
+        searchInput.addEventListener('input', function () {
+          renderUsersTable(searchInput.value);
+        });
+      }
+      return;
+    }
+
     // Vista tabular genérica con datos reales para el resto de los submódulos
     var datasetMap = {
       usuarios: d.users || [],

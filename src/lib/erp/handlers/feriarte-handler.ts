@@ -64,10 +64,11 @@ export async function handleErpFeriarte(
       settingsRes,
       auditRes,
       qrScansRes,
+      identitiesRes,
     ] = await Promise.all([
       sb
         .from("fa_users")
-        .select("id, email, full_name, phone, province, locality, active_profile, status, email_verified_at, is_test_data, created_at")
+        .select("id, email, full_name, phone, province, locality, shipping_address, avatar_url, active_profile, status, email_verified_at, terms_accepted_at, privacy_accepted_at, last_login_at, password_hash, is_test_data, created_at")
         .order("created_at", { ascending: false })
         .limit(200),
       sb.from("fa_user_roles").select("user_id, role, status"),
@@ -137,6 +138,7 @@ export async function handleErpFeriarte(
         .order("created_at", { ascending: false })
         .limit(150),
       sb.from("fa_qr_scan_events").select("id", { count: "exact", head: true }),
+      sb.from("fa_user_identities").select("user_id, provider, provider_email, created_at"),
     ]);
 
     const users = usersRes.data || [];
@@ -193,10 +195,66 @@ export async function handleErpFeriarte(
       rolesByUser.set(r.user_id, list);
     }
 
-    const enrichedUsers = users.map((u) => ({
-      ...u,
-      roles: rolesByUser.get(u.id) || [],
-    }));
+    const identitiesByUser = new Map<string, Array<{ provider: string; provider_email: string | null }>>();
+    for (const ident of identitiesRes.data || []) {
+      const list = identitiesByUser.get(ident.user_id) || [];
+      list.push({ provider: ident.provider, provider_email: ident.provider_email || null });
+      identitiesByUser.set(ident.user_id, list);
+    }
+
+    const storesByOwner = new Map<
+      string,
+      Array<{ id: string; slug: string; name: string; status: string; province: string | null; locality: string | null }>
+    >();
+    for (const s of stores) {
+      if (!s.owner_user_id) continue;
+      const list = storesByOwner.get(s.owner_user_id) || [];
+      list.push({
+        id: s.id,
+        slug: s.slug,
+        name: s.name,
+        status: s.status,
+        province: s.province || null,
+        locality: s.locality || null,
+      });
+      storesByOwner.set(s.owner_user_id, list);
+    }
+
+    const orgByUser = new Map<
+      string,
+      { organization_name: string; approval_status: string; province: string | null; locality: string | null; cuit_cuil: string | null }
+    >();
+    for (const o of organizers) {
+      if (o.user_id) {
+        orgByUser.set(o.user_id, {
+          organization_name: o.organization_name,
+          approval_status: o.approval_status,
+          province: o.province || null,
+          locality: o.locality || null,
+          cuit_cuil: o.cuit_cuil || null,
+        });
+      }
+    }
+
+    const ordersCountByBuyer = new Map<string, number>();
+    for (const o of orders) {
+      if (o.buyer_user_id) {
+        ordersCountByBuyer.set(o.buyer_user_id, (ordersCountByBuyer.get(o.buyer_user_id) || 0) + 1);
+      }
+    }
+
+    const enrichedUsers = users.map((u) => {
+      const { password_hash, ...safeUser } = u as typeof u & { password_hash?: string | null };
+      return {
+        ...safeUser,
+        has_password: Boolean(password_hash),
+        roles: rolesByUser.get(u.id) || [],
+        identities: identitiesByUser.get(u.id) || [],
+        stores: storesByOwner.get(u.id) || [],
+        organizer_profile: orgByUser.get(u.id) || null,
+        orders_count: ordersCountByBuyer.get(u.id) || 0,
+      };
+    });
 
     const paidOrders = orders.filter((o) =>
       ["paid", "preparing", "ready_for_pickup", "shipped", "delivered"].includes(o.status)
