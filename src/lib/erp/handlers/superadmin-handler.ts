@@ -500,6 +500,14 @@ export async function handleErpSuperAdmin(
             : null,
         usersDiscountPct:
           body.usersDiscountPct !== undefined ? Number(body.usersDiscountPct) : 0,
+        cajasCount:
+          body.cajasCount !== undefined && body.cajasCount !== ""
+            ? Number(body.cajasCount)
+            : null,
+        cajaUnitPriceArs:
+          body.cajaUnitPriceArs !== undefined && body.cajaUnitPriceArs !== ""
+            ? Number(body.cajaUnitPriceArs)
+            : null,
         moduleOverrides: Array.isArray(body.moduleOverrides)
           ? body.moduleOverrides
           : [],
@@ -714,9 +722,31 @@ export async function handleErpSuperAdmin(
         Math.round(maxUsers * userUnitPriceArs * (1 - usersDiscountPct / 100))
       );
 
-      const selectedSubmoduleKeys: string[] = Array.isArray(qIn.selectedSubmoduleKeys)
+      const rawSubKeys: string[] = Array.isArray(qIn.selectedSubmoduleKeys)
         ? qIn.selectedSubmoduleKeys.map((x: unknown) => String(x || "").trim()).filter(Boolean)
         : prev?.selectedSubmoduleKeys || [];
+      const legacyCajaMatches = rawSubKeys.filter((k) => /^facturacion:caja\d+$/.test(k));
+      const selectedSubmoduleKeys: string[] = Array.from(
+        new Set(
+          rawSubKeys.map((k) => (/^facturacion:caja\d+$/.test(k) ? "facturacion:caja" : k))
+        )
+      );
+      const hasCajaSub = selectedSubmoduleKeys.includes("facturacion:caja");
+      const cajasCount = Math.max(
+        1,
+        Math.min(
+          20,
+          Math.round(
+            Number(
+              qIn.cajasCount ??
+                prev?.cajasCount ??
+                (legacyCajaMatches.length > 0
+                  ? legacyCajaMatches.length
+                  : pricingConfig.default_cajas_count ?? 1)
+            )
+          )
+        )
+      );
 
       const selectedModuleKeys = Array.from(
         new Set(
@@ -732,12 +762,34 @@ export async function handleErpSuperAdmin(
           ? qIn.submodulePricesSnapshot
           : {}),
       };
+      if (
+        subPricesSnap["facturacion:caja"] === undefined &&
+        subPricesSnap["facturacion:caja1"] !== undefined
+      ) {
+        subPricesSnap["facturacion:caja"] = Math.max(
+          0,
+          Math.round(Number(subPricesSnap["facturacion:caja1"] || 10000))
+        );
+      }
       const modDiscs: Record<string, number> = {
         ...(prev?.moduleDiscountsPct || {}),
         ...(qIn.moduleDiscountsPct && typeof qIn.moduleDiscountsPct === "object"
           ? qIn.moduleDiscountsPct
           : {}),
       };
+
+      let cajaUnitPriceArs = Math.max(
+        0,
+        Math.round(
+          Number(
+            qIn.cajaUnitPriceArs ??
+              subPricesSnap["facturacion:caja"] ??
+              pricingConfig.module_prices?.facturacion?.submodulePrices?.["facturacion:caja"] ??
+              10000
+          )
+        )
+      );
+      subPricesSnap["facturacion:caja"] = cajaUnitPriceArs;
 
       let modulesNet = 0;
       for (const mod of ERP_COMMERCIAL_MODULES) {
@@ -755,7 +807,12 @@ export async function handleErpSuperAdmin(
                 ? Math.max(0, Math.round(Number(cfgSubMap[s.key])))
                 : s.defaultMonthlyArs;
           subPricesSnap[s.key] = sp;
-          modSum += sp;
+          if (s.key === "facturacion:caja") {
+            cajaUnitPriceArs = sp;
+            modSum += sp * cajasCount;
+          } else {
+            modSum += sp;
+          }
         }
         const mDisc = Math.min(100, Math.max(0, Number(modDiscs[mod.key] || 0)));
         modulesNet += Math.max(0, Math.round(modSum * (1 - mDisc / 100)));
@@ -881,6 +938,8 @@ export async function handleErpSuperAdmin(
         userUnitPriceArs,
         usersDiscountPct,
         usersNet,
+        cajasCount: hasCajaSub ? cajasCount : 0,
+        cajaUnitPriceArs,
         moduleDiscountsPct: modDiscs,
         submodulePricesSnapshot: subPricesSnap,
         globalDiscountType,
@@ -1041,6 +1100,14 @@ export async function handleErpSuperAdmin(
             body.usersDiscountPct !== undefined
               ? Number(body.usersDiscountPct)
               : linkedQuote?.usersDiscountPct ?? 0,
+          cajasCount:
+            body.cajasCount !== undefined && body.cajasCount !== ""
+              ? Number(body.cajasCount)
+              : linkedQuote?.cajasCount ?? null,
+          cajaUnitPriceArs:
+            body.cajaUnitPriceArs !== undefined && body.cajaUnitPriceArs !== ""
+              ? Number(body.cajaUnitPriceArs)
+              : linkedQuote?.cajaUnitPriceArs ?? null,
           globalDiscountType: (body.globalDiscountType ||
             "none") as DiscountDurationType,
           globalDiscountPct: Number(body.globalDiscountPct || 0),
@@ -1449,8 +1516,28 @@ export async function handleErpSuperAdmin(
       let nextEnabledModules = existing.enabled_modules;
       if (Array.isArray(body.commercialModuleKeys)) {
         nextEnabledModules = expandCommercialToErpModules(
-          body.commercialModuleKeys
+          body.commercialModuleKeys,
+          Array.isArray(body.selectedSubmoduleKeys) ? body.selectedSubmoduleKeys : undefined,
+          {
+            cajasCount:
+              body.cajasCount !== undefined
+                ? Number(body.cajasCount)
+                : existing.subscription?.cajasCount ?? null,
+          }
         );
+      } else if (body.cajasCount !== undefined && !existing.is_base) {
+        const nextCajasN = Math.max(0, Math.min(20, Math.round(Number(body.cajasCount))));
+        const filtered = (Array.isArray(existing.enabled_modules) ? existing.enabled_modules : []).filter(
+          (k) => !/^facturacion:caja\d+$/i.test(String(k || ""))
+        );
+        const modSet = new Set<string>(filtered);
+        if (nextCajasN > 0) {
+          modSet.add("facturacion");
+          for (let ci = 1; ci <= nextCajasN; ci++) {
+            modSet.add(`facturacion:caja${ci}`);
+          }
+        }
+        nextEnabledModules = Array.from(modSet);
       }
 
       let nextSubscription = existing.subscription;
@@ -1475,6 +1562,14 @@ export async function handleErpSuperAdmin(
             body.usersDiscountPct !== undefined
               ? Number(body.usersDiscountPct)
               : existing.subscription.usersDiscountPct ?? 0,
+          cajasCount:
+            body.cajasCount !== undefined
+              ? Number(body.cajasCount)
+              : existing.subscription.cajasCount ?? null,
+          cajaUnitPriceArs:
+            body.cajaUnitPriceArs !== undefined
+              ? Number(body.cajaUnitPriceArs)
+              : existing.subscription.cajaUnitPriceArs ?? null,
           moduleOverrides: Array.isArray(body.moduleOverrides)
             ? body.moduleOverrides
             : existing.subscription.selectedModules.map((m) => ({
@@ -1508,7 +1603,11 @@ export async function handleErpSuperAdmin(
           mpInitPoint: existing.subscription.mpInitPoint,
           mpStatus: existing.subscription.mpStatus,
         };
-      } else if (body.maxUsers !== undefined || body.userUnitPriceArs !== undefined) {
+      } else if (
+        body.maxUsers !== undefined ||
+        body.userUnitPriceArs !== undefined ||
+        body.cajasCount !== undefined
+      ) {
         const nextMaxUsers =
           body.maxUsers !== undefined
             ? Math.max(0, Math.min(500, Math.round(Number(body.maxUsers))))
@@ -1525,12 +1624,17 @@ export async function handleErpSuperAdmin(
           nextMaxUsers > 0
             ? Math.max(0, Math.round(nextMaxUsers * nextUnitPrice * (1 - nextDiscPct / 100)))
             : 0;
+        const nextCajasCount =
+          body.cajasCount !== undefined
+            ? Math.max(0, Math.min(20, Math.round(Number(body.cajasCount))))
+            : existing.subscription?.cajasCount;
         nextSubscription = {
           ...existing.subscription,
           maxUsers: nextMaxUsers,
           userUnitPriceArs: nextUnitPrice,
           usersDiscountPct: nextDiscPct,
           usersMonthlyAmount: nextUsersAmt,
+          ...(nextCajasCount !== undefined ? { cajasCount: nextCajasCount } : {}),
         };
       }
 

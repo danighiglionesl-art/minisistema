@@ -20,6 +20,7 @@
     // Configurador unificado (Opción + Usuarios + Árbol de Submódulos + Descuentos + Cliente + Demo)
     newOptionType: 1,
     newMaxUsers: null,
+    newCajasCount: null,
     newActividadNegocio: 'comercial',
     selectedSubmodules: {}, // { [subKey]: boolean }
     expandedModules: {}, // { [modKey]: boolean }
@@ -265,6 +266,8 @@
     STATE_SA.editingQuoteNumero = '';
     STATE_SA.editingQuoteEstado = 'BORRADOR';
     STATE_SA.newOptionType = 1;
+    STATE_SA.newMaxUsers = null;
+    STATE_SA.newCajasCount = null;
     STATE_SA.newActividadNegocio = 'comercial';
     STATE_SA.quoteDiscountsByMod = {};
     STATE_SA.quoteGlobalType = 'none';
@@ -328,6 +331,18 @@
       Object.keys(q.submodulePricesSnapshot).forEach(function (sk) {
         STATE_SA.submodulePrices[sk] = Math.max(0, Math.round(Number(q.submodulePricesSnapshot[sk] || 0)));
       });
+      if (
+        STATE_SA.submodulePrices['facturacion:caja'] === undefined &&
+        q.submodulePricesSnapshot['facturacion:caja1'] !== undefined
+      ) {
+        STATE_SA.submodulePrices['facturacion:caja'] = Math.max(
+          0,
+          Math.round(Number(q.submodulePricesSnapshot['facturacion:caja1'] || 10000))
+        );
+      }
+    }
+    if (q.cajaUnitPriceArs !== undefined && q.cajaUnitPriceArs !== null) {
+      STATE_SA.submodulePrices['facturacion:caja'] = Math.max(0, Math.round(Number(q.cajaUnitPriceArs || 0)));
     }
     if (q.maxUsers !== undefined && q.maxUsers !== null && Number(q.maxUsers) > 0) {
       STATE_SA.newMaxUsers = Math.max(1, Math.min(500, Math.round(Number(q.maxUsers))));
@@ -341,9 +356,15 @@
 
     var nextSel = {};
     var subArr = Array.isArray(q.selectedSubmoduleKeys) ? q.selectedSubmoduleKeys : [];
+    var legacyCajaCnt = 0;
     if (subArr.length > 0) {
       subArr.forEach(function (sk) {
-        nextSel[sk] = true;
+        if (/^facturacion:caja\d+$/.test(sk)) {
+          legacyCajaCnt += 1;
+          nextSel['facturacion:caja'] = true;
+        } else {
+          nextSel[sk] = true;
+        }
       });
     } else if (Array.isArray(q.selectedModuleKeys) && STATE_SA.data) {
       (STATE_SA.data.commercialModules || []).forEach(function (m) {
@@ -353,6 +374,11 @@
           });
         }
       });
+    }
+    if (q.cajasCount !== undefined && q.cajasCount !== null && Number(q.cajasCount) > 0) {
+      STATE_SA.newCajasCount = Math.max(1, Math.min(20, Math.round(Number(q.cajasCount))));
+    } else if (legacyCajaCnt > 0) {
+      STATE_SA.newCajasCount = Math.max(1, Math.min(20, legacyCajaCnt));
     }
     STATE_SA.selectedSubmodules = nextSel;
 
@@ -437,6 +463,35 @@
     var usersRaw = maxUsers * userUnitPrice;
     var usersNet = Math.max(0, Math.round(usersRaw * (1 - usersDiscPct / 100)));
 
+    var cajasCount = Math.max(
+      1,
+      Math.min(
+        20,
+        Math.round(
+          Number(
+            STATE_SA.newCajasCount != null
+              ? STATE_SA.newCajasCount
+              : (cfg.default_cajas_count ?? 1)
+          )
+        )
+      )
+    );
+    var cajaUnitPrice = Math.max(
+      0,
+      Math.round(
+        STATE_SA.submodulePrices['facturacion:caja'] !== undefined
+          ? Number(STATE_SA.submodulePrices['facturacion:caja'])
+          : Number(
+              (cfg.module_prices &&
+                cfg.module_prices.facturacion &&
+                cfg.module_prices.facturacion.submodulePrices &&
+                (cfg.module_prices.facturacion.submodulePrices['facturacion:caja'] ??
+                  cfg.module_prices.facturacion.submodulePrices['facturacion:caja1'])) ??
+                10000
+            )
+      )
+    );
+
     var modTotal = 0;
     var selectedModKeys = [];
     var selectedSubKeys = [];
@@ -457,11 +512,13 @@
               : Number(s.defaultMonthlyArs || 0)
           )
         );
-        catalogSum += sp;
+        var mult = s.key === 'facturacion:caja' || s.isQuantityBased ? cajasCount : 1;
+        var lineTotal = sp * mult;
+        catalogSum += lineTotal;
         if (STATE_SA.selectedSubmodules[s.key]) {
-          activeSum += sp;
+          activeSum += lineTotal;
           selectedSubKeys.push(s.key);
-          chosenSubs.push({ key: s.key, name: s.name, price: sp });
+          chosenSubs.push({ key: s.key, name: s.name, price: lineTotal, unitPrice: sp, qty: mult });
         }
       });
 
@@ -506,6 +563,8 @@
       usersRaw: usersRaw,
       usersDiscPct: usersDiscPct,
       usersNet: usersNet,
+      cajasCount: cajasCount,
+      cajaUnitPrice: cajaUnitPrice,
       modTotal: modTotal,
       subtotal: subtotal,
       promoMonthly: gType === 'none' ? subtotal : discounted,
@@ -849,6 +908,18 @@
         '</tr>';
     }
 
+    var qLegacyCajaCnt = (quoteRecord.selectedSubmoduleKeys || []).filter(function (k) {
+      return /^facturacion:caja\d+$/.test(k);
+    }).length;
+    if (qLegacyCajaCnt > 0) selSubSet['facturacion:caja'] = true;
+    var qCajasCount = Math.max(
+      1,
+      Math.min(
+        20,
+        Math.round(Number(quoteRecord.cajasCount || qLegacyCajaCnt || 1))
+      )
+    );
+
     allMods.forEach(function (m) {
       var subs = getModuleSubmodules(m);
       var chosen = subs.filter(function (s) {
@@ -858,13 +929,30 @@
       var modSum = 0;
       var subsBadges = chosen
         .map(function (s) {
+          var isCajaQty = s.key === 'facturacion:caja' || s.isQuantityBased;
           var sp =
-            subMapCfg[s.key] !== undefined
-              ? Number(subMapCfg[s.key])
-              : STATE_SA.submodulePrices[s.key] !== undefined
-                ? Number(STATE_SA.submodulePrices[s.key])
-                : Number(s.defaultMonthlyArs || 0);
-          modSum += sp;
+            isCajaQty && quoteRecord.cajaUnitPriceArs != null
+              ? Number(quoteRecord.cajaUnitPriceArs)
+              : subMapCfg[s.key] !== undefined
+                ? Number(subMapCfg[s.key])
+                : isCajaQty && subMapCfg['facturacion:caja1'] !== undefined
+                  ? Number(subMapCfg['facturacion:caja1'])
+                  : STATE_SA.submodulePrices[s.key] !== undefined
+                    ? Number(STATE_SA.submodulePrices[s.key])
+                    : Number(s.defaultMonthlyArs || 0);
+          var lineTotal = isCajaQty ? sp * qCajasCount : sp;
+          modSum += lineTotal;
+          if (isCajaQty) {
+            return (
+              '<span class="sub-chip">✓ ' +
+              esc(s.name) +
+              ' × ' +
+              esc(qCajasCount) +
+              (qCajasCount === 1 ? ' caja' : ' cajas') +
+              (lineTotal > 0 ? ' <em>(' + fmtArs.format(sp) + ' c/u = ' + fmtArs.format(lineTotal) + ')</em>' : '') +
+              '</span>'
+            );
+          }
           return (
             '<span class="sub-chip">✓ ' +
             esc(s.name) +
@@ -1251,7 +1339,22 @@
               '<input type="number" min="0" max="500" class="ms-sa-input" data-tenant-maxusers-inp="' + esc(t.slug) + '" value="' + esc(Number(sub.maxUsers || 0)) + '" style="width:74px;padding:0.18rem 0.45rem;font-size:0.78rem;font-weight:800;text-align:center;" title="0 = sin límite; >0 = límite máximo que puede crear el Administrador">' +
               '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-save-tenant-maxusers="' + esc(t.slug) + '" style="padding:0.2rem 0.55rem;font-size:0.73rem;">Guardar cupo</button>' +
               '<small style="opacity:0.72;">' + (Number(sub.maxUsers || 0) > 0 ? '(máx. ' + Number(sub.maxUsers) + ' usuarios)' : '(sin límite)') + '</small>' +
-              '</div>') +
+              '</div>' +
+              (function () {
+                var enMods = Array.isArray(t.enabled_modules) ? t.enabled_modules : [];
+                var maxCajaEn = enMods.reduce(function (mx, mk) {
+                  var mt = /^facturacion:caja(\d+)$/i.exec(String(mk || ''));
+                  return mt ? Math.max(mx, Number(mt[1])) : mx;
+                }, 0);
+                var curCajas = maxCajaEn > 0 ? maxCajaEn : Math.max(0, Math.round(Number(sub.cajasCount || 0)));
+                return (
+                  '<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;"><strong>🖥️ Cajas Habilitadas (POS):</strong> ' +
+                  '<input type="number" min="0" max="20" class="ms-sa-input" data-tenant-cajas-inp="' + esc(t.slug) + '" value="' + esc(curCajas) + '" style="width:74px;padding:0.18rem 0.45rem;font-size:0.78rem;font-weight:800;text-align:center;" title="Cantidad de Cajas POS habilitadas en Facturación Electrónica (0 = sin cajas)">' +
+                  '<button type="button" class="ms-sa-btn ms-sa-btn--outline" data-save-tenant-cajas="' + esc(t.slug) + '" style="padding:0.2rem 0.55rem;font-size:0.73rem;">Guardar cajas</button>' +
+                  '<small style="opacity:0.72;">' + (curCajas > 0 ? '(' + curCajas + (curCajas === 1 ? ' caja' : ' cajas') + ')' : '(sin cajas POS)') + '</small>' +
+                  '</div>'
+                );
+              })()) +
           '<div><strong>URL Sistema:</strong> <a href="' +
           esc(dep.publicErpUrl || '/sistema') +
           '" target="_blank" style="color:#56D7A1;font-weight:800;">' +
@@ -1673,9 +1776,15 @@
                 '<strong style="cursor:pointer;" data-tree-toggle="' + esc(m.key) + '">' + esc(m.name) + '</strong>' +
                 (isFreePriceMod
                   ? '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#0f766e;font-weight:800;">(Precio libre al tildar)</span>'
-                  : someChecked && selCnt < totCnt
-                    ? '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#0f766e;font-weight:700;">(Parcial: suma ' + selCnt + ' submód.)</span>'
-                    : '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#64748b;">(Σ ' + totCnt + ' submód.)</span>') +
+                  : (function () {
+                      var cajaTag =
+                        m.key === 'facturacion' && STATE_SA.selectedSubmodules['facturacion:caja']
+                          ? quote.cajasCount + (quote.cajasCount === 1 ? ' caja' : ' cajas') + ' · '
+                          : '';
+                      return someChecked && selCnt < totCnt
+                        ? '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#0f766e;font-weight:700;">(Parcial: ' + cajaTag + 'suma ' + selCnt + ' submód.)</span>'
+                        : '<span data-tree-partial-note="' + esc(m.key) + '" style="font-size:0.71rem;color:#64748b;">(' + cajaTag + 'Σ ' + totCnt + ' submód.)</span>';
+                    })()) +
               '</div>' +
             '</td>' +
             '<td style="padding:0.5rem;width:145px;">' +
@@ -1696,6 +1805,7 @@
         var childrenRows = subs
           .map(function (s, sIdx) {
             var sChecked = Boolean(STATE_SA.selectedSubmodules[s.key]);
+            var isCajaQtySub = s.key === 'facturacion:caja' || Boolean(s.isQuantityBased);
             var sPrice = Math.max(
               0,
               Math.round(
@@ -1704,23 +1814,33 @@
                   : Number(s.defaultMonthlyArs || 0)
               )
             );
-            var sNet = Math.round(sPrice * (1 - modDisc / 100));
+            var sMult = isCajaQtySub ? quote.cajasCount : 1;
+            var sNet = Math.round(sPrice * sMult * (1 - modDisc / 100));
             var branchChar = sIdx === subs.length - 1 ? '└─' : '├─';
             return (
               '<tr data-sub-row-of="' + esc(m.key) + '" style="' +
                 (isExpanded ? '' : 'display:none;') +
-                'background:#f8fafc;border-bottom:1px dashed rgba(148,163,184,0.35);font-size:0.81rem;">' +
+                'background:' + (isCajaQtySub ? 'rgba(86,215,161,0.06)' : '#f8fafc') + ';border-bottom:1px dashed rgba(148,163,184,0.35);font-size:0.81rem;">' +
                 '<td style="padding:0.36rem 0.5rem 0.36rem 1.35rem;">' +
                   '<input type="checkbox" data-tree-sub-chk="' + esc(s.key) + '" data-parent-mod="' + esc(m.key) + '" ' + (sChecked ? 'checked' : '') + '>' +
                 '</td>' +
                 '<td style="padding:0.36rem 0.5rem 0.36rem 1.6rem;color:#334155;">' +
-                  '<span style="color:#94a3b8;font-family:monospace;margin-right:0.35rem;">' + branchChar + '</span>' +
-                  '<label style="cursor:pointer;" data-sub-lbl="' + esc(s.key) + '">' + esc(s.name) + '</label>' +
+                  (isCajaQtySub
+                    ? '<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">' +
+                        '<span style="color:#94a3b8;font-family:monospace;">' + branchChar + '</span>' +
+                        '<label style="cursor:pointer;font-weight:800;color:#112D3A;" data-sub-lbl="' + esc(s.key) + '">' + esc(s.name) + '</label>' +
+                        '<span style="color:#64748b;">· Cantidad de Cajas:</span>' +
+                        '<input type="number" min="1" max="20" step="1" class="ms-sa-input" id="ms-cfg-cajas-count" value="' + esc(quote.cajasCount) + '" style="width:68px;padding:0.2rem 0.4rem;font-weight:900;text-align:center;border:2px solid #56D7A1;background:#ecfdf5;" title="Cantidad de Cajas POS habilitadas">' +
+                        '<small style="opacity:0.78;">cajas (valor fijo por caja)</small>' +
+                      '</div>'
+                    : '<span style="color:#94a3b8;font-family:monospace;margin-right:0.35rem;">' + branchChar + '</span>' +
+                      '<label style="cursor:pointer;" data-sub-lbl="' + esc(s.key) + '">' + esc(s.name) + '</label>') +
                 '</td>' +
                 '<td style="padding:0.32rem 0.5rem;width:145px;">' +
                   '<input type="number" min="0" step="' + (isFreePriceMod ? '1' : '250') + '" class="ms-sa-input" style="padding:0.28rem 0.45rem;font-size:0.79rem;' +
                     (isFreePriceMod && !sChecked ? 'opacity:0.65;background:#f1f5f9;' : isFreePriceMod ? 'border:2px solid #56D7A1;background:#ecfdf5;font-weight:800;' : '') +
                   '" data-cfg-sub-price="' + esc(s.key) + '" data-parent-mod="' + esc(m.key) + '" ' +
+                    (isCajaQtySub ? 'title="Monto fijo mensual por cada caja" ' : '') +
                     (isFreePriceMod && !sChecked
                       ? 'disabled value="" placeholder="Tildar p/ colocar $"'
                       : 'value="' + esc(isFreePriceMod && sPrice === 0 ? '' : sPrice) + '" placeholder="' + (isFreePriceMod ? 'Precio libre ($)' : '0') + '"') +
@@ -2935,6 +3055,8 @@
       userUnitPriceArs: qCalc.userUnitPrice,
       usersDiscountPct: qCalc.usersDiscPct,
       usersNet: qCalc.usersNet,
+      cajasCount: STATE_SA.selectedSubmodules['facturacion:caja'] ? qCalc.cajasCount : 0,
+      cajaUnitPriceArs: qCalc.cajaUnitPrice,
       moduleDiscountsPct: modDiscOnly,
       submodulePricesSnapshot: subSnap,
       globalDiscountType: STATE_SA.quoteGlobalType || 'none',
@@ -3181,6 +3303,7 @@
       var maxUsersInp = bodyEl.querySelector('#ms-cfg-max-users');
       var userUnitInp = bodyEl.querySelector('#ms-cfg-user-unit-price');
       var usersDiscInp = bodyEl.querySelector('[data-q-users-disc]');
+      var cajasCountInp = bodyEl.querySelector('#ms-cfg-cajas-count');
       if (opt1Inp) cfgObj.option_1_base = Math.max(0, Number(opt1Inp.value || 0));
       if (opt2Inp) cfgObj.option_2_base = Math.max(0, Number(opt2Inp.value || 0));
       if (maxUsersInp) {
@@ -3191,6 +3314,9 @@
       }
       if (usersDiscInp) {
         STATE_SA.quoteDiscountsByMod.__users = Math.min(100, Math.max(0, Number(usersDiscInp.value || 0)));
+      }
+      if (cajasCountInp) {
+        STATE_SA.newCajasCount = Math.max(1, Math.min(20, Math.round(Number(cajasCountInp.value || 1))));
       }
 
       bodyEl.querySelectorAll('[data-q-opt-disc]').forEach(function (inp) {
@@ -3246,6 +3372,10 @@
         var pNote = bodyEl.querySelector('[data-tree-partial-note="' + b.key + '"]');
         var isFreeMod = b.key === 'minisistema_medida';
         if (pNote) {
+          var cajaTagLive =
+            b.key === 'facturacion' && STATE_SA.selectedSubmodules['facturacion:caja']
+              ? quote.cajasCount + (quote.cajasCount === 1 ? ' caja' : ' cajas') + ' · '
+              : '';
           if (isFreeMod) {
             pNote.style.color = '#0f766e';
             pNote.style.fontWeight = '800';
@@ -3253,11 +3383,11 @@
           } else if (b.selectedSubsCount > 0 && b.selectedSubsCount < b.totalSubsCount) {
             pNote.style.color = '#0f766e';
             pNote.style.fontWeight = '700';
-            pNote.textContent = '(Parcial: suma ' + b.selectedSubsCount + ' submód.)';
+            pNote.textContent = '(Parcial: ' + cajaTagLive + 'suma ' + b.selectedSubsCount + ' submód.)';
           } else {
             pNote.style.color = '#64748b';
             pNote.style.fontWeight = '400';
-            pNote.textContent = '(Σ ' + b.totalSubsCount + ' submód.)';
+            pNote.textContent = '(' + cajaTagLive + 'Σ ' + b.totalSubsCount + ' submód.)';
           }
         }
 
@@ -3300,7 +3430,8 @@
         subs.forEach(function (s) {
           var sChecked = Boolean(STATE_SA.selectedSubmodules[s.key]);
           var sPrice = Math.max(0, Math.round(Number(STATE_SA.submodulePrices[s.key] || 0)));
-          var sNet = Math.round(sPrice * (1 - b.discountPct / 100));
+          var sMult = s.key === 'facturacion:caja' || s.isQuantityBased ? quote.cajasCount : 1;
+          var sNet = Math.round(sPrice * sMult * (1 - b.discountPct / 100));
           var sInpEl = bodyEl.querySelector('[data-cfg-sub-price="' + s.key + '"]');
           if (sInpEl && isFreeMod) {
             sInpEl.disabled = !sChecked;
@@ -3508,24 +3639,29 @@
         var subs = getModuleSubmodules(mod);
         var activeSubs = subs.filter(function (s) { return Boolean(STATE_SA.selectedSubmodules[s.key]); });
         var listToAdjust = activeSubs.length > 0 ? activeSubs : subs;
+        var curCajasN = Math.max(1, Math.min(20, Math.round(Number(STATE_SA.newCajasCount || (d.pricingConfig && d.pricingConfig.default_cajas_count) || 1))));
+        var getMult = function (s) {
+          return s.key === 'facturacion:caja' || s.isQuantityBased ? curCajasN : 1;
+        };
         var currentSum = listToAdjust.reduce(function (a, s) {
-          return a + Math.max(0, Math.round(Number(STATE_SA.submodulePrices[s.key] || 0)));
+          return a + Math.max(0, Math.round(Number(STATE_SA.submodulePrices[s.key] || 0))) * getMult(s);
         }, 0);
         var running = 0;
         listToAdjust.forEach(function (s, idx) {
-          var v;
+          var mFactor = getMult(s);
+          var share;
           if (idx === listToAdjust.length - 1) {
-            v = Math.max(0, targetTotal - running);
+            share = Math.max(0, targetTotal - running);
           } else if (currentSum > 0) {
-            v = Math.round((targetTotal * Number(STATE_SA.submodulePrices[s.key] || 0)) / currentSum);
-            running += v;
+            share = Math.round((targetTotal * Number(STATE_SA.submodulePrices[s.key] || 0) * mFactor) / currentSum);
           } else {
-            v = Math.round(targetTotal / listToAdjust.length);
-            running += v;
+            share = Math.round(targetTotal / listToAdjust.length);
           }
-          STATE_SA.submodulePrices[s.key] = v;
+          var unitVal = Math.max(0, Math.round(share / mFactor));
+          running += unitVal * mFactor;
+          STATE_SA.submodulePrices[s.key] = unitVal;
           var sInp = bodyEl.querySelector('[data-cfg-sub-price="' + s.key + '"]');
-          if (sInp && document.activeElement !== sInp) sInp.value = String(v);
+          if (sInp && document.activeElement !== sInp) sInp.value = String(unitVal);
         });
         syncIndeterminateAndDomTotals();
       };
@@ -3551,7 +3687,7 @@
       }
     });
 
-    bodyEl.querySelectorAll('[data-q-opt-disc], [data-q-users-disc], #ms-cfg-max-users, #ms-cfg-user-unit-price').forEach(function (el) {
+    bodyEl.querySelectorAll('[data-q-opt-disc], [data-q-users-disc], #ms-cfg-max-users, #ms-cfg-user-unit-price, #ms-cfg-cajas-count').forEach(function (el) {
       el.addEventListener('input', syncIndeterminateAndDomTotals);
       el.addEventListener('change', syncIndeterminateAndDomTotals);
     });
@@ -3591,6 +3727,7 @@
         var opt2 = Number((bodyEl.querySelector('#ms-cfg-opt2') || {}).value || 0);
         var userUnitPrice = Math.max(0, Math.round(Number((bodyEl.querySelector('#ms-cfg-user-unit-price') || {}).value || 0)));
         var defaultMaxUsers = Math.max(1, Math.min(500, Math.round(Number((bodyEl.querySelector('#ms-cfg-max-users') || {}).value || 3))));
+        var defaultCajasCount = Math.max(1, Math.min(20, Math.round(Number((bodyEl.querySelector('#ms-cfg-cajas-count') || {}).value || STATE_SA.newCajasCount || 1))));
         var modulePrices = {};
         mods.forEach(function (m) {
           var subMap = {};
@@ -3598,7 +3735,7 @@
           getModuleSubmodules(m).forEach(function (s) {
             var sp = Math.max(0, Math.round(Number(STATE_SA.submodulePrices[s.key] || 0)));
             subMap[s.key] = sp;
-            sum += sp;
+            sum += (s.key === 'facturacion:caja' || s.isQuantityBased) ? sp * defaultCajasCount : sp;
           });
           modulePrices[m.key] = {
             price: sum,
@@ -3614,6 +3751,7 @@
             option_2_base: opt2,
             user_unit_price: userUnitPrice,
             default_max_users: defaultMaxUsers,
+            default_cajas_count: defaultCajasCount,
             module_prices: modulePrices
           }
         });
@@ -3862,7 +4000,8 @@
         });
       if (!chosen.length) return;
       var sumSub = chosen.reduce(function (a, sk) {
-        return a + Math.max(0, Math.round(Number(STATE_SA.submodulePrices[sk] || 0)));
+        var mult = sk === 'facturacion:caja' ? qCalc.cajasCount : 1;
+        return a + Math.max(0, Math.round(Number(STATE_SA.submodulePrices[sk] || 0))) * mult;
       }, 0);
       modOverrides.push({
         moduleKey: m.key,
@@ -3909,6 +4048,8 @@
       maxUsers: qCalc.maxUsers,
       userUnitPriceArs: qCalc.userUnitPrice,
       usersDiscountPct: qCalc.usersDiscPct,
+      cajasCount: STATE_SA.selectedSubmodules['facturacion:caja'] ? qCalc.cajasCount : 0,
+      cajaUnitPriceArs: qCalc.cajaUnitPrice,
       globalDiscountType: STATE_SA.quoteGlobalType || 'none',
       globalDiscountPct: Number(STATE_SA.quoteGlobalPct || 0),
       globalDiscountFixed: Number(STATE_SA.quoteGlobalFixed || 0),
@@ -4149,6 +4290,32 @@
           await reloadSuperAdminData(true);
         } else {
           showFeedback((res && res.message) || 'No se pudo actualizar el cupo de usuarios.', true);
+        }
+      });
+    });
+
+    bodyEl.querySelectorAll('[data-save-tenant-cajas]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var slug = btn.getAttribute('data-save-tenant-cajas');
+        var inp = bodyEl.querySelector('[data-tenant-cajas-inp="' + slug + '"]');
+        var cajasN = Math.max(0, Math.min(20, Math.round(Number((inp && inp.value) || 0))));
+        btn.disabled = true;
+        var res = await apiSuperAdmin('POST', {
+          action: 'update_tenant',
+          slug: slug,
+          cajasCount: cajasN
+        });
+        btn.disabled = false;
+        if (res && res.ok) {
+          showFeedback(
+            cajasN > 0
+              ? 'Cajas habilitadas de "' + slug + '" actualizadas a ' + cajasN + (cajasN === 1 ? ' caja.' : ' cajas.')
+              : 'Cajas POS deshabilitadas para "' + slug + '".',
+            false
+          );
+          await reloadSuperAdminData(true);
+        } else {
+          showFeedback((res && res.message) || 'No se pudo actualizar la cantidad de cajas.', true);
         }
       });
     });

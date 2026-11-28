@@ -58,6 +58,8 @@ export interface ErpTenantSubscription {
   userUnitPriceArs?: number;
   usersDiscountPct?: number;
   usersMonthlyAmount?: number;
+  cajasCount?: number;
+  cajaUnitPriceArs?: number;
   selectedModules: ErpModuleSelection[];
   globalDiscountType: DiscountDurationType;
   globalDiscountPct: number;
@@ -134,6 +136,8 @@ export interface CommercialSubmoduleDef {
   key: string;
   name: string;
   defaultMonthlyArs: number;
+  isQuantityBased?: boolean;
+  quantityUnitLabel?: string;
 }
 
 export interface CommercialModuleDef {
@@ -185,6 +189,8 @@ export interface SuperAdminQuoteRecord {
   userUnitPriceArs?: number;
   usersDiscountPct?: number;
   usersNet?: number;
+  cajasCount?: number;
+  cajaUnitPriceArs?: number;
   moduleDiscountsPct: Record<string, number>;
   submodulePricesSnapshot: Record<string, number>;
   globalDiscountType: DiscountDurationType;
@@ -394,8 +400,8 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
   {
     key: "facturacion",
     name: "Facturación Electrónica",
-    description: "Cajas 1, 2 y 3, Facturador POS, Recibos, Apertura/Retiro/Cierre de turno, POS Móvil y WSFEv1 ARCA.",
-    defaultMonthlyArs: 22000,
+    description: "Cajas POS (cantidad configurable), Facturador POS, Recibos, Apertura/Retiro/Cierre de turno, POS Móvil y WSFEv1 ARCA.",
+    defaultMonthlyArs: 26000,
     erpModuleKeys: [
       "facturacion",
       "facturacion:caja1",
@@ -411,9 +417,7 @@ export const ERP_COMMERCIAL_MODULES: CommercialModuleDef[] = [
       "facturacion:admin_arca",
     ],
     submodules: [
-      { key: "facturacion:caja1", name: "Caja 1 (POS)", defaultMonthlyArs: 2000 },
-      { key: "facturacion:caja2", name: "Caja 2 (POS)", defaultMonthlyArs: 2000 },
-      { key: "facturacion:caja3", name: "Caja 3 (POS)", defaultMonthlyArs: 2000 },
+      { key: "facturacion:caja", name: "Caja (POS)", defaultMonthlyArs: 10000, isQuantityBased: true, quantityUnitLabel: "cajas" },
       { key: "facturacion:facturador", name: "Facturador POS", defaultMonthlyArs: 2000 },
       { key: "facturacion:recibo", name: "Emisión de Recibos", defaultMonthlyArs: 2000 },
       { key: "facturacion:apertura", name: "Apertura de Caja", defaultMonthlyArs: 2000 },
@@ -883,6 +887,7 @@ export interface ErpPricingConfigRecord {
   option_2_base: number;
   user_unit_price?: number;
   default_max_users?: number;
+  default_cajas_count?: number;
   module_prices: Record<
     string,
     {
@@ -930,7 +935,8 @@ export function normalizeErpRole(rawRole: unknown, username = ""): ErpUserRole {
  */
 export function expandCommercialToErpModules(
   commercialKeys: string[],
-  explicitSubmoduleKeys?: string[]
+  explicitSubmoduleKeys?: string[],
+  options?: { cajasCount?: number | null }
 ): string[] {
   const out = new Set<string>([
     "tema",
@@ -943,15 +949,35 @@ export function expandCommercialToErpModules(
     "manual_usuario",
   ]);
 
+  const effectiveCajasCount = Math.max(
+    1,
+    Math.min(
+      20,
+      Math.round(
+        options?.cajasCount !== undefined && options?.cajasCount !== null
+          ? Number(options.cajasCount)
+          : 3
+      )
+    )
+  );
+
+  const addCajaKeys = (count: number) => {
+    const safeN = Math.max(1, Math.min(20, Math.round(count)));
+    for (let i = 1; i <= safeN; i++) {
+      out.add(`facturacion:caja${i}`);
+    }
+  };
+
   if (Array.isArray(explicitSubmoduleKeys) && explicitSubmoduleKeys.length > 0) {
     const subSet = new Set(
       explicitSubmoduleKeys.map((k) => String(k || "").trim().toLowerCase())
     );
+    const legacyCajaKeys = Array.from(subSet).filter((k) => /^facturacion:caja\d+$/.test(k));
     for (const mod of ERP_COMMERCIAL_MODULES) {
       const matchedSubs = mod.submodules.filter((s) =>
         subSet.has(s.key.toLowerCase())
       );
-      if (matchedSubs.length > 0) {
+      if (matchedSubs.length > 0 || (mod.key === "facturacion" && legacyCajaKeys.length > 0)) {
         out.add(mod.key);
         if (mod.key === "cv") out.add("administracion_personal");
         if (mod.key === "turnos") {
@@ -967,7 +993,16 @@ export function expandCommercialToErpModules(
           }
         }
         for (const s of matchedSubs) {
-          out.add(s.key);
+          if (s.key === "facturacion:caja") {
+            addCajaKeys(effectiveCajasCount);
+          } else {
+            out.add(s.key);
+          }
+        }
+        if (mod.key === "facturacion" && !subSet.has("facturacion:caja")) {
+          for (const lk of legacyCajaKeys) {
+            out.add(lk);
+          }
         }
       }
     }
@@ -976,12 +1011,13 @@ export function expandCommercialToErpModules(
 
   const rawCleaned = commercialKeys.map((k) => String(k || "").trim().toLowerCase());
   const keySet = new Set(rawCleaned);
+  const legacyCajaInComm = rawCleaned.filter((k) => /^facturacion:caja\d+$/.test(k));
 
   for (const mod of ERP_COMMERCIAL_MODULES) {
     const childMatches = mod.submodules.filter((s) =>
       keySet.has(s.key.toLowerCase())
     );
-    if (childMatches.length > 0) {
+    if (childMatches.length > 0 || (mod.key === "facturacion" && legacyCajaInComm.length > 0)) {
       out.add(mod.key);
       if (mod.key === "cv") out.add("administracion_personal");
       if (mod.key === "turnos") {
@@ -994,11 +1030,26 @@ export function expandCommercialToErpModules(
         }
       }
       for (const s of childMatches) {
-        out.add(s.key);
+        if (s.key === "facturacion:caja") {
+          addCajaKeys(effectiveCajasCount);
+        } else {
+          out.add(s.key);
+        }
+      }
+      if (mod.key === "facturacion" && !keySet.has("facturacion:caja")) {
+        for (const lk of legacyCajaInComm) {
+          out.add(lk);
+        }
       }
     } else if (keySet.has(mod.key)) {
       for (const sub of mod.erpModuleKeys) {
+        if (mod.key === "facturacion" && /^facturacion:caja\d+$/.test(sub)) {
+          continue;
+        }
         out.add(sub);
+      }
+      if (mod.key === "facturacion") {
+        addCajaKeys(effectiveCajasCount);
       }
     }
   }
@@ -1014,7 +1065,7 @@ export function expandCommercialToErpModules(
   }
 
   for (const raw of rawCleaned) {
-    if (ALL_ERP_MODULE_KEYS.includes(raw)) {
+    if (ALL_ERP_MODULE_KEYS.includes(raw) || /^facturacion:caja\d+$/.test(raw)) {
       out.add(raw);
     }
   }

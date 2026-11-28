@@ -442,6 +442,7 @@ export function buildDefaultPricingConfig(): ErpPricingConfigRecord {
     option_2_base: 15000,
     user_unit_price: 5000,
     default_max_users: 3,
+    default_cajas_count: 1,
     module_prices: modulePrices,
     discount_presets: [
       {
@@ -478,6 +479,8 @@ export function calculateSubscriptionQuote(params: {
   maxUsers?: number | null;
   userUnitPriceArs?: number | null;
   usersDiscountPct?: number;
+  cajasCount?: number | null;
+  cajaUnitPriceArs?: number | null;
   moduleOverrides: Array<{
     moduleKey: string;
     selectedSubmodules?: string[];
@@ -530,6 +533,31 @@ export function calculateSubscriptionQuote(params: {
       ? Math.max(0, Math.round(maxUsers * userUnitPriceArs * (1 - usersDiscountPct / 100)))
       : 0;
 
+  const requestedCajasCount = Math.max(
+    1,
+    Math.min(
+      20,
+      Math.round(
+        params.cajasCount !== undefined && params.cajasCount !== null
+          ? Number(params.cajasCount)
+          : Number(params.pricingConfig.default_cajas_count ?? 1)
+      )
+    )
+  );
+  let resolvedCajasCount = 0;
+  let resolvedCajaUnitPrice = Math.max(
+    0,
+    Math.round(
+      params.cajaUnitPriceArs !== undefined && params.cajaUnitPriceArs !== null
+        ? Number(params.cajaUnitPriceArs)
+        : Number(
+            params.pricingConfig.module_prices?.facturacion?.submodulePrices?.["facturacion:caja"] ??
+              params.pricingConfig.module_prices?.facturacion?.submodulePrices?.["facturacion:caja1"] ??
+              10000
+          )
+    )
+  );
+
   const selectedModules: ErpModuleSelection[] = [];
   let modulesNetSum = 0;
 
@@ -539,18 +567,38 @@ export function calculateSubscriptionQuote(params: {
     const cfgEntry = params.pricingConfig.module_prices?.[def.key];
     const subPricesCfg = cfgEntry?.submodulePrices || {};
 
+    const normalizedSelSubs = Array.isArray(item.selectedSubmodules)
+      ? Array.from(
+          new Set(
+            item.selectedSubmodules.map((sk) =>
+              /^facturacion:caja\d+$/.test(sk) ? "facturacion:caja" : sk
+            )
+          )
+        )
+      : undefined;
+
     const activeSubs =
-      Array.isArray(item.selectedSubmodules) && item.selectedSubmodules.length > 0
-        ? def.submodules.filter((s) => item.selectedSubmodules!.includes(s.key))
+      Array.isArray(normalizedSelSubs) && normalizedSelSubs.length > 0
+        ? def.submodules.filter((s) => normalizedSelSubs.includes(s.key))
         : def.submodules;
     if (activeSubs.length === 0) continue;
 
     const sumFromSubmodules = activeSubs.reduce((acc, s) => {
       const sp =
-        subPricesCfg[s.key] !== undefined
-          ? Number(subPricesCfg[s.key])
-          : s.defaultMonthlyArs;
-      return acc + Math.max(0, Math.round(sp));
+        s.key === "facturacion:caja" &&
+        params.cajaUnitPriceArs !== undefined &&
+        params.cajaUnitPriceArs !== null
+          ? Number(params.cajaUnitPriceArs)
+          : subPricesCfg[s.key] !== undefined
+            ? Number(subPricesCfg[s.key])
+            : s.defaultMonthlyArs;
+      const cleanSp = Math.max(0, Math.round(sp));
+      if (s.key === "facturacion:caja") {
+        resolvedCajasCount = requestedCajasCount;
+        resolvedCajaUnitPrice = cleanSp;
+        return acc + cleanSp * requestedCajasCount;
+      }
+      return acc + cleanSp;
     }, 0);
 
     const basePrice = Math.max(
@@ -630,6 +678,8 @@ export function calculateSubscriptionQuote(params: {
     userUnitPriceArs,
     usersDiscountPct,
     usersMonthlyAmount,
+    cajasCount: resolvedCajasCount,
+    cajaUnitPriceArs: resolvedCajaUnitPrice,
     selectedModules,
     globalDiscountType: durationType,
     globalDiscountPct: globalPct,
@@ -1033,9 +1083,24 @@ function normalizePricingConfigWithSubmodules(
   const nextModPrices: ErpPricingConfigRecord["module_prices"] = {
     ...(raw.module_prices || {}),
   };
+  const defaultCajasCount = Math.max(
+    1,
+    Math.min(20, Math.round(Number(raw.default_cajas_count ?? 1)))
+  );
   for (const m of ERP_COMMERCIAL_MODULES) {
     const existing = nextModPrices[m.key];
-    const existingSubs = existing?.submodulePrices || {};
+    const existingSubsRaw = existing?.submodulePrices || {};
+    const existingSubs: Record<string, number> = { ...existingSubsRaw };
+    if (
+      m.key === "facturacion" &&
+      existingSubs["facturacion:caja"] === undefined &&
+      existingSubs["facturacion:caja1"] !== undefined
+    ) {
+      existingSubs["facturacion:caja"] = Math.max(
+        0,
+        Math.round(Number(existingSubs["facturacion:caja1"] || 10000))
+      );
+    }
     const subMap: Record<string, number> = {};
     let hasAllSubs = m.submodules.every(
       (s) => existingSubs[s.key] !== undefined && Number.isFinite(Number(existingSubs[s.key]))
@@ -1046,7 +1111,7 @@ function normalizePricingConfigWithSubmodules(
       for (const s of m.submodules) {
         const val = Math.max(0, Math.round(Number(existingSubs[s.key] || 0)));
         subMap[s.key] = val;
-        sum += val;
+        sum += s.key === "facturacion:caja" ? val * defaultCajasCount : val;
       }
       nextModPrices[m.key] = {
         price: sum,
@@ -1064,10 +1129,10 @@ function normalizePricingConfigWithSubmodules(
         if (existingSubs[s.key] !== undefined) {
           const v = Math.max(0, Math.round(Number(existingSubs[s.key])));
           subMap[s.key] = v;
-          running += v;
+          running += s.key === "facturacion:caja" ? v * defaultCajasCount : v;
         } else if (targetModPrice === defaultSum) {
           subMap[s.key] = s.defaultMonthlyArs;
-          running += s.defaultMonthlyArs;
+          running += s.key === "facturacion:caja" ? s.defaultMonthlyArs * defaultCajasCount : s.defaultMonthlyArs;
         } else if (idx === m.submodules.length - 1) {
           subMap[s.key] = Math.max(0, targetModPrice - running);
         } else {
@@ -1079,7 +1144,14 @@ function normalizePricingConfigWithSubmodules(
           running += share;
         }
       });
-      const finalSum = Object.values(subMap).reduce((a, b) => a + b, 0);
+      const finalSum = m.submodules.reduce(
+        (acc, s) =>
+          acc +
+          (s.key === "facturacion:caja"
+            ? (subMap[s.key] || 0) * defaultCajasCount
+            : (subMap[s.key] || 0)),
+        0
+      );
       nextModPrices[m.key] = {
         price: finalSum,
         defaultDiscountPct: Number(existing?.defaultDiscountPct || 0),
@@ -1089,6 +1161,7 @@ function normalizePricingConfigWithSubmodules(
   }
   return {
     ...raw,
+    default_cajas_count: defaultCajasCount,
     module_prices: nextModPrices,
   };
 }
@@ -1128,6 +1201,10 @@ export async function savePricingConfig(
       nextCfg.default_max_users !== undefined
         ? Math.max(1, Math.min(500, Math.round(Number(nextCfg.default_max_users))))
         : Math.max(1, Math.min(500, Math.round(Number(current.default_max_users ?? 3)))),
+    default_cajas_count:
+      nextCfg.default_cajas_count !== undefined
+        ? Math.max(1, Math.min(20, Math.round(Number(nextCfg.default_cajas_count))))
+        : Math.max(1, Math.min(20, Math.round(Number(current.default_cajas_count ?? 1)))),
     module_prices: nextCfg.module_prices || current.module_prices,
     discount_presets: nextCfg.discount_presets || current.discount_presets,
     currency: "ARS",
@@ -1348,6 +1425,8 @@ export async function provisionNewCommerceTenant(input: {
   maxUsers?: number | null;
   userUnitPriceArs?: number | null;
   usersDiscountPct?: number;
+  cajasCount?: number | null;
+  cajaUnitPriceArs?: number | null;
   globalDiscountType?: DiscountDurationType;
   globalDiscountPct?: number;
   globalDiscountFixed?: number;
@@ -1432,7 +1511,8 @@ export async function provisionNewCommerceTenant(input: {
 
   const enabledErpModules = expandCommercialToErpModules(
     selectedCommKeys,
-    explicitSubs.length > 0 ? explicitSubs : undefined
+    explicitSubs.length > 0 ? explicitSubs : undefined,
+    { cajasCount: input.cajasCount }
   );
 
   const pricingConfig = await getPricingConfig();
@@ -1458,6 +1538,8 @@ export async function provisionNewCommerceTenant(input: {
     maxUsers: input.maxUsers,
     userUnitPriceArs: input.userUnitPriceArs,
     usersDiscountPct: input.usersDiscountPct,
+    cajasCount: input.cajasCount,
+    cajaUnitPriceArs: input.cajaUnitPriceArs,
     moduleOverrides,
     globalDiscountType: input.globalDiscountType || "none",
     globalDiscountPct: input.globalDiscountPct,

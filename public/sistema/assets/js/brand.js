@@ -56,6 +56,7 @@
     accentHex: boot.accentHex || '#56D7A1',
     carbonHex: boot.primaryHex || '#112D3A',
     enabledModules: Array.isArray(boot.enabledModules) ? boot.enabledModules : [],
+    cajasCount: Number(boot.cajasCount || 0) > 0 ? Math.max(1, Math.min(20, Math.round(Number(boot.cajasCount)))) : 3,
     fiscal: {
       titular: businessName.toUpperCase(),
       fantasia: fantasyName.toUpperCase(),

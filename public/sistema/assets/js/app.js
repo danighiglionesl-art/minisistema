@@ -1119,6 +1119,58 @@ const CAJAS_CONFIG = {
   }
 };
 
+function getAllPosCajaIds() {
+  return Object.keys(CAJAS_CONFIG)
+    .filter((k) => /^caja\d+$/.test(k))
+    .sort((a, b) => Number(a.replace('caja', '')) - Number(b.replace('caja', '')));
+}
+
+(function registerDynamicTenantCajas() {
+  const brandMods = Array.isArray(ACTIVE_BRAND?.enabledModules) ? ACTIVE_BRAND.enabledModules : [];
+  let maxN = Math.max(3, Number(ACTIVE_BRAND?.cajasCount || 3));
+  brandMods.forEach((mk) => {
+    const mt = /^facturacion:caja(\d+)$/i.exec(String(mk || '').trim());
+    if (mt) maxN = Math.max(maxN, Number(mt[1]));
+  });
+  maxN = Math.min(20, maxN);
+  const factModDef = ALL_SYSTEM_MODULES.find((m) => m.key === 'facturacion');
+  const insertAfterIdx = factModDef && Array.isArray(factModDef.submodules)
+    ? factModDef.submodules.findIndex((s) => s.key === 'facturacion:caja3')
+    : -1;
+  let offset = 1;
+  for (let n = 4; n <= maxN; n++) {
+    const cid = `caja${n}`;
+    const pvFiscal = String(n + 1).padStart(4, '0');
+    const pvInterno = String(98 + n).padStart(4, '0');
+    if (!CAJAS_CONFIG[cid]) {
+      CAJAS_CONFIG[cid] = {
+        id: cid,
+        nombre: `Caja ${n}`,
+        pvFiscal,
+        pvInterno,
+        puntosVenta: [
+          { numero: pvFiscal, etiqueta: `Punto de Venta ${pvFiscal} (Factura Electrónica ARCA)`, tipo: 'fiscal' },
+          { numero: pvInterno, etiqueta: `Punto de Venta ${pvInterno} (Comprobante Interno)`, tipo: 'interno' }
+        ]
+      };
+    }
+    if (factModDef && Array.isArray(factModDef.submodules) && !factModDef.submodules.some((s) => s.key === `facturacion:${cid}`)) {
+      const subObj = {
+        key: `facturacion:${cid}`,
+        label: `Caja ${n}`,
+        selector: `#sec-menu-facturacion [data-open-caja="${cid}"]`,
+        sections: []
+      };
+      if (insertAfterIdx >= 0) {
+        factModDef.submodules.splice(insertAfterIdx + offset, 0, subObj);
+        offset += 1;
+      } else {
+        factModDef.submodules.push(subObj);
+      }
+    }
+  }
+})();
+
 // Próximos números correlativos reales continuando a Oliver Informática (GestionDB · tabla VENTA por MAX(ID_VENTA))
 const OLIVER_NEXT_CORRELATIVOS = (ACTIVE_BRAND.isMiniSistema || ACTIVE_BRAND.isPaseoAlberdi) ? {
   '0002': 1, '0002-A': 1, '0002-NC-B': 1, '0002-NC-A': 1, '0002-ND-B': 1, '0002-ND-A': 1,
@@ -1535,8 +1587,9 @@ function applyUserAllowedModules(user) {
     if (!Array.isArray(mod.submodules)) return;
     mod.submodules.forEach((sub) => {
       if (!sub.selector) return;
+      const tenantBlockedSub = hasTenantRestriction && !tenantModSet.has(sub.key);
       document.querySelectorAll(sub.selector).forEach((el) => {
-        el.hidden = !isPrimary && (!allowed.has(mod.key) || !allowed.has(sub.key));
+        el.hidden = tenantBlockedSub || (!isPrimary && (!allowed.has(mod.key) || !allowed.has(sub.key)));
       });
     });
   });
@@ -1765,7 +1818,7 @@ function syncTurnosCajasFromServerMap(comprobantesPorCaja) {
   let updatedAny = false;
   const nowMs = Date.now();
   const maxUnsyncedAgeMs = 7 * 24 * 60 * 60 * 1000;
-  ['caja1', 'caja2', 'caja3'].forEach((cajaKey) => {
+  getAllPosCajaIds().forEach((cajaKey) => {
     const fromServer = Array.isArray(comprobantesPorCaja[cajaKey]) ? comprobantesPorCaja[cajaKey] : [];
     if (fromServer.length === 0) return;
     const closedServerKeySet = new Set(
@@ -12805,11 +12858,11 @@ function initApp() {
         if (parsed && typeof parsed === 'object') {
           if (parsed.turnosCajas) STATE.turnosCajas = parsed.turnosCajas;
           if (parsed.efectivoInicialPorCaja && typeof parsed.efectivoInicialPorCaja === 'object') {
-            STATE.efectivoInicialPorCaja = {
-              caja1: Number(parsed.efectivoInicialPorCaja.caja1) || 0,
-              caja2: Number(parsed.efectivoInicialPorCaja.caja2) || 0,
-              caja3: Number(parsed.efectivoInicialPorCaja.caja3) || 0
-            };
+            const nextEfec = {};
+            getAllPosCajaIds().forEach((cid) => {
+              nextEfec[cid] = Number(parsed.efectivoInicialPorCaja[cid]) || 0;
+            });
+            STATE.efectivoInicialPorCaja = nextEfec;
           }
           if (Array.isArray(parsed.cierresCajaCentral)) STATE.cierresCajaCentral = parsed.cierresCajaCentral;
           if (Array.isArray(parsed.aperturasCajaCentral)) STATE.aperturasCajaCentral = parsed.aperturasCajaCentral;
@@ -12832,7 +12885,7 @@ function initApp() {
       // Purgar recibos anulados (REC-1794338206928-1466 / 0099-00052658 y REC-1794343068001-7719 / 0099-00052677)
       if (STATE.turnosCajas && typeof STATE.turnosCajas === 'object') {
         let purgedAny = false;
-        ['caja1', 'caja2', 'caja3'].forEach((cid) => {
+        getAllPosCajaIds().forEach((cid) => {
           if (Array.isArray(STATE.turnosCajas[cid])) {
             const beforeLen = STATE.turnosCajas[cid].length;
             STATE.turnosCajas[cid] = STATE.turnosCajas[cid].filter(
@@ -12862,7 +12915,7 @@ function initApp() {
     };
     const buildTurnosSnapshot = (dropItems = false) => {
       const out = {};
-      ['caja1', 'caja2', 'caja3'].forEach((cid) => {
+      getAllPosCajaIds().forEach((cid) => {
         const list = Array.isArray(STATE.turnosCajas?.[cid]) ? STATE.turnosCajas[cid] : [];
         out[cid] = list
           .filter((it) => it && !it.cerradoEnTurno)
@@ -12992,7 +13045,7 @@ function initApp() {
         didSanitizeStaleAp = true;
       }
       const cId = String(ap.cajaId || '');
-      if (!['caja1', 'caja2', 'caja3'].includes(cId)) {
+      if (!getAllPosCajaIds().includes(cId)) {
         cleaned.push(ap);
         return;
       }
@@ -13036,7 +13089,7 @@ function initApp() {
 
   function syncUsersCajaAbiertaFromAperturas() {
     const ownerCajaByUser = {};
-    ['caja1', 'caja2', 'caja3'].forEach((cId) => {
+    getAllPosCajaIds().forEach((cId) => {
       const activeAp = typeof getActiveTurnoAperturaForCaja === 'function' ? getActiveTurnoAperturaForCaja(cId) : null;
       if (!activeAp) return;
       let ownerKey = String(activeAp.username || activeAp.openedBy || '').trim().toLowerCase();
@@ -13059,7 +13112,7 @@ function initApp() {
   }
 
   function renderMenuFacturacionCajaBadges() {
-    ['caja1', 'caja2', 'caja3'].forEach((cId) => {
+    getAllPosCajaIds().forEach((cId) => {
       const badgeEl = document.getElementById(`badge-menu-caja-${cId}`);
       if (!badgeEl) return;
       const activeAp = typeof getActiveTurnoAperturaForCaja === 'function' ? getActiveTurnoAperturaForCaja(cId) : null;
@@ -15036,7 +15089,7 @@ function initApp() {
 
   function requireCajaAperturaBeforeOperar(cajaIdParam) {
     const cajaId = cajaIdParam || STATE.activeCajaId || 'caja1';
-    if (!['caja1', 'caja2', 'caja3'].includes(cajaId)) return true;
+    if (!getAllPosCajaIds().includes(cajaId)) return true;
     const cfg = CAJAS_CONFIG[cajaId];
     const activeAp = typeof getActiveShiftAperturaForCaja === 'function'
       ? getActiveShiftAperturaForCaja(cajaId, true)
@@ -15443,13 +15496,13 @@ function initApp() {
       }
     };
 
-    ['caja1', 'caja2', 'caja3'].forEach((ck) => {
+    getAllPosCajaIds().forEach((ck) => {
       const localArr = Array.isArray(STATE.turnosCajas?.[ck]) ? STATE.turnosCajas[ck] : [];
       localArr.forEach((v) => addRecord(v, ck));
     });
 
     if (STATE.ventasDb?.comprobantesPorCaja && typeof STATE.ventasDb.comprobantesPorCaja === 'object') {
-      ['caja1', 'caja2', 'caja3'].forEach((ck) => {
+      getAllPosCajaIds().forEach((ck) => {
         const srvArr = Array.isArray(STATE.ventasDb.comprobantesPorCaja[ck]) ? STATE.ventasDb.comprobantesPorCaja[ck] : [];
         srvArr.forEach((v) => addRecord(v, ck));
       });
@@ -20127,7 +20180,7 @@ function initApp() {
             };
           }
 
-          ['caja1', 'caja2', 'caja3'].forEach((cid) => {
+          getAllPosCajaIds().forEach((cid) => {
             if (Array.isArray(STATE.turnosCajas?.[cid])) {
               STATE.turnosCajas[cid].forEach((it) => {
                 if (matchRecord(it)) {
@@ -20796,7 +20849,43 @@ function initApp() {
     renderCajaRetiroKpisAndHistory(cajaId);
   }
 
-  // Caja 1, Caja 2, Caja 3 Cards inside Facturación module -> Abren los 4 Submódulos antes del Club Cachita
+  // Inyectar tarjetas dinámicas de Caja 4..N si el comercio tiene más de 3 cajas contratadas
+  (function mountDynamicCajaCards() {
+    const menuGrid = document.querySelector('#sec-menu-facturacion .modules-grid');
+    if (!menuGrid) return;
+    let anchor = menuGrid.querySelector('[data-open-caja="caja3"]');
+    getAllPosCajaIds().forEach((cid) => {
+      const num = Number(cid.replace('caja', ''));
+      if (num <= 3) return;
+      if (!STATE.turnosCajas[cid]) STATE.turnosCajas[cid] = [];
+      if (STATE.efectivoInicialPorCaja[cid] === undefined) STATE.efectivoInicialPorCaja[cid] = 0;
+      if (menuGrid.querySelector(`[data-open-caja="${cid}"]`)) return;
+      const card = document.createElement('article');
+      card.className = 'module-card';
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('data-open-caja', cid);
+      card.innerHTML =
+        '<div class="module-icon" aria-hidden="true">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<rect x="2" y="4" width="20" height="16" rx="2"></rect>' +
+            '<line x1="6" y1="8" x2="18" y2="8"></line>' +
+            '<line x1="6" y1="12" x2="14" y2="12"></line>' +
+            '<line x1="6" y1="16" x2="10" y2="16"></line>' +
+          '</svg>' +
+        '</div>' +
+        `<h3>Caja ${num}</h3>` +
+        `<span id="badge-menu-caja-${cid}" class="badge" style="font-size:0.72rem;" hidden></span>`;
+      if (anchor && anchor.parentNode === menuGrid) {
+        anchor.insertAdjacentElement('afterend', card);
+        anchor = card;
+      } else {
+        menuGrid.appendChild(card);
+      }
+    });
+  })();
+
+  // Caja 1..N Cards inside Facturación module -> Abren los Submódulos de Caja
   document.querySelectorAll('[data-open-caja]').forEach((el) => {
     const openCaja = () => {
       const cajaId = el.getAttribute('data-open-caja');
@@ -52953,7 +53042,7 @@ function initApp() {
 
     // 1. Comprobantes históricos fiscales importados en ventasDb (PV 0002, 0003, 0004)
     if (STATE.ventasDb && STATE.ventasDb.comprobantesPorCaja) {
-      ['caja1', 'caja2', 'caja3'].forEach((ck) => {
+      getAllPosCajaIds().forEach((ck) => {
         const arr = STATE.ventasDb.comprobantesPorCaja[ck];
         if (!Array.isArray(arr)) return;
         arr.forEach((item) => {
@@ -52964,7 +53053,7 @@ function initApp() {
     }
 
     // 2. Comprobantes emitidos en turnos activos de Caja 1, 2 y 3
-    ['caja1', 'caja2', 'caja3'].forEach((ck) => {
+    getAllPosCajaIds().forEach((ck) => {
       const arr = STATE.turnosCajas[ck];
       if (!Array.isArray(arr)) return;
       arr.forEach((item) => {
@@ -53002,7 +53091,7 @@ function initApp() {
     });
 
     let changed = false;
-    ['caja1', 'caja2', 'caja3'].forEach((ck) => {
+    getAllPosCajaIds().forEach((ck) => {
       const arr = STATE.turnosCajas[ck];
       if (!Array.isArray(arr)) return;
       arr.forEach((sale) => {
@@ -59305,7 +59394,7 @@ function initApp() {
       c.editadoPor = STATE.currentUser?.name || STATE.currentUser?.username || 'CAJA CENTRAL';
 
       const cajaIdKey = String(c.cajaId || '').toLowerCase();
-      if (['caja1', 'caja2', 'caja3'].includes(cajaIdKey) && STATE.efectivoInicialPorCaja) {
+      if (getAllPosCajaIds().includes(cajaIdKey) && STATE.efectivoInicialPorCaja) {
         STATE.efectivoInicialPorCaja[cajaIdKey] = efecCamb;
       }
 
