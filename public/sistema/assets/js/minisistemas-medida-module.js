@@ -56,7 +56,16 @@
     draftImageDataUrl: '',
     dashStatusFilter: 'all',
     dashStockTier: 'minorista',
-    globalNavBound: false
+    globalNavBound: false,
+    factMode: 'minorista', // 'minorista' (default) | 'mayorista'
+    factRule: 'auto', // 'auto' | 'lista1' | 'lista2' | 'lista3'
+    factItems: [], // [{ productId, qty, customPrice }]
+    factCustName: 'CONSUMIDOR FINAL',
+    factCustPhone: '',
+    factCustCity: 'RIO CUARTO',
+    factPayment: 'Efectivo',
+    factShipping: 0,
+    factSearch: ''
   };
 
   var fmtArs = new Intl.NumberFormat('es-AR', {
@@ -764,6 +773,7 @@
         '</div>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
           [
+            ['facturacion', '🧾 Facturación (Caja)'],
             ['orders', '📋 1. Carritos / Pedidos y PDF'],
             ['products', '🧉 2. ABM Productos, Precios y Stock'],
             ['conditions', '⚖️ 3. Condiciones Mayoristas'],
@@ -790,7 +800,9 @@
       '</div>';
 
     var tabContentHtml = '';
-    if (STATE.tab === 'orders') {
+    if (STATE.tab === 'facturacion') {
+      tabContentHtml = renderFacturacionTabHtml(cat, products, orders);
+    } else if (STATE.tab === 'orders') {
       tabContentHtml = renderOrdersTabHtml(cat, products, orders);
     } else if (STATE.tab === 'products') {
       tabContentHtml = renderProductsTabHtml(cat, products);
@@ -804,6 +816,214 @@
 
     body.innerHTML = feedbackBanner + navTabs + tabContentHtml;
     bindMateMaticaEvents(body, cat, products, orders);
+  }
+
+  function computeMmFacturacionPricing(cat, products) {
+    var c1 = (cat.conditions && cat.conditions.lista1) || { minTotalUnits: 10, maxTotalUnits: 19, name: 'Precio Lista 1', description: '' };
+    var c2 = (cat.conditions && cat.conditions.lista2) || { minTotalUnits: 20, name: 'Precio Lista 2', description: '' };
+    var c3 = (cat.conditions && cat.conditions.lista3) || { minTotalUnits: 50, minSameProductUnits: 5, name: 'Precio Lista 3', description: '' };
+
+    var valid = [];
+    (STATE.factItems || []).forEach(function (entry) {
+      var prod = products.find(function (p) { return p.id === entry.productId && p.active !== false; });
+      if (!prod) return;
+      var st = getProductStock(prod);
+      if (st <= 0) return;
+      var q = Math.max(1, Math.min(st, parseInt(entry.qty, 10) || 1));
+      entry.qty = q;
+      valid.push({ entry: entry, prod: prod, stock: st, qty: q });
+    });
+
+    var totalUnits = valid.reduce(function (s, x) { return s + x.qty; }, 0);
+    var activeTierLabel = 'Precio Minorista';
+
+    if (STATE.factMode === 'mayorista') {
+      if (STATE.factRule === 'lista1') activeTierLabel = 'Mayorista · Lista 1';
+      else if (STATE.factRule === 'lista2') activeTierLabel = 'Mayorista · Lista 2';
+      else if (STATE.factRule === 'lista3') activeTierLabel = 'Mayorista · Lista 3';
+      else {
+        if (totalUnits >= (c3.minTotalUnits || 50) && valid.some(function (x) { return x.qty >= (c3.minSameProductUnits || 5); })) {
+          activeTierLabel = 'Mayorista Automático · Lista 3 / Lista 2';
+        } else if (totalUnits >= (c2.minTotalUnits || 20)) {
+          activeTierLabel = 'Mayorista Automático · Lista 2';
+        } else if (totalUnits >= (c1.minTotalUnits || 10)) {
+          activeTierLabel = 'Mayorista Automático · Lista 1';
+        } else {
+          activeTierLabel = 'Mayorista Automático (<10 u. · Aplica Minorista)';
+        }
+      }
+    }
+
+    var lines = valid.map(function (v) {
+      var p = v.prod;
+      var q = v.qty;
+      var autoP = p.priceMinorista;
+      var tLabel = 'Minorista';
+
+      if (STATE.factMode === 'mayorista') {
+        if (STATE.factRule === 'lista1') { autoP = p.priceLista1; tLabel = 'Lista 1'; }
+        else if (STATE.factRule === 'lista2') { autoP = p.priceLista2; tLabel = 'Lista 2'; }
+        else if (STATE.factRule === 'lista3') { autoP = p.priceLista3; tLabel = 'Lista 3'; }
+        else {
+          if (totalUnits >= (c3.minTotalUnits || 50) && q >= (c3.minSameProductUnits || 5)) {
+            autoP = p.priceLista3; tLabel = 'Lista 3';
+          } else if (totalUnits >= (c2.minTotalUnits || 20)) {
+            autoP = p.priceLista2; tLabel = 'Lista 2';
+          } else if (totalUnits >= (c1.minTotalUnits || 10)) {
+            autoP = p.priceLista1; tLabel = 'Lista 1';
+          } else {
+            autoP = p.priceMinorista; tLabel = 'Minorista';
+          }
+        }
+      }
+
+      var unitP = (Number(v.entry.customPrice) > 0) ? Number(v.entry.customPrice) : Number(autoP) || 0;
+      return {
+        productId: p.id,
+        code: p.code,
+        name: p.name,
+        stock: v.stock,
+        qty: q,
+        unitPrice: unitP,
+        tierLabel: tLabel,
+        subtotal: q * unitP
+      };
+    });
+
+    var merch = lines.reduce(function (s, l) { return s + l.subtotal; }, 0);
+    var ship = Math.max(0, Number(STATE.factShipping) || 0);
+    return {
+      lines: lines,
+      totalUnits: totalUnits,
+      merchandiseTotal: merch,
+      shipping: ship,
+      grandTotal: merch + ship,
+      activeTierLabel: activeTierLabel
+    };
+  }
+
+  function renderFacturacionTabHtml(cat, products, orders) {
+    var calc = computeMmFacturacionPricing(cat, products);
+    var nextNum = computeNextQuoteNumber(orders);
+    var c1 = cat.conditions.lista1 || {};
+    var c2 = cat.conditions.lista2 || {};
+    var c3 = cat.conditions.lista3 || {};
+    var q = String(STATE.factSearch || '').trim().toLowerCase();
+
+    var filteredProds = products.filter(function (p) {
+      if (p.active === false) return false;
+      if (!q) return true;
+      var hay = (p.name || '') + ' ' + (p.brand || '') + ' ' + (p.code || '') + ' ' + (p.weight || '');
+      return hay.toLowerCase().indexOf(q) !== -1;
+    });
+
+    var prodsListHtml = filteredProds
+      .map(function (p) {
+        var st = getProductStock(p);
+        var isOut = st <= 0;
+        var isLow = st > 0 && st < 20;
+        var previewPrice =
+          STATE.factMode === 'minorista'
+            ? p.priceMinorista
+            : STATE.factRule === 'lista1'
+              ? p.priceLista1
+              : STATE.factRule === 'lista3'
+                ? p.priceLista3
+                : p.priceLista2;
+        var badgeStyle = isOut
+          ? 'background:#FEE2E2;color:#DC2626;'
+          : isLow
+            ? 'background:#FEF3C7;color:#92400E;'
+            : 'background:#DCFCE7;color:#166534;';
+        return (
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:8px;background:' + (isOut ? '#f1f5f9;opacity:0.6' : '#fff') + ';">' +
+            '<div style="min-width:0;flex:1;">' +
+              '<div style="font-weight:800;font-size:12px;color:#1C4328;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(p.name) + '</div>' +
+              '<div style="font-size:11px;display:flex;gap:6px;align-items:center;">' +
+                '<strong style="color:#1C4328;">' + fmtArs.format(previewPrice || 0) + '</strong>' +
+                '<span style="padding:1px 6px;border-radius:999px;font-weight:800;font-size:10px;' + badgeStyle + '">' + (isOut ? 'Sin Stock' : 'Stock: ' + st + ' u.') + '</span>' +
+              '</div>' +
+            '</div>' +
+            (isOut
+              ? '<span style="font-size:10px;font-weight:800;color:#DC2626;">SIN STOCK</span>'
+              : '<button type="button" data-mm-fact-add="' + esc(p.id) + '" style="cursor:pointer;padding:5px 10px;border-radius:6px;border:none;background:#1C4328;color:#fff;font-size:11px;font-weight:800;">+1</button>') +
+          '</div>'
+        );
+      })
+      .join('');
+
+    var linesHtml = calc.lines
+      .map(function (ln) {
+        return (
+          '<tr style="border-bottom:1px solid #e2e8f0;">' +
+            '<td style="padding:6px;"><strong>' + esc(ln.name) + '</strong><br><small style="color:#64748b;">' + esc(ln.tierLabel) + ' · Disp: ' + ln.stock + ' u.</small></td>' +
+            '<td style="padding:6px;text-align:center;"><input type="number" min="1" max="' + ln.stock + '" data-mm-fact-qty="' + esc(ln.productId) + '" value="' + ln.qty + '" style="width:60px;padding:4px;border:1px solid #cbd5e1;border-radius:6px;text-align:center;font-weight:800;"></td>' +
+            '<td style="padding:6px;text-align:right;"><input type="text" inputmode="numeric" data-mm-fact-price="' + esc(ln.productId) + '" value="' + formatThousandsAr(ln.unitPrice) + '" style="width:92px;padding:4px;border:1px solid #cbd5e1;border-radius:6px;text-align:right;font-weight:800;"></td>' +
+            '<td style="padding:6px;text-align:right;font-weight:900;color:#1C4328;">' + fmtArs.format(ln.subtotal) + '</td>' +
+            '<td style="padding:6px;text-align:center;"><button type="button" data-mm-fact-del="' + esc(ln.productId) + '" style="cursor:pointer;padding:3px 7px;border-radius:5px;border:1px solid #EF4444;background:#FEE2E2;color:#991B1B;font-weight:800;">✕</button></td>' +
+          '</tr>'
+        );
+      })
+      .join('');
+
+    return (
+      '<div style="display:grid;gap:12px;">' +
+        '<div style="background:#fff;border:2px solid #1C4328;border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">' +
+          '<div>' +
+            '<div style="font-size:15px;font-weight:900;color:#1C4328;">🧾 Facturación (Caja · Comprobante Interno N° ' + nextNum + ' — Sin ARCA)</div>' +
+            '<div style="font-size:12px;color:#64748b;">Por defecto opera con Lista Minorista y descuenta inmediatamente del Stock Unificado.</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+            '<button type="button" data-mm-fact-mode="minorista" style="cursor:pointer;padding:8px 13px;border-radius:8px;font-size:12px;font-weight:800;border:1.5px solid #1C4328;background:' + (STATE.factMode === 'minorista' ? '#1C4328;color:#fff' : '#fff;color:#1C4328') + ';">🛍️ Precio Minorista (Por Defecto)</button>' +
+            '<button type="button" data-mm-fact-mode="mayorista" style="cursor:pointer;padding:8px 13px;border-radius:8px;font-size:12px;font-weight:800;border:1.5px solid #1C4328;background:' + (STATE.factMode === 'mayorista' ? '#1C4328;color:#fff' : '#fff;color:#1C4328') + ';">📦 Precio Mayorista (Condiciones 1, 2 y 3)</button>' +
+          '</div>' +
+          (STATE.factMode === 'mayorista'
+            ? '<div style="width:100%;padding-top:8px;border-top:1px dashed #cbd5e1;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;">' +
+                '<strong style="color:#1C4328;">Regla Mayorista:</strong>' +
+                [
+                  ['auto', '⚡ Automático (' + (c1.minTotalUnits || 10) + '-' + (c1.maxTotalUnits || 19) + ' L1 / ' + (c2.minTotalUnits || 20) + '+ L2 / ' + (c3.minTotalUnits || 50) + '+ y ' + (c3.minSameProductUnits || 5) + ' ig. L3)'],
+                  ['lista1', 'Lista 1'],
+                  ['lista2', 'Lista 2'],
+                  ['lista3', 'Lista 3']
+                ]
+                  .map(function (r) {
+                    var act = STATE.factRule === r[0];
+                    return '<button type="button" data-mm-fact-rule="' + r[0] + '" style="cursor:pointer;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:800;border:1px solid #1C4328;background:' + (act ? '#1C4328;color:#fff' : '#F7F5EE;color:#1C4328') + ';">' + r[1] + '</button>';
+                  })
+                  .join('') +
+              '</div>'
+            : '') +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start;">' +
+          '<div style="background:#fff;border:1px solid #d1dfd5;border-radius:12px;padding:14px;">' +
+            '<input type="search" id="mm-fact-search" value="' + esc(STATE.factSearch) + '" placeholder="🔍 Buscar producto o código para agregar a Caja..." style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;margin-bottom:10px;">' +
+            '<div style="max-height:420px;overflow-y:auto;display:grid;gap:6px;">' + prodsListHtml + '</div>' +
+          '</div>' +
+          '<div style="background:#fff;border:2px solid #1C4328;border-radius:12px;padding:14px;">' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px;">' +
+              '<label style="font-size:11px;font-weight:800;color:#1C4328;">Cliente<input type="text" id="mm-fact-cname" value="' + esc(STATE.factCustName) + '" style="width:100%;padding:6px;margin-top:2px;border:1px solid #cbd5e1;border-radius:6px;font-weight:700;"></label>' +
+              '<label style="font-size:11px;font-weight:800;color:#1C4328;">WhatsApp<input type="text" id="mm-fact-cphone" value="' + esc(STATE.factCustPhone) + '" style="width:100%;padding:6px;margin-top:2px;border:1px solid #cbd5e1;border-radius:6px;"></label>' +
+              '<label style="font-size:11px;font-weight:800;color:#1C4328;">Medio de Pago<select id="mm-fact-pay" style="width:100%;padding:6px;margin-top:2px;border:1px solid #cbd5e1;border-radius:6px;font-weight:700;">' +
+                ['Efectivo', 'Transferencia', 'Mercado Pago / QR', 'Débito / Crédito']
+                  .map(function (m) { return '<option value="' + esc(m) + '"' + (STATE.factPayment === m ? ' selected' : '') + '>' + esc(m) + '</option>'; })
+                  .join('') +
+              '</select></label>' +
+            '</div>' +
+            (calc.lines.length === 0
+              ? '<div style="padding:24px;text-align:center;color:#64748b;background:#F7F5EE;border-radius:8px;font-size:12px;font-weight:700;margin-bottom:10px;">Agregá productos desde la lista izquierda para facturar y descontar del Stock.</div>'
+              : '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;"><thead><tr style="border-bottom:2px solid #1C4328;text-align:left;color:#1C4328;"><th style="padding:5px;">Producto</th><th style="padding:5px;text-align:center;">Cant.</th><th style="padding:5px;text-align:right;">Unitario</th><th style="padding:5px;text-align:right;">Subtotal</th><th></th></tr></thead><tbody>' + linesHtml + '</tbody></table>') +
+            '<div style="background:#F7F5EE;border:1px solid #1C4328;border-radius:8px;padding:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;font-weight:900;color:#1C4328;">' +
+              '<span>Unidades a descontar: ' + calc.totalUnits + ' u.</span>' +
+              '<span style="font-size:16px;">TOTAL: ' + fmtArs.format(calc.grandTotal) + '</span>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+              '<button type="button" id="mm-fact-btn-confirm" ' + (calc.lines.length === 0 ? 'disabled' : '') + ' style="flex:1;cursor:pointer;padding:9px 12px;border-radius:8px;border:none;background:#1C4328;color:#fff;font-weight:900;font-size:12px;">✅ Confirmar Venta y Descontar Stock</button>' +
+              '<button type="button" id="mm-fact-btn-pdf" ' + (calc.lines.length === 0 ? 'disabled' : '') + ' style="cursor:pointer;padding:9px 12px;border-radius:8px;border:none;background:#2C603B;color:#fff;font-weight:900;font-size:12px;">📄 Emitir PDF A4</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
   }
 
   function renderOrdersTabHtml(cat, products, orders) {
@@ -1309,6 +1529,157 @@
       syncBtn.addEventListener('click', function () {
         reloadData(true);
       });
+    }
+
+    if (STATE.tab === 'facturacion') {
+      body.querySelectorAll('[data-mm-fact-mode]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          STATE.factMode = btn.getAttribute('data-mm-fact-mode') || 'minorista';
+          STATE.factItems.forEach(function (i) { i.customPrice = null; });
+          renderMateMaticaDetail();
+        });
+      });
+
+      body.querySelectorAll('[data-mm-fact-rule]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          STATE.factRule = btn.getAttribute('data-mm-fact-rule') || 'auto';
+          STATE.factItems.forEach(function (i) { i.customPrice = null; });
+          renderMateMaticaDetail();
+        });
+      });
+
+      var fSearch = body.querySelector('#mm-fact-search');
+      if (fSearch) {
+        fSearch.addEventListener('input', function () {
+          STATE.factSearch = fSearch.value;
+          renderMateMaticaDetail();
+          var nextInp = document.getElementById('mm-fact-search');
+          if (nextInp) nextInp.focus();
+        });
+      }
+
+      body.querySelectorAll('[data-mm-fact-add]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var pid = btn.getAttribute('data-mm-fact-add');
+          var prod = products.find(function (p) { return p.id === pid; });
+          if (!prod) return;
+          var st = getProductStock(prod);
+          if (st <= 0) return;
+          var ex = STATE.factItems.find(function (i) { return i.productId === pid; });
+          if (ex) {
+            if (ex.qty + 1 > st) {
+              ex.qty = st;
+              STATE.feedback = 'No hay Stock Suficiente de "' + prod.name + '" (máximo: ' + st + ' u.).';
+              STATE.isError = true;
+            } else {
+              ex.qty += 1;
+            }
+          } else {
+            STATE.factItems.push({ productId: pid, qty: 1, customPrice: null });
+          }
+          renderMateMaticaDetail();
+        });
+      });
+
+      body.querySelectorAll('[data-mm-fact-qty]').forEach(function (inp) {
+        inp.addEventListener('change', function () {
+          var pid = inp.getAttribute('data-mm-fact-qty');
+          var prod = products.find(function (p) { return p.id === pid; });
+          var ex = STATE.factItems.find(function (i) { return i.productId === pid; });
+          if (!ex || !prod) return;
+          var st = getProductStock(prod);
+          var req = parseInt(inp.value, 10) || 1;
+          if (req > st) {
+            req = st;
+            STATE.feedback = 'No hay Stock Suficiente de "' + prod.name + '" (máximo: ' + st + ' u.).';
+            STATE.isError = true;
+          }
+          if (req <= 0) {
+            STATE.factItems = STATE.factItems.filter(function (i) { return i.productId !== pid; });
+          } else {
+            ex.qty = req;
+          }
+          renderMateMaticaDetail();
+        });
+      });
+
+      body.querySelectorAll('[data-mm-fact-price]').forEach(function (inp) {
+        inp.addEventListener('change', function () {
+          var pid = inp.getAttribute('data-mm-fact-price');
+          var ex = STATE.factItems.find(function (i) { return i.productId === pid; });
+          if (ex) {
+            ex.customPrice = parsePriceInputAr(inp.value);
+            renderMateMaticaDetail();
+          }
+        });
+      });
+
+      body.querySelectorAll('[data-mm-fact-del]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var pid = btn.getAttribute('data-mm-fact-del');
+          STATE.factItems = STATE.factItems.filter(function (i) { return i.productId !== pid; });
+          renderMateMaticaDetail();
+        });
+      });
+
+      var cnameInp = body.querySelector('#mm-fact-cname');
+      if (cnameInp) cnameInp.addEventListener('input', function () { STATE.factCustName = cnameInp.value; });
+      var cphoneInp = body.querySelector('#mm-fact-cphone');
+      if (cphoneInp) cphoneInp.addEventListener('input', function () { STATE.factCustPhone = cphoneInp.value; });
+      var paySel = body.querySelector('#mm-fact-pay');
+      if (paySel) paySel.addEventListener('change', function () { STATE.factPayment = paySel.value; });
+
+      var confirmFactSale = function (openPdf) {
+        var calc = computeMmFacturacionPricing(cat, products);
+        if (calc.lines.length === 0) return;
+        var qNum = computeNextQuoteNumber(STATE.orders);
+        cat.config.nextQuoteNumber = qNum + 1;
+        var newOrd = {
+          id: 'ORD-' + qNum + '-CAJA-' + String(Date.now()).slice(-3),
+          quoteNumber: qNum,
+          date: formatTodayDdMmYyyy(),
+          createdAt: new Date().toISOString(),
+          status: 'confirmed',
+          origin: 'facturacion_caja',
+          mode: STATE.factMode === 'mayorista' ? 'mayorista' : 'minorista',
+          appliedTierLabel: calc.activeTierLabel + ' · Caja (' + STATE.factPayment + ')',
+          customer: {
+            name: String(STATE.factCustName || 'CONSUMIDOR FINAL').toUpperCase(),
+            address: '-',
+            city: String(STATE.factCustCity || 'RIO CUARTO').toUpperCase(),
+            province: 'CORDOBA',
+            phone: String(STATE.factCustPhone || ''),
+            notes: 'Comprobante Interno de Caja'
+          },
+          shippingCost: calc.shipping,
+          items: calc.lines.map(function (l) {
+            return {
+              productId: l.productId,
+              code: l.code,
+              name: l.name,
+              qty: l.qty,
+              unitPrice: l.unitPrice,
+              confirmed: true
+            };
+          }),
+          stockDeducted: false,
+          stockDeductedMap: {}
+        };
+        reconcileOrderStock(newOrd);
+        STATE.orders.unshift(newOrd);
+        STATE.editingOrderId = newOrd.id;
+        STATE.factItems = [];
+        saveAllToCloud('✅ Comprobante Interno N° ' + qNum + ' emitido y Stock descontado (-' + calc.totalUnits + ' u.).');
+        if (openPdf) {
+          openOfficialMateMaticaPdf(newOrd);
+        }
+      };
+
+      var btnConf = body.querySelector('#mm-fact-btn-confirm');
+      if (btnConf) btnConf.addEventListener('click', function () { confirmFactSale(false); });
+      var btnPdf = body.querySelector('#mm-fact-btn-pdf');
+      if (btnPdf) btnPdf.addEventListener('click', function () { confirmFactSale(true); });
+      return;
     }
 
     if (STATE.tab === 'orders') {
