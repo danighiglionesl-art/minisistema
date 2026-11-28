@@ -46,101 +46,351 @@ export async function handleErpFeriarte(
   const sb = await getPlatformSupabase();
 
   if (req.method === "GET") {
-    const [
-      usersRes,
-      rolesRes,
-      orgsRes,
-      fairsRes,
-      storesRes,
-      productsRes,
-      categoriesRes,
-      ordersRes,
-      paymentsRes,
-      rulesRes,
-      ledgerRes,
-      settlementsRes,
-      claimsRes,
-      reportsRes,
-      settingsRes,
-      auditRes,
-      qrScansRes,
-      identitiesRes,
-      fairLinksRes,
-    ] = await Promise.all([
-      sb
-        .from("fa_users")
-        .select("id, email, full_name, phone, province, locality, shipping_address, avatar_url, active_profile, status, email_verified_at, terms_accepted_at, privacy_accepted_at, last_login_at, password_hash, is_test_data, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      sb.from("fa_user_roles").select("user_id, role, status"),
-      sb
-        .from("fa_organizer_profiles")
-        .select("id, user_id, organization_name, cuit_cuil, province, locality, description, payout_method, payout_cbu_cvu, payout_alias, payout_holder_name, approval_status, invite_code, commission_override_pct, approved_by, approved_at, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      sb
-        .from("fa_fairs")
-        .select("id, organizer_id, slug, name, modality, province, locality, address, starts_at, ends_at, schedule_text, description, categories_tags, social_links, keep_online_after_end, status, is_featured, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      sb
-        .from("fa_stores")
-        .select("id, owner_user_id, slug, name, artisan_name, province, locality, status, verified_artisan_badge, is_featured, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      sb
+    const sp = req.nextUrl.searchParams;
+    const mode = String(sp.get("mode") || "").trim().toLowerCase();
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+    const sortCategoriesOtrosLast = <T extends { slug?: string | null; sort_order?: number | null; name?: string | null }>(
+      cats: T[]
+    ): T[] => {
+      return [...cats].sort((a, b) => {
+        const aOtros = String(a.slug || "").toLowerCase() === "otros" ? 1 : 0;
+        const bOtros = String(b.slug || "").toLowerCase() === "otros" ? 1 : 0;
+        if (aOtros !== bOtros) return aOtros - bOtros;
+        const oa = Number(a.sort_order ?? 500);
+        const ob = Number(b.sort_order ?? 500);
+        if (oa !== ob) return oa - ob;
+        return String(a.name || "").localeCompare(String(b.name || ""), "es");
+      });
+    };
+
+    if (mode === "products") {
+      const rawPage = parseInt(String(sp.get("page") || "1"), 10);
+      const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+      const rawPageSize = parseInt(String(sp.get("pageSize") || "25"), 10);
+      const pageSize = rawPageSize === 50 ? 50 : 25;
+      const q = String(sp.get("q") || "").trim().slice(0, 120);
+      const storeId = String(sp.get("storeId") || "").trim();
+      const categoryId = String(sp.get("categoryId") || "").trim();
+      const status = String(sp.get("status") || "").trim();
+      const moderationStatus = String(sp.get("moderationStatus") || "").trim();
+      const dateFrom = String(sp.get("dateFrom") || "").trim();
+      const dateTo = String(sp.get("dateTo") || "").trim();
+      const sort = String(sp.get("sort") || "newest").trim();
+      const includeFilters = sp.get("includeFilters") === "1";
+
+      let query = sb
         .from("fa_products")
-        .select("id, store_id, category_id, slug, title, description, materials, suggested_category_note, price_cents, stock_qty, craft_type, status, moderation_status, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      sb
-        .from("fa_categories")
-        .select("id, slug, name, description, icon, sort_order, is_active")
-        .order("sort_order", { ascending: true }),
-      sb
-        .from("fa_orders")
-        .select("id, order_number, buyer_user_id, store_id, attributed_fair_id, attributed_organizer_id, attribution_source, total_cents, status, paid_at, is_test_data, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      sb
-        .from("fa_payment_transactions")
-        .select("id, order_id, provider, sandbox_mode, mp_payment_id, gross_amount_cents, marketplace_fee_cents, seller_net_estimated_cents, status, webhook_verified_at, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      sb
-        .from("fa_commission_rules")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(50),
-      sb
-        .from("fa_commission_ledger")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      sb
-        .from("fa_organizer_settlements")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      sb
-        .from("fa_disputes_claims")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      sb
-        .from("fa_content_reports")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      sb.from("fa_platform_settings").select("*"),
-      sb
-        .from("fa_audit_logs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(150),
-      sb.from("fa_qr_scan_events").select("id", { count: "exact", head: true }),
-      sb.from("fa_user_identities").select("user_id, provider, provider_email, created_at"),
-      sb.from("fa_fair_store_links").select("fair_id, store_id, status, stand_code"),
+        .select(
+          "id, store_id, category_id, slug, title, price_cents, stock_qty, availability_mode, status, moderation_status, created_at",
+          { count: "exact" }
+        );
+
+      if (q) {
+        const safeQ = q.replace(/[,()*%]/g, " ").replace(/\s+/g, " ").trim();
+        if (safeQ) {
+          query = query.or(`title.ilike.%${safeQ}%,slug.ilike.%${safeQ}%`);
+        }
+      }
+      if (storeId && UUID_RE.test(storeId)) {
+        query = query.eq("store_id", storeId);
+      }
+      if (categoryId && UUID_RE.test(categoryId)) {
+        query = query.eq("category_id", categoryId);
+      }
+      if (["draft", "published", "paused", "sold_out", "archived"].includes(status)) {
+        query = query.eq("status", status);
+      }
+      if (["approved", "pending_review", "flagged", "rejected"].includes(moderationStatus)) {
+        query = query.eq("moderation_status", moderationStatus);
+      }
+      if (dateFrom && DATE_RE.test(dateFrom)) {
+        query = query.gte("created_at", `${dateFrom}T00:00:00-03:00`);
+      }
+      if (dateTo && DATE_RE.test(dateTo)) {
+        query = query.lte("created_at", `${dateTo}T23:59:59.999-03:00`);
+      }
+
+      if (sort === "oldest") {
+        query = query.order("created_at", { ascending: true }).order("id", { ascending: true });
+      } else if (sort === "price_asc") {
+        query = query.order("price_cents", { ascending: true }).order("created_at", { ascending: false });
+      } else if (sort === "price_desc") {
+        query = query.order("price_cents", { ascending: false }).order("created_at", { ascending: false });
+      } else {
+        query = query.order("created_at", { ascending: false }).order("id", { ascending: false });
+      }
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const [prodPageRes, catsRes, allStoresRes] = await Promise.all([
+        query.range(from, to),
+        sb.from("fa_categories").select("id, slug, name, sort_order, is_active"),
+        includeFilters
+          ? sb.from("fa_stores").select("id, name, artisan_name, slug, status").order("name", { ascending: true }).limit(2000)
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      if (prodPageRes.error) {
+        return NextResponse.json({ ok: false, message: prodPageRes.error.message }, { status: 500 });
+      }
+
+      const rows = prodPageRes.data || [];
+      const total = Number(prodPageRes.count || 0);
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+      const pageProductIds = rows.map((r) => r.id).filter(Boolean);
+      const pageStoreIds = Array.from(new Set(rows.map((r) => r.store_id).filter(Boolean)));
+
+      const [mediaRes, pageStoresRes] = await Promise.all([
+        pageProductIds.length > 0
+          ? sb
+              .from("fa_product_media")
+              .select("product_id, url, sort_order")
+              .in("product_id", pageProductIds)
+              .order("sort_order", { ascending: true })
+          : Promise.resolve({ data: [], error: null }),
+        !includeFilters && pageStoreIds.length > 0
+          ? sb.from("fa_stores").select("id, name, artisan_name, slug, status").in("id", pageStoreIds)
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      const thumbByProductId = new Map<string, string>();
+      for (const m of mediaRes.data || []) {
+        if (m.product_id && m.url && !thumbByProductId.has(m.product_id)) {
+          thumbByProductId.set(m.product_id, m.url);
+        }
+      }
+
+      const storesSource = includeFilters ? allStoresRes.data || [] : pageStoresRes.data || [];
+      const storeMap = new Map<string, { id: string; name: string; artisan_name: string; slug: string; status: string }>();
+      for (const st of storesSource) {
+        storeMap.set(st.id, st);
+      }
+
+      // Si algún producto de la página pertenece a una tienda fuera del límite de 2000, resolverla aparte
+      const missingStoreIds = pageStoreIds.filter((sid) => !storeMap.has(sid));
+      if (missingStoreIds.length > 0) {
+        const { data: extraStores } = await sb
+          .from("fa_stores")
+          .select("id, name, artisan_name, slug, status")
+          .in("id", missingStoreIds);
+        for (const st of extraStores || []) storeMap.set(st.id, st);
+      }
+
+      const sortedCats = sortCategoriesOtrosLast(catsRes.data || []);
+      const catMap = new Map<string, { id: string; name: string; slug: string }>();
+      for (const c of sortedCats) catMap.set(c.id, c);
+
+      const items = rows.map((p) => {
+        const st = p.store_id ? storeMap.get(p.store_id) : null;
+        const cat = p.category_id ? catMap.get(p.category_id) : null;
+        return {
+          id: p.id,
+          slug: p.slug,
+          title: p.title,
+          store_id: p.store_id,
+          store_name: st?.name || "Sin tienda",
+          artisan_name: st?.artisan_name || "",
+          category_id: p.category_id,
+          category_name: cat?.name || "Sin categoría",
+          thumbnail_url: thumbByProductId.get(p.id) || null,
+          price_cents: Number(p.price_cents || 0),
+          stock_qty: Number(p.stock_qty || 0),
+          availability_mode: p.availability_mode || "inmediata",
+          status: p.status,
+          moderation_status: p.moderation_status,
+          created_at: p.created_at,
+        };
+      });
+
+      return NextResponse.json({
+        ok: true,
+        items,
+        total,
+        page,
+        pageSize,
+        totalPages,
+        ...(includeFilters
+          ? {
+              filters: {
+                stores: (allStoresRes.data || []).map((s) => ({
+                  id: s.id,
+                  name: s.name,
+                  artisan_name: s.artisan_name || "",
+                  status: s.status,
+                })),
+                categories: sortedCats.map((c) => ({
+                  id: c.id,
+                  slug: c.slug,
+                  name: c.name,
+                  is_active: c.is_active,
+                })),
+              },
+            }
+          : {}),
+      });
+    }
+
+    if (mode === "product_detail") {
+      const productId = String(sp.get("productId") || "").trim();
+      if (!productId || !UUID_RE.test(productId)) {
+        return NextResponse.json({ ok: false, message: "ID de producto inválido." }, { status: 400 });
+      }
+
+      const { data: prod, error: prodErr } = await sb
+        .from("fa_products")
+        .select(
+          "id, store_id, category_id, slug, sku, title, description, materials, dimensions_cm, weight_grams, craft_type, availability_mode, production_days, price_cents, currency, stock_qty, shipping_mode, shipping_cost_cents, package_size, fragile_packaging, video_url, status, moderation_status, moderation_note, is_featured, suggested_category_note, created_at, updated_at"
+        )
+        .eq("id", productId)
+        .maybeSingle();
+
+      if (prodErr) {
+        return NextResponse.json({ ok: false, message: prodErr.message }, { status: 500 });
+      }
+      if (!prod) {
+        return NextResponse.json({ ok: false, message: "Producto no encontrado." }, { status: 404 });
+      }
+
+      const [mediaRes, storeRes, catRes] = await Promise.all([
+        sb
+          .from("fa_product_media")
+          .select("id, url, alt_text, media_type, sort_order")
+          .eq("product_id", prod.id)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
+        prod.store_id
+          ? sb
+              .from("fa_stores")
+              .select("id, owner_user_id, slug, name, artisan_name, province, locality, status, verified_artisan_badge, logo_url, contact_info")
+              .eq("id", prod.store_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        prod.category_id
+          ? sb.from("fa_categories").select("id, slug, name").eq("id", prod.category_id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      return NextResponse.json({
+        ok: true,
+        product: {
+          ...prod,
+          media: mediaRes.data || [],
+          store: storeRes.data || null,
+          category: catRes.data || null,
+          public_url: `https://www.feriarte.com.ar/producto/${encodeURIComponent(prod.slug || "")}`,
+        },
+      });
+    }
+
+    const [
+      [
+        usersRes,
+        rolesRes,
+        orgsRes,
+        fairsRes,
+        storesRes,
+        productsRes,
+        categoriesRes,
+        ordersRes,
+        paymentsRes,
+        rulesRes,
+      ],
+      [
+        ledgerRes,
+        settlementsRes,
+        claimsRes,
+        reportsRes,
+        settingsRes,
+        auditRes,
+        qrScansRes,
+        identitiesRes,
+        fairLinksRes,
+        sellerMpRes,
+      ],
+    ] = await Promise.all([
+      Promise.all([
+        sb
+          .from("fa_users")
+          .select("id, email, full_name, phone, province, locality, shipping_address, avatar_url, active_profile, status, email_verified_at, terms_accepted_at, privacy_accepted_at, last_login_at, password_hash, is_test_data, created_at")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        sb.from("fa_user_roles").select("user_id, role, status"),
+        sb
+          .from("fa_organizer_profiles")
+          .select("id, user_id, organization_name, cuit_cuil, province, locality, description, payout_method, payout_cbu_cvu, payout_alias, payout_holder_name, approval_status, invite_code, commission_override_pct, approved_by, approved_at, created_at")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        sb
+          .from("fa_fairs")
+          .select("id, organizer_id, slug, name, modality, province, locality, address, starts_at, ends_at, schedule_text, description, categories_tags, social_links, keep_online_after_end, status, is_featured, created_at")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        sb
+          .from("fa_stores")
+          .select("id, owner_user_id, slug, name, artisan_name, province, locality, activity_description, craft_story, delivery_policies, contact_info, accepts_custom_orders, custom_orders_note, status, verified_artisan_badge, is_featured, created_at")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        sb
+          .from("fa_products")
+          .select("id, store_id, category_id, slug, title, description, materials, suggested_category_note, price_cents, stock_qty, craft_type, status, moderation_status, created_at")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        sb
+          .from("fa_categories")
+          .select("id, slug, name, description, icon, sort_order, is_active")
+          .order("sort_order", { ascending: true }),
+        sb
+          .from("fa_orders")
+          .select("id, order_number, buyer_user_id, store_id, attributed_fair_id, attributed_organizer_id, attribution_source, total_cents, status, paid_at, is_test_data, created_at")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        sb
+          .from("fa_payment_transactions")
+          .select("id, order_id, provider, sandbox_mode, mp_payment_id, gross_amount_cents, marketplace_fee_cents, seller_net_estimated_cents, status, webhook_verified_at, created_at")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        sb
+          .from("fa_commission_rules")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(50),
+      ]),
+      Promise.all([
+        sb
+          .from("fa_commission_ledger")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        sb
+          .from("fa_organizer_settlements")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        sb
+          .from("fa_disputes_claims")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        sb
+          .from("fa_content_reports")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        sb.from("fa_platform_settings").select("*"),
+        sb
+          .from("fa_audit_logs")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(150),
+        sb.from("fa_qr_scan_events").select("id", { count: "exact", head: true }),
+        sb.from("fa_user_identities").select("user_id, provider, provider_email, created_at"),
+        sb.from("fa_fair_store_links").select("fair_id, store_id, status, stand_code"),
+        sb.from("fa_seller_mp_accounts").select("store_id, status, sandbox_mode, mp_account_email, linked_at"),
+      ]),
     ]);
 
     const users = usersRes.data || [];
@@ -327,6 +577,72 @@ export async function handleErpFeriarte(
       };
     });
 
+    const fairById = new Map<string, (typeof enrichedFairs)[number]>();
+    for (const f of enrichedFairs) fairById.set(f.id, f);
+
+    const mpByStoreId = new Map<
+      string,
+      { status: string; sandbox_mode: boolean; mp_account_email: string | null; linked_at: string | null }
+    >();
+    for (const mp of sellerMpRes.data || []) {
+      mpByStoreId.set(mp.store_id, {
+        status: mp.status,
+        sandbox_mode: Boolean(mp.sandbox_mode),
+        mp_account_email: mp.mp_account_email || null,
+        linked_at: mp.linked_at || null,
+      });
+    }
+
+    const productsByStoreId = new Map<
+      string,
+      Array<{ id: string; slug: string; title: string; price_cents: number; stock_qty: number; status: string }>
+    >();
+    for (const p of products) {
+      if (p.status === "archived") continue;
+      const list = productsByStoreId.get(p.store_id) || [];
+      list.push({
+        id: p.id,
+        slug: p.slug,
+        title: p.title,
+        price_cents: Number(p.price_cents || 0),
+        stock_qty: Number(p.stock_qty || 0),
+        status: p.status,
+      });
+      productsByStoreId.set(p.store_id, list);
+    }
+
+    const fairsByStoreId = new Map<
+      string,
+      Array<{ fair_name: string; fair_slug: string; status: string; stand_code: string | null }>
+    >();
+    for (const lk of fairLinksRes.data || []) {
+      const fr = fairById.get(lk.fair_id);
+      if (!fr) continue;
+      const list = fairsByStoreId.get(lk.store_id) || [];
+      list.push({
+        fair_name: fr.name,
+        fair_slug: fr.slug,
+        status: lk.status,
+        stand_code: lk.stand_code || null,
+      });
+      fairsByStoreId.set(lk.store_id, list);
+    }
+
+    const enrichedStores = stores.map((s) => {
+      const owner = s.owner_user_id ? userById.get(s.owner_user_id) : null;
+      const storeProducts = productsByStoreId.get(s.id) || [];
+      return {
+        ...s,
+        owner_full_name: owner?.full_name || "",
+        owner_email: owner?.email || "",
+        owner_phone: owner?.phone || "",
+        mp_account: mpByStoreId.get(s.id) || null,
+        products_count: storeProducts.length,
+        products_preview: storeProducts.slice(0, 12),
+        linked_fairs: fairsByStoreId.get(s.id) || [],
+      };
+    });
+
     const paidOrders = orders.filter((o) =>
       ["paid", "preparing", "ready_for_pickup", "shipped", "delivered"].includes(o.status)
     );
@@ -376,7 +692,7 @@ export async function handleErpFeriarte(
       users: enrichedUsers,
       organizers: enrichedOrganizers,
       fairs: enrichedFairs,
-      stores,
+      stores: enrichedStores,
       products,
       productsInOtros,
       otrosCategoryId: otrosCategory?.id || null,
@@ -1118,6 +1434,63 @@ export async function handleErpFeriarte(
       return NextResponse.json({
         ok: true,
         message: "Tarifario Nacional de Envíos FeriARTE actualizado en tiempo real.",
+      });
+    }
+
+    if (action === "moderate_product") {
+      const productId = String(body.productId || "").trim();
+      const nextStatus = body.status !== undefined ? String(body.status || "").trim() : undefined;
+      const nextModeration = body.moderationStatus !== undefined ? String(body.moderationStatus || "").trim() : undefined;
+      const hasNote = body.moderationNote !== undefined;
+      const nextNote = hasNote ? String(body.moderationNote || "").trim().slice(0, 500) : undefined;
+
+      const VALID_STATUS = ["draft", "published", "paused", "sold_out", "archived"];
+      const VALID_MOD = ["approved", "pending_review", "flagged", "rejected"];
+
+      if (!productId) {
+        return NextResponse.json({ ok: false, message: "ID de producto inválido." }, { status: 400 });
+      }
+      if (nextStatus !== undefined && !VALID_STATUS.includes(nextStatus)) {
+        return NextResponse.json({ ok: false, message: "Estado de producto inválido." }, { status: 400 });
+      }
+      if (nextModeration !== undefined && !VALID_MOD.includes(nextModeration)) {
+        return NextResponse.json({ ok: false, message: "Estado de moderación inválido." }, { status: 400 });
+      }
+      if (nextStatus === undefined && nextModeration === undefined && !hasNote) {
+        return NextResponse.json({ ok: false, message: "No se enviaron cambios para guardar." }, { status: 400 });
+      }
+
+      const { data: beforeProd } = await sb
+        .from("fa_products")
+        .select("id, title, status, moderation_status, moderation_note")
+        .eq("id", productId)
+        .maybeSingle();
+
+      if (!beforeProd) {
+        return NextResponse.json({ ok: false, message: "Producto no encontrado." }, { status: 404 });
+      }
+
+      const patch: Record<string, unknown> = { updated_at: nowIso };
+      if (nextStatus !== undefined) patch.status = nextStatus;
+      if (nextModeration !== undefined) patch.moderation_status = nextModeration;
+      if (hasNote) patch.moderation_note = nextNote || null;
+
+      const { data: updatedProd, error: modErr } = await sb
+        .from("fa_products")
+        .update(patch)
+        .eq("id", beforeProd.id)
+        .select("id, status, moderation_status, moderation_note, updated_at")
+        .single();
+
+      if (modErr) {
+        return NextResponse.json({ ok: false, message: modErr.message }, { status: 500 });
+      }
+
+      await logAction("product.admin_moderate", "product", beforeProd.id, beforeProd, updatedProd);
+      return NextResponse.json({
+        ok: true,
+        product: updatedProd,
+        message: `Estado y moderación de «${beforeProd.title}» actualizados.`,
       });
     }
 

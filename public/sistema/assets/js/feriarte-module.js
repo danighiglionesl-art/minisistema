@@ -31,7 +31,28 @@
     view: 'menu',
     data: null,
     loading: false,
-    feedback: ''
+    feedback: '',
+    productsAdmin: {
+      q: '',
+      storeId: '',
+      categoryId: '',
+      status: '',
+      moderationStatus: '',
+      dateFrom: '',
+      dateTo: '',
+      sort: 'newest',
+      page: 1,
+      pageSize: 25,
+      items: [],
+      total: 0,
+      totalPages: 1,
+      loading: false,
+      error: '',
+      filtersLoaded: false,
+      stores: [],
+      categories: [],
+      reqSeq: 0
+    }
   };
 
   var fmtArs = new Intl.NumberFormat('es-AR', {
@@ -82,14 +103,26 @@
     return '/sistema/api/feriarte';
   }
 
-  async function apiFeriarte(method, payload) {
+  async function apiFeriarte(method, payload, queryParams) {
+    var url = getApiBase();
+    if (queryParams && typeof queryParams === 'object') {
+      var usp = new URLSearchParams();
+      Object.keys(queryParams).forEach(function (k) {
+        var v = queryParams[k];
+        if (v !== undefined && v !== null && String(v) !== '') {
+          usp.set(k, String(v));
+        }
+      });
+      var qs = usp.toString();
+      if (qs) url += (url.indexOf('?') === -1 ? '?' : '&') + qs;
+    }
     var opts = {
       method: method || 'GET',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' }
     };
     if (payload) opts.body = JSON.stringify(payload);
-    var res = await fetch(getApiBase(), opts);
+    var res = await fetch(url, opts);
     return res.json();
   }
 
@@ -248,19 +281,21 @@
     if (bc) bc.innerHTML = 'FeriARTE · <strong>' + esc(meta.label) + '</strong>';
     if (!body) return;
 
-    if (STATE.loading) {
-      body.innerHTML = '<p style="padding:1rem;">Cargando datos reales de FeriARTE...</p>';
-      return;
-    }
-    if (!STATE.data) {
-      body.innerHTML =
-        '<div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #f5c2c7;color:#842029;font-weight:700;">' +
-          esc(STATE.feedback || 'No se pudieron cargar los datos de FeriARTE. Verificá tu sesión de Administrador General.') +
-        '</div>';
-      return;
+    if (viewKey !== 'productos') {
+      if (STATE.loading) {
+        body.innerHTML = '<p style="padding:1rem;">Cargando datos reales de FeriARTE...</p>';
+        return;
+      }
+      if (!STATE.data) {
+        body.innerHTML =
+          '<div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #f5c2c7;color:#842029;font-weight:700;">' +
+            esc(STATE.feedback || 'No se pudieron cargar los datos de FeriARTE. Verificá tu sesión de Administrador General.') +
+          '</div>';
+        return;
+      }
     }
 
-    var d = STATE.data;
+    var d = STATE.data || {};
     var k = d.kpis || {};
     var banner = STATE.feedback
       ? '<div style="margin-bottom:1rem;padding:0.75rem 1rem;border-radius:10px;background:#e6f7f2;color:#023C46;font-weight:700;">' + esc(STATE.feedback) + '</div>'
@@ -1317,6 +1352,878 @@
       return;
     }
 
+    if (viewKey === 'productos') {
+      var pa = STATE.productsAdmin;
+
+      var fmtProdDate = function (iso) {
+        if (!iso) return '—';
+        try {
+          var dt = new Date(iso);
+          if (isNaN(dt.getTime())) return String(iso);
+          var parts = new Intl.DateTimeFormat('es-AR', {
+            timeZone: 'America/Argentina/Cordoba',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          }).formatToParts(dt);
+          var map = {};
+          parts.forEach(function (pt) { map[pt.type] = pt.value; });
+          return (map.day || '01') + '/' + (map.month || '01') + '/' + (map.year || '') + ' ' + (map.hour || '00') + ':' + (map.minute || '00');
+        } catch (_e) {
+          return String(iso);
+        }
+      };
+
+      var prodStatusMeta = function (s) {
+        if (s === 'published') return { label: 'Publicado', bg: '#dcfce7', color: '#166534' };
+        if (s === 'draft') return { label: 'Borrador', bg: '#f1f5f9', color: '#475569' };
+        if (s === 'paused') return { label: 'Pausado', bg: '#fef3c7', color: '#92400e' };
+        if (s === 'sold_out') return { label: 'Agotado', bg: '#ffedd5', color: '#9a3412' };
+        if (s === 'archived') return { label: 'Archivado', bg: '#e2e8f0', color: '#475569' };
+        return { label: String(s || '—'), bg: '#f1f5f9', color: '#334155' };
+      };
+
+      var prodModMeta = function (m) {
+        if (m === 'approved') return { label: 'Aprobado', bg: '#e0f2fe', color: '#075985' };
+        if (m === 'pending_review') return { label: 'Pendiente revisión', bg: '#fef9c3', color: '#854d0e' };
+        if (m === 'flagged') return { label: 'Marcado', bg: '#ffedd5', color: '#c2410c' };
+        if (m === 'rejected') return { label: 'Rechazado', bg: '#fee2e2', color: '#991b1b' };
+        return { label: String(m || '—'), bg: '#f1f5f9', color: '#334155' };
+      };
+
+      var craftTypeLabel = function (ct) {
+        if (ct === 'unico') return 'Pieza única';
+        if (ct === 'reproducible') return 'Reproducible artesanalmente';
+        if (ct === 'personalizado') return 'Personalizado';
+        if (ct === 'a_pedido') return 'A pedido';
+        if (ct === 'edicion_limitada') return 'Edición limitada';
+        return String(ct || '—');
+      };
+
+      var availabilityLabel = function (mode, days, stockQty) {
+        if (mode === 'bajo_pedido') {
+          var dNum = Number(days || 0);
+          return 'Bajo pedido' + (dNum > 0 ? ' · ' + dNum + ' día(s) de elaboración' : '');
+        }
+        return 'Entrega inmediata · Stock: ' + Number(stockQty || 0) + ' u.';
+      };
+
+      var shippingModeLabel = function (sm) {
+        if (sm === 'tarifa_plataforma') return 'Tarifa estándar FeriARTE';
+        if (sm === 'gratis') return 'Envío gratis';
+        if (sm === 'fija_vendedor') return 'Tarifa fija del emprendedor';
+        if (sm === 'a_convenir') return 'A convenir';
+        return String(sm || '—');
+      };
+
+      var badgeHtml = function (metaObj) {
+        return '<span style="display:inline-block;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:' + metaObj.bg + ';color:' + metaObj.color + ';white-space:nowrap;">' + esc(metaObj.label) + '</span>';
+      };
+
+      var buildPageNumbers = function (cur, totalP) {
+        if (totalP <= 7) {
+          var all = [];
+          for (var i = 1; i <= totalP; i++) all.push(i);
+          return all;
+        }
+        var pages = [1];
+        var start = Math.max(2, cur - 1);
+        var end = Math.min(totalP - 1, cur + 1);
+        if (start > 2) pages.push('...');
+        for (var p = start; p <= end; p++) pages.push(p);
+        if (end < totalP - 1) pages.push('...');
+        pages.push(totalP);
+        return pages;
+      };
+
+      var openProductFichaModal = async function (productId) {
+        if (!productId) return;
+        var prevModal = document.getElementById('fa-product-ficha-modal');
+        if (prevModal) prevModal.remove();
+
+        var overlay = document.createElement('div');
+        overlay.id = 'fa-product-ficha-modal';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(2,60,70,0.62);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;';
+        overlay.innerHTML =
+          '<div style="background:#fff;border-radius:16px;max-width:860px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);border:1px solid #d9e2e6;">' +
+            '<div style="background:#023C46;color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-radius:16px 16px 0 0;">' +
+              '<div style="font-size:15px;font-weight:800;">Cargando ficha completa del producto...</div>' +
+              '<button type="button" id="fa-pf-close-x" aria-label="Cerrar ficha" style="background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;">&times;</button>' +
+            '</div>' +
+            '<div id="fa-pf-content" style="padding:24px;color:#526570;font-size:13px;">Consultando datos completos y galería en PostgreSQL...</div>' +
+          '</div>';
+
+        var closeModal = function () {
+          overlay.remove();
+          document.removeEventListener('keydown', onEsc);
+        };
+        var onEsc = function (e) {
+          if (e.key === 'Escape') closeModal();
+        };
+        overlay.addEventListener('click', function (e) {
+          if (e.target === overlay) closeModal();
+        });
+        overlay.querySelector('#fa-pf-close-x').addEventListener('click', closeModal);
+        document.addEventListener('keydown', onEsc);
+        document.body.appendChild(overlay);
+
+        var renderModalBody = function (prod, feedbackMsg, isErr) {
+          var dialogBox = overlay.firstElementChild;
+          if (!dialogBox) return;
+
+          var mediaList = Array.isArray(prod.media) ? prod.media : [];
+          var mainImgUrl = mediaList.length ? mediaList[0].url : '';
+          var st = prod.store || {};
+          var cat = prod.category || {};
+          var publicUrl = 'https://www.feriarte.com.ar/producto/' + encodeURIComponent(prod.slug || '');
+          var storeUrl = st.slug ? 'https://www.feriarte.com.ar/tienda/' + encodeURIComponent(st.slug) : '';
+          var sMeta = prodStatusMeta(prod.status);
+          var mMeta = prodModMeta(prod.moderation_status);
+
+          var galleryHtml = mediaList.length
+            ? (
+                '<div style="display:grid;gap:10px;">' +
+                  '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;height:280px;">' +
+                    '<img id="fa-pf-main-img" src="' + esc(mainImgUrl) + '" alt="' + esc(prod.title) + '" style="max-width:100%;max-height:100%;object-fit:contain;display:block;">' +
+                  '</div>' +
+                  (mediaList.length > 1
+                    ? '<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;">' +
+                        mediaList.map(function (m, idx) {
+                          return '<button type="button" class="fa-pf-thumb" data-url="' + esc(m.url) + '" style="padding:0;border:2px solid ' + (idx === 0 ? '#069294' : '#e2e8f0') + ';border-radius:8px;overflow:hidden;width:62px;height:62px;flex:0 0 auto;background:#fff;cursor:pointer;">' +
+                            '<img src="' + esc(m.url) + '" alt="' + esc(m.alt_text || prod.title) + '" style="width:100%;height:100%;object-fit:cover;display:block;">' +
+                          '</button>';
+                        }).join('') +
+                      '</div>'
+                    : '') +
+                '</div>'
+              )
+            : '<div style="background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;height:200px;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:13px;font-weight:700;">Sin fotos cargadas</div>';
+
+          var modalFeedback = feedbackMsg
+            ? '<div style="padding:10px 12px;border-radius:10px;font-size:12.5px;font-weight:700;background:' + (isErr ? '#fee2e2;color:#991b1b;border:1px solid #fecaca;' : '#e6f7f2;color:#023C46;border:1px solid #a7f3d0;') + '">' + esc(feedbackMsg) + '</div>'
+            : '';
+
+          dialogBox.innerHTML =
+            '<div style="background:#023C46;color:#fff;padding:18px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-radius:16px 16px 0 0;">' +
+              '<div style="min-width:0;">' +
+                '<div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#56D7A1;">Ficha de Producto · FeriARTE' + (cat.name ? ' · ' + esc(cat.name) : '') + '</div>' +
+                '<h3 style="margin:4px 0 4px;font-size:20px;font-weight:900;color:#fff;line-height:1.25;">' + esc(prod.title || 'Sin título') + '</h3>' +
+                '<div style="font-size:12.5px;color:rgba(255,255,255,0.88);">' +
+                  esc(st.name || 'Sin tienda') +
+                  (st.artisan_name ? ' · Artesano/a: ' + esc(st.artisan_name) : '') +
+                  ' · Alta: ' + esc(fmtProdDate(prod.created_at)) +
+                '</div>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
+                '<a href="' + esc(publicUrl) + '" target="_blank" rel="noopener noreferrer" style="padding:7px 12px;border-radius:8px;background:#FC4702;color:#fff;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap;">Ver en FeriARTE ↗</a>' +
+                '<button type="button" id="fa-pf-close-x" aria-label="Cerrar ficha" style="background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;">&times;</button>' +
+              '</div>' +
+            '</div>' +
+            '<div style="padding:18px 20px;display:grid;gap:16px;color:#023C46;">' +
+              modalFeedback +
+              '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+                badgeHtml(sMeta) +
+                badgeHtml(mMeta) +
+                (prod.is_featured ? '<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;background:#fef3c7;color:#92400e;">★ Destacado</span>' : '') +
+                (prod.sku ? '<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:#f1f5f9;color:#475569;">SKU: ' + esc(prod.sku) + '</span>' : '') +
+                '<span style="font-size:11px;color:#64748b;margin-left:auto;">Slug: <code>' + esc(prod.slug || '—') + '</code></span>' +
+              '</div>' +
+              '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;align-items:start;">' +
+                galleryHtml +
+                '<div style="display:grid;gap:12px;">' +
+                  '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;display:grid;gap:8px;">' +
+                    '<div style="font-size:24px;font-weight:900;color:#023C46;">' + esc(fmtCents(prod.price_cents)) + '</div>' +
+                    '<div style="font-size:12.5px;color:#334155;"><strong>Disponibilidad:</strong> ' + esc(availabilityLabel(prod.availability_mode, prod.production_days, prod.stock_qty)) + '</div>' +
+                    '<div style="font-size:12.5px;color:#334155;"><strong>Tipo de obra:</strong> ' + esc(craftTypeLabel(prod.craft_type)) + '</div>' +
+                    '<div style="font-size:12.5px;color:#334155;"><strong>Envío:</strong> ' + esc(shippingModeLabel(prod.shipping_mode)) + (prod.package_size ? ' · Paquete ' + esc(prod.package_size) : '') + (prod.fragile_packaging ? ' · Frágil' : '') + '</div>' +
+                  '</div>' +
+                  '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;display:grid;gap:6px;font-size:12.5px;">' +
+                    '<div style="font-size:11.5px;font-weight:900;text-transform:uppercase;color:#069294;">Detalles técnicos</div>' +
+                    '<div><strong>Materiales:</strong> ' + esc(prod.materials || 'No especificados') + '</div>' +
+                    '<div><strong>Dimensiones:</strong> ' + esc(prod.dimensions_cm || 'No especificadas') + (prod.weight_grams ? ' · Peso: ' + esc(prod.weight_grams) + ' g' : '') + '</div>' +
+                    '<div><strong>Categoría:</strong> ' + esc(cat.name || 'Sin categoría') + (prod.suggested_category_note ? ' · <em>Sugerida: ' + esc(prod.suggested_category_note) + '</em>' : '') + '</div>' +
+                    (prod.video_url ? '<div><strong>Video:</strong> <a href="' + esc(prod.video_url) + '" target="_blank" rel="noopener noreferrer" style="color:#069294;font-weight:700;">Ver enlace ↗</a></div>' : '') +
+                  '</div>' +
+                  '<div style="background:#FFF8EF;border:1px solid #f2dfc4;border-radius:12px;padding:14px;display:grid;gap:6px;font-size:12.5px;">' +
+                    '<div style="font-size:11.5px;font-weight:900;text-transform:uppercase;color:#FC4702;">Emprendedor / Tienda</div>' +
+                    '<div><strong>' + esc(st.name || 'Sin tienda') + '</strong>' + (st.verified_artisan_badge ? ' <span style="font-size:11px;color:#069294;font-weight:800;">✓ Verificado</span>' : '') + '</div>' +
+                    '<div><strong>Artesano/a:</strong> ' + esc(st.artisan_name || '—') + '</div>' +
+                    '<div><strong>Ubicación:</strong> ' + esc([st.locality, st.province].filter(Boolean).join(', ') || 'No informada') + ' · <strong>Estado tienda:</strong> ' + esc(st.status || '—') + '</div>' +
+                    (storeUrl ? '<div style="margin-top:2px;"><a href="' + esc(storeUrl) + '" target="_blank" rel="noopener noreferrer" style="color:#069294;font-weight:700;text-decoration:none;">Abrir tienda en FeriARTE ↗</a></div>' : '') +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:11.5px;font-weight:900;text-transform:uppercase;color:#023C46;margin-bottom:6px;">Descripción completa</div>' +
+                '<div style="font-size:13px;color:#1e293b;line-height:1.55;white-space:pre-wrap;word-break:break-word;">' + esc(prod.description || 'Sin descripción cargada.') + '</div>' +
+              '</div>' +
+              '<div style="background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;padding:14px;display:grid;gap:12px;">' +
+                '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;">' +
+                  '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#023C46;">Moderación y Estado del Artículo</div>' +
+                  '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
+                    '<button type="button" class="fa-pf-quick" data-q-status="published" data-q-mod="approved" style="padding:5px 10px;border:none;border-radius:7px;background:#069294;color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;">✓ Aprobar y publicar</button>' +
+                    '<button type="button" class="fa-pf-quick" data-q-status="paused" data-q-mod="" style="padding:5px 10px;border:none;border-radius:7px;background:#f59e0b;color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;">⏸ Pausar</button>' +
+                    '<button type="button" class="fa-pf-quick" data-q-status="" data-q-mod="flagged" style="padding:5px 10px;border:none;border-radius:7px;background:#ea580c;color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;">⚑ Marcar revisión</button>' +
+                    '<button type="button" class="fa-pf-quick" data-q-status="paused" data-q-mod="rejected" style="padding:5px 10px;border:none;border-radius:7px;background:#dc2626;color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;">✕ Rechazar</button>' +
+                  '</div>' +
+                '</div>' +
+                '<form id="fa-pf-mod-form" style="display:grid;gap:10px;">' +
+                  '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">' +
+                    '<label style="display:grid;gap:4px;font-size:12px;font-weight:700;">Estado de publicación' +
+                      '<select name="status" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;">' +
+                        '<option value="published"' + (prod.status === 'published' ? ' selected' : '') + '>Publicado</option>' +
+                        '<option value="draft"' + (prod.status === 'draft' ? ' selected' : '') + '>Borrador</option>' +
+                        '<option value="paused"' + (prod.status === 'paused' ? ' selected' : '') + '>Pausado</option>' +
+                        '<option value="sold_out"' + (prod.status === 'sold_out' ? ' selected' : '') + '>Agotado</option>' +
+                        '<option value="archived"' + (prod.status === 'archived' ? ' selected' : '') + '>Archivado</option>' +
+                      '</select>' +
+                    '</label>' +
+                    '<label style="display:grid;gap:4px;font-size:12px;font-weight:700;">Estado de moderación' +
+                      '<select name="moderationStatus" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;">' +
+                        '<option value="approved"' + (prod.moderation_status === 'approved' ? ' selected' : '') + '>Aprobado</option>' +
+                        '<option value="pending_review"' + (prod.moderation_status === 'pending_review' ? ' selected' : '') + '>Pendiente de revisión</option>' +
+                        '<option value="flagged"' + (prod.moderation_status === 'flagged' ? ' selected' : '') + '>Marcado</option>' +
+                        '<option value="rejected"' + (prod.moderation_status === 'rejected' ? ' selected' : '') + '>Rechazado</option>' +
+                      '</select>' +
+                    '</label>' +
+                  '</div>' +
+                  '<label style="display:grid;gap:4px;font-size:12px;font-weight:700;">Nota de moderación (opcional)' +
+                    '<textarea name="moderationNote" rows="2" maxlength="500" placeholder="Motivo de pausa, observación o nota administrativa..." style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12.5px;resize:vertical;">' + esc(prod.moderation_note || '') + '</textarea>' +
+                  '</label>' +
+                  '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding-top:4px;">' +
+                    '<button type="submit" id="fa-pf-save-btn" style="background:#023C46;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer;">Guardar estado y moderación</button>' +
+                    '<button type="button" id="fa-pf-close-btn" style="background:#e2e8f0;color:#023C46;border:none;border-radius:8px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;">Cerrar ficha</button>' +
+                  '</div>' +
+                '</form>' +
+              '</div>' +
+            '</div>';
+
+          dialogBox.querySelector('#fa-pf-close-x').addEventListener('click', closeModal);
+          dialogBox.querySelector('#fa-pf-close-btn').addEventListener('click', closeModal);
+
+          dialogBox.querySelectorAll('.fa-pf-thumb').forEach(function (thumbBtn) {
+            thumbBtn.addEventListener('click', function () {
+              var mainImg = dialogBox.querySelector('#fa-pf-main-img');
+              if (mainImg) mainImg.src = thumbBtn.getAttribute('data-url') || '';
+              dialogBox.querySelectorAll('.fa-pf-thumb').forEach(function (b) {
+                b.style.borderColor = b === thumbBtn ? '#069294' : '#e2e8f0';
+              });
+            });
+          });
+
+          var saveModeration = async function (nextStatus, nextMod, nextNote) {
+            var saveBtn = dialogBox.querySelector('#fa-pf-save-btn');
+            if (saveBtn) {
+              saveBtn.disabled = true;
+              saveBtn.textContent = 'Guardando...';
+            }
+            try {
+              var modRes = await apiFeriarte('POST', {
+                action: 'moderate_product',
+                productId: prod.id,
+                status: nextStatus,
+                moderationStatus: nextMod,
+                moderationNote: nextNote
+              });
+              if (modRes && modRes.ok) {
+                prod.status = (modRes.product && modRes.product.status) || nextStatus;
+                prod.moderation_status = (modRes.product && modRes.product.moderation_status) || nextMod;
+                prod.moderation_note = modRes.product ? modRes.product.moderation_note : nextNote;
+                renderModalBody(prod, modRes.message || 'Producto actualizado.', false);
+                fetchProductsPage(false);
+              } else {
+                renderModalBody(prod, (modRes && modRes.message) || 'No se pudo actualizar el producto.', true);
+              }
+            } catch (_err) {
+              renderModalBody(prod, 'Error de red al guardar cambios.', true);
+            }
+          };
+
+          var modForm = dialogBox.querySelector('#fa-pf-mod-form');
+          if (modForm) {
+            modForm.addEventListener('submit', function (ev) {
+              ev.preventDefault();
+              var fd = new FormData(modForm);
+              saveModeration(
+                String(fd.get('status') || prod.status),
+                String(fd.get('moderationStatus') || prod.moderation_status),
+                String(fd.get('moderationNote') || '')
+              );
+            });
+          }
+
+          dialogBox.querySelectorAll('.fa-pf-quick').forEach(function (qBtn) {
+            qBtn.addEventListener('click', function () {
+              var qs = qBtn.getAttribute('data-q-status') || prod.status;
+              var qm = qBtn.getAttribute('data-q-mod') || prod.moderation_status;
+              var noteField = modForm ? modForm.querySelector('[name="moderationNote"]') : null;
+              saveModeration(qs, qm, noteField ? noteField.value : (prod.moderation_note || ''));
+            });
+          });
+        };
+
+        try {
+          var detailRes = await apiFeriarte('GET', null, { mode: 'product_detail', productId: productId });
+          if (detailRes && detailRes.ok && detailRes.product) {
+            renderModalBody(detailRes.product, '', false);
+          } else {
+            var contentEl = overlay.querySelector('#fa-pf-content');
+            if (contentEl) {
+              contentEl.innerHTML = '<div style="color:#991b1b;font-weight:700;">' + esc((detailRes && detailRes.message) || 'No se pudo cargar la ficha del producto.') + '</div>';
+            }
+          }
+        } catch (_e) {
+          var contentErr = overlay.querySelector('#fa-pf-content');
+          if (contentErr) {
+            contentErr.innerHTML = '<div style="color:#991b1b;font-weight:700;">Error de conexión al consultar la ficha del producto.</div>';
+          }
+        }
+      };
+
+      var renderProductsTableContent = function () {
+        var wrap = document.getElementById('fa-prods-table-wrap');
+        var topSummary = document.getElementById('fa-prods-summary-top');
+        var topPag = document.getElementById('fa-prods-pag-top');
+        var botPag = document.getElementById('fa-prods-pag-bottom');
+        if (!wrap) return;
+
+        if (pa.loading) {
+          wrap.innerHTML = '<div style="padding:28px;text-align:center;color:#526570;font-size:13px;font-weight:700;">Cargando listado de productos...</div>';
+          if (topSummary) topSummary.textContent = 'Consultando servidor...';
+          return;
+        }
+        if (pa.error) {
+          wrap.innerHTML = '<div style="padding:18px;color:#991b1b;background:#fef2f2;border-radius:10px;font-size:13px;font-weight:700;">' + esc(pa.error) + '</div>';
+          return;
+        }
+
+        var items = pa.items || [];
+        var total = Number(pa.total || 0);
+        var page = Number(pa.page || 1);
+        var pageSize = Number(pa.pageSize || 25);
+        var totalPages = Math.max(1, Number(pa.totalPages || 1));
+        var fromNum = total === 0 ? 0 : (page - 1) * pageSize + 1;
+        var toNum = Math.min(total, (page - 1) * pageSize + items.length);
+
+        if (topSummary) {
+          topSummary.innerHTML = total === 0
+            ? 'Sin productos para los filtros seleccionados'
+            : 'Mostrando <strong>' + esc(fromNum) + '–' + esc(toNum) + '</strong> de <strong>' + esc(total.toLocaleString('es-AR')) + '</strong> producto(s) · Página <strong>' + esc(page) + '</strong> de <strong>' + esc(totalPages) + '</strong>';
+        }
+
+        var renderPagHtml = function () {
+          if (total === 0) return '';
+          var nums = buildPageNumbers(page, totalPages);
+          var btnStyle = function (active, disabled) {
+            return 'padding:5px 10px;border-radius:7px;font-size:12px;font-weight:700;border:1px solid ' +
+              (active ? '#023C46' : '#cbd5e1') + ';background:' +
+              (active ? '#023C46' : '#fff') + ';color:' +
+              (active ? '#fff' : (disabled ? '#94a3b8' : '#023C46')) + ';cursor:' +
+              (disabled ? 'not-allowed' : 'pointer') + ';opacity:' + (disabled ? '0.6' : '1') + ';';
+          };
+          return (
+            '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;">' +
+              '<button type="button" data-fa-page="1" ' + (page <= 1 ? 'disabled' : '') + ' style="' + btnStyle(false, page <= 1) + '">«</button>' +
+              '<button type="button" data-fa-page="' + (page - 1) + '" ' + (page <= 1 ? 'disabled' : '') + ' style="' + btnStyle(false, page <= 1) + '">‹ Anterior</button>' +
+              nums.map(function (n) {
+                if (n === '...') return '<span style="padding:0 4px;color:#64748b;font-size:12px;">…</span>';
+                return '<button type="button" data-fa-page="' + n + '" style="' + btnStyle(n === page, false) + '">' + n + '</button>';
+              }).join('') +
+              '<button type="button" data-fa-page="' + (page + 1) + '" ' + (page >= totalPages ? 'disabled' : '') + ' style="' + btnStyle(false, page >= totalPages) + '">Siguiente ›</button>' +
+              '<button type="button" data-fa-page="' + totalPages + '" ' + (page >= totalPages ? 'disabled' : '') + ' style="' + btnStyle(false, page >= totalPages) + '">»</button>' +
+            '</div>'
+          );
+        };
+
+        var pagHtml = renderPagHtml();
+        if (topPag) topPag.innerHTML = pagHtml;
+        if (botPag) botPag.innerHTML = pagHtml;
+
+        var bindPag = function (container) {
+          if (!container) return;
+          container.querySelectorAll('[data-fa-page]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              if (btn.disabled) return;
+              var nextP = parseInt(btn.getAttribute('data-fa-page') || '1', 10);
+              if (Number.isFinite(nextP) && nextP >= 1 && nextP !== pa.page) {
+                pa.page = nextP;
+                fetchProductsPage(false);
+              }
+            });
+          });
+        };
+        bindPag(topPag);
+        bindPag(botPag);
+
+        if (!items.length) {
+          wrap.innerHTML = '<div style="padding:28px;text-align:center;color:#64748b;font-size:13px;">No se encontraron productos con los filtros actuales.</div>';
+          return;
+        }
+
+        var rowsHtml = items.map(function (p) {
+          var thumbHtml = p.thumbnail_url
+            ? '<img src="' + esc(p.thumbnail_url) + '" alt="" loading="lazy" style="width:46px;height:46px;border-radius:8px;object-fit:cover;border:1px solid #e2e8f0;flex:0 0 46px;background:#f8fafc;">'
+            : '<div aria-hidden="true" style="width:46px;height:46px;border-radius:8px;border:1px solid #e2e8f0;background:#f1f5f9;color:#94a3b8;display:flex;align-items:center;justify-content:center;flex:0 0 46px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>';
+
+          var stockHtml = p.availability_mode === 'bajo_pedido'
+            ? '<span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:#FFF8EF;color:#c2410c;border:1px solid rgba(252,71,2,0.28);">Bajo pedido</span>'
+            : '<div style="font-size:11.5px;margin-top:2px;color:' + (Number(p.stock_qty) > 0 ? '#475569' : '#b91c1c;font-weight:700') + ';">' +
+                (Number(p.stock_qty) > 0 ? 'Stock: ' + esc(p.stock_qty) + ' u.' : 'Sin stock (0)') +
+              '</div>';
+
+          return '<tr data-fa-prod-row="' + esc(p.id) + '" style="cursor:pointer;">' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">' +
+              '<div style="display:flex;align-items:center;gap:10px;min-width:220px;">' +
+                thumbHtml +
+                '<div style="min-width:0;">' +
+                  '<div style="font-weight:800;color:#023C46;line-height:1.3;word-break:break-word;">' + esc(p.title || 'Sin título') + '</div>' +
+                  '<div style="font-size:11.5px;color:#069294;font-weight:700;margin-top:2px;">' + esc(p.category_name || 'Sin categoría') + '</div>' +
+                '</div>' +
+              '</div>' +
+            '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;min-width:160px;">' +
+              '<div style="font-weight:700;color:#0f172a;">' + esc(p.store_name || 'Sin tienda') + '</div>' +
+              (p.artisan_name ? '<div style="font-size:11.5px;color:#64748b;margin-top:2px;">' + esc(p.artisan_name) + '</div>' : '') +
+            '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;white-space:nowrap;">' +
+              '<div style="font-weight:800;color:#023C46;">' + esc(fmtCents(p.price_cents)) + '</div>' +
+              stockHtml +
+            '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">' +
+              '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">' +
+                badgeHtml(prodStatusMeta(p.status)) +
+                badgeHtml(prodModMeta(p.moderation_status)) +
+              '</div>' +
+            '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;white-space:nowrap;font-size:12px;color:#475569;">' + esc(fmtProdDate(p.created_at)) + '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;white-space:nowrap;">' +
+              '<button type="button" data-fa-open-prod="' + esc(p.id) + '" style="background:#069294;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">Ver ficha</button>' +
+            '</td>' +
+          '</tr>';
+        }).join('');
+
+        wrap.innerHTML =
+          '<div style="overflow:auto;">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+              '<thead><tr>' +
+                '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Producto</th>' +
+                '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Emprendedor</th>' +
+                '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Precio / Stock</th>' +
+                '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Estado</th>' +
+                '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Fecha de alta</th>' +
+                '<th style="text-align:right;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Acción</th>' +
+              '</tr></thead>' +
+              '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>' +
+          '</div>';
+
+        wrap.querySelectorAll('[data-fa-prod-row]').forEach(function (tr) {
+          tr.addEventListener('click', function () {
+            openProductFichaModal(tr.getAttribute('data-fa-prod-row'));
+          });
+        });
+      };
+
+      var populateFilterDropdowns = function () {
+        var storeSel = document.getElementById('fa-prod-store');
+        if (storeSel) {
+          var prevSt = pa.storeId || '';
+          storeSel.innerHTML = '<option value="">Todos los emprendedores / tiendas</option>' +
+            (pa.stores || []).map(function (st) {
+              var label = st.name + (st.artisan_name ? ' — ' + st.artisan_name : '');
+              return '<option value="' + esc(st.id) + '"' + (st.id === prevSt ? ' selected' : '') + '>' + esc(label) + '</option>';
+            }).join('');
+        }
+        var catSel = document.getElementById('fa-prod-category');
+        if (catSel) {
+          var prevCat = pa.categoryId || '';
+          catSel.innerHTML = '<option value="">Todas las categorías</option>' +
+            (pa.categories || []).map(function (c) {
+              return '<option value="' + esc(c.id) + '"' + (c.id === prevCat ? ' selected' : '') + '>' + esc(c.name) + (c.is_active === false ? ' (inactiva)' : '') + '</option>';
+            }).join('');
+        }
+      };
+
+      var fetchProductsPage = async function (includeFilters) {
+        var seq = ++pa.reqSeq;
+        pa.loading = true;
+        pa.error = '';
+        renderProductsTableContent();
+
+        try {
+          var res = await apiFeriarte('GET', null, {
+            mode: 'products',
+            page: pa.page,
+            pageSize: pa.pageSize,
+            q: pa.q,
+            storeId: pa.storeId,
+            categoryId: pa.categoryId,
+            status: pa.status,
+            moderationStatus: pa.moderationStatus,
+            dateFrom: pa.dateFrom,
+            dateTo: pa.dateTo,
+            sort: pa.sort,
+            includeFilters: includeFilters ? '1' : ''
+          });
+          if (seq !== pa.reqSeq) return;
+          if (res && res.ok) {
+            pa.items = res.items || [];
+            pa.total = Number(res.total || 0);
+            pa.page = Number(res.page || 1);
+            pa.pageSize = Number(res.pageSize || pa.pageSize);
+            pa.totalPages = Math.max(1, Number(res.totalPages || 1));
+            if (res.filters) {
+              pa.stores = res.filters.stores || [];
+              pa.categories = res.filters.categories || [];
+              pa.filtersLoaded = true;
+              populateFilterDropdowns();
+            }
+          } else {
+            pa.error = (res && res.message) || 'No se pudo consultar el catálogo de productos.';
+          }
+        } catch (_e) {
+          if (seq !== pa.reqSeq) return;
+          pa.error = 'Error de conexión al consultar los productos.';
+        } finally {
+          if (seq === pa.reqSeq) {
+            pa.loading = false;
+            renderProductsTableContent();
+          }
+        }
+      };
+
+      var inputStyle = 'width:100%;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:12.5px;background:#fff;color:#0f172a;box-sizing:border-box;';
+      var lblStyle = 'display:grid;gap:4px;font-size:11.5px;font-weight:700;color:#334155;';
+
+      body.innerHTML = banner +
+        '<div style="display:grid;gap:14px;">' +
+          '<div style="background:#fff;border-radius:12px;padding:16px;border:1px solid #d9e2e6;display:grid;gap:12px;">' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;align-items:end;">' +
+              '<label style="' + lblStyle + 'grid-column:span 2;min-width:220px;">Buscar producto (nombre o slug)' +
+                '<input id="fa-prod-q" type="search" value="' + esc(pa.q) + '" placeholder="Ej: mate algarrobo, cerámica..." style="' + inputStyle + '">' +
+              '</label>' +
+              '<label style="' + lblStyle + '">Emprendedor / Tienda' +
+                '<select id="fa-prod-store" style="' + inputStyle + '"><option value="">Cargando tiendas...</option></select>' +
+              '</label>' +
+              '<label style="' + lblStyle + '">Categoría' +
+                '<select id="fa-prod-category" style="' + inputStyle + '"><option value="">Cargando categorías...</option></select>' +
+              '</label>' +
+              '<label style="' + lblStyle + '">Estado' +
+                '<select id="fa-prod-status" style="' + inputStyle + '">' +
+                  '<option value="">Todos los estados</option>' +
+                  '<option value="published"' + (pa.status === 'published' ? ' selected' : '') + '>Publicado</option>' +
+                  '<option value="draft"' + (pa.status === 'draft' ? ' selected' : '') + '>Borrador</option>' +
+                  '<option value="paused"' + (pa.status === 'paused' ? ' selected' : '') + '>Pausado</option>' +
+                  '<option value="sold_out"' + (pa.status === 'sold_out' ? ' selected' : '') + '>Agotado</option>' +
+                  '<option value="archived"' + (pa.status === 'archived' ? ' selected' : '') + '>Archivado</option>' +
+                '</select>' +
+              '</label>' +
+              '<label style="' + lblStyle + '">Moderación' +
+                '<select id="fa-prod-mod" style="' + inputStyle + '">' +
+                  '<option value="">Todas las moderaciones</option>' +
+                  '<option value="approved"' + (pa.moderationStatus === 'approved' ? ' selected' : '') + '>Aprobado</option>' +
+                  '<option value="pending_review"' + (pa.moderationStatus === 'pending_review' ? ' selected' : '') + '>Pendiente revisión</option>' +
+                  '<option value="flagged"' + (pa.moderationStatus === 'flagged' ? ' selected' : '') + '>Marcado</option>' +
+                  '<option value="rejected"' + (pa.moderationStatus === 'rejected' ? ' selected' : '') + '>Rechazado</option>' +
+                '</select>' +
+              '</label>' +
+              '<label style="' + lblStyle + '">Fecha de alta (desde)' +
+                '<input id="fa-prod-from" type="date" value="' + esc(pa.dateFrom) + '" style="' + inputStyle + '">' +
+              '</label>' +
+              '<label style="' + lblStyle + '">Fecha de alta (hasta)' +
+                '<input id="fa-prod-to" type="date" value="' + esc(pa.dateTo) + '" style="' + inputStyle + '">' +
+              '</label>' +
+              '<label style="' + lblStyle + '">Ordenar por' +
+                '<select id="fa-prod-sort" style="' + inputStyle + '">' +
+                  '<option value="newest"' + (pa.sort === 'newest' ? ' selected' : '') + '>Más recientes</option>' +
+                  '<option value="oldest"' + (pa.sort === 'oldest' ? ' selected' : '') + '>Más antiguos</option>' +
+                  '<option value="price_asc"' + (pa.sort === 'price_asc' ? ' selected' : '') + '>Precio: menor a mayor</option>' +
+                  '<option value="price_desc"' + (pa.sort === 'price_desc' ? ' selected' : '') + '>Precio: mayor a menor</option>' +
+                '</select>' +
+              '</label>' +
+              '<label style="' + lblStyle + '">Por página' +
+                '<select id="fa-prod-pagesize" style="' + inputStyle + '">' +
+                  '<option value="25"' + (pa.pageSize === 25 ? ' selected' : '') + '>25 por página</option>' +
+                  '<option value="50"' + (pa.pageSize === 50 ? ' selected' : '') + '>50 por página</option>' +
+                '</select>' +
+              '</label>' +
+              '<div style="display:flex;align-items:flex-end;">' +
+                '<button type="button" id="fa-prod-clear" style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#023C46;font-size:12.5px;font-weight:700;cursor:pointer;">Limpiar filtros</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="background:#fff;border-radius:12px;padding:16px;border:1px solid #d9e2e6;display:grid;gap:12px;">' +
+            '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">' +
+              '<div id="fa-prods-summary-top" style="font-size:12.5px;color:#475569;">Cargando productos...</div>' +
+              '<div id="fa-prods-pag-top"></div>' +
+            '</div>' +
+            '<div id="fa-prods-table-wrap"></div>' +
+            '<div style="display:flex;justify-content:flex-end;">' +
+              '<div id="fa-prods-pag-bottom"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      if (pa.filtersLoaded) {
+        populateFilterDropdowns();
+      }
+
+      var searchDebounce = null;
+      var qInp = document.getElementById('fa-prod-q');
+      if (qInp) {
+        qInp.addEventListener('input', function () {
+          clearTimeout(searchDebounce);
+          searchDebounce = setTimeout(function () {
+            pa.q = qInp.value.trim();
+            pa.page = 1;
+            fetchProductsPage(false);
+          }, 300);
+        });
+        qInp.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            clearTimeout(searchDebounce);
+            pa.q = qInp.value.trim();
+            pa.page = 1;
+            fetchProductsPage(false);
+          }
+        });
+      }
+
+      var bindFilterChange = function (elId, propName, parseFn) {
+        var el = document.getElementById(elId);
+        if (!el) return;
+        el.addEventListener('change', function () {
+          pa[propName] = parseFn ? parseFn(el.value) : el.value;
+          pa.page = 1;
+          fetchProductsPage(false);
+        });
+      };
+
+      bindFilterChange('fa-prod-store', 'storeId');
+      bindFilterChange('fa-prod-category', 'categoryId');
+      bindFilterChange('fa-prod-status', 'status');
+      bindFilterChange('fa-prod-mod', 'moderationStatus');
+      bindFilterChange('fa-prod-from', 'dateFrom');
+      bindFilterChange('fa-prod-to', 'dateTo');
+      bindFilterChange('fa-prod-sort', 'sort');
+      bindFilterChange('fa-prod-pagesize', 'pageSize', function (v) { return v === '50' ? 50 : 25; });
+
+      var clearBtn = document.getElementById('fa-prod-clear');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+          pa.q = '';
+          pa.storeId = '';
+          pa.categoryId = '';
+          pa.status = '';
+          pa.moderationStatus = '';
+          pa.dateFrom = '';
+          pa.dateTo = '';
+          pa.sort = 'newest';
+          pa.page = 1;
+          renderDetailView('productos');
+        });
+      }
+
+      fetchProductsPage(!pa.filtersLoaded);
+      return;
+    }
+
+    if (viewKey === 'tiendas') {
+      var allStores = d.stores || [];
+
+      var fmtStoreDate = function (iso) {
+        if (!iso) return '—';
+        try {
+          return new Date(iso).toLocaleString('es-AR', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+          });
+        } catch (_e) { return String(iso); }
+      };
+
+      var storeStatusMeta = function (st) {
+        if (st === 'active') return { label: 'Activa', bg: '#dcfce7', color: '#166534' };
+        if (st === 'paused') return { label: 'Pausada', bg: '#fef3c7', color: '#92400e' };
+        if (st === 'suspended') return { label: 'Suspendida', bg: '#fee2e2', color: '#991b1b' };
+        return { label: String(st || '—'), bg: '#f1f5f9', color: '#334155' };
+      };
+
+      var openStoreFichaModal = function (stObj) {
+        if (!stObj) return;
+        var prevModal = document.getElementById('fa-store-ficha-modal');
+        if (prevModal) prevModal.remove();
+
+        var stMeta = storeStatusMeta(stObj.status);
+        var contact = stObj.contact_info && typeof stObj.contact_info === 'object' ? stObj.contact_info : {};
+        var mp = stObj.mp_account || null;
+        var mpText = mp && mp.status === 'active'
+          ? (mp.sandbox_mode ? 'Vinculada (Modo Prueba / Sandbox)' : 'Vinculada (Producción)')
+          : 'Sin vincular todavía';
+
+        var prodsHtml = (stObj.products_preview || []).length
+          ? stObj.products_preview.map(function (p) {
+              return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;margin-top:6px;font-size:12px;">' +
+                '<div><strong>' + esc(p.title) + '</strong> · ' + esc(fmtCents(p.price_cents)) + ' · Stock: ' + esc(p.stock_qty) + '</div>' +
+                '<a href="https://feriarte.vercel.app/producto/' + encodeURIComponent(p.slug) + '" target="_blank" rel="noopener" style="color:#069294;font-weight:700;text-decoration:none;white-space:nowrap;">Ver ↗</a>' +
+              '</div>';
+            }).join('')
+          : '<div style="font-size:12px;color:#64748b;">Todavía no publicó productos.</div>';
+
+        var fairsHtml = (stObj.linked_fairs || []).length
+          ? stObj.linked_fairs.map(function (lf) {
+              return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;margin-top:6px;font-size:12px;">' +
+                '<div><strong>' + esc(lf.fair_name) + '</strong>' + (lf.stand_code ? ' · Puesto ' + esc(lf.stand_code) : '') + ' · <span style="color:#64748b;">' + esc(lf.status) + '</span></div>' +
+                '<a href="https://feriarte.vercel.app/feria/' + encodeURIComponent(lf.fair_slug) + '" target="_blank" rel="noopener" style="color:#069294;font-weight:700;text-decoration:none;">Ver feria ↗</a>' +
+              '</div>';
+            }).join('')
+          : '<div style="font-size:12px;color:#64748b;">Sin ferias vinculadas (vende de forma independiente).</div>';
+
+        var overlay = document.createElement('div');
+        overlay.id = 'fa-store-ficha-modal';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(2,60,70,0.62);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;';
+        overlay.innerHTML =
+          '<div style="background:#fff;border-radius:16px;max-width:660px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.28);border:1px solid #d9e2e6;">' +
+            '<div style="background:#023C46;color:#fff;padding:18px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-radius:16px 16px 0 0;">' +
+              '<div>' +
+                '<div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#56D7A1;">Ficha de Tienda · FeriARTE</div>' +
+                '<h3 style="margin:4px 0 2px;font-size:19px;font-weight:900;color:#fff;">' + esc(stObj.name || 'Sin nombre') + '</h3>' +
+                '<div style="font-size:13px;color:rgba(255,255,255,0.88);">' + esc(stObj.artisan_name || stObj.owner_full_name || 'Emprendedor') + (stObj.owner_email ? ' · ' + esc(stObj.owner_email) : '') + '</div>' +
+              '</div>' +
+              '<button type="button" id="fa-store-close-x" aria-label="Cerrar ficha" style="background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:8px;width:32px;height:32px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;">&times;</button>' +
+            '</div>' +
+            '<div style="padding:18px 20px;display:grid;gap:14px;color:#023C46;">' +
+              '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+                '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:' + stMeta.bg + ';color:' + stMeta.color + ';">Estado: ' + esc(stMeta.label) + '</span>' +
+                (stObj.verified_artisan_badge ? '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:#e0f2fe;color:#075985;">Emprendedor Verificado</span>' : '') +
+                (stObj.accepts_custom_orders ? '<span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:#FFF8EF;color:#FC4702;">Acepta pedidos personalizados</span>' : '') +
+                (stObj.slug ? '<a href="https://feriarte.vercel.app/tienda/' + encodeURIComponent(stObj.slug) + '" target="_blank" rel="noopener" style="margin-left:auto;font-size:12px;font-weight:800;color:#069294;text-decoration:none;">Abrir tienda pública ↗</a>' : '') +
+              '</div>' +
+              '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#069294;margin-bottom:8px;">Datos de registración Web</div>' +
+                '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:12.5px;">' +
+                  '<div><strong>Emprendedor / Titular:</strong><br>' + esc(stObj.artisan_name || stObj.owner_full_name || '—') + '</div>' +
+                  '<div><strong>Correo de registro:</strong><br>' + esc(stObj.owner_email || '—') + '</div>' +
+                  '<div><strong>WhatsApp tienda / cuenta:</strong><br>' + esc(contact.whatsapp || stObj.owner_phone || 'No informado') + '</div>' +
+                  '<div><strong>Instagram:</strong><br>' + esc(contact.instagram || 'No informado') + '</div>' +
+                  '<div><strong>Localidad y Provincia:</strong><br>' + esc([stObj.locality, stObj.province].filter(Boolean).join(', ') || 'No informada') + '</div>' +
+                  '<div><strong>Fecha de creación:</strong><br>' + esc(fmtStoreDate(stObj.created_at)) + '</div>' +
+                '</div>' +
+                (stObj.activity_description ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:12.5px;"><strong>Actividad / Rubro:</strong><br>' + esc(stObj.activity_description) + '</div>' : '') +
+                (stObj.craft_story ? '<div style="margin-top:8px;font-size:12.5px;"><strong>Historia del emprendimiento:</strong><br>' + esc(stObj.craft_story) + '</div>' : '') +
+                (stObj.delivery_policies ? '<div style="margin-top:8px;font-size:12.5px;"><strong>Políticas de entrega:</strong><br>' + esc(stObj.delivery_policies) + '</div>' : '') +
+                (stObj.accepts_custom_orders && stObj.custom_orders_note ? '<div style="margin-top:8px;font-size:12.5px;"><strong>Condiciones pedidos personalizados:</strong><br>' + esc(stObj.custom_orders_note) + '</div>' : '') +
+              '</div>' +
+              '<div style="background:#FFF8EF;border:1px solid #f2dfc4;border-radius:12px;padding:14px;font-size:12.5px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#FC4702;margin-bottom:6px;">Cuenta de cobro (Mercado Pago Split)</div>' +
+                '<div><strong>Estado:</strong> ' + esc(mpText) + '</div>' +
+                (mp && mp.mp_account_email ? '<div><strong>Cuenta MP:</strong> ' + esc(mp.mp_account_email) + '</div>' : '') +
+                (mp && mp.linked_at ? '<div><strong>Vinculada el:</strong> ' + esc(fmtStoreDate(mp.linked_at)) + '</div>' : '') +
+              '</div>' +
+              '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#023C46;margin-bottom:6px;">Productos publicados (' + esc(stObj.products_count || 0) + ')</div>' +
+                prodsHtml +
+              '</div>' +
+              '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#023C46;margin-bottom:6px;">Ferias vinculadas (' + esc((stObj.linked_fairs || []).length) + ')</div>' +
+                fairsHtml +
+              '</div>' +
+              '<div style="display:flex;justify-content:flex-end;padding-top:4px;">' +
+                '<button type="button" id="fa-store-close-btn" style="background:#023C46;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;">Cerrar ficha</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+
+        var closeModal = function () {
+          overlay.remove();
+          document.removeEventListener('keydown', onEsc);
+        };
+        var onEsc = function (e) { if (e.key === 'Escape') closeModal(); };
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+        overlay.querySelector('#fa-store-close-x').addEventListener('click', closeModal);
+        overlay.querySelector('#fa-store-close-btn').addEventListener('click', closeModal);
+        document.addEventListener('keydown', onEsc);
+        document.body.appendChild(overlay);
+      };
+
+      var renderStoresTable = function (queryStr) {
+        var q = String(queryStr || '').trim().toLowerCase();
+        var filtered = q
+          ? allStores.filter(function (s) {
+              return String(s.name || '').toLowerCase().indexOf(q) !== -1 ||
+                String(s.artisan_name || '').toLowerCase().indexOf(q) !== -1 ||
+                String(s.owner_email || '').toLowerCase().indexOf(q) !== -1;
+            })
+          : allStores;
+
+        var tbody = document.getElementById('fa-stores-tbody');
+        var countEl = document.getElementById('fa-stores-count');
+        if (countEl) countEl.textContent = filtered.length + ' registro(s)';
+        if (!tbody) return;
+
+        if (!filtered.length) {
+          tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;color:#64748b;">Sin tiendas registradas aún.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = filtered.map(function (s) {
+          var stMeta = storeStatusMeta(s.status);
+          return '<tr data-fa-store-id="' + esc(s.id) + '" style="cursor:pointer;">' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-weight:700;color:#023C46;">' + esc(s.name || 'Sin nombre') + '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;color:#334155;">' +
+              '<div>' + esc(s.artisan_name || s.owner_full_name || '—') + '</div>' +
+              '<small style="color:#64748b;">' + esc(s.owner_email || '') + '</small>' +
+            '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;">' +
+              '<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;background:' + stMeta.bg + ';color:' + stMeta.color + ';">' + esc(stMeta.label) + '</span>' +
+            '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;">' +
+              '<button type="button" style="background:#069294;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">Ver ficha</button>' +
+            '</td>' +
+          '</tr>';
+        }).join('');
+
+        tbody.querySelectorAll('[data-fa-store-id]').forEach(function (tr) {
+          tr.addEventListener('click', function () {
+            var sid = tr.getAttribute('data-fa-store-id');
+            var found = allStores.find(function (x) { return x.id === sid; });
+            openStoreFichaModal(found);
+          });
+        });
+      };
+
+      body.innerHTML = banner +
+        '<div style="background:#fff;border-radius:12px;padding:16px;border:1px solid #d9e2e6;">' +
+          '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">' +
+            '<input id="fa-stores-search" type="search" placeholder="Buscar por tienda, emprendedor o correo..." style="flex:1;min-width:220px;max-width:400px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;">' +
+            '<span id="fa-stores-count" style="font-size:12px;font-weight:700;color:#64748b;">' + esc(allStores.length) + ' registro(s)</span>' +
+          '</div>' +
+          '<div style="overflow:auto;">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Tienda</th>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Emprendedor y correo</th>' +
+              '<th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Estado</th>' +
+              '<th style="text-align:right;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:#023C46;">Ficha</th>' +
+            '</tr></thead><tbody id="fa-stores-tbody"></tbody></table>' +
+          '</div>' +
+        '</div>';
+
+      renderStoresTable('');
+      var storeSearch = document.getElementById('fa-stores-search');
+      if (storeSearch) {
+        storeSearch.addEventListener('input', function () {
+          renderStoresTable(storeSearch.value);
+        });
+      }
+      return;
+    }
+
     // Vista tabular genérica con datos reales para el resto de los submódulos
     var datasetMap = {
       usuarios: d.users || [],
@@ -1392,6 +2299,10 @@
     secs.menuSec.hidden = true;
     secs.detailSec.hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (STATE.view === 'productos') {
+      renderDetailView('productos');
+      return;
+    }
     if (!STATE.data) {
       renderDetailView(STATE.view);
       await reloadData();
