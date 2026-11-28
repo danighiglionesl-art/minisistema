@@ -19,13 +19,14 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const viewport: Viewport = {
-  themeColor: "#112D3A",
+  themeColor: "#01344c",
   width: "device-width",
   initialScale: 1,
 };
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.minisistema.com.ar"),
+  manifest: "/sistema/manifest.webmanifest",
   title: {
     default: "MiniSistema | Sistemas a Medida — Tu negocio es único, tu sistema también",
     template: "%s | MiniSistema — Sistemas a Medida",

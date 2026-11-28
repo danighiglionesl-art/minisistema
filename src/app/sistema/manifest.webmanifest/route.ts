@@ -113,31 +113,25 @@ export async function GET(req: NextRequest) {
   } else if (tenant.is_base) {
     icons = [
       {
-        src: "/sistema/assets/img/minisistema/favicon-64.png?v=3",
-        sizes: "64x64",
-        type: "image/png",
-        purpose: "any",
-      },
-      {
-        src: "/sistema/assets/img/minisistema/icon-192.png?v=3",
+        src: "/sistema/assets/img/minisistema/icon-192.png?v=4",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/sistema/assets/img/minisistema/icon-512.png?v=3",
+        src: "/sistema/assets/img/minisistema/icon-512.png?v=4",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/sistema/assets/img/minisistema/icon-maskable-192.png?v=3",
+        src: "/sistema/assets/img/minisistema/icon-maskable-192.png?v=4",
         sizes: "192x192",
         type: "image/png",
         purpose: "maskable",
       },
       {
-        src: "/sistema/assets/img/minisistema/icon-maskable-512.png?v=3",
+        src: "/sistema/assets/img/minisistema/icon-maskable-512.png?v=4",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
@@ -175,8 +169,18 @@ export async function GET(req: NextRequest) {
     display: "standalone",
     display_override: ["standalone", "minimal-ui"],
     orientation: "any",
-    background_color: tenant.slug === "casanueva" ? "#f8f9fa" : brand.primaryHex,
-    theme_color: tenant.slug === "casanueva" ? "#202020" : brand.primaryHex,
+    background_color:
+      tenant.slug === "casanueva"
+        ? "#f8f9fa"
+        : tenant.is_base
+          ? "#01344c"
+          : brand.primaryHex,
+    theme_color:
+      tenant.slug === "casanueva"
+        ? "#202020"
+        : tenant.is_base
+          ? "#01344c"
+          : brand.primaryHex,
     lang: "es-AR",
     dir: "ltr",
     categories: ["business", "finance", "productivity"],

@@ -200,11 +200,26 @@ export function renderErpHtmlResponse(params: {
       ? tenant.deployment.actividadNegocio
       : "comercial";
 
+  const enabledCajaNums = (Array.isArray(tenant.enabled_modules) ? tenant.enabled_modules : [])
+    .map((m) => {
+      const match = /^facturacion:caja(\d+)$/i.exec(String(m || "").trim());
+      return match ? Number(match[1]) : 0;
+    })
+    .filter((n) => n > 0);
+  const resolvedCajasCount = tenant.is_base
+    ? Math.max(3, enabledCajaNums.length > 0 ? Math.max(...enabledCajaNums) : 3)
+    : enabledCajaNums.length > 0
+      ? Math.max(...enabledCajaNums)
+      : Number(tenant.subscription?.cajasCount ?? 0) > 0
+        ? Math.max(1, Math.min(20, Math.round(Number(tenant.subscription?.cajasCount))))
+        : 3;
+
   const bootPayload = {
     slug: tenant.slug,
     isBase: tenant.is_base,
     optionType: tenant.option_type,
     actividadNegocio,
+    cajasCount: resolvedCajasCount,
     businessName: tenant.business_name,
     fantasyName: tenant.fantasy_name,
     status: tenant.status,
@@ -300,13 +315,21 @@ export function renderErpHtmlResponse(params: {
     /<meta\s+name="theme-color"\s+content="[^"]*"\s*\/?>/i,
     `<meta name="theme-color" content="${primaryHex}">`
   );
+  const withAssetVer = (url: string) =>
+    `${url}${url.includes("?") ? "&" : "?"}v=${assetVer}`;
+  const faviconHref = tenant.is_base
+    ? `/sistema/assets/img/minisistema/favicon-64.png?v=4`
+    : withAssetVer(brand.logoSymbolUrl);
+  const icon192Href = tenant.is_base
+    ? `/sistema/assets/img/minisistema/icon-192.png?v=4`
+    : withAssetVer(brand.logoSymbolUrl);
   html = html.replace(
     /<link\s+rel="icon"[^>]*>/gi,
-    `<link rel="icon" type="image/png" sizes="64x64" href="${brand.logoSymbolUrl}?v=${assetVer}">`
+    `<link rel="icon" type="image/png" sizes="64x64" href="${faviconHref}">\n  <link rel="icon" type="image/png" sizes="192x192" href="${icon192Href}">`
   );
   const appleTouchIconHref = tenant.is_base
-    ? `/sistema/assets/img/minisistema/apple-touch-icon.png?v=${assetVer}`
-    : `${brand.logoSymbolUrl}?v=${assetVer}`;
+    ? `/sistema/assets/img/minisistema/apple-touch-icon.png?v=4`
+    : withAssetVer(brand.logoSymbolUrl);
   html = html.replace(
     /<link\s+rel="apple-touch-icon"[^>]*>/gi,
     `<link rel="apple-touch-icon" sizes="180x180" href="${appleTouchIconHref}">`
