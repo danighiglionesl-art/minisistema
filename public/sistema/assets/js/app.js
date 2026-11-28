@@ -28221,6 +28221,310 @@ function initApp() {
       }
     });
   });
+  const cierreRetirosTurnoState = {
+    bound: false,
+    activeCierre: null,
+    sysRetirosTotal: 0
+  };
+
+  function collectShiftRetirosForCierre(cierre) {
+    if (!cierre) return [];
+    if (Array.isArray(cierre.retirosDetalle) && cierre.retirosDetalle.length > 0) {
+      return cierre.retirosDetalle;
+    }
+    const cajaId = String(cierre.cajaId || '').toLowerCase();
+    const fechaRef = String(cierre.fechaCierre || cierre.fechaApertura || (cierre.fechaHora || '').slice(0, 10)).trim();
+    const usrRef = normalizeStr(cierre.usuario || cierre.username || '');
+    const pool = [];
+    const seen = new Set();
+    const addFrom = (arr) => {
+      if (!Array.isArray(arr)) return;
+      arr.forEach((it) => {
+        if (!it || String(it.entryType || '').toLowerCase() !== 'retiro') return;
+        const itCaja = String(it.cajaId || '').toLowerCase();
+        if (cajaId && itCaja && itCaja !== cajaId) return;
+        const itFecha = String(it.fechaHora || '').slice(0, 10);
+        if (fechaRef && itFecha && itFecha !== fechaRef) return;
+        const itUsr = normalizeStr(it.usuario || it.username || '');
+        if (usrRef && itUsr && itUsr !== usrRef) return;
+        const key = String(it.uid || it.numeroCompleto || `${it.pv}-${it.nro}-${it.fechaHora}-${it.importe}`);
+        if (seen.has(key)) return;
+        seen.add(key);
+        pool.push(it);
+      });
+    };
+    if (cajaId) {
+      addFrom(STATE.turnosCajas?.[cajaId]);
+      addFrom(STATE.comprobantesPorCaja?.[cajaId]);
+    }
+    return pool;
+  }
+
+  window.openCierreRetirosTurnoDialog = function (cierre) {
+    if (!cierre) return;
+    const dlg = document.getElementById('cierre-retiros-turno-dialog');
+    if (!dlg) return;
+
+    cierreRetirosTurnoState.activeCierre = cierre;
+    const planillaNum = cierre.numeroPlanilla
+      ? String(cierre.numeroPlanilla).padStart(8, '0')
+      : String(cierre.id || 1).padStart(8, '0');
+    const isAdmin = isErpAdminUser(STATE.currentUser);
+
+    const badgeEl = document.getElementById('cierre-retiros-turno-badge');
+    const titleEl = document.getElementById('cierre-retiros-turno-title');
+    const alertEl = document.getElementById('cierre-retiros-ctacte-alert');
+    const tbodyRet = document.getElementById('cierre-retiros-turno-tbody');
+    const sysTotEl = document.getElementById('cierre-retiros-sistema-total');
+    const ctacteBox = document.getElementById('cierre-retiros-ctacte-box');
+    const ctacteTbody = document.getElementById('cierre-retiros-ctacte-tbody');
+    const adminBox = document.getElementById('cierre-retiros-admin-edit-box');
+    const saveBtn = document.getElementById('btn-save-cierre-retiros');
+    const valInp = document.getElementById('cierre-retiros-edit-val');
+    const obsInp = document.getElementById('cierre-retiros-edit-obs');
+
+    if (badgeEl) {
+      badgeEl.textContent = `PLANILLA N° ${planillaNum} · ${String(cierre.cajaNombre || 'CAJA').toUpperCase()} · RETIROS DEL TURNO`;
+    }
+    if (titleEl) {
+      titleEl.textContent = `Retiros de Caja · ${cierre.fechaHora || ''} · ${cierre.usuario || ''}`;
+    }
+
+    const retirosList = collectShiftRetirosForCierre(cierre);
+    const sysRetTotal = round2(retirosList.reduce((acc, r) => acc + Math.abs(Number(r.importe) || 0), 0));
+    cierreRetirosTurnoState.sysRetirosTotal = sysRetTotal;
+
+    if (tbodyRet) {
+      if (retirosList.length === 0) {
+        tbodyRet.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:0.75rem;">No se registraron comprobantes de Retiro de Caja en el sistema para este turno.</td></tr>';
+      } else {
+        tbodyRet.innerHTML = retirosList
+          .map((r) => {
+            const compNro = r.numeroCompleto || `${String(r.pv || '0099').padStart(4, '0')}-${String(r.nro || 0).padStart(8, '0')}`;
+            return `<tr>
+              <td><span class="art-code-pill">${escapeHtml(compNro)}</span></td>
+              <td>${escapeHtml(r.fechaHora || '')}</td>
+              <td><strong>${escapeHtml(r.cliente || '—')}</strong></td>
+              <td>${escapeHtml(r.concepto || r.payment?.observaciones || 'RETIRO DE EFECTIVO')}</td>
+              <td style="text-align:right; font-weight:700; color:#b91c1c;">− $ ${formatArs(Math.abs(Number(r.importe) || 0))}</td>
+            </tr>`;
+          })
+          .join('');
+      }
+    }
+    if (sysTotEl) sysTotEl.textContent = `$ ${formatArs(sysRetTotal)}`;
+
+    const ctaCteInfo = resolveCierreCtaCteInfo(cierre);
+    const currentRetiros = round2((Number(cierre.retiros ?? cierre.retirosEfectivoTurno ?? 0) || 0) + (Number(cierre.egresos ?? 0) || 0));
+
+    if (ctacteBox && ctacteTbody) {
+      if (ctaCteInfo.detalle.length > 0) {
+        ctacteBox.hidden = false;
+        ctacteTbody.innerHTML = ctaCteInfo.detalle
+          .map((d) => {
+            const isMatch = currentRetiros > 0.009 && Math.abs(Math.abs(Number(d.importe) || 0) - currentRetiros) < 0.02;
+            return `<tr${isMatch ? ' style="background:#fef3c7;"' : ''}>
+              <td><span class="art-code-pill">${escapeHtml(d.numeroCompleto || '')}</span></td>
+              <td>${escapeHtml(d.fechaHora || '')}</td>
+              <td><strong>${escapeHtml(d.cliente || '')}</strong>${isMatch ? ' <span class="badge badge--gold" style="margin-left:0.35rem; font-size:0.7rem;">COINCIDE CON RETIROS</span>' : ''}</td>
+              <td style="text-align:right; font-weight:700;">$ ${formatArs(d.importe || 0)}</td>
+            </tr>`;
+          })
+          .join('');
+      } else {
+        ctacteBox.hidden = true;
+        ctacteTbody.textContent = '';
+      }
+    }
+
+    if (alertEl) {
+      const matchedCta = currentRetiros > 0.009
+        ? ctaCteInfo.detalle.find((d) => Math.abs(Math.abs(Number(d.importe) || 0) - currentRetiros) < 0.02)
+        : null;
+      const matchedTotalCta = currentRetiros > 0.009 && Math.abs(ctaCteInfo.total - currentRetiros) < 0.02;
+      if (matchedCta || matchedTotalCta) {
+        alertEl.hidden = false;
+        alertEl.innerHTML = matchedCta
+          ? `<strong>⚠️ Posible carga errónea detectada:</strong> El monto actual de <strong>(-) Retiros de Caja ($ ${formatArs(currentRetiros)})</strong> coincide exactamente con la venta en Cuenta Corriente <strong>${escapeHtml(matchedCta.numeroCompleto)} (${escapeHtml(matchedCta.cliente)})</strong>. Las ventas en Cuenta Corriente ya están excluidas del efectivo esperado y <strong>no deben cargarse como Retiro de Caja</strong>.`
+          : `<strong>⚠️ Posible carga errónea detectada:</strong> El monto actual de <strong>(-) Retiros de Caja ($ ${formatArs(currentRetiros)})</strong> coincide con el total de Ventas en Cuenta Corriente del turno. Las ventas en Cta. Cte. ya están excluidas del efectivo.`;
+      } else if (currentRetiros > 0.009 && Math.abs(currentRetiros - sysRetTotal) >= 0.01) {
+        alertEl.hidden = false;
+        alertEl.innerHTML = `<strong>ℹ️ Diferencia con retiros del sistema:</strong> La planilla tiene cargados <strong>$ ${formatArs(currentRetiros)}</strong> en <strong>(-) Retiros de Caja</strong>, mientras que el sistema registra <strong>$ ${formatArs(sysRetTotal)}</strong> en comprobantes de retiro para este turno.`;
+      } else {
+        alertEl.hidden = true;
+        alertEl.textContent = '';
+      }
+    }
+
+    if (adminBox) adminBox.hidden = !isAdmin;
+    if (saveBtn) saveBtn.hidden = !isAdmin;
+    if (valInp) valInp.value = currentRetiros.toFixed(2);
+    if (obsInp) obsInp.value = '';
+
+    const updateRetirosPreview = () => {
+      const c = cierreRetirosTurnoState.activeCierre;
+      if (!c) return;
+      const newRet = round2(Math.max(0, Number(valInp?.value || 0) || 0));
+      const efIni = round2(Number(c.efectivoInicial ?? 0) || 0);
+      const vBrutas = round2(Number(c.ventasBrutasEfectivo ?? c.ingresosEfectivoBruto ?? 0) || 0);
+      const cobRec = round2(Number(c.cobranzasRecibosEfectivo ?? 0) || 0);
+      const ncEfec = round2(Number(c.notasCreditoEfectivo ?? 0) || 0);
+      const efCamb = round2(Number(c.efectivoCambio ?? 0) || 0);
+      const efRend = round2(Number(c.efectivoRendicion ?? c.efectivo ?? 0) || 0);
+      const nuevoEspCaja = round2(efIni + vBrutas + cobRec - ncEfec - newRet);
+      const nuevoEspCentral = round2(nuevoEspCaja - efCamb);
+      const nuevaDif = round2(efRend - nuevoEspCentral);
+
+      const elEsp = document.getElementById('cierre-retiros-prev-esperado');
+      const elArq = document.getElementById('cierre-retiros-prev-arqueado');
+      const elDif = document.getElementById('cierre-retiros-prev-dif');
+      if (elEsp) elEsp.textContent = `$ ${formatArs(nuevoEspCentral)}`;
+      if (elArq) elArq.textContent = `$ ${formatArs(efRend)}`;
+      if (elDif) {
+        const pref = nuevaDif > 0.009 ? '+ ' : nuevaDif < -0.009 ? '- ' : '';
+        const lbl = Math.abs(nuevaDif) < 0.01 ? 'EXACTO' : nuevaDif > 0 ? 'SOBRANTE' : 'FALTANTE';
+        elDif.textContent = `${pref}$ ${formatArs(Math.abs(nuevaDif))} (${lbl})`;
+        elDif.style.color = Math.abs(nuevaDif) < 0.01 ? '#15803d' : nuevaDif > 0 ? '#15803d' : '#b91c1c';
+      }
+    };
+    updateRetirosPreview();
+
+    if (!cierreRetirosTurnoState.bound) {
+      cierreRetirosTurnoState.bound = true;
+
+      document.getElementById('cierre-retiros-edit-val')?.addEventListener('input', updateRetirosPreview);
+      document.getElementById('btn-cierre-retiros-use-sys')?.addEventListener('click', () => {
+        const inp = document.getElementById('cierre-retiros-edit-val');
+        if (inp) {
+          inp.value = round2(cierreRetirosTurnoState.sysRetirosTotal || 0).toFixed(2);
+          updateRetirosPreview();
+        }
+      });
+      document.getElementById('btn-cierre-retiros-set-zero')?.addEventListener('click', () => {
+        const inp = document.getElementById('cierre-retiros-edit-val');
+        if (inp) {
+          inp.value = '0.00';
+          updateRetirosPreview();
+        }
+      });
+      ['btn-close-cierre-retiros-top', 'btn-cancel-cierre-retiros'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('click', () => {
+          document.getElementById('cierre-retiros-turno-dialog')?.close();
+        });
+      });
+
+      document.getElementById('cierre-retiros-turno-form')?.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (!isErpAdminUser(STATE.currentUser)) return;
+        const c = cierreRetirosTurnoState.activeCierre;
+        if (!c) return;
+        const inp = document.getElementById('cierre-retiros-edit-val');
+        const oInp = document.getElementById('cierre-retiros-edit-obs');
+        const newRet = round2(Math.max(0, Number(inp?.value || 0) || 0));
+        const prevRet = round2((Number(c.retiros ?? c.retirosEfectivoTurno ?? 0) || 0) + (Number(c.egresos ?? 0) || 0));
+        const reason = String(oInp?.value || '').trim().toUpperCase();
+
+        const efIni = round2(Number(c.efectivoInicial ?? 0) || 0);
+        const vBrutas = round2(Number(c.ventasBrutasEfectivo ?? c.ingresosEfectivoBruto ?? 0) || 0);
+        const cobRec = round2(Number(c.cobranzasRecibosEfectivo ?? 0) || 0);
+        const ncEfec = round2(Number(c.notasCreditoEfectivo ?? 0) || 0);
+        const efCamb = round2(Number(c.efectivoCambio ?? 0) || 0);
+        const efRend = round2(Number(c.efectivoRendicion ?? c.efectivo ?? 0) || 0);
+        const nuevoEspCaja = round2(efIni + vBrutas + cobRec - ncEfec - newRet);
+        const nuevoEspCentral = round2(nuevoEspCaja - efCamb);
+        const nuevaDif = round2(efRend - nuevoEspCentral);
+
+        c.retirosAntesEdicionAdmin = prevRet;
+        c.retiros = newRet;
+        c.retirosEfectivoTurno = newRet;
+        c.egresos = 0;
+        c.efectivoEsperadoFinal = nuevoEspCaja;
+        c.efectivoEsperadoTraspasoCentral = nuevoEspCentral;
+        c.diferenciaEfectivo = nuevaDif;
+        c.diferencia = nuevaDif;
+        c.diferenciaTipo = Math.abs(nuevaDif) < 0.01 ? 'EXACTO' : nuevaDif > 0 ? 'EN_MAS' : 'EN_MENOS';
+        c.retirosEditadosAdminAt = new Date().toISOString();
+        c.retirosEditadosAdminPor = STATE.currentUser?.username || 'admin';
+        c.editadoAt = c.retirosEditadosAdminAt;
+        c.editadoPor = STATE.currentUser?.name || STATE.currentUser?.username || 'CAJA CENTRAL';
+        if (reason) {
+          c.observacion = c.observacion ? `${c.observacion} · RETIROS: ${reason}` : `RETIROS: ${reason}`;
+        }
+
+        const targetPlanillaNum = Number(c.numeroPlanilla || 0);
+        const targetIdNum = Number(c.id || 0);
+        const targetUid = String(c.uid || '');
+        const targetKey = getClosureKey(c);
+        if (Array.isArray(STATE.cierresCajaCentral)) {
+          STATE.cierresCajaCentral.forEach((item, idx) => {
+            if (!item) return;
+            const matchUid = targetUid && item.uid && String(item.uid) === targetUid;
+            const matchPlan = targetPlanillaNum > 0 && Number(item.numeroPlanilla || 0) === targetPlanillaNum;
+            const matchId = targetIdNum > 0 && Number(item.id || 0) === targetIdNum;
+            const matchKey = targetKey && getClosureKey(item) === targetKey;
+            if (item === c || matchUid || matchPlan || matchId || matchKey) {
+              STATE.cierresCajaCentral[idx] = Object.assign(item, c);
+            }
+          });
+        }
+
+        saveCajasState();
+
+        const btnSubmit = document.getElementById('btn-save-cierre-retiros');
+        if (btnSubmit) {
+          btnSubmit.disabled = true;
+          btnSubmit.textContent = 'Guardando...';
+        }
+        try {
+          await fetch('api/ventas.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'update_cierre_central',
+              uid: c.uid || '',
+              numeroPlanilla: Number(c.numeroPlanilla || c.id || 0),
+              cierreId: Number(c.id || 0),
+              cajaId: String(c.cajaId || ''),
+              confirmar: Boolean(c.confirmadoCajaCentral),
+              cierre: c,
+              usuario: c.editadoPor,
+              adminUsername: STATE.currentUser?.username || ''
+            })
+          });
+        } catch {}
+        if (btnSubmit) {
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = '💾 Guardar Retiros y Recalcular Planilla';
+        }
+
+        document.getElementById('cierre-retiros-turno-dialog')?.close();
+
+        const detDlg = document.getElementById('cierre-detalle-central-dialog');
+        if (detDlg?.open) {
+          openCierreDetalleCentralDialog(c);
+        }
+        const editDlg = document.getElementById('central-edit-planilla-dialog');
+        if (editDlg?.open) {
+          const editRetInp = document.getElementById('central-edit-retiros');
+          if (editRetInp) editRetInp.value = newRet.toFixed(2);
+          centralEditPlanillaState.recalcFn?.();
+        }
+        if (typeof renderCajaCentralView === 'function') {
+          renderCajaCentralView();
+        }
+      });
+    }
+
+    if (!dlg.open) {
+      dlg.showModal();
+    }
+  };
+
+  document.getElementById('btn-retiros-cierre-det')?.addEventListener('click', () => {
+    if (CIERRE_STATE.activeCentralCierre && typeof window.openCierreRetirosTurnoDialog === 'function') {
+      window.openCierreRetirosTurnoDialog(CIERRE_STATE.activeCentralCierre);
+    }
+  });
   document.getElementById('btn-edit-cierre-det')?.addEventListener('click', () => {
     if (CIERRE_STATE.activeCentralCierre && typeof window.openEditPlanillaCentralDialog === 'function') {
       document.getElementById('cierre-detalle-central-dialog')?.close();
@@ -59080,17 +59384,26 @@ function initApp() {
     const efecCambInp = document.getElementById('central-edit-efec-cambio');
     const efecAperturaWrap = document.getElementById('central-edit-apertura-admin-wrap');
     const efecAperturaInp = document.getElementById('central-edit-efec-apertura');
+    const retirosAdminWrap = document.getElementById('central-edit-retiros-admin-wrap');
+    const retirosAdminInp = document.getElementById('central-edit-retiros');
     const otrosInp = document.getElementById('central-edit-otros-valores');
     const transfInp = document.getElementById('central-edit-transferencia');
     const obsInp = document.getElementById('central-edit-observacion');
 
     const isAdminEditor = isErpAdminUser(STATE.currentUser);
     const initEfecApertura = roundMoney(cierre.efectivoInicial ?? 0);
+    const initRetirosEfec = roundMoney((Number(cierre.retiros ?? cierre.retirosEfectivoTurno ?? 0) || 0) + (Number(cierre.egresos ?? 0) || 0));
     if (efecAperturaWrap) {
       efecAperturaWrap.hidden = !isAdminEditor;
     }
     if (efecAperturaInp) {
       efecAperturaInp.value = initEfecApertura.toFixed(2);
+    }
+    if (retirosAdminWrap) {
+      retirosAdminWrap.hidden = !isAdminEditor;
+    }
+    if (retirosAdminInp) {
+      retirosAdminInp.value = initRetirosEfec.toFixed(2);
     }
 
     const initEfecRend = roundMoney(cierre.efectivoRendicion ?? cierre.efectivo ?? 0);
@@ -59108,15 +59421,23 @@ function initApp() {
       return roundMoney(c?.efectivoInicial ?? 0);
     };
 
+    const getEffectiveRetirosEfec = (c) => {
+      if (isAdminEditor && retirosAdminInp && retirosAdminInp.value !== '') {
+        return roundMoney(Math.max(0, Number(retirosAdminInp.value) || 0));
+      }
+      return roundMoney((Number(c?.retiros ?? c?.retirosEfectivoTurno ?? 0) || 0) + (Number(c?.egresos ?? 0) || 0));
+    };
+
     const computeCierreExpectedCash = (c) => {
       if (!c) return 0;
       const efIni = getEffectiveEfecApertura(c);
       const origEfIni = roundMoney(c.efectivoInicial ?? 0);
-      if (Math.abs(efIni - origEfIni) > 0.009) {
+      const retEfec = getEffectiveRetirosEfec(c);
+      const origRetEfec = roundMoney((Number(c.retiros ?? c.retirosEfectivoTurno ?? 0) || 0) + (Number(c.egresos ?? 0) || 0));
+      if (Math.abs(efIni - origEfIni) > 0.009 || Math.abs(retEfec - origRetEfec) > 0.009) {
         const vBrutas = roundMoney(c.ventasBrutasEfectivo ?? c.ingresosEfectivoBruto ?? 0);
         const ncEfec = roundMoney(c.notasCreditoEfectivo ?? 0);
         const cobRec = roundMoney(c.cobranzasRecibosEfectivo ?? 0);
-        const retEfec = roundMoney((Number(c.retiros ?? c.retirosEfectivoTurno ?? 0) || 0) + (Number(c.egresos ?? 0) || 0));
         return roundMoney(efIni + vBrutas + cobRec - ncEfec - retEfec);
       }
       if (typeof c.efectivoEsperadoFinal === 'number') return roundMoney(c.efectivoEsperadoFinal);
@@ -59125,7 +59446,6 @@ function initApp() {
       const ncEfec = roundMoney(c.notasCreditoEfectivo ?? 0);
       const vNetas = typeof c.ventasNetasEfectivo === 'number' ? roundMoney(c.ventasNetasEfectivo) : roundMoney(vBrutas - ncEfec);
       const cobRec = roundMoney(c.cobranzasRecibosEfectivo ?? 0);
-      const retEfec = roundMoney((Number(c.retiros ?? c.retirosEfectivoTurno ?? 0) || 0) + (Number(c.egresos ?? 0) || 0));
       const calc = roundMoney(efIni + vNetas + cobRec - retEfec);
       if (calc !== 0) return calc;
       const efFis = roundMoney((Number(c.efectivoRendicion ?? c.efectivo) || 0) + (Number(c.efectivoCambio) || 0));
@@ -59258,7 +59578,7 @@ function initApp() {
         const vBrutasForm = roundMoney(c.ventasBrutasEfectivo ?? c.ingresosEfectivoBruto ?? 0);
         const cobRecForm = roundMoney(c.cobranzasRecibosEfectivo ?? 0);
         const ncEfecForm = roundMoney(c.notasCreditoEfectivo ?? 0);
-        const retEfecForm = roundMoney((Number(c.retiros ?? c.retirosEfectivoTurno ?? 0) || 0) + (Number(c.egresos ?? 0) || 0));
+        const retEfecForm = getEffectiveRetirosEfec(c);
         const ctaCteForm = roundMoney(c.totalCtaCte ?? 0);
         elBannerFormula.textContent = `Dinero Traspasado a Central ($ ${formatArs(efecRend)}) − Esperado a Traspasar ($ ${formatArs(efecEspTraspasoCentral)} = (+) Apertura $ ${formatArs(efIniForm)} + (+) Facturas A+B Efec. $ ${formatArs(vBrutasForm)} + (+) Recibos de Pago $ ${formatArs(cobRecForm)} − (-) Notas Créd. $ ${formatArs(ncEfecForm)} − (-) Retiros $ ${formatArs(retEfecForm)} − (-) Cambio Caja $ ${formatArs(efecCamb)})${ctaCteForm > 0 ? ` · Ventas Cta. Cte. (sin mov. de efectivo): $ ${formatArs(ctaCteForm)}` : ''}`;
         if (Math.abs(difEfec) < 0.01) {
@@ -59505,6 +59825,18 @@ function initApp() {
           }
         }
       }
+      if (isAdminEditor && retirosAdminInp && retirosAdminInp.value !== '') {
+        const editedRet = roundMoney(Math.max(0, Number(retirosAdminInp.value) || 0));
+        const prevRet = roundMoney((Number(c.retiros ?? c.retirosEfectivoTurno ?? 0) || 0) + (Number(c.egresos ?? 0) || 0));
+        if (Math.abs(editedRet - prevRet) >= 0.01) {
+          c.retirosAntesEdicionAdmin = prevRet;
+          c.retiros = editedRet;
+          c.retirosEfectivoTurno = editedRet;
+          c.egresos = 0;
+          c.retirosEditadosAdminAt = new Date().toISOString();
+          c.retirosEditadosAdminPor = STATE.currentUser?.username || 'admin';
+        }
+      }
       c.efectivoEsperadoFinal = efecEsp;
       c.efectivoEsperadoTraspasoCentral = roundMoney(efecEsp - efecCamb);
       c.diferenciaEfectivo = difEfec;
@@ -59606,7 +59938,7 @@ function initApp() {
     if (!centralEditPlanillaState.bound) {
       centralEditPlanillaState.bound = true;
 
-      ['central-edit-efec-rendicion', 'central-edit-efec-cambio', 'central-edit-efec-apertura', 'central-edit-otros-valores', 'central-edit-transferencia'].forEach((id) => {
+      ['central-edit-efec-rendicion', 'central-edit-efec-cambio', 'central-edit-efec-apertura', 'central-edit-retiros', 'central-edit-otros-valores', 'central-edit-transferencia'].forEach((id) => {
         document.getElementById(id)?.addEventListener('input', () => {
           centralEditPlanillaState.recalcFn?.();
         });
@@ -59616,6 +59948,13 @@ function initApp() {
         const curC = centralEditPlanillaState.activeCierre;
         if (curC && typeof window.openAdminEditAperturaDialogForCierre === 'function') {
           window.openAdminEditAperturaDialogForCierre(curC);
+        }
+      });
+
+      document.getElementById('btn-central-open-retiros-modal')?.addEventListener('click', () => {
+        const curC = centralEditPlanillaState.activeCierre;
+        if (curC && typeof window.openCierreRetirosTurnoDialog === 'function') {
+          window.openCierreRetirosTurnoDialog(curC);
         }
       });
 
